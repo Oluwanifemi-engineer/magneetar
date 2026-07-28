@@ -5,7 +5,7 @@ import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { cn, relativeTime, isOnline, getSignalLevel } from '@/lib/utils';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
-import { ChevronLeft, ChevronRight, Smartphone, Wifi, WifiOff, AlertTriangle, BarChart3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Smartphone, Wifi, WifiOff, AlertTriangle, BarChart3, FileText, BookOpen } from 'lucide-react';
 
 interface DashboardStats {
   total_devices: number;
@@ -175,6 +175,30 @@ export function Sidebar() {
                 <span className="text-mag-text-dim/60">{offlineCount}</span>
                 <span className="text-mag-text-dim/40">offline</span>
               </span>
+            </div>
+
+            {/* API Docs Links */}
+            <div className="mt-2.5 pt-2.5 border-t border-mag-border/20 space-y-1">
+              <a
+                href="https://api.magneetar.me/docs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] font-mono text-mag-text-dim/60 hover:text-mag-accent hover:bg-mag-accent/5 transition-all duration-150 group"
+              >
+                <FileText size={11} className="text-mag-text-dim/40 group-hover:text-mag-accent" />
+                <span className="font-bold tracking-wide">API Docs (Swagger)</span>
+                <span className="ml-auto text-[8px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+              </a>
+              <a
+                href="https://api.magneetar.me/redoc"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] font-mono text-mag-text-dim/60 hover:text-mag-accent2 hover:bg-mag-accent2/5 transition-all duration-150 group"
+              >
+                <BookOpen size={11} className="text-mag-text-dim/40 group-hover:text-mag-accent2" />
+                <span className="font-bold tracking-wide">API Docs (ReDoc)</span>
+                <span className="ml-auto text-[8px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+              </a>
             </div>
           </div>
         </>

@@ -214,7 +214,12 @@ All requests: x-device-key header (unique per device)
 | `POST /api/dashboard/command` | Dashboard | Issue remote command |
 | `GET /api/dashboard/errors` | Dashboard | View server errors |
 
-Full API docs at `http://localhost:8000/docs` (Swagger UI)
+| `https://api.magneetar.me/docs` | Swagger UI — interactive API explorer |
+| `https://api.magneetar.me/redoc` | ReDoc — clean, searchable API reference |
+
+Full auto-generated OpenAPI docs:
+- **Swagger UI**: `https://api.magneetar.me/docs`
+- **ReDoc**: `https://api.magneetar.me/redoc`
 
 ---
 
