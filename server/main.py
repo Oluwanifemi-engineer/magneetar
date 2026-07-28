@@ -1410,31 +1410,45 @@ class FCMTokenRequest(BaseModel):
 async def register_fcm_token(
     req: FCMTokenRequest,
     db: sqlite3.Connection = Depends(get_db),
-    _: str = Depends(get_current_device_or_key)
+    resolved_device_id: str = Depends(get_current_device_or_key)
 ):
     """Register an FCM push notification token for a device.
     Called by the Android MagneetarMessagingService on new token.
-    The Android app sends its device_id (from SharedPreferences) so
-    alerts can be properly routed to the right notification devices.
-    Falls back to 'broadcast' if no device_id provided.
-    Auth: device key, JWT, or shared API key.
+    Uses the device identity resolved from auth (JWT, device key, or API key).
+    Falls back to the body's device_id, then to 'broadcast'.
+    Creates a placeholder device row for 'broadcast' if needed to
+    satisfy the foreign key constraint.
     """
     now = datetime.now(timezone.utc).isoformat()
-    resolved_id = req.device_id.strip() if req.device_id else ""
-    if not resolved_id:
-        resolved_id = "broadcast"
+
+    # Determine device_id: auth-resolved > body > fallback
+    device_id = resolved_device_id
+    if device_id == "api_key_user" or not device_id:
+        device_id = req.device_id.strip() if req.device_id else ""
+    if not device_id:
+        device_id = "broadcast"
+
+    # Ensure the device exists (create placeholder for 'broadcast' or non-registered devices)
+    existing = db.execute("SELECT id FROM devices WHERE id=?", (device_id,)).fetchone()
+    if not existing:
+        db.execute(
+            """INSERT INTO devices (id, device_fingerprint, model, platform, registered, last_seen)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (device_id, f"fcm_{device_id}", "FCM Relay", "push_service", now, now)
+        )
+        db.commit()
 
     db.execute(
         """INSERT INTO fcm_tokens (device_id, fcm_token, platform, updated_at)
            VALUES (?, ?, ?, ?)
            ON CONFLICT(device_id, fcm_token) DO UPDATE SET updated_at=?""",
-        (resolved_id, req.fcm_token, req.platform, now, now)
+        (device_id, req.fcm_token, req.platform, now, now)
     )
     db.commit()
 
-    logger.info("FCM token registered", extra={"extra_data": {"device_id": resolved_id, "platform": req.platform}})
+    logger.info("FCM token registered", extra={"extra_data": {"device_id": device_id, "platform": req.platform}})
 
-    return {"status": "ok", "message": "FCM token registered"}
+    return {"status": "ok", "message": "FCM token registered", "device_id": device_id}
 
 
 # ─── WebSocket ───────────────────────────────────────────────────────────────

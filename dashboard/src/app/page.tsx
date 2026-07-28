@@ -21,8 +21,8 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-mag-bg">
       <div className="text-center">
-        <div className="text-mag-primary text-2xl font-display font-bold tracking-[0.3em] mb-4">
-          MAGNEE<span className="text-mag-text-dim">TAR</span>
+        <div className="text-mag-text text-2xl font-display font-bold tracking-[0.3em] mb-4">
+          MAGNEETAR
         </div>
         <div className="text-mag-text-dim text-xs font-mono animate-pulse">
           INITIALIZING...

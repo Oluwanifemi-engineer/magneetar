@@ -40,9 +40,12 @@ export function Header() {
 
   return (
     <header className="h-14 bg-mag-panel/95 backdrop-blur-xl border-b border-mag-border/60 flex items-center px-5 gap-4 z-50 shadow-mag-panel">
-      {/* Logo */}
+      {/* Brand */}
       <div className="flex items-center gap-3 shrink-0">
-        <img src="/logo.svg" alt="Magneetar" className="h-8 w-auto" />
+        <img src="/logo.svg" alt="Magneetar" className="h-8 w-auto" onError={(e) => (e.currentTarget.style.display = 'none')} />
+        <span className="text-sm font-display font-bold tracking-[0.25em] text-mag-text">
+          MAGNEETAR
+        </span>
       </div>
 
       {/* Status Indicator */}

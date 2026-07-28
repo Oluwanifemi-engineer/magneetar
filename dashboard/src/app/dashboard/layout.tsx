@@ -33,8 +33,8 @@ export default function DashboardLayout({
     return (
       <div className="h-screen flex items-center justify-center bg-mag-bg mag-grid-bg">
         <div className="text-center animate-fade-in">
-          <div className="text-mag-primary text-2xl font-display font-bold tracking-[0.3em] mb-4">
-            MAGNEE<span className="text-mag-text-dim">TAR</span>
+          <div className="text-mag-text text-2xl font-display font-bold tracking-[0.3em] mb-4">
+            MAGNEETAR
           </div>
           <div className="flex items-center justify-center gap-2 text-mag-text-dim/60 text-xs font-mono">
             <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

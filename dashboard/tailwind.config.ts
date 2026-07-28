@@ -43,9 +43,9 @@ const config: Config = {
           'warning-dim': '#D97706',
           'warning-glow': 'rgba(245, 158, 11, 0.15)',
 
-          // Text
-          text: '#F0F0F5',
-          'text-dim': '#9898A8',
+          // Text — bright & crisp
+          text: '#FFFFFF',
+          'text-dim': '#C0C4D0',
           'text-bright': '#FFFFFF',
         },
       },
