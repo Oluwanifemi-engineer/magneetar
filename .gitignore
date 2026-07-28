@@ -1,22 +1,73 @@
-# Secrets
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAGNEETAR — Git Ignore Rules
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Secrets (NEVER commit) ───────────────────────────────────────────────────
 api.key
 .env
+.env.local
+.env.production
+server/.db_password
 
-# Database
-server/ghosttracker.db
+# ── Database ──────────────────────────────────────────────────────────────────
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+server/magneetar.db
 
-# Large binaries
-*.deb
-
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 server/venv/
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
 
-# Android build outputs
+# ── Android ───────────────────────────────────────────────────────────────────
 android-app/.gradle/
 android-app/app/build/
 android-app/build/
+*.keystore
+*.jks
+*.idsig
+local.properties
 
-# VS Code
+# ── Dashboard ─────────────────────────────────────────────────────────────────
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/dist/
+
+# ── Large Binaries ────────────────────────────────────────────────────────────
+*.deb
+*.rpm
+*.apk
+*.aab
+
+# ── IDE / Editor ──────────────────────────────────────────────────────────────
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS Files ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Backups ───────────────────────────────────────────────────────────────────
+backups/
+
+# ── Coverage ──────────────────────────────────────────────────────────────────
+htmlcov/
+.coverage
+coverage/
+server/firebase-key.json

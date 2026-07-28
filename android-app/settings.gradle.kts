@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "GhostTracker"
+rootProject.name = "Magneetar"
 include(":app")

@@ -1,21 +1,22 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.ghosttracker.app"
+    namespace = "com.magneetar.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.ghosttracker.app"
+        applicationId = "com.magneetar.app"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
         val serverUrl = project.findProperty("SERVER_URL") as String?
-            ?: "https://sweet-balance-poultry-corporate.trycloudflare.com"
+            ?: "https://api.magneetar.me"
         val apiKey = project.findProperty("API_KEY") as String?
             ?: "changeme-set-in-env"
 
@@ -53,4 +54,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation(platform("com.google.firebase:firebase-bom:33.0.0"))
+    implementation("com.google.firebase:firebase-messaging-ktx")
 }

@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 64">
+  <defs>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="1" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Pure Black Background -->
+  <rect width="280" height="64" rx="6" fill="#000000"/>
+  
+  <!-- S+M Combined Letterform Icon — white on black -->
+  <g transform="translate(12, 6)" filter="url(#glow)">
+    <!-- Glow layer -->
+    <path 
+      d="M 16 50
+         C 0 38, 0 12, 26 4
+         C 44 -4, 52 10, 36 20
+         C 20 30, 8 36, 16 26
+         Q 28 20, 40 26
+         L 56 2
+         L 72 26
+         L 88 2
+         L 104 26"
+      fill="none"
+      stroke="#ffffff"
+      stroke-width="10"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      opacity="0.08"
+    />
+    <!-- Main stroke -->
+    <path 
+      d="M 16 50
+         C 0 38, 0 12, 26 4
+         C 44 -4, 52 10, 36 20
+         C 20 30, 8 36, 16 26
+         Q 28 20, 40 26
+         L 56 2
+         L 72 26
+         L 88 2
+         L 104 26"
+      fill="none"
+      stroke="#ffffff"
+      stroke-width="3"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <!-- Apex dots -->
+    <circle cx="56" cy="2" r="2" fill="#ffffff" opacity="0.6"/>
+    <circle cx="88" cy="2" r="2" fill="#ffffff" opacity="0.6"/>
+  </g>
+  
+  <!-- Text: MAGNEETAR — white -->
+  <text x="140" y="30" 
+        font-family="'Inter','SF Pro',system-ui,sans-serif" 
+        font-size="24" font-weight="700" fill="#ffffff" 
+        letter-spacing="5">MAGNEETAR</text>
+  
+  <!-- Accent underline — subtle white -->
+  <rect x="140" y="36" width="28" height="2" rx="1" fill="#ffffff" opacity="0.3"/>
+  
+  <!-- Subtitle -->
+  <text x="140" y="50" 
+        font-family="'JetBrains Mono','SF Mono',monospace" 
+        font-size="8" fill="#ffffff" 
+        letter-spacing="3" opacity="0.35">TACTICAL COMMAND CENTER</text>
+</svg>

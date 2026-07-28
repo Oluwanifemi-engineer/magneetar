@@ -1,0 +1,91 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAGNEETAR — Docker Compose
+# Production deployment with PostgreSQL + server + dashboard
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── PostgreSQL Database ──────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: magneetar-db
+    restart: unless-stopped
+    env_file:
+      - ./server/.env
+    environment:
+      POSTGRES_DB: magneetar
+      POSTGRES_USER: magneetar
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U magneetar -d magneetar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    ports:
+      - "5432:5432"
+
+  # ── Backend API ────────────────────────────────────────────────────────────
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: magneetar-server
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    env_file:
+      - ./server/.env
+    environment:
+      - MT_ENVIRONMENT=production
+      # Use PostgreSQL in Docker
+      - MT_DATABASE_URL=postgresql://magneetar:${MT_DB_PASSWORD:-changeme}@db:5432/magneetar
+    volumes:
+      - magneetar-data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ── Dashboard (production - served via Nginx) ──────────────────────────────
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=https://api.magneetar.me
+    container_name: magneetar-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
+
+  # ── Cloudflare Tunnel ──────────────────────────────────────────────────────
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: magneetar-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN:-}
+    depends_on:
+      - server
+      - dashboard
+
+secrets:
+  db_password:
+    file: ./server/.db_password
+
+volumes:
+  postgres-data:
+  magneetar-data:

@@ -1,4 +1,4 @@
-package com.ghosttracker.app
+package com.magneetar.app
 
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
@@ -54,8 +54,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
+        permissions: Array<out String>, grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         activateDeviceAdmin()

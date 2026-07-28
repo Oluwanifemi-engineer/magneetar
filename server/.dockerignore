@@ -1,0 +1,18 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAGNEETAR SERVER — .dockerignore
+# ═══════════════════════════════════════════════════════════════════════════════
+
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.pytest_cache/
+.git/
+.gitignore
+*.md
+.DS_Store

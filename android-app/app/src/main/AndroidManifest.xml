@@ -26,6 +26,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Device admin (remote lock/wipe) -->
     <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN" />
@@ -33,7 +34,7 @@
     <application
         android:allowBackup="false"
      android:icon="@mipmap/ic_launcher"
-android:label="System Service"
+android:label="Magneetar"
         android:theme="@style/AppTheme"
         android:supportsRtl="true">
 
@@ -54,6 +55,25 @@ android:label="System Service"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!-- Firebase Cloud Messaging service -->
+        <service
+            android:name=".MagneetarMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Default FCM notification handler (required for analytics) -->
+        <receiver
+            android:name="com.google.firebase.iid.FirebaseInstanceIdReceiver"
+            android:exported="true"
+            android:permission="com.google.android.c2dm.permission.SEND">
+            <intent-filter>
+                <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+            </intent-filter>
+        </receiver>
 
         <!-- Auto-start on boot -->
         <receiver

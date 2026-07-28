@@ -1,156 +1,319 @@
 # Magneetar
 
-> Building a secure, intelligent, and resilient anti-theft ecosystem.
+> **Military-grade anti-theft tracking system.**  
+> Track, protect, and recover your devices with intelligent telemetry and real-time alerts.
 
-Magneetar is an engineering project focused on developing a modern anti-theft and device recovery platform. The long-term vision is to combine Android software, cloud services, embedded systems, and intelligent telemetry into a complete ecosystem for protecting personal devices.
-
-The project is currently in its early development stage and is being built incrementally with a strong emphasis on security, maintainability, and engineering best practices.
-
----
-
-## Vision
-
-To build a platform that helps users:
-
-- Protect their devices before theft occurs.
-- Track lost or stolen devices securely.
-- Collect reliable recovery evidence.
-- Continue operating even under adverse conditions.
-- Expand into dedicated embedded hardware in the future.
+![Status](https://img.shields.io/badge/status-production-green)
+![Tests](https://img.shields.io/badge/tests-62%20passing-brightgreen)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
+![Kotlin](https://img.shields.io/badge/kotlin-Android-orange)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
 ---
 
-## Current Project Structure
+## Architecture Overview
 
 ```
-magneetar/
-├── android-app/
-├── dashboard/
-├── server/
-├── .github/
-└── docs/ (planned)
+┌──────────────┐     ┌──────────────────┐     ┌────────────────┐
+│   Android App │────▶│   Magneetar API  │────▶│   PostgreSQL   │
+│  (Kotlin/Jet) │     │   (FastAPI/Py)   │     │   (or SQLite)  │
+└──────┬───────┘     └────────┬─────────┘     └────────────────┘
+       │                      │
+       │  x-device-key        │  WebSocket
+       │  (unique per device) │  (real-time)
+       │                      │
+       ▼                      ▼
+┌──────────────┐     ┌──────────────────┐
+│  FCM Push    │     │   Next.js        │
+│  Notifications│     │   Dashboard      │
+└──────────────┘     └──────────────────┘
 ```
 
-### Android Application
+### Key Features
 
-The Android application serves as the primary client and will eventually provide:
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **🔐 Device Key Auth** | ✅ Live | Each device generates its own 256-bit secret key — not shared, not in APK |
+| **🧠 Sentinel AI** | ✅ Live | Smart theft detection with false-positive prevention |
+| **📍 Real-time Tracking** | ✅ Live | GPS + network location with 3-second intervals |
+| **📸 Evidence Capture** | ✅ Live | Remote photo/audio capture with SHA-256 chain of custody |
+| **📡 Geofencing** | ✅ Live | Safe zones with exit alerts |
+| **🔔 Push Notifications** | ✅ Live | FCM push alerts on theft, SIM change, geofence exit |
+| **📊 Dashboard** | ✅ Live | Next.js tactical command center |
+| **🔌 Offline Queue** | ✅ Live | Queues pings when offline, uploads when reconnected |
+| **🛡️ Phantom Mode** | ✅ Live | Hidden operation mode for stealth tracking |
+| **🚨 Remote Commands** | ✅ Live | Lock, wipe, alarm, capture photo/audio |
+| **📋 Evidence Reports** | ✅ Live | PDF evidence packages with cryptographic chain |
+| **🔄 Auto-Deploy** | ✅ Live | Docker Compose + Cloudflare Tunnel |
+| **📦 Error Tracking** | ✅ Live | Built-in error logger with dashboard viewer |
 
-- Device registration
-- Secure authentication
-- Background telemetry
-- Theft detection
-- Recovery tools
-- Device administration features
+---
 
-### Backend
+## Quick Start
 
-The backend is written in **Python (FastAPI)** and will be responsible for:
+### Prerequisites
 
-- Device management
-- Authentication
-- Telemetry processing
-- Secure APIs
-- Notifications
-- Future analytics
+- Python 3.12+
+- Docker & Docker Compose (for production)
+- An Android device (for the app)
+- A Cloudflare account (for public access via Tunnel)
 
-### Dashboard
+### 1. Clone & Install
 
-The dashboard currently exists as an HTML prototype and will later be rebuilt using:
+```bash
+git clone https://github.com/magneetar/magneetar.git
+cd magneetar
+bash scripts/generate-env.sh   # Generate secure secrets
+```
 
-- React
-- TypeScript
-- Modern UI components
+### 2. Configure Environment
+
+Edit `server/.env`:
+
+```env
+# Required
+MT_API_KEY=your-secure-api-key-here
+
+# Alert Services (at least one for theft notifications)
+MT_ALERT_EMAIL=your@email.com      # Where alerts go
+MT_SENDGRID_API_KEY=...             # Optional: email alerts
+MT_FIREBASE_KEY=./firebase-key.json  # Optional: push notifications
+
+# Optional: PostgreSQL (defaults to SQLite)
+MT_DATABASE_URL=postgresql://user:pass@localhost:5432/magneetar
+```
+
+### 3. Start Development Server
+
+```bash
+cd server
+pip install -r requirements.txt
+python main.py
+# Server running at http://localhost:8000
+```
+
+### 4. Start Dashboard (Development)
+
+```bash
+cd dashboard
+npm install
+npm run dev
+# Dashboard at http://localhost:3000
+```
+
+### 5. Run Tests
+
+```bash
+cd server
+python -m pytest tests/ -v
+# 62 tests should pass
+```
+
+---
+
+## Production Deployment
+
+### Docker Compose (Recommended)
+
+```bash
+# One-command deploy
+bash scripts/deploy.sh
+
+# Or manually:
+docker compose up --build -d
+```
+
+This starts:
+- **PostgreSQL 16** — production database with persistence
+- **Magneetar Server** — FastAPI with uvicorn (port 8002)
+- **Magneetar Dashboard** — Next.js served via Nginx (port 3000)
+
+### Cloudflare Tunnel (Public Access)
+
+```bash
+# Configure tunnel (one-time)
+cloudflared tunnel create magneetar
+cloudflared tunnel route dns magneetar api.magneetar.me
+cloudflared tunnel route dns magneetar app.magneetar.me
+
+# Edit ~/.cloudflared/config.yml:
+# tunnel: <tunnel-id>
+# ingress:
+#   - hostname: api.magneetar.me
+#     service: http://localhost:8002
+#   - hostname: app.magneetar.me
+#     service: http://localhost:3000
+#   - service: http_status:404
+
+# Start tunnel
+cloudflared tunnel run magneetar
+```
+
+### Database Backups
+
+```bash
+# Create a backup
+bash scripts/backup-db.sh
+
+# List available backups
+bash scripts/backup-db.sh --list
+
+# Auto-backup via cron (daily at 3am)
+crontab -e
+0 3 * * * cd /path/to/magneetar && bash scripts/backup-db.sh
+```
+
+---
+
+## Security Architecture
+
+### Device Key Authentication
+
+Each Android device generates its own 256-bit key on first launch:
+
+```
+Device generates: device_key = random_32_bytes_hex()
+                  ↓
+Stored in: app-private SharedPreferences (never in APK)
+                  ↓
+Registration: POST /api/device/register { device_key }
+                  ↓
+Server stores: SHA-256(device_key) (never the raw key!)
+                  ↓
+All requests: x-device-key header (unique per device)
+```
+
+**Why this is secure:**
+- ✅ Each device has a **unique** key
+- ✅ Key is **generated at runtime** — not compiled into the APK
+- ✅ Server stores **only SHA-256 hash** — DB breach can't leak keys
+- ✅ Compromising **one device doesn't affect others**
+- ✅ Backward compatible — existing JWT auth still works
+
+### Auth Methods (in priority order)
+
+1. **JWT Bearer token** — from device registration session
+2. **x-device-key** — unique per-device secret (recommended)
+3. **x-api-key** — legacy shared key (fallback only)
+
+---
+
+## API Overview
+
+| Endpoint | Auth | Description |
+|----------|------|-------------|
+| `GET /health` | None | Server health check |
+| `POST /api/device/register` | API Key | Register device, get tokens |
+| `POST /api/device/location` | JWT/Device Key | Send telemetry ping |
+| `POST /api/device/heartbeat` | JWT/Device Key | Send heartbeat |
+| `POST /api/device/media` | JWT/Device Key | Upload evidence media |
+| `POST /api/device/fcm-token` | Any | Register push token |
+| `POST /api/auth/login` | None | Dashboard login with API key |
+| `GET /api/dashboard/devices` | Dashboard | List all devices |
+| `POST /api/dashboard/command` | Dashboard | Issue remote command |
+| `GET /api/dashboard/errors` | Dashboard | View server errors |
+
+Full API docs at `http://localhost:8000/docs` (Swagger UI)
+
+---
+
+## Android App Setup
+
+### Prerequisites
+- Android Studio (for development)
+- Android 8.0+ (API 24) device
+
+### Building
+
+```bash
+cd android-app
+./gradlew assembleRelease
+
+# With custom server URL:
+SERVER_URL=https://api.magneetar.me \
+API_KEY=your-api-key \
+./gradlew assembleRelease
+```
+
+### APK Build via GitHub Actions
+
+The CI pipeline automatically builds the APK on push to `main`:
+1. Go to your GitHub repo → Actions
+2. Select "Build Magneetar APK" workflow
+3. Click "Run workflow"
+
+Download the APK artifact and install on your device.
 
 ---
 
 ## Technology Stack
 
-### Current
+### Backend
+- **Python 3.12+** with **FastAPI**
+- **SQLite** (dev) / **PostgreSQL 16** (prod)
+- **JWT** + **Device Key** authentication
+- **Cloudflare Tunnel** for secure public access
+- **Docker Compose** for orchestration
+- **Sentry SDK** (optional) for error monitoring
 
-- Kotlin
-- Python
-- FastAPI
-- HTML
-- Git
-- GitHub Actions
-- Docker
+### Frontend
+- **Next.js 14** with TypeScript
+- **Tailwind CSS** for styling
+- **Leaflet** for mapping
+- **Nginx** for production serving
 
-### Planned
+### Android
+- **Kotlin** with Jetpack/AndroidX
+- **Firebase Cloud Messaging** for push
+- **Camera2 API** for evidence capture
+- **Device Policy Manager** for admin features
+- **OkHttp** for networking
 
-- React
-- TypeScript
-- PostgreSQL
-- Redis
-- Firebase
-- Docker Compose
-- Nginx
-- Sentry
-- SendGrid
-
----
-
-## Development Philosophy
-
-Magneetar is being built around several engineering principles:
-
-- Security first
-- Reliability over complexity
-- Incremental development
-- Clean architecture
-- Thorough documentation
-- Test before scale
+### CI/CD
+- **GitHub Actions** — test, build, deploy
+- **Multi-stage Docker builds** — optimized images
+- **Health checks** on all services
 
 ---
 
-## Roadmap
+## Project Structure
 
-### Foundation
-
-- Repository organization
-- Documentation
-- Docker environment
-- CI/CD improvements
-
-### Core Platform
-
-- Authentication
-- Secure APIs
-- Telemetry engine
-- Dashboard modernization
-
-### Advanced Features
-
-- Adaptive tracking
-- Offline synchronization
-- Theft detection
-- Device attestation
-- Evidence generation
-
-### Hardware Expansion
-
-- BLE devices
-- Embedded firmware
-- PCB development
-- IoT ecosystem
-
----
-
-## Project Status
-
-This project is under active development.
-
-Features, architecture, and documentation will evolve as the system matures.
-
----
-
-## Author
-
-**Oluwanifemi Tinubu**
-
-Electronic and Electrical Engineering Student
+```
+magneetar/
+├── server/                  # Python FastAPI backend
+│   ├── main.py              # API routes & middleware
+│   ├── auth.py              # JWT + device key auth
+│   ├── database.py          # SQLite schema & helpers
+│   ├── sentinel.py          # Theft detection AI
+│   ├── alerts.py            # Push/SMS/Email alerts
+│   ├── models.py            # Pydantic models
+│   └── tests/               # 62 unit + E2E tests
+├── dashboard/               # Next.js web dashboard
+│   ├── src/app/             # Pages & layouts
+│   ├── src/components/      # UI components
+│   └── src/lib/             # API client & utils
+├── android-app/             # Android Kotlin app
+│   └── app/src/main/java/   # Services & activities
+├── scripts/                 # Deployment & utilities
+│   ├── deploy.sh            # Auto-deploy script
+│   ├── backup-db.sh         # Database backup
+│   ├── device_simulator.py  # Theft scenario tester
+│   └── test-e2e.sh          # E2E test runner
+├── docker-compose.yml       # Production stack
+└── docs/                    # Documentation
+```
 
 ---
 
 ## License
 
-License to be determined.
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+## Author
+
+**Oluwanifemi Tinubu**  
+Electronic and Electrical Engineering Student  
+Magneetar — Track · Protect · Recover

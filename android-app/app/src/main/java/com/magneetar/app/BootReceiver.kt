@@ -1,4 +1,4 @@
-package com.ghosttracker.app
+package com.magneetar.app
 
 import android.content.BroadcastReceiver
 import android.content.Context

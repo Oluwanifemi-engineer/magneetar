@@ -1,0 +1,298 @@
+/* ─── Google Fonts (must come before Tailwind directives) ────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base ─────────────────────────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-mag-border;
+  }
+
+  html {
+    @apply bg-mag-bg text-mag-text antialiased;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply min-h-screen font-sans font-medium;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Bold text defaults — everything is bolder */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+  }
+
+  strong, b {
+    @apply font-bold;
+  }
+
+  ::selection {
+    @apply bg-mag-primary/20 text-mag-primary;
+  }
+
+  /* Scrollbar — clean & minimal */
+  ::-webkit-scrollbar {
+    @apply w-1;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-mag-border rounded-full hover:bg-mag-border-bright transition-colors;
+  }
+}
+
+/* ─── Components ───────────────────────────────────────────────────────────── */
+@layer components {
+  /* Premium Panel with glass effect */
+  .mag-panel {
+    @apply bg-mag-panel/90 backdrop-blur-xl border border-mag-border/60 rounded-xl;
+    @apply shadow-mag-panel shadow-mag-inset;
+  }
+
+  /* Premium Card */
+  .mag-card {
+    @apply bg-mag-surface/40 border border-mag-border/50 rounded-lg p-4;
+    @apply hover:border-mag-border transition-all duration-200;
+    @apply shadow-mag-card;
+  }
+
+  /* Glow border on hover */
+  .mag-glow-border {
+    @apply border border-mag-border/50 rounded-lg transition-all duration-200;
+  }
+  .mag-glow-border:hover {
+    @apply border-mag-primary/30 shadow-mag-glow;
+  }
+
+  /* HUD Corner Brackets */
+  .mag-hud-frame {
+    @apply relative;
+  }
+  .mag-hud-frame::before,
+  .mag-hud-frame::after {
+    content: '';
+    @apply absolute w-2.5 h-2.5 border-mag-primary/30;
+  }
+  .mag-hud-frame::before {
+    @apply top-0 left-0 border-t border-l;
+  }
+  .mag-hud-frame::after {
+    @apply bottom-0 right-0 border-b border-r;
+  }
+
+  /* Status Dot */
+  .mag-status-dot {
+    @apply w-2 h-2 rounded-full;
+  }
+  .mag-status-dot.online {
+    @apply bg-mag-accent shadow-[0_0_10px_rgba(34,197,94,0.5)] animate-pulse-slow;
+  }
+  .mag-status-dot.offline {
+    @apply bg-mag-text-dim/40;
+  }
+
+  /* Grid Background */
+  .mag-grid-bg {
+    background-image:
+      linear-gradient(rgba(233, 30, 140, 0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(233, 30, 140, 0.015) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* Tactical Button Base */
+  .mag-btn {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5;
+    @apply font-mono text-xs font-bold uppercase tracking-wider;
+    @apply border rounded-lg transition-all duration-150;
+    @apply active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-offset-0;
+  }
+
+  .mag-btn-primary {
+    @apply mag-btn;
+    @apply border-mag-primary/40 text-mag-primary bg-mag-primary/10;
+    @apply hover:bg-mag-primary/20 hover:border-mag-primary/60 hover:shadow-mag-glow-strong;
+    @apply focus:ring-mag-primary/30;
+  }
+
+  .mag-btn-secondary {
+    @apply mag-btn;
+    @apply border-mag-secondary/40 text-mag-secondary bg-mag-secondary/10;
+    @apply hover:bg-mag-secondary/20 hover:border-mag-secondary/60;
+    @apply focus:ring-mag-secondary/30;
+  }
+
+  .mag-btn-danger {
+    @apply mag-btn;
+    @apply border-mag-danger/40 text-mag-danger bg-mag-danger/10;
+    @apply hover:bg-mag-danger/20 hover:border-mag-danger/60 hover:shadow-mag-danger;
+    @apply focus:ring-mag-danger/30;
+  }
+
+  .mag-btn-warning {
+    @apply mag-btn;
+    @apply border-mag-warning/40 text-mag-warning bg-mag-warning/10;
+    @apply hover:bg-mag-warning/20 hover:border-mag-warning/60;
+    @apply focus:ring-mag-warning/30;
+  }
+
+  .mag-btn-ghost {
+    @apply mag-btn;
+    @apply border-transparent text-mag-text-dim bg-transparent;
+    @apply hover:text-mag-text hover:bg-mag-surface/40;
+  }
+
+  /* Tab Component */
+  .mag-tab {
+    @apply flex items-center justify-center gap-1.5 px-4 py-3;
+    @apply text-xs font-bold tracking-wide;
+    @apply text-mag-text-dim/70 cursor-pointer transition-all duration-200;
+    @apply border-b-2 border-transparent;
+    @apply hover:text-mag-text hover:border-mag-border;
+  }
+  .mag-tab:hover {
+    @apply text-mag-text;
+  }
+  .mag-tab.active {
+    @apply text-mag-primary border-mag-primary;
+    @apply bg-mag-primary/5;
+  }
+
+  /* Input */
+  .mag-input {
+    @apply w-full px-4 py-3 bg-mag-surface/40 border border-mag-border/60 rounded-lg;
+    @apply text-mag-text text-sm font-medium font-sans placeholder:text-mag-text-dim/40;
+    @apply focus:outline-none focus:border-mag-primary/50 focus:ring-2 focus:ring-mag-primary/10;
+    @apply transition-all duration-150;
+  }
+
+  /* Badge */
+  .mag-badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider;
+  }
+  .mag-badge-online {
+    @apply mag-badge bg-mag-accent/10 text-mag-accent border border-mag-accent/25;
+  }
+  .mag-badge-offline {
+    @apply mag-badge bg-mag-warning/10 text-mag-warning border border-mag-warning/25;
+  }
+  .mag-badge-danger {
+    @apply mag-badge bg-mag-danger/10 text-mag-danger border border-mag-danger/25;
+  }
+  .mag-badge-info {
+    @apply mag-badge bg-mag-primary/10 text-mag-primary border border-mag-primary/25;
+  }
+}
+
+/* ─── Leaflet Overrides — Clean & Modern ──────────────────────────────────── */
+.leaflet-container {
+  @apply bg-mag-bg;
+  font-family: inherit;
+}
+
+.leaflet-control-zoom {
+  @apply !border-mag-border/60 !rounded-xl overflow-hidden !shadow-mag-card;
+}
+
+.leaflet-control-zoom a {
+  @apply !bg-mag-panel/90 !text-mag-text !w-10 !h-10 !leading-10 !text-lg;
+  @apply !border-mag-border/60 hover:!bg-mag-surface !transition-colors;
+}
+
+.leaflet-control-zoom a:first-child {
+  @apply !border-b-mag-border/60;
+}
+
+.leaflet-popup-content-wrapper {
+  @apply !bg-mag-panel/95 !text-mag-text !rounded-xl !border !border-mag-border/60 !shadow-mag-panel;
+  @apply !backdrop-blur-xl;
+}
+
+.leaflet-popup-tip {
+  @apply !bg-mag-panel/95;
+}
+
+.leaflet-popup-content {
+  @apply !m-3 !text-sm;
+}
+
+.leaflet-control-attribution {
+  @apply !bg-transparent !text-mag-text-dim/30 !text-[9px];
+}
+
+.leaflet-control-attribution a {
+  @apply !text-mag-text-dim/40;
+}
+
+/* Custom marker pulse animation */
+@keyframes marker-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+@keyframes user-pulse {
+  0% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.3); opacity: 0.2; }
+  100% { transform: scale(1); opacity: 0.6; }
+}
+
+/* ─── Path Animation ────────────────────────────────────────────────────────── */
+@keyframes pathGlow {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(233, 30, 140, 0.4)); }
+  50% { filter: drop-shadow(0 0 8px rgba(233, 30, 140, 0.8)); }
+}
+
+.animate-path-glow {
+  animation: pathGlow 1.5s ease-in-out infinite;
+}
+
+/* ─── Login Page Effects ──────────────────────────────────────────────────── */
+
+.login-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.login-scanlines {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.008) 2px,
+    rgba(255, 255, 255, 0.008) 4px
+  );
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+/* ─── Animations ───────────────────────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes data-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+.animate-data-flow {
+  background-size: 200% 200%;
+  animation: data-flow 2s linear infinite;
+}
