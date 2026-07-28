@@ -71,3 +71,6 @@ htmlcov/
 .coverage
 coverage/
 server/firebase-key.json
+
+# Firebase config (contains API keys - do NOT commit to public repo)
+android-app/app/google-services.json

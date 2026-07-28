@@ -11,12 +11,25 @@ import time
 os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
 os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
 os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
-os.environ["MT_DB_PATH"] = ":memory:"
+os.environ["MT_DB_PATH"] = "/tmp/magneetar-test-auth.db"
 
 from auth import (
     create_token, decode_token, create_device_tokens,
     create_dashboard_tokens, refresh_access_token
 )
+from database import init_db
+
+
+@pytest.fixture(autouse=True)
+def setup_db():
+    """Initialize the database before each test."""
+    init_db()
+    yield
+    import os as _os
+    try:
+        _os.remove("/tmp/magneetar-test-auth.db")
+    except OSError:
+        pass
 
 
 class TestTokenGeneration:
