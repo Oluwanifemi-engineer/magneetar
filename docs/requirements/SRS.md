@@ -716,4 +716,3 @@ Where applicable, the system shall be designed to comply with relevant legal, re
 ## 10.8 Constraint Management
 
 Changes to documented constraints shall be evaluated for their impact on existing requirements, architecture, implementation, verification activities, and operational procedures before approval.
-

@@ -33,7 +33,7 @@ export function useWebSocket() {
     try {
       // Convert HTTP URL to WebSocket URL
       const wsUrl = serverUrl.replace(/^http/, 'ws') + '/ws/dashboard';
-      
+
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -67,9 +67,9 @@ export function useWebSocket() {
         if (isConnected && reconnectAttemptsRef.current < 10) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
           reconnectAttemptsRef.current++;
-          
+
           console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current})`);
-          
+
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, delay);

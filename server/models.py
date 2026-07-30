@@ -2,13 +2,15 @@
 Magneetar Pydantic Models
 Request/response schemas for all API endpoints.
 """
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List
-from datetime import datetime
-import re
 
+import re
+from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, field_validator
 
 # ─── Device Models ───────────────────────────────────────────────────────────
+
 
 class DeviceRegistration(BaseModel):
     device_id: str = Field(..., min_length=3, max_length=64)
@@ -20,11 +22,11 @@ class DeviceRegistration(BaseModel):
     sim_serial_hash: Optional[str] = None
     device_key: Optional[str] = None
 
-    @field_validator('device_id')
+    @field_validator("device_id")
     @classmethod
     def validate_device_id(cls, v):
-        if not re.match(r'^[a-zA-Z0-9_-]+$', v):
-            raise ValueError('device_id must be alphanumeric with hyphens/underscores')
+        if not re.match(r"^[a-zA-Z0-9_-]+$", v):
+            raise ValueError("device_id must be alphanumeric with hyphens/underscores")
         return v
 
 
@@ -47,6 +49,7 @@ class DeviceResponse(BaseModel):
 
 
 # ─── Telemetry Models ────────────────────────────────────────────────────────
+
 
 class TelemetryPing(BaseModel):
     # Identity
@@ -99,25 +102,26 @@ class TelemetryPing(BaseModel):
     queued_at: Optional[str] = None
     queue_position: Optional[int] = None
 
-    @field_validator('confidence_level')
+    @field_validator("confidence_level")
     @classmethod
     def validate_confidence(cls, v):
         valid = {"HIGH", "MEDIUM", "LOW", "OFFLINE", "UNKNOWN"}
         if v not in valid:
-            raise ValueError(f'confidence_level must be one of {valid}')
+            raise ValueError(f"confidence_level must be one of {valid}")
         return v
 
-    @field_validator('threat_level')
+    @field_validator("threat_level")
     @classmethod
     def validate_threat(cls, v):
         valid = {"SAFE", "ELEVATED", "HIGH", "CRITICAL"}
         if v not in valid:
-            raise ValueError(f'threat_level must be one of {valid}')
+            raise ValueError(f"threat_level must be one of {valid}")
         return v
 
 
 class LocationReport(BaseModel):
     """Simplified location report for backward compatibility."""
+
     device_id: str
     lat: float = Field(..., ge=-90, le=90)
     lng: float = Field(..., ge=-180, le=180)
@@ -128,10 +132,12 @@ class LocationReport(BaseModel):
 
 class OfflineQueueUpload(BaseModel):
     """Batch upload of queued pings."""
+
     pings: List[TelemetryPing]
 
 
 # ─── Media Models ────────────────────────────────────────────────────────────
+
 
 class MediaReport(BaseModel):
     device_id: str
@@ -141,12 +147,12 @@ class MediaReport(BaseModel):
     lng: Optional[float] = Field(None, ge=-180, le=180)
     timestamp: Optional[str] = None
 
-    @field_validator('type')
+    @field_validator("type")
     @classmethod
     def validate_type(cls, v):
         valid = {"photo", "audio", "video"}
         if v not in valid:
-            raise ValueError(f'type must be one of {valid}')
+            raise ValueError(f"type must be one of {valid}")
         return v
 
 
@@ -161,30 +167,40 @@ class MediaItem(BaseModel):
 
 # ─── Command Models ──────────────────────────────────────────────────────────
 
+
 class CommandRequest(BaseModel):
     device_id: str
     command: str
     params: Optional[str] = ""
     priority: int = Field(5, ge=1, le=10)
 
-    @field_validator('command')
+    @field_validator("command")
     @classmethod
     def validate_command(cls, v):
         valid = {
-            "ping", "capture_photo", "capture_photo_front", "capture_photo_rear",
-            "capture_audio", "location_burst", "location_burst_stop",
-            "lock", "alarm", "phantom_on", "phantom_off",
-            "fake_shutdown", "wipe"
+            "ping",
+            "capture_photo",
+            "capture_photo_front",
+            "capture_photo_rear",
+            "capture_audio",
+            "location_burst",
+            "location_burst_stop",
+            "lock",
+            "alarm",
+            "phantom_on",
+            "phantom_off",
+            "fake_shutdown",
+            "wipe",
         }
         if v not in valid:
-            raise ValueError(f'command must be one of {valid}')
+            raise ValueError(f"command must be one of {valid}")
         return v
 
 
 class CommandAck(BaseModel):
     status: str = "executed"  # executed or failed
 
-    @field_validator('status')
+    @field_validator("status")
     @classmethod
     def validate_status(cls, v):
         if v not in {"executed", "failed"}:
@@ -205,6 +221,7 @@ class Command(BaseModel):
 
 # ─── Heartbeat Models ────────────────────────────────────────────────────────
 
+
 class HeartbeatPacket(BaseModel):
     device_id: str
     battery_percent: Optional[int] = Field(None, ge=0, le=100)
@@ -217,6 +234,7 @@ class HeartbeatPacket(BaseModel):
 
 
 # ─── Auth Models ─────────────────────────────────────────────────────────────
+
 
 class TokenResponse(BaseModel):
     token: str
@@ -235,22 +253,22 @@ class UserRegisterRequest(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     display_name: Optional[str] = Field(None, max_length=100)
 
-    @field_validator('email')
+    @field_validator("email")
     @classmethod
     def validate_email(cls, v):
-        if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', v):
-            raise ValueError('Invalid email address')
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError("Invalid email address")
         return v.lower().strip()
 
-    @field_validator('password')
+    @field_validator("password")
     @classmethod
     def validate_password(cls, v):
         if not any(c.isupper() for c in v):
-            raise ValueError('Password must contain at least one uppercase letter')
+            raise ValueError("Password must contain at least one uppercase letter")
         if not any(c.islower() for c in v):
-            raise ValueError('Password must contain at least one lowercase letter')
+            raise ValueError("Password must contain at least one lowercase letter")
         if not any(c.isdigit() for c in v):
-            raise ValueError('Password must contain at least one digit')
+            raise ValueError("Password must contain at least one digit")
         return v
 
 
@@ -258,7 +276,7 @@ class UserLoginRequest(BaseModel):
     email: str
     password: str
 
-    @field_validator('email')
+    @field_validator("email")
     @classmethod
     def validate_email(cls, v):
         return v.lower().strip()
@@ -268,7 +286,7 @@ class UserResponse(BaseModel):
     id: str
     email: str
     display_name: Optional[str] = None
-    tier: str = 'free'
+    tier: str = "free"
     is_active: bool = True
     created_at: Optional[str] = None
     device_count: int = 0
@@ -280,6 +298,7 @@ class RefreshRequest(BaseModel):
 
 
 # ─── Evidence Models ─────────────────────────────────────────────────────────
+
 
 class EvidenceCase(BaseModel):
     id: str
@@ -302,6 +321,7 @@ class EvidencePackage(BaseModel):
 
 # ─── Geofence Models ─────────────────────────────────────────────────────────
 
+
 class GeofenceRequest(BaseModel):
     device_id: str
     name: Optional[str] = None
@@ -323,6 +343,7 @@ class Geofence(BaseModel):
 
 
 # ─── Alert Models ────────────────────────────────────────────────────────────
+
 
 class Alert(BaseModel):
     id: int
@@ -347,6 +368,7 @@ class AlertSettings(BaseModel):
 
 # ─── Stats Model ─────────────────────────────────────────────────────────────
 
+
 class DashboardStats(BaseModel):
     total_devices: int = 0
     active_devices: int = 0
@@ -358,6 +380,7 @@ class DashboardStats(BaseModel):
 
 
 # ─── Health Model ────────────────────────────────────────────────────────────
+
 
 class HealthResponse(BaseModel):
     status: str = "online"
@@ -372,6 +395,10 @@ class ConfigResponse(BaseModel):
     app_version: str = "1.1.0"
     min_android_version: int = 24
     features_enabled: List[str] = [
-        "sentinel", "phantom_mode", "evidence_collection",
-        "offline_queue", "geofencing", "real_time_tracking"
+        "sentinel",
+        "phantom_mode",
+        "evidence_collection",
+        "offline_queue",
+        "geofencing",
+        "real_time_tracking",
     ]

@@ -665,4 +665,3 @@ Significant architectural changes should be documented through Architecture Deci
 | Version | Date | Description |
 |---------|------|-------------|
 | 1.0 | 2026-07-21 | Initial architecture document |
-

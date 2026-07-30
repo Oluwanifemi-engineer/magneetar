@@ -3,13 +3,15 @@ Magneetar Encryption
 AES-256-GCM field-level encryption for sensitive location data.
 Each location's lat/lng encrypted individually with per-device derived keys.
 """
-import os
+
 import base64
 import hashlib
+import os
+
+from config import settings
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives import hashes
-from config import settings
 
 
 class FieldEncryption:
@@ -46,11 +48,11 @@ class FieldEncryption:
 
         aesgcm = AESGCM(key)
         # AES-GCM automatically appends 16-byte auth tag
-        ciphertext = aesgcm.encrypt(nonce, plaintext.encode('utf-8'), None)
+        ciphertext = aesgcm.encrypt(nonce, plaintext.encode("utf-8"), None)
 
         # Combine: nonce (12) + ciphertext (includes 16-byte tag)
         combined = nonce + ciphertext
-        return base64.b64encode(combined).decode('ascii')
+        return base64.b64encode(combined).decode("ascii")
 
     def decrypt_field(self, encrypted_b64: str, device_id: str) -> str:
         """
@@ -65,7 +67,7 @@ class FieldEncryption:
 
         aesgcm = AESGCM(key)
         plaintext = aesgcm.decrypt(nonce, ciphertext, None)
-        return plaintext.decode('utf-8')
+        return plaintext.decode("utf-8")
 
     def encrypt_location(self, lat: float, lng: float, device_id: str) -> dict:
         """
@@ -85,7 +87,7 @@ class FieldEncryption:
         Returns (lat, lng) tuple.
         """
         decrypted = self.decrypt_field(encrypted_data, device_id)
-        lat_str, lng_str = decrypted.split(',')
+        lat_str, lng_str = decrypted.split(",")
         return float(lat_str), float(lng_str)
 
 

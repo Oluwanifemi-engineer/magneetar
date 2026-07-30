@@ -25,10 +25,10 @@ class MagneetarAPI {
       'Content-Type': 'application/json',
     };
     // Use auth mode from sessionStorage to determine header format
-    const authMode = typeof window !== 'undefined' 
-      ? sessionStorage.getItem('mt_auth_mode') 
+    const authMode = typeof window !== 'undefined'
+      ? sessionStorage.getItem('mt_auth_mode')
       : null;
-    
+
     if (authMode === 'user') {
       // User account login — JWT token goes in Authorization header
       headers['Authorization'] = `Bearer ${this.apiKey}`;

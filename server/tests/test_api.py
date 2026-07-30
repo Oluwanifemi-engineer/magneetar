@@ -2,19 +2,21 @@
 Magneetar API Tests
 Tests for all server endpoints.
 """
-import pytest
-import json
+
 import hashlib
-import secrets
-from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+import json
 
 # Set test environment before importing anything
 import os
+import secrets
 import tempfile
+from unittest.mock import MagicMock, patch
+
+import pytest
+from fastapi.testclient import TestClient
 
 # Create a temporary database file for tests
-_test_db_fd, test_db_path = tempfile.mkstemp(suffix='.db')
+_test_db_fd, test_db_path = tempfile.mkstemp(suffix=".db")
 os.close(_test_db_fd)
 
 os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
@@ -22,22 +24,25 @@ os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
 os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
 os.environ["MT_DB_PATH"] = test_db_path
 
+# Override the settings module's DB_PATH
+import config
+
 # Import config first to set DB_PATH
 from config import Settings, get_settings
 
-# Override the settings module's DB_PATH
-import config
 config.settings.DB_PATH = test_db_path
 
 # Import database module and set DB_PATH
 import database
+
 database.DB_PATH = test_db_path
 
 # Initialize database
-from database import init_db, get_db, get_db_context
+from database import get_db, get_db_context, init_db
+
 init_db(test_db_path)
 
-from auth import create_device_tokens, create_dashboard_tokens
+from auth import create_dashboard_tokens, create_device_tokens
 from main import app
 
 client = TestClient(app)
@@ -66,6 +71,7 @@ def get_dashboard_headers() -> dict:
 
 # ─── Health & Config ────────────────────────────────────────────────────────
 
+
 class TestHealthEndpoint:
     def test_health_returns_online(self):
         response = client.get("/health")
@@ -93,6 +99,7 @@ class TestConfigEndpoint:
 
 # ─── Device Registration ─────────────────────────────────────────────────────
 
+
 class TestDeviceRegistration:
     def test_register_new_device(self):
         headers = get_auth_headers()
@@ -105,7 +112,7 @@ class TestDeviceRegistration:
                 "os_version": "Android 14",
                 "app_version": "1.0.0",
             },
-            headers=headers
+            headers=headers,
         )
         assert response.status_code == 200
         data = response.json()
@@ -123,7 +130,7 @@ class TestDeviceRegistration:
                 "fingerprint": "fp123456789",
                 "model": "Old Model",
             },
-            headers=headers
+            headers=headers,
         )
 
         # Register again with updated info
@@ -134,7 +141,7 @@ class TestDeviceRegistration:
                 "fingerprint": "fp987654321",
                 "model": "New Model",
             },
-            headers=headers
+            headers=headers,
         )
         assert response.status_code == 200
 
@@ -144,12 +151,13 @@ class TestDeviceRegistration:
             json={
                 "device_id": "no-auth-device",
                 "fingerprint": "fingerprint123",
-            }
+            },
         )
         assert response.status_code == 422 or response.status_code == 401
 
 
 # ─── Location Reports ────────────────────────────────────────────────────────
+
 
 class TestLocationReport:
     def _ensure_device(self):
@@ -162,7 +170,7 @@ class TestLocationReport:
                 "fingerprint": "test-fp-003",
                 "model": "Test Model",
             },
-            headers=headers
+            headers=headers,
         )
 
     def test_post_location_valid(self):
@@ -179,7 +187,7 @@ class TestLocationReport:
                 "battery_percent": 85,
                 "speed": 0.5,
             },
-            headers=headers
+            headers=headers,
         )
         assert response.status_code == 200
         data = response.json()
@@ -194,7 +202,7 @@ class TestLocationReport:
                 "lat": 100.0,  # Invalid - out of range
                 "lng": 8.6753,
             },
-            headers=headers
+            headers=headers,
         )
         assert response.status_code == 422  # Validation error
 
@@ -205,12 +213,13 @@ class TestLocationReport:
                 "device_id": TEST_DEVICE_ID,
                 "lat": 9.0820,
                 "lng": 8.6753,
-            }
+            },
         )
         assert response.status_code == 403 or response.status_code == 401
 
 
 # ─── Commands ────────────────────────────────────────────────────────────────
+
 
 class TestCommands:
     def test_issue_command(self):
@@ -221,7 +230,7 @@ class TestCommands:
                 "device_id": TEST_DEVICE_ID,
                 "command": "ping",
             },
-            headers=headers
+            headers=headers,
         )
         assert response.status_code == 200
         data = response.json()
@@ -237,15 +246,12 @@ class TestCommands:
                 "device_id": TEST_DEVICE_ID,
                 "command": "ping",
             },
-            headers=headers
+            headers=headers,
         )
 
         # Get commands as device
         device_headers = get_device_headers()
-        response = client.get(
-            f"/api/device/commands/{TEST_DEVICE_ID}",
-            headers=device_headers
-        )
+        response = client.get(f"/api/device/commands/{TEST_DEVICE_ID}", headers=device_headers)
         assert response.status_code == 200
         data = response.json()
         assert "commands" in data
@@ -259,16 +265,14 @@ class TestCommands:
                 "device_id": TEST_DEVICE_ID,
                 "command": "ping",
             },
-            headers=dash_headers
+            headers=dash_headers,
         )
         command_id = resp.json()["command_id"]
 
         # Ack as device
         device_headers = get_device_headers()
         response = client.post(
-            f"/api/device/commands/{command_id}/ack",
-            json={"status": "executed"},
-            headers=device_headers
+            f"/api/device/commands/{command_id}/ack", json={"status": "executed"}, headers=device_headers
         )
         assert response.status_code == 200
 
@@ -280,12 +284,13 @@ class TestCommands:
                 "device_id": TEST_DEVICE_ID,
                 "command": "invalid_command",
             },
-            headers=headers
+            headers=headers,
         )
         assert response.status_code == 422  # Validation error
 
 
 # ─── Media ───────────────────────────────────────────────────────────────────
+
 
 class TestMedia:
     def _ensure_device(self):
@@ -298,14 +303,15 @@ class TestMedia:
                 "fingerprint": "test-fp-002",
                 "model": "Test Model",
             },
-            headers=headers
+            headers=headers,
         )
 
     def test_upload_media(self):
         import base64
+
         self._ensure_device()
         # Create a small test image (1x1 pixel PNG)
-        test_data = b'\x89PNG\r\n\x1a\n' + b'\x00' * 100
+        test_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
         data_b64 = base64.b64encode(test_data).decode()
 
         headers = get_device_headers()
@@ -318,7 +324,7 @@ class TestMedia:
                 "lat": 9.0820,
                 "lng": 8.6753,
             },
-            headers=headers
+            headers=headers,
         )
         assert response.status_code == 200
         data = response.json()
@@ -327,69 +333,50 @@ class TestMedia:
 
     def test_get_media_list(self):
         headers = get_dashboard_headers()
-        response = client.get(
-            f"/api/dashboard/media/{TEST_DEVICE_ID}",
-            headers=headers
-        )
+        response = client.get(f"/api/dashboard/media/{TEST_DEVICE_ID}", headers=headers)
         assert response.status_code == 200
         assert "media" in response.json()
 
 
 # ─── Authentication ──────────────────────────────────────────────────────────
 
+
 class TestAuthentication:
     def test_dashboard_login_valid(self):
-        response = client.post(
-            "/api/auth/login",
-            json={"api_key": TEST_API_KEY}
-        )
+        response = client.post("/api/auth/login", json={"api_key": TEST_API_KEY})
         assert response.status_code == 200
         data = response.json()
         assert "token" in data
         assert "refresh_token" in data
 
     def test_dashboard_login_invalid_key(self):
-        response = client.post(
-            "/api/auth/login",
-            json={"api_key": "invalid-key"}
-        )
+        response = client.post("/api/auth/login", json={"api_key": "invalid-key"})
         assert response.status_code == 401
 
     def test_token_refresh(self):
         # Login first
-        login_resp = client.post(
-            "/api/auth/login",
-            json={"api_key": TEST_API_KEY}
-        )
+        login_resp = client.post("/api/auth/login", json={"api_key": TEST_API_KEY})
         refresh_token = login_resp.json()["refresh_token"]
 
         # Refresh
-        response = client.post(
-            "/api/auth/refresh",
-            json={"refresh_token": refresh_token}
-        )
+        response = client.post("/api/auth/refresh", json={"refresh_token": refresh_token})
         assert response.status_code == 200
         assert "token" in response.json()
 
 
 # ─── Dashboard Endpoints ─────────────────────────────────────────────────────
 
+
 class TestDashboard:
     def test_list_devices(self):
         headers = get_dashboard_headers()
-        response = client.get(
-            "/api/dashboard/devices",
-            headers=headers
-        )
+        response = client.get("/api/dashboard/devices", headers=headers)
         assert response.status_code == 200
         assert "devices" in response.json()
 
     def test_get_stats(self):
         headers = get_dashboard_headers()
-        response = client.get(
-            "/api/dashboard/stats",
-            headers=headers
-        )
+        response = client.get("/api/dashboard/stats", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert "total_devices" in data
@@ -397,6 +384,7 @@ class TestDashboard:
 
 
 # ─── Geofences ───────────────────────────────────────────────────────────────
+
 
 class TestGeofences:
     def test_create_geofence(self):
@@ -411,16 +399,13 @@ class TestGeofences:
                 "radius_meters": 100,
                 "is_safe_zone": True,
             },
-            headers=headers
+            headers=headers,
         )
         assert response.status_code == 200
         assert "geofence_id" in response.json()
 
     def test_list_geofences(self):
         headers = get_dashboard_headers()
-        response = client.get(
-            f"/api/dashboard/geofences/{TEST_DEVICE_ID}",
-            headers=headers
-        )
+        response = client.get(f"/api/dashboard/geofences/{TEST_DEVICE_ID}", headers=headers)
         assert response.status_code == 200
         assert "geofences" in response.json()

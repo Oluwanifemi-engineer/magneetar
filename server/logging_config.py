@@ -2,6 +2,7 @@
 Magneetar Logging Configuration
 Structured JSON logging for production observability.
 """
+
 import json
 import logging
 import sys
@@ -20,6 +21,7 @@ LOG_LEVELS = {
 
 
 # ─── Structured JSON Formatter ───────────────────────────────────────────────
+
 
 class JSONFormatter(logging.Formatter):
     """Format logs as JSON for machine parsing and structured analysis."""
@@ -51,6 +53,7 @@ class JSONFormatter(logging.Formatter):
 
 # ─── Logger Factory ──────────────────────────────────────────────────────────
 
+
 def get_logger(name: str, level: str = "info") -> logging.Logger:
     """Get a structured JSON logger."""
     logger = logging.getLogger(name)
@@ -66,6 +69,7 @@ def get_logger(name: str, level: str = "info") -> logging.Logger:
 
 
 # ─── Audit Logger ────────────────────────────────────────────────────────────
+
 
 class AuditLogger:
     """Structured audit logging for security-relevant events."""

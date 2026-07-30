@@ -3,16 +3,17 @@ Magneetar PostgreSQL Database Adapter
 Production-grade PostgreSQL backend with connection pooling.
 Falls back to SQLite when PostgreSQL is not configured.
 """
+
 import json
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Optional
-from contextlib import asynccontextmanager
 
 from config import settings
 
-
 # ─── PostgreSQL Adapter ──────────────────────────────────────────────────────
+
 
 class PostgresDatabase:
     """Async PostgreSQL database operations using asyncpg."""
@@ -36,6 +37,7 @@ class PostgresDatabase:
 
         try:
             import asyncpg
+
             self._pool = await asyncpg.create_pool(
                 url,
                 min_size=2,
@@ -59,7 +61,8 @@ class PostgresDatabase:
         """Create all tables if they don't exist."""
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                await conn.execute("""
+                await conn.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS devices (
                         id TEXT PRIMARY KEY,
                         alias TEXT,
@@ -211,10 +214,12 @@ class PostgresDatabase:
                         revoked_at TIMESTAMPTZ DEFAULT NOW(),
                         reason TEXT
                     );
-                """)
+                """
+                )
 
                 # Create indexes
-                await conn.execute("""
+                await conn.execute(
+                    """
                     CREATE INDEX IF NOT EXISTS idx_locations_device ON locations(device_id);
                     CREATE INDEX IF NOT EXISTS idx_locations_timestamp ON locations(server_timestamp);
                     CREATE INDEX IF NOT EXISTS idx_media_device ON media(device_id);
@@ -224,7 +229,8 @@ class PostgresDatabase:
                     CREATE INDEX IF NOT EXISTS idx_geofences_device ON geofences(device_id);
                     CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
                     CREATE INDEX IF NOT EXISTS idx_rate_limits_identifier ON rate_limits(identifier, action);
-                """)
+                """
+                )
 
     async def purge_old_data(self, retention_days: int = 90):
         """Purge data older than retention_days (in days)."""
@@ -236,14 +242,10 @@ class PostgresDatabase:
                 ("media", "timestamp", retention_days),
                 ("audit_log", "timestamp", retention_days * 2),
             ]:
-                result = await conn.execute(
-                    f"DELETE FROM {table} WHERE {col} < NOW() - interval '{days} days'"
-                )
+                result = await conn.execute(f"DELETE FROM {table} WHERE {col} < NOW() - interval '{days} days'")
                 results[table] = int(result.split()[-1]) if result else 0
 
-            await conn.execute(
-                "DELETE FROM rate_limits WHERE timestamp < NOW() - interval '7 days'"
-            )
+            await conn.execute("DELETE FROM rate_limits WHERE timestamp < NOW() - interval '7 days'")
 
             return results
 

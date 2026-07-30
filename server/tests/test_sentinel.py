@@ -2,9 +2,11 @@
 Magneetar Sentinel Tests
 Tests for the theft detection engine.
 """
-import pytest
+
 import os
 import secrets
+
+import pytest
 
 # Set test environment
 os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
@@ -12,8 +14,8 @@ os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
 os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
 os.environ["MT_DB_PATH"] = ":memory:"
 
-from sentinel import SentinelEngine
 from models import TelemetryPing
+from sentinel import SentinelEngine
 
 
 @pytest.fixture
@@ -156,9 +158,9 @@ class TestFalsePositivePrevention:
             device_id="test",
             lat=9.0820,
             lng=8.6753,
-            sim_changed=True,      # 35
-            is_airplane_mode=True, # 15
-            speed=30.0,            # 25 (vehicle)
+            sim_changed=True,  # 35
+            is_airplane_mode=True,  # 15
+            speed=30.0,  # 25 (vehicle)
             is_location_enabled=False,  # 20
         )
         score, level, anomalies = engine.compute_score(ping, [])
@@ -188,6 +190,7 @@ class TestLocationValidation:
         # accuracy_horizontal must be >= 0 per Pydantic validation
         # Test that validation rejects negative accuracy at model level
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             TelemetryPing(
                 device_id="test",
@@ -199,30 +202,34 @@ class TestLocationValidation:
 
 class TestGeofenceCheck:
     def test_inside_geofence_no_trigger(self, engine, safe_ping):
-        geofences = [{
-            "id": 1,
-            "center_lat": 9.0820,
-            "center_lng": 8.6753,
-            "radius_meters": 100,
-            "is_safe_zone": True,
-            "active": True,
-            "was_inside": True,  # Was inside before, still inside
-        }]
+        geofences = [
+            {
+                "id": 1,
+                "center_lat": 9.0820,
+                "center_lng": 8.6753,
+                "radius_meters": 100,
+                "is_safe_zone": True,
+                "active": True,
+                "was_inside": True,  # Was inside before, still inside
+            }
+        ]
         triggered = engine.check_geofences(safe_ping, geofences)
         # Device is at center, was inside before, still inside - no transition
         assert len(triggered) == 0
 
     def test_exit_safe_zone_triggers(self, engine):
         # Device was inside, now outside
-        geofences = [{
-            "id": 1,
-            "center_lat": 9.0820,
-            "center_lng": 8.6753,
-            "radius_meters": 100,
-            "is_safe_zone": True,
-            "active": True,
-            "was_inside": True,  # Was previously inside
-        }]
+        geofences = [
+            {
+                "id": 1,
+                "center_lat": 9.0820,
+                "center_lng": 8.6753,
+                "radius_meters": 100,
+                "is_safe_zone": True,
+                "active": True,
+                "was_inside": True,  # Was previously inside
+            }
+        ]
 
         # Now far away
         ping = TelemetryPing(

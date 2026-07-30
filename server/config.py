@@ -2,13 +2,15 @@
 Magneetar Server Configuration
 All configuration from environment variables - NEVER hardcode secrets.
 """
+
 import os
 import secrets
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Load .env file if it exists
-env_path = Path(__file__).parent / '.env'
+env_path = Path(__file__).parent / ".env"
 if env_path.exists():
     load_dotenv(env_path)
 
@@ -47,7 +49,7 @@ class Settings:
     RATE_LOGIN_ATTEMPTS: int = 5
     RATE_LOGIN_WINDOW_MINUTES: int = 10
     RATE_COMMAND_PER_MINUTE: int = 20  # Max commands per minute per dashboard user
-    RATE_MEDIA_PER_MINUTE: int = 10   # Max media uploads per minute per device
+    RATE_MEDIA_PER_MINUTE: int = 10  # Max media uploads per minute per device
     RATE_HEARTBEAT_PER_MINUTE: int = 10  # Max heartbeats per minute per device
     RATE_COMMAND_POLL_PER_MINUTE: int = 30  # Max command polls per minute per device
 

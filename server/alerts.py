@@ -2,16 +2,17 @@
 Magneetar Alert System
 Multi-channel alerts: Email (SendGrid), SMS (Termii), WhatsApp (Twilio), Push (FCM).
 """
-import os
-import time
+
 import asyncio
 import logging
-import httpx
-from datetime import datetime, timezone
+import os
 import random
-from typing import Optional
-from database import get_db_context, log_audit
+import time
+from datetime import datetime, timezone
+
+import httpx
 from config import settings
+from database import get_db_context
 
 logger = logging.getLogger(__name__)
 
@@ -68,16 +69,12 @@ class AlertEngine:
                 f"Will re-try in {self.CIRCUIT_BREAKER_COOLDOWN}s."
             )
 
-    async def _send_with_retry(
-        self,
-        channel: str,
-        send_fn,
-        *args,
-        **kwargs
-    ) -> bool:
+    async def _send_with_retry(self, channel: str, send_fn, *args, **kwargs) -> bool:
         """Send with one retry using exponential backoff + jitter."""
         if self._should_skip_channel(channel):
-            logger.warning(f"Skipping channel '{channel}' — circuit breaker open for {int(time.time() - self._channel_disabled_at.get(channel, 0))}s")
+            logger.warning(
+                f"Skipping channel '{channel}' — circuit breaker open for {int(time.time() - self._channel_disabled_at.get(channel, 0))}s"
+            )
             return False
 
         for attempt in range(2):  # Attempt 0 and attempt 1
@@ -231,6 +228,7 @@ class AlertEngine:
                 cred_path = settings.FIREBASE_CREDENTIALS
                 if cred_path.startswith("{"):
                     import json as _json
+
                     cred = credentials.Certificate(_json.loads(cred_path))
                 else:
                     cred = credentials.Certificate(cred_path)
@@ -300,11 +298,7 @@ class AlertEngine:
             return False
 
     async def send_all(
-        self,
-        device_id: str,
-        alert_type: str,
-        data: dict,
-        channels: list[str] = None
+        self, device_id: str, alert_type: str, data: dict, channels: list[str] = None
     ) -> dict[str, bool]:
         """
         Send alert via all configured channels.
@@ -329,7 +323,7 @@ class AlertEngine:
                     # First, try to get tokens registered by this specific device
                     rows = conn.execute(
                         "SELECT DISTINCT fcm_token FROM fcm_tokens WHERE device_id=? ORDER BY updated_at DESC",
-                        (device_id,)
+                        (device_id,),
                     ).fetchall()
                     push_tokens = [r["fcm_token"] for r in rows]
 
@@ -349,26 +343,18 @@ class AlertEngine:
         for channel in channels:
             success = False
             if channel == "email" and email_to:
-                success = await self._send_with_retry(
-                    "email", self.send_email, email_to, alert_type, data
-                )
+                success = await self._send_with_retry("email", self.send_email, email_to, alert_type, data)
             elif channel == "sms" and phone_to:
-                success = await self._send_with_retry(
-                    "sms", self.send_sms, phone_to, alert_type, data
-                )
+                success = await self._send_with_retry("sms", self.send_sms, phone_to, alert_type, data)
             elif channel == "push":
                 # Send push to all registered FCM tokens
                 if push_tokens:
                     for token in push_tokens:
-                        token_success = await self._send_with_retry(
-                            "push", self.send_push, token, alert_type, data
-                        )
+                        token_success = await self._send_with_retry("push", self.send_push, token, alert_type, data)
                         if token_success:
                             success = True  # At least one succeeded
             elif channel == "whatsapp" and phone_to:
-                success = await self._send_with_retry(
-                    "whatsapp", self.send_whatsapp, phone_to, alert_type, data
-                )
+                success = await self._send_with_retry("whatsapp", self.send_whatsapp, phone_to, alert_type, data)
 
             results[channel] = success
 
@@ -385,7 +371,7 @@ class AlertEngine:
                         recipient,
                         self.ALERT_TEMPLATES.get(alert_type, {}).get("sms", "").format(**data),
                         success,
-                    )
+                    ),
                 )
                 conn.commit()
 

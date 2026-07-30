@@ -2,13 +2,15 @@
 Magneetar Sentinel Engine
 Server-side theft detection system with anomaly scoring.
 """
+
 import json
 import math
 from datetime import datetime, timezone
 from typing import Optional
-from models import TelemetryPing
-from database import get_db_context, log_audit
+
 from config import settings
+from database import get_db_context, log_audit
+from models import TelemetryPing
 
 
 class SentinelEngine:
@@ -38,18 +40,14 @@ class SentinelEngine:
         self.confirmation_count = settings.ANOMALY_CONFIRMATION_COUNT
         self.theft_threshold = settings.THEFT_SCORE_THRESHOLD
 
-    def compute_score(
-        self,
-        ping: TelemetryPing,
-        history: list[dict]
-    ) -> tuple[int, str, list[str]]:
+    def compute_score(self, ping: TelemetryPing, history: list[dict]) -> tuple[int, str, list[str]]:
         """
         Compute threat score from current ping and recent history.
-        
+
         Args:
             ping: Current telemetry ping
             history: List of recent location records (newest first)
-            
+
         Returns:
             (score 0-100, threat_level, list of anomaly descriptions)
         """
@@ -93,7 +91,7 @@ class SentinelEngine:
         # ── Offline Queue Analysis ────────────────────────────────────────
         if ping.was_queued and ping.queued_at:
             try:
-                queued_time = datetime.fromisoformat(ping.queued_at.replace('Z', '+00:00'))
+                queued_time = datetime.fromisoformat(ping.queued_at.replace("Z", "+00:00"))
                 now = datetime.now(timezone.utc)
                 minutes_queued = (now - queued_time).total_seconds() / 60
                 if minutes_queued > 10:
@@ -110,12 +108,8 @@ class SentinelEngine:
             prev_lat = prev.get("lat")
             prev_lng = prev.get("lng")
             if prev_lat and prev_lng:
-                distance_km = self._haversine(
-                    prev_lat, prev_lng, ping.lat, ping.lng
-                )
-                time_diff = self._time_diff_seconds(
-                    prev.get("server_timestamp"), ping.device_timestamp
-                )
+                distance_km = self._haversine(prev_lat, prev_lng, ping.lat, ping.lng)
+                time_diff = self._time_diff_seconds(prev.get("server_timestamp"), ping.device_timestamp)
                 if time_diff > 0:
                     implied_speed_kmh = (distance_km / time_diff) * 3600
                     # If implied speed > 500 km/h, likely GPS spoofing or teleport
@@ -146,9 +140,7 @@ class SentinelEngine:
         # ── False Positive Prevention ─────────────────────────────────────
         # Require consecutive anomalies to escalate to CRITICAL
         if threat_level == "CRITICAL" and history:
-            recent_scores = [
-                loc.get("sentinel_score", 0) for loc in history[:self.confirmation_count]
-            ]
+            recent_scores = [loc.get("sentinel_score", 0) for loc in history[: self.confirmation_count]]
             high_count = sum(1 for s in recent_scores if s >= self.theft_threshold)
             if high_count < self.confirmation_count - 1:
                 threat_level = "HIGH"
@@ -166,9 +158,7 @@ class SentinelEngine:
         """
         with get_db_context() as conn:
             # Check if already in theft mode
-            device = conn.execute(
-                "SELECT operating_mode FROM devices WHERE id=?", (device_id,)
-            ).fetchone()
+            device = conn.execute("SELECT operating_mode FROM devices WHERE id=?", (device_id,)).fetchone()
 
             if device and device["operating_mode"] == "stolen":
                 return  # Already activated
@@ -176,11 +166,11 @@ class SentinelEngine:
             # Update device status
             now = datetime.now(timezone.utc).isoformat()
             conn.execute(
-                """UPDATE devices 
-                   SET is_stolen=1, theft_confirmed_at=?, 
+                """UPDATE devices
+                   SET is_stolen=1, theft_confirmed_at=?,
                        operating_mode='stolen', sentinel_score=?
                    WHERE id=?""",
-                (now, score, device_id)
+                (now, score, device_id),
             )
 
             # Create evidence case
@@ -188,7 +178,7 @@ class SentinelEngine:
             conn.execute(
                 """INSERT INTO evidence_cases (id, device_id, theft_time, status)
                    VALUES (?, ?, ?, 'active')""",
-                (case_id, device_id, now)
+                (case_id, device_id, now),
             )
 
             # Queue high-priority evidence commands
@@ -201,17 +191,13 @@ class SentinelEngine:
                 conn.execute(
                     """INSERT INTO commands (device_id, command, status, priority, issued_at)
                        VALUES (?, ?, 'pending', ?, ?)""",
-                    (device_id, cmd, priority, now)
+                    (device_id, cmd, priority, now),
                 )
 
             conn.commit()
 
             # Log the theft activation
-            log_audit(
-                action="theft_mode_activated",
-                actor=device_id,
-                details=f"Score: {score}, Case: {case_id}"
-            )
+            log_audit(action="theft_mode_activated", actor=device_id, details=f"Score: {score}, Case: {case_id}")
 
     def check_geofences(self, ping: TelemetryPing, geofences: list[dict]) -> list[dict]:
         """
@@ -224,10 +210,7 @@ class SentinelEngine:
             if not fence.get("active", True):
                 continue
 
-            distance = self._haversine(
-                ping.lat, ping.lng,
-                fence["center_lat"], fence["center_lng"]
-            )
+            distance = self._haversine(ping.lat, ping.lng, fence["center_lat"], fence["center_lng"])
 
             is_inside = distance <= fence["radius_meters"]
 
@@ -235,21 +218,25 @@ class SentinelEngine:
             was_inside = fence.get("was_inside", False)
 
             if is_inside and not was_inside:
-                triggered.append({
-                    "geofence_id": fence["id"],
-                    "name": fence.get("name", "Unknown"),
-                    "event": "entered",
-                    "is_safe_zone": fence.get("is_safe_zone", True),
-                    "distance_meters": distance,
-                })
+                triggered.append(
+                    {
+                        "geofence_id": fence["id"],
+                        "name": fence.get("name", "Unknown"),
+                        "event": "entered",
+                        "is_safe_zone": fence.get("is_safe_zone", True),
+                        "distance_meters": distance,
+                    }
+                )
             elif not is_inside and was_inside:
-                triggered.append({
-                    "geofence_id": fence["id"],
-                    "name": fence.get("name", "Unknown"),
-                    "event": "exited",
-                    "is_safe_zone": fence.get("is_safe_zone", True),
-                    "distance_meters": distance,
-                })
+                triggered.append(
+                    {
+                        "geofence_id": fence["id"],
+                        "name": fence.get("name", "Unknown"),
+                        "event": "exited",
+                        "is_safe_zone": fence.get("is_safe_zone", True),
+                        "distance_meters": distance,
+                    }
+                )
 
         return triggered
 
@@ -261,7 +248,7 @@ class SentinelEngine:
         # Check timestamp is within 5 minutes of server time
         if ping.device_timestamp:
             try:
-                device_time = datetime.fromisoformat(ping.device_timestamp.replace('Z', '+00:00'))
+                device_time = datetime.fromisoformat(ping.device_timestamp.replace("Z", "+00:00"))
                 now = datetime.now(timezone.utc)
                 diff = abs((now - device_time).total_seconds())
                 if diff > 300:  # 5 minutes
@@ -299,9 +286,7 @@ class SentinelEngine:
         delta_lat = math.radians(lat2 - lat1)
         delta_lng = math.radians(lng2 - lng1)
 
-        a = (math.sin(delta_lat / 2) ** 2 +
-             math.cos(lat1_rad) * math.cos(lat2_rad) *
-             math.sin(delta_lng / 2) ** 2)
+        a = math.sin(delta_lat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lng / 2) ** 2
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
         return R * c
@@ -311,8 +296,8 @@ class SentinelEngine:
         if not time1 or not time2:
             return 0
         try:
-            t1 = datetime.fromisoformat(time1.replace('Z', '+00:00'))
-            t2 = datetime.fromisoformat(time2.replace('Z', '+00:00'))
+            t1 = datetime.fromisoformat(time1.replace("Z", "+00:00"))
+            t2 = datetime.fromisoformat(time2.replace("Z", "+00:00"))
             return abs((t2 - t1).total_seconds())
         except (ValueError, TypeError):
             return 0
@@ -321,9 +306,10 @@ class SentinelEngine:
         """Generate case ID: MGT-2026-XXXXX"""
         import secrets
         import string
+
         year = datetime.now(timezone.utc).year
         chars = string.ascii_uppercase + string.digits
-        suffix = ''.join(secrets.choice(chars) for _ in range(5))
+        suffix = "".join(secrets.choice(chars) for _ in range(5))
         return f"MGT-{year}-{suffix}"
 
 

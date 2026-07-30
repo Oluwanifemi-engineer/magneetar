@@ -2,10 +2,12 @@
 Magneetar Auth Tests
 Tests for JWT authentication and authorization.
 """
-import pytest
+
 import os
 import secrets
 import time
+
+import pytest
 
 # Set test environment
 os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
@@ -13,10 +15,7 @@ os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
 os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
 os.environ["MT_DB_PATH"] = "/tmp/magneetar-test-auth.db"
 
-from auth import (
-    create_token, decode_token, create_device_tokens,
-    create_dashboard_tokens, refresh_access_token
-)
+from auth import create_dashboard_tokens, create_device_tokens, create_token, decode_token, refresh_access_token
 from database import init_db
 
 
@@ -26,6 +25,7 @@ def setup_db():
     init_db()
     yield
     import os as _os
+
     try:
         _os.remove("/tmp/magneetar-test-auth.db")
     except OSError:

@@ -2,12 +2,14 @@
 Magneetar Evidence System
 Evidence package builder with chain of custody and PDF generation.
 """
+
 import hashlib
 import json
 import secrets
 import string
 from datetime import datetime, timezone
 from typing import Optional
+
 from database import get_db_context, log_audit
 
 
@@ -26,15 +28,11 @@ class EvidenceBuilder:
             conn.execute(
                 """INSERT INTO evidence_cases (id, device_id, theft_time, status)
                    VALUES (?, ?, ?, 'active')""",
-                (case_id, device_id, now)
+                (case_id, device_id, now),
             )
             conn.commit()
 
-            log_audit(
-                action="evidence_case_created",
-                actor=device_id,
-                details=f"Case: {case_id}"
-            )
+            log_audit(action="evidence_case_created", actor=device_id, details=f"Case: {case_id}")
 
         return case_id
 
@@ -42,7 +40,7 @@ class EvidenceBuilder:
         """Generate case ID: MGT-{YEAR}-{5 random uppercase alphanumeric}"""
         year = datetime.now().year
         chars = string.ascii_uppercase + string.digits
-        suffix = ''.join(secrets.choice(chars) for _ in range(5))
+        suffix = "".join(secrets.choice(chars) for _ in range(5))
         return f"MGT-{year}-{suffix}"
 
     def update_chain(self, case_id: str, item_hash: str) -> str:
@@ -52,10 +50,7 @@ class EvidenceBuilder:
         Returns new chain hash.
         """
         with get_db_context() as conn:
-            case = conn.execute(
-                "SELECT sha256_chain FROM evidence_cases WHERE id=?",
-                (case_id,)
-            ).fetchone()
+            case = conn.execute("SELECT sha256_chain FROM evidence_cases WHERE id=?", (case_id,)).fetchone()
 
             previous_chain = case["sha256_chain"] if case and case["sha256_chain"] else ""
             timestamp = datetime.now(timezone.utc).isoformat()
@@ -65,10 +60,7 @@ class EvidenceBuilder:
             new_chain = hashlib.sha256(chain_input.encode()).hexdigest()
 
             # Update case
-            conn.execute(
-                "UPDATE evidence_cases SET sha256_chain=? WHERE id=?",
-                (new_chain, case_id)
-            )
+            conn.execute("UPDATE evidence_cases SET sha256_chain=? WHERE id=?", (new_chain, case_id))
             conn.commit()
 
         return new_chain
@@ -81,10 +73,10 @@ class EvidenceBuilder:
         """Increment location count for a case."""
         with get_db_context() as conn:
             conn.execute(
-                """UPDATE evidence_cases 
-                   SET location_count = location_count + 1 
+                """UPDATE evidence_cases
+                   SET location_count = location_count + 1
                    WHERE id=?""",
-                (case_id,)
+                (case_id,),
             )
             conn.commit()
 
@@ -105,15 +97,9 @@ class EvidenceBuilder:
         # Update case counters
         with get_db_context() as conn:
             if media_type == "photo":
-                conn.execute(
-                    "UPDATE evidence_cases SET photo_count = photo_count + 1 WHERE id=?",
-                    (case_id,)
-                )
+                conn.execute("UPDATE evidence_cases SET photo_count = photo_count + 1 WHERE id=?", (case_id,))
             elif media_type == "audio":
-                conn.execute(
-                    "UPDATE evidence_cases SET audio_count = audio_count + 1 WHERE id=?",
-                    (case_id,)
-                )
+                conn.execute("UPDATE evidence_cases SET audio_count = audio_count + 1 WHERE id=?", (case_id,))
             conn.commit()
 
         return item_hash
@@ -121,18 +107,14 @@ class EvidenceBuilder:
     def get_case_summary(self, case_id: str) -> Optional[dict]:
         """Get evidence case summary."""
         with get_db_context() as conn:
-            case = conn.execute(
-                "SELECT * FROM evidence_cases WHERE id=?",
-                (case_id,)
-            ).fetchone()
+            case = conn.execute("SELECT * FROM evidence_cases WHERE id=?", (case_id,)).fetchone()
 
             if not case:
                 return None
 
             # Get media items
             media = conn.execute(
-                "SELECT id, type, timestamp, sha256_hash FROM media WHERE evidence_case_id=?",
-                (case_id,)
+                "SELECT id, type, timestamp, sha256_hash FROM media WHERE evidence_case_id=?", (case_id,)
             ).fetchall()
 
             return {
@@ -153,10 +135,7 @@ class EvidenceBuilder:
     def get_media_for_case(self, case_id: str) -> list[dict]:
         """Get full media items (including data_b64) for an evidence case."""
         with get_db_context() as conn:
-            rows = conn.execute(
-                "SELECT * FROM media WHERE evidence_case_id=?",
-                (case_id,)
-            ).fetchall()
+            rows = conn.execute("SELECT * FROM media WHERE evidence_case_id=?", (case_id,)).fetchall()
             return [dict(r) for r in rows]
 
     def compile_pdf_data(self, case_id: str) -> Optional[dict]:
@@ -170,34 +149,30 @@ class EvidenceBuilder:
 
         with get_db_context() as conn:
             # Get device info
-            device = conn.execute(
-                "SELECT * FROM devices WHERE id=?",
-                (summary["device_id"],)
-            ).fetchone()
+            device = conn.execute("SELECT * FROM devices WHERE id=?", (summary["device_id"],)).fetchone()
 
             # Get location trail
             locations = conn.execute(
                 """SELECT lat, lng, accuracy, provider, timestamp, speed, bearing,
                           battery_percent, network_type, sentinel_score, threat_level
-                   FROM locations 
-                   WHERE device_id=? 
+                   FROM locations
+                   WHERE device_id=?
                    ORDER BY server_timestamp ASC""",
-                (summary["device_id"],)
+                (summary["device_id"],),
             ).fetchall()
 
             # Get media metadata
             media = conn.execute(
-                "SELECT id, type, lat, lng, timestamp, sha256_hash FROM media WHERE evidence_case_id=?",
-                (case_id,)
+                "SELECT id, type, lat, lng, timestamp, sha256_hash FROM media WHERE evidence_case_id=?", (case_id,)
             ).fetchall()
 
             # Get alerts
             alerts = conn.execute(
-                """SELECT alert_type, channel, message, sent_at 
-                   FROM alerts 
-                   WHERE device_id=? 
+                """SELECT alert_type, channel, message, sent_at
+                   FROM alerts
+                   WHERE device_id=?
                    ORDER BY sent_at ASC""",
-                (summary["device_id"],)
+                (summary["device_id"],),
             ).fetchall()
 
             return {

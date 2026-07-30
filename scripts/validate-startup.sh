@@ -252,7 +252,7 @@ if [ "$CHECK_SERVER" = true ]; then
         "sqlite3:SQLite (stdlib)"
         "httpx:HTTP client"
         "pydantic:Data validation"
-        "jose:JWT token handling"
+        "jwt:JWT token handling (PyJWT)"
     )
 
     for entry in "${CRITICAL_PACKAGES[@]}"; do

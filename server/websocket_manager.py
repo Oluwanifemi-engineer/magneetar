@@ -3,9 +3,11 @@ Magneetar WebSocket Manager
 Shared state for WebSocket connections and broadcasting to dashboards.
 Extracted from main.py to avoid circular imports between main.py and route modules.
 """
-import time
+
 import asyncio
 import logging
+import time
+
 from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
@@ -71,11 +73,13 @@ def _safe_remove(ws: WebSocket, reason: str = "unknown"):
         _last_pong_times.pop(id(ws), None)
         logger.info(
             "WebSocket removed",
-            extra={"extra_data": {
-                "reason": reason,
-                "remaining": len(active_dashboard_connections),
-                "max": MAX_DASHBOARD_CONNECTIONS,
-            }}
+            extra={
+                "extra_data": {
+                    "reason": reason,
+                    "remaining": len(active_dashboard_connections),
+                    "max": MAX_DASHBOARD_CONNECTIONS,
+                }
+            },
         )
 
 
@@ -129,11 +133,13 @@ async def prune_stale_connections():
     if total:
         logger.warning(
             "Pruned stale WebSocket connections",
-            extra={"extra_data": {
-                "dead_socket": len(dead_send),
-                "no_pong": len(dead_pong),
-                "remaining": len(active_dashboard_connections),
-            }}
+            extra={
+                "extra_data": {
+                    "dead_socket": len(dead_send),
+                    "no_pong": len(dead_pong),
+                    "remaining": len(active_dashboard_connections),
+                }
+            },
         )
 
 

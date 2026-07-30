@@ -23,13 +23,13 @@ export default function HomePage() {
       <div className="absolute inset-0 mag-grid-bg opacity-30" />
       {/* Scan line */}
       <div className="absolute left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-white/[0.03] to-transparent animate-scan-line pointer-events-none" />
-      
+
       <div className="text-center relative z-10 animate-fade-slide">
         {/* M Logo */}
         <div className="inline-flex items-center justify-center mb-6">
           <img src="/m-logo.svg" alt="M" className="w-16 h-16" />
         </div>
-        
+
         <div className="text-mag-text text-2xl font-display font-bold tracking-[0.3em] mb-2">
           MAGNEETAR
         </div>

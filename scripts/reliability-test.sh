@@ -160,7 +160,7 @@ test_heartbeat_endpoint() {
 
 test_dashboard_accessible() {
     echo ""
-    echo "─── 3.1 Dashboard Serves Content ───" 
+    echo "─── 3.1 Dashboard Serves Content ───"
 
     # Just check that the dashboard server responds (not a full page render)
     if [ -n "${MT_DASHBOARD_URL:-}" ]; then

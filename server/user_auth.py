@@ -2,18 +2,22 @@
 Magneetar User Authentication Endpoints
 Registration, login, and user management.
 """
+
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Depends, Request
-from database import get_db_context, log_audit, check_rate_limit
+
 from auth import (
-    hash_password, verify_password, create_user_tokens,
-    get_current_user, check_login_rate_limit, refresh_access_token
-)
-from models import (
-    UserRegisterRequest, UserLoginRequest, UserResponse, TokenResponse, RefreshRequest
+    check_login_rate_limit,
+    create_user_tokens,
+    get_current_user,
+    hash_password,
+    refresh_access_token,
+    verify_password,
 )
 from config import settings
+from database import check_rate_limit, get_db_context, log_audit
+from fastapi import APIRouter, Depends, HTTPException, Request
+from models import RefreshRequest, TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
 
 router = APIRouter()
 
@@ -24,16 +28,16 @@ async def register_user(req: UserRegisterRequest, request: Request):
     # Rate limit: 3 registrations per 10 minutes per IP
     forwarded = request.headers.get("X-Forwarded-For", "")
     cf_ip = request.headers.get("CF-Connecting-IP", "")
-    client_ip = cf_ip or (forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown"))
+    client_ip = cf_ip or (
+        forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+    )
 
     if not check_rate_limit(f"register:{client_ip}", "register", 3, 10):
         raise HTTPException(status_code=429, detail="Too many registration attempts")
 
     # Check if email already exists
     with get_db_context() as db:
-        existing = db.execute(
-            "SELECT id FROM users WHERE email=?", (req.email,)
-        ).fetchone()
+        existing = db.execute("SELECT id FROM users WHERE email=?", (req.email,)).fetchone()
         if existing:
             raise HTTPException(status_code=409, detail="Email already registered")
 
@@ -45,7 +49,7 @@ async def register_user(req: UserRegisterRequest, request: Request):
         db.execute(
             """INSERT INTO users (id, email, password_hash, display_name, created_at)
                VALUES (?, ?, ?, ?, ?)""",
-            (user_id, req.email, password_hashed, req.display_name, now)
+            (user_id, req.email, password_hashed, req.display_name, now),
         )
         db.commit()
 
@@ -61,20 +65,21 @@ async def login_user(req: UserLoginRequest, request: Request):
     """Login with email and password."""
     forwarded = request.headers.get("X-Forwarded-For", "")
     cf_ip = request.headers.get("CF-Connecting-IP", "")
-    client_ip = cf_ip or (forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown"))
+    client_ip = cf_ip or (
+        forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+    )
 
     if not check_login_rate_limit(client_ip):
         raise HTTPException(status_code=429, detail="Too many login attempts")
 
     with get_db_context() as db:
-        user = db.execute(
-            "SELECT id, password_hash, is_active FROM users WHERE email=?",
-            (req.email,)
-        ).fetchone()
+        user = db.execute("SELECT id, password_hash, is_active FROM users WHERE email=?", (req.email,)).fetchone()
 
         # Always run verify_password to prevent timing attacks
         if not user:
-            dummy_hash = "00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000"
+            dummy_hash = (
+                "00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000"
+            )
             verify_password(req.password, dummy_hash)
             log_audit("login_failed", ip_address=client_ip, details=req.email)
             raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -87,10 +92,7 @@ async def login_user(req: UserLoginRequest, request: Request):
             raise HTTPException(status_code=403, detail="Account is deactivated")
 
         # Update last login
-        db.execute(
-            "UPDATE users SET last_login=? WHERE id=?",
-            (datetime.now(timezone.utc).isoformat(), user["id"])
-        )
+        db.execute("UPDATE users SET last_login=? WHERE id=?", (datetime.now(timezone.utc).isoformat(), user["id"]))
         db.commit()
 
         log_audit("user_login", actor=user["id"], ip_address=client_ip)
@@ -111,22 +113,18 @@ async def get_me(user_id: str = Depends(get_current_user)):
             tier="admin",
             is_active=True,
             device_count=0,
-            max_devices=999
+            max_devices=999,
         )
 
     with get_db_context() as db:
         user = db.execute(
-            "SELECT id, email, display_name, tier, is_active, created_at FROM users WHERE id=?",
-            (user_id,)
+            "SELECT id, email, display_name, tier, is_active, created_at FROM users WHERE id=?", (user_id,)
         ).fetchone()
 
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        device_count = db.execute(
-            "SELECT COUNT(*) as cnt FROM devices WHERE owner_id=?",
-            (user_id,)
-        ).fetchone()["cnt"]
+        device_count = db.execute("SELECT COUNT(*) as cnt FROM devices WHERE owner_id=?", (user_id,)).fetchone()["cnt"]
 
         max_devices = settings.MAX_DEVICES_PER_USER if user["tier"] == "free" else 999
 
@@ -138,7 +136,7 @@ async def get_me(user_id: str = Depends(get_current_user)):
             is_active=user["is_active"],
             created_at=user["created_at"],
             device_count=device_count,
-            max_devices=max_devices
+            max_devices=max_devices,
         )
 
 

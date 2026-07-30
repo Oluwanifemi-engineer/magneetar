@@ -3,18 +3,20 @@ Magneetar Reliability Tests
 Tests for: WebSocket connection limits, health endpoint DB check,
            AlertEngine retry/circuit breaker.
 """
-import pytest
+
+import asyncio
 import json
 import os
-import sys
 import secrets
+import sys
 import tempfile
 import time
-import asyncio
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # ── Test Environment Setup ───────────────────────────────────────────────────
-_test_db_fd, test_db_path = tempfile.mkstemp(suffix='.db')
+_test_db_fd, test_db_path = tempfile.mkstemp(suffix=".db")
 os.close(_test_db_fd)
 
 os.environ["MT_API_KEY"] = "reliability-test-key-" + "a" * 32
@@ -24,27 +26,30 @@ os.environ["MT_DB_PATH"] = test_db_path
 
 # Import modules with clean env
 import config
+
 config.settings.DB_PATH = test_db_path
 
 import database
+
 database.DB_PATH = test_db_path
 database.init_db(test_db_path)
 
+from alerts import AlertEngine, alert_engine
 from fastapi.testclient import TestClient
 from main import app
 from websocket_manager import (
-    active_dashboard_connections,
     MAX_DASHBOARD_CONNECTIONS,
-    can_accept_new_connection,
     _safe_remove,
+    active_dashboard_connections,
+    can_accept_new_connection,
     prune_stale_connections,
 )
-from alerts import AlertEngine, alert_engine
 
 client = TestClient(app)
 
 
 # ── Cleanup ─────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(autouse=True)
 def cleanup_ws_connections():
@@ -66,6 +71,7 @@ def teardown_module(module):
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. Health Endpoint — Database Connectivity Check
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestHealthEndpointReliability:
     """Health endpoint must report database connectivity accurately."""
@@ -100,6 +106,7 @@ class TestHealthEndpointReliability:
 # ═══════════════════════════════════════════════════════════════════════════
 # 2. WebSocket Connection Limits
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestWebSocketConnectionLimits:
     """WebSocket connections must be bounded and stale connections pruned."""
@@ -153,9 +160,7 @@ class TestWebSocketConnectionLimits:
         active_dashboard_connections.append(m)
 
         await close_lowest_priority_connection()
-        m.close.assert_awaited_once_with(
-            code=1013, reason="Connection limit reached"
-        )
+        m.close.assert_awaited_once_with(code=1013, reason="Connection limit reached")
 
     @pytest.mark.asyncio
     async def test_stale_connection_removed_on_prune(self):
@@ -198,6 +203,7 @@ class TestWebSocketConnectionLimits:
         active_dashboard_connections.clear()
 
         import websocket_manager
+
         original_max = websocket_manager.MAX_DASHBOARD_CONNECTIONS
         websocket_manager.MAX_DASHBOARD_CONNECTIONS = 2
 
@@ -237,6 +243,7 @@ class TestWebSocketConnectionLimits:
 # ═══════════════════════════════════════════════════════════════════════════
 # 3. AlertEngine — Retry & Circuit Breaker
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestAlertEngineRetry:
     """AlertEngine must retry failed sends and track consecutive failures."""
@@ -347,8 +354,8 @@ class TestAlertEngineRetry:
         """send_all should route through _send_with_retry and record results."""
         engine = AlertEngine()
         with (
-            patch.object(engine, '_send_with_retry', new=AsyncMock(return_value=True)) as mock_retry,
-            patch('alerts.get_db_context') as mock_db,
+            patch.object(engine, "_send_with_retry", new=AsyncMock(return_value=True)) as mock_retry,
+            patch("alerts.get_db_context") as mock_db,
         ):
             mock_db.return_value.__enter__.return_value = MagicMock()
             results = await engine.send_all(
@@ -361,7 +368,7 @@ class TestAlertEngineRetry:
                     "time": "2026-01-01T00:00:00",
                     "score": "85",
                 },
-                channels=["email", "sms"]
+                channels=["email", "sms"],
             )
 
             assert results.get("email") is True
@@ -373,8 +380,8 @@ class TestAlertEngineRetry:
         """send_all should route push sends through _send_with_retry."""
         engine = AlertEngine()
         with (
-            patch.object(engine, '_send_with_retry', new=AsyncMock(return_value=True)) as mock_retry,
-            patch('alerts.get_db_context') as mock_db,
+            patch.object(engine, "_send_with_retry", new=AsyncMock(return_value=True)) as mock_retry,
+            patch("alerts.get_db_context") as mock_db,
         ):
             mock_db.return_value.__enter__.return_value = MagicMock()
             results = await engine.send_all(
@@ -387,7 +394,7 @@ class TestAlertEngineRetry:
                     "time": "2026-01-01T00:00:00",
                     "score": "85",
                 },
-                channels=["push"]
+                channels=["push"],
             )
 
             assert results.get("push") is True
@@ -398,8 +405,8 @@ class TestAlertEngineRetry:
         """send_all with push channel but no tokens should not crash."""
         engine = AlertEngine()
         with (
-            patch.object(engine, '_send_with_retry', new=AsyncMock(return_value=True)),
-            patch('alerts.get_db_context') as mock_db,
+            patch.object(engine, "_send_with_retry", new=AsyncMock(return_value=True)),
+            patch("alerts.get_db_context") as mock_db,
         ):
             mock_db.return_value.__enter__.return_value = MagicMock()
             results = await engine.send_all(
@@ -410,7 +417,7 @@ class TestAlertEngineRetry:
                     "time": "2026-01-01T00:00:00",
                     "score": "0",
                 },
-                channels=["push"]
+                channels=["push"],
             )
             # push without tokens = no calls to retry, success=False
             assert "push" in results

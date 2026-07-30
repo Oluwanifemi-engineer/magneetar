@@ -3,27 +3,32 @@ Magneetar Server — Application Setup
 Thin app initialization with middleware, lifespan, and route registration.
 All API endpoints have been extracted into route modules under routes/.
 """
+
+import asyncio
 import os
 import time
-import asyncio
 import traceback as tb
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
+from auth import decode_token
+from config import settings
+from database import ensure_initialized, log_error
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from contextlib import asynccontextmanager
-
-from config import settings
-from models import HealthResponse, ConfigResponse
-from database import log_error, ensure_initialized
-from auth import decode_token
-from websocket_manager import (
-    active_dashboard_connections, broadcast_to_dashboards, remove_websocket,
-    can_accept_new_connection, close_lowest_priority_connection,
-    start_connection_heartbeat, add_connection, record_pong,
-)
 from logging_config import get_logger
+from models import ConfigResponse, HealthResponse
+from websocket_manager import (
+    active_dashboard_connections,
+    add_connection,
+    broadcast_to_dashboards,
+    can_accept_new_connection,
+    close_lowest_priority_connection,
+    record_pong,
+    remove_websocket,
+    start_connection_heartbeat,
+)
 
 logger = get_logger("magneetar")
 
@@ -61,7 +66,9 @@ try:
             send_default_pii=False,
             release=f"magneetar@{APP_VERSION}",
         )
-        logger.info("Sentry initialized for error tracking", extra={"extra_data": {"environment": settings.ENVIRONMENT}})
+        logger.info(
+            "Sentry initialized for error tracking", extra={"extra_data": {"environment": settings.ENVIRONMENT}}
+        )
 except ImportError:
     pass
 except Exception as e:
@@ -69,6 +76,7 @@ except Exception as e:
 
 
 # ─── Lifespan Handler ────────────────────────────────────────────────────────
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -89,15 +97,17 @@ async def lifespan(app: FastAPI):
 
     logger.info(
         "Magneetar server starting",
-        extra={"extra_data": {
-            "version": APP_VERSION,
-            "environment": settings.ENVIRONMENT,
-            "host": settings.HOST,
-            "port": settings.PORT,
-            "database": "PostgreSQL" if settings.DATABASE_URL else "SQLite",
-            "retention_days": settings.DATA_RETENTION_DAYS,
-            "max_devices": settings.MAX_DEVICES_PER_USER,
-        }}
+        extra={
+            "extra_data": {
+                "version": APP_VERSION,
+                "environment": settings.ENVIRONMENT,
+                "host": settings.HOST,
+                "port": settings.PORT,
+                "database": "PostgreSQL" if settings.DATABASE_URL else "SQLite",
+                "retention_days": settings.DATA_RETENTION_DAYS,
+                "max_devices": settings.MAX_DEVICES_PER_USER,
+            }
+        },
     )
 
     # ── PostgreSQL Setup (optional) ────────────────────────────────────────
@@ -105,6 +115,7 @@ async def lifespan(app: FastAPI):
     if settings.DATABASE_URL:
         try:
             from database_postgres import get_postgres_db, is_postgres_configured
+
             if is_postgres_configured():
                 pg = await get_postgres_db()
                 if pg.is_connected:
@@ -121,11 +132,13 @@ async def lifespan(app: FastAPI):
         try:
             if pg_connected:
                 from database_postgres import get_postgres_db
+
                 pg = await get_postgres_db()
                 result = await pg.purge_old_data(settings.DATA_RETENTION_DAYS)
                 logger.info(f"Data retention cleanup: {result}")
             else:
                 from database import purge_old_data
+
                 result = await asyncio.to_thread(purge_old_data, settings.DATA_RETENTION_DAYS)
                 if result:
                     total_purged = sum(result.values())
@@ -136,9 +149,7 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(run_cleanup())
 
     # ── WebSocket Connection Heartbeat (every 30s) ───────────────────
-    heartbeat_task = asyncio.create_task(
-        start_connection_heartbeat(interval=30)
-    )
+    heartbeat_task = asyncio.create_task(start_connection_heartbeat(interval=30))
 
     # ── Scheduled Rate Limit Cleanup (every 6 hours) ────────────────────
     async def periodic_rate_limit_cleanup():
@@ -149,6 +160,7 @@ async def lifespan(app: FastAPI):
                 use_pg = False
                 try:
                     from database_postgres import get_postgres_db, is_postgres_configured
+
                     if is_postgres_configured():
                         pg = await get_postgres_db()
                         if pg.is_connected:
@@ -161,6 +173,7 @@ async def lifespan(app: FastAPI):
                     logger.info("Rate limit cleanup (PostgreSQL): purged entries older than 7 days")
                 else:
                     from database import get_db_context
+
                     with get_db_context() as conn:
                         conn.execute("DELETE FROM rate_limits WHERE timestamp < datetime('now', '-7 days')")
                         conn.commit()
@@ -179,6 +192,7 @@ async def lifespan(app: FastAPI):
 
     try:
         from database_postgres import close_postgres_db
+
         await close_postgres_db()
     except Exception:
         pass
@@ -188,13 +202,15 @@ async def lifespan(app: FastAPI):
         logger.info(f"Notifying {len(active_dashboard_connections)} dashboard client(s) of shutdown...")
         try:
             await asyncio.wait_for(
-                broadcast_to_dashboards({
-                    "type": "shutdown",
-                    "message": "Server is shutting down",
-                    "reconnect": True,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }),
-                timeout=0.5
+                broadcast_to_dashboards(
+                    {
+                        "type": "shutdown",
+                        "message": "Server is shutting down",
+                        "reconnect": True,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                ),
+                timeout=0.5,
             )
         except (asyncio.TimeoutError, Exception):
             logger.warning("Shutdown notification timed out or failed")
@@ -244,43 +260,47 @@ SERVER_START = time.time()
 
 # User auth routes (sign-up, sign-in, profile)
 from user_auth import router as user_auth_router
+
 app.include_router(user_auth_router)
 
 # Device-facing routes (registration, location, media, commands, heartbeats)
 from routes.devices import router as device_router
+
 app.include_router(device_router)
 
 # Dashboard-facing routes (admin UI, stats, errors, evidence, geofences)
 from routes.dashboard import router as dashboard_router
+
 app.include_router(dashboard_router)
 
 
 # ─── Request Timeout Middleware ───────────────────────────────────────────
 
+
 @app.middleware("http")
 async def timeout_middleware(request: Request, call_next):
     """Enforce a maximum request duration to prevent hanging connections."""
     try:
-        return await asyncio.wait_for(
-            call_next(request),
-            timeout=settings.REQUEST_TIMEOUT_SECONDS
-        )
+        return await asyncio.wait_for(call_next(request), timeout=settings.REQUEST_TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
         logger.warning(
             "Request timed out",
-            extra={"extra_data": {
-                "method": request.method,
-                "path": request.url.path,
-                "timeout": settings.REQUEST_TIMEOUT_SECONDS,
-            }}
+            extra={
+                "extra_data": {
+                    "method": request.method,
+                    "path": request.url.path,
+                    "timeout": settings.REQUEST_TIMEOUT_SECONDS,
+                }
+            },
         )
         return JSONResponse(
             status_code=504,
-            content={"detail": "Request timed out", "timeout_seconds": settings.REQUEST_TIMEOUT_SECONDS}
+            content={"detail": "Request timed out", "timeout_seconds": settings.REQUEST_TIMEOUT_SECONDS},
         )
 
 
 # ─── Request Timing & Error Tracking Middleware ────────────────────────────
+
 
 @app.middleware("http")
 async def monitor_request_time(request: Request, call_next):
@@ -295,12 +315,14 @@ async def monitor_request_time(request: Request, call_next):
         if duration > 1.0:
             logger.warning(
                 "Slow request detected",
-                extra={"extra_data": {
-                    "method": request.method,
-                    "path": request.url.path,
-                    "duration_ms": round(duration * 1000, 1),
-                    "status_code": response.status_code,
-                }}
+                extra={
+                    "extra_data": {
+                        "method": request.method,
+                        "path": request.url.path,
+                        "duration_ms": round(duration * 1000, 1),
+                        "status_code": response.status_code,
+                    }
+                },
             )
 
         response.headers["X-Process-Time-Ms"] = str(round(duration * 1000, 1))
@@ -332,11 +354,13 @@ async def monitor_request_time(request: Request, call_next):
 
         logger.error(
             f"Unhandled error: {type(e).__name__}: {e}",
-            extra={"extra_data": {
-                "method": request.method,
-                "path": request.url.path,
-                "duration_ms": round(duration * 1000, 1),
-            }}
+            extra={
+                "extra_data": {
+                    "method": request.method,
+                    "path": request.url.path,
+                    "duration_ms": round(duration * 1000, 1),
+                }
+            },
         )
 
         raise
@@ -344,12 +368,14 @@ async def monitor_request_time(request: Request, call_next):
 
 # ─── Health & Config (kept in main.py — core infrastructure) ─────────────────
 
+
 @app.get("/health", response_model=HealthResponse)
 async def health():
     """Public health endpoint with dependency checks."""
     db_ok = False
     try:
         from database import get_db_context
+
         with get_db_context() as conn:
             conn.execute("SELECT 1").fetchone()
             db_ok = True
@@ -378,13 +404,12 @@ async def download_apk():
     if not os.path.exists(apk_path):
         raise HTTPException(status_code=404, detail="APK not found on server")
     return FileResponse(
-        apk_path,
-        media_type="application/vnd.android.package-archive",
-        filename=f"Magneetar-v{APP_VERSION}-release.apk"
+        apk_path, media_type="application/vnd.android.package-archive", filename=f"Magneetar-v{APP_VERSION}-release.apk"
     )
 
 
 # ─── WebSocket ───────────────────────────────────────────────────────────────
+
 
 @app.websocket("/ws/dashboard")
 async def dashboard_websocket(websocket: WebSocket):
@@ -412,20 +437,24 @@ async def dashboard_websocket(websocket: WebSocket):
         # Evict oldest connection to make room — avoids silently dropping new clients
         logger.warning(
             "WebSocket at capacity — evicting oldest connection",
-            extra={"extra_data": {
-                "active": len(active_dashboard_connections),
-                "max": 100,
-            }}
+            extra={
+                "extra_data": {
+                    "active": len(active_dashboard_connections),
+                    "max": 100,
+                }
+            },
         )
         await close_lowest_priority_connection()
 
     add_connection(websocket)  # register + initialize pong timestamp
     logger.info(
         "WebSocket connected",
-        extra={"extra_data": {
-            "total": len(active_dashboard_connections),
-            "max": 100,
-        }}
+        extra={
+            "extra_data": {
+                "total": len(active_dashboard_connections),
+                "max": 100,
+            }
+        },
     )
 
     try:
@@ -433,7 +462,7 @@ async def dashboard_websocket(websocket: WebSocket):
             data = await websocket.receive_text()
             if data == "ping":
                 await websocket.send_json({"type": "pong"})
-            elif data in ("pong", "{\"type\": \"pong\"}"):
+            elif data in ("pong", '{"type": "pong"}'):
                 record_pong(websocket)
     except WebSocketDisconnect:
         remove_websocket(websocket)
@@ -443,4 +472,5 @@ async def dashboard_websocket(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host=settings.HOST, port=settings.PORT)

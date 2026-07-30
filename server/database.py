@@ -2,9 +2,11 @@
 Magneetar Database Layer
 SQLite implementation with full schema. PostgreSQL-compatible syntax.
 """
-import sqlite3
+
 import os
+import sqlite3
 from contextlib import contextmanager
+
 from config import settings
 
 DB_PATH = settings.DB_PATH
@@ -47,7 +49,8 @@ def init_db(db_path: str = None):
     path = db_path or DB_PATH
     conn = sqlite3.connect(path)
     c = conn.cursor()
-    c.executescript("""
+    c.executescript(
+        """
         -- ─── Users ────────────────────────────────────────────────────────────
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
@@ -85,7 +88,8 @@ def init_db(db_path: str = None):
         );
 
         CREATE INDEX IF NOT EXISTS idx_devices_key_hash ON devices(device_key_hash);
-    """)
+    """
+    )
 
     # ─── Safe Schema Migrations ───────────────────────────────────────────────
     # Add device_key_hash to existing databases (column may already exist on fresh DBs)
@@ -94,7 +98,8 @@ def init_db(db_path: str = None):
     except sqlite3.OperationalError:
         pass  # Column already exists — fresh DB or already migrated
 
-    c.executescript("""
+    c.executescript(
+        """
 
         -- ─── Locations (TelemetryPing) ─────────────────────────────────────
         CREATE TABLE IF NOT EXISTS locations (
@@ -295,7 +300,8 @@ def init_db(db_path: str = None):
 
         CREATE INDEX IF NOT EXISTS idx_error_log_timestamp ON error_log(timestamp);
         CREATE INDEX IF NOT EXISTS idx_error_log_resolved ON error_log(resolved);
-    """)
+    """
+    )
     conn.commit()
     conn.close()
 
@@ -305,7 +311,7 @@ def log_audit(action: str, actor: str = None, ip_address: str = None, details: s
     with get_db_context() as conn:
         conn.execute(
             "INSERT INTO audit_log (action, actor, ip_address, details) VALUES (?,?,?,?)",
-            (action, actor, ip_address, details)
+            (action, actor, ip_address, details),
         )
         conn.commit()
 
@@ -328,8 +334,7 @@ def log_error(
                 """INSERT INTO error_log (level, message, source, traceback,
                    request_method, request_path, request_ip, user_agent, device_id)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (level, message, source, traceback,
-                 request_method, request_path, request_ip, user_agent, device_id)
+                (level, message, source, traceback, request_method, request_path, request_ip, user_agent, device_id),
             )
             conn.commit()
     except Exception:
@@ -343,25 +348,18 @@ def check_rate_limit(identifier: str, action: str, max_requests: int, window_min
     """
     with get_db_context() as conn:
         # Clean old entries
-        conn.execute(
-            "DELETE FROM rate_limits WHERE timestamp < datetime('now', ?)",
-            (f'-{window_minutes} minutes',)
-        )
+        conn.execute("DELETE FROM rate_limits WHERE timestamp < datetime('now', ?)", (f"-{window_minutes} minutes",))
 
         # Count recent requests
         row = conn.execute(
-            "SELECT COUNT(*) as cnt FROM rate_limits WHERE identifier=? AND action=?",
-            (identifier, action)
+            "SELECT COUNT(*) as cnt FROM rate_limits WHERE identifier=? AND action=?", (identifier, action)
         ).fetchone()
 
-        if row and row['cnt'] >= max_requests:
+        if row and row["cnt"] >= max_requests:
             return False
 
         # Record this request
-        conn.execute(
-            "INSERT INTO rate_limits (identifier, action) VALUES (?,?)",
-            (identifier, action)
-        )
+        conn.execute("INSERT INTO rate_limits (identifier, action) VALUES (?,?)", (identifier, action))
         conn.commit()
         return True
 
@@ -375,36 +373,27 @@ def purge_old_data(retention_days: int = 90):
         cutoff = f"-{retention_days} days"
 
         deleted_locations = conn.execute(
-            "DELETE FROM locations WHERE server_timestamp < datetime('now', ?)",
-            (cutoff,)
+            "DELETE FROM locations WHERE server_timestamp < datetime('now', ?)", (cutoff,)
         ).rowcount
 
         deleted_heartbeats = conn.execute(
-            "DELETE FROM heartbeats WHERE timestamp < datetime('now', ?)",
-            (cutoff,)
+            "DELETE FROM heartbeats WHERE timestamp < datetime('now', ?)", (cutoff,)
         ).rowcount
 
-        deleted_media = conn.execute(
-            "DELETE FROM media WHERE timestamp < datetime('now', ?)",
-            (cutoff,)
-        ).rowcount
+        deleted_media = conn.execute("DELETE FROM media WHERE timestamp < datetime('now', ?)", (cutoff,)).rowcount
 
         # Keep audit logs longer
         audit_cutoff = f"-{retention_days * 2} days"
         deleted_audit = conn.execute(
-            "DELETE FROM audit_log WHERE timestamp < datetime('now', ?)",
-            (audit_cutoff,)
+            "DELETE FROM audit_log WHERE timestamp < datetime('now', ?)", (audit_cutoff,)
         ).rowcount
 
         # Keep rate limits for only 7 days
-        conn.execute(
-            "DELETE FROM rate_limits WHERE timestamp < datetime('now', '-7 days')"
-        )
+        conn.execute("DELETE FROM rate_limits WHERE timestamp < datetime('now', '-7 days')")
 
         # Purge resolved errors older than retention_days (unresolved errors kept indefinitely)
         deleted_errors = conn.execute(
-            "DELETE FROM error_log WHERE resolved=1 AND timestamp < datetime('now', ?)",
-            (cutoff,)
+            "DELETE FROM error_log WHERE resolved=1 AND timestamp < datetime('now', ?)", (cutoff,)
         ).rowcount
 
         conn.commit()
@@ -434,7 +423,7 @@ def ensure_initialized() -> bool:
     Returns True if initialization was performed, False if already initialized.
     """
     # In-memory databases always need initialization
-    if DB_PATH == ':memory:':
+    if DB_PATH == ":memory:":
         init_db()
         return True
     # File-based databases: init if file doesn't exist

@@ -113,7 +113,7 @@ export default function LoginPage() {
 
       {/* ─── Main Content ───────────────────────────────────────────────────── */}
       <div className={`relative z-10 w-full max-w-md mx-6 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-        
+
         {/* M Logo */}
         <div className="text-center mb-10">
           <div className={`transition-all duration-1000 delay-200 ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
@@ -122,11 +122,11 @@ export default function LoginPage() {
               {/* Outer rings */}
               <div className="absolute w-24 h-24 rounded-full border border-white/[0.06] animate-m-glow" />
               <div className="absolute w-20 h-20 rounded-full border border-white/[0.03]" />
-              
+
               {/* M Icon */}
               <div className="w-16 h-16 rounded-2xl bg-white/[0.02] border border-white/[0.08] flex items-center justify-center backdrop-blur-sm">
                 <svg viewBox="0 0 120 120" className="w-10 h-10" fill="none" aria-label="Magneetar logo">
-                  <path d="M24 88L24 32L48 60L60 44L72 60L96 32L96 88" 
+                  <path d="M24 88L24 32L48 60L60 44L72 60L96 32L96 88"
                         stroke="white" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
@@ -151,9 +151,9 @@ export default function LoginPage() {
         <div className={`relative transition-all duration-700 delay-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
           {/* Card glow border */}
           <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-white/[0.04] via-white/[0.01] to-transparent pointer-events-none" />
-          
+
           <div className="relative bg-[#0d0d12]/90 backdrop-blur-xl border border-white/[0.05] rounded-2xl p-8 shadow-2xl shadow-black/50">
-            
+
             {/* ─── Mode Toggle ─────────────────────────────────────────────── */}
             <div className="flex bg-white/[0.02] rounded-xl p-1 mb-6 border border-white/[0.04]" role="tablist" aria-label="Login mode">
               <button
@@ -206,7 +206,7 @@ export default function LoginPage() {
             {/* ─── Form ────────────────────────────────────────────────────── */}
             <form onSubmit={handleLogin} noValidate>
               <div className="space-y-4">
-              
+
                 {/* Server URL — always shown */}
                 <div className="space-y-1.5">
                   <label htmlFor="server-url" className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-bold">Server URL</label>
