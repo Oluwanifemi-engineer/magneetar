@@ -9,7 +9,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Premium Magenta Dark Palette — bright, bold, military-grade
+        // Premium Dark Tactical Palette
         mag: {
           // Background layers
           bg: '#0a0a0f',
@@ -18,15 +18,10 @@ const config: Config = {
           border: '#2a2a38',
           'border-bright': '#3a3a50',
 
-          // Primary — Magenta / Hot Pink
+          // Primary — Magenta / Hot Pink (tactical accent)
           primary: '#E91E8C',
           'primary-dim': '#C4176E',
           'primary-glow': 'rgba(233, 30, 140, 0.15)',
-
-          // Secondary — Electric Cyan
-          secondary: '#06B6D4',
-          'secondary-dim': '#0891B2',
-          'secondary-glow': 'rgba(6, 182, 212, 0.15)',
 
           // Accent — Bright Green for positive states
           accent: '#22C55E',
@@ -42,6 +37,11 @@ const config: Config = {
           warning: '#F59E0B',
           'warning-dim': '#D97706',
           'warning-glow': 'rgba(245, 158, 11, 0.15)',
+
+          // Secondary — Electric Cyan
+          secondary: '#06B6D4',
+          'secondary-dim': '#0891B2',
+          'secondary-glow': 'rgba(6, 182, 212, 0.15)',
 
           // Text — bright & crisp
           text: '#FFFFFF',
@@ -75,6 +75,13 @@ const config: Config = {
         'glow': 'glow 2s ease-in-out infinite alternate',
         'scan': 'scan 4s ease-in-out infinite',
         'path-draw': 'pathDraw 2s ease-out forwards',
+        'm-glow': 'mGlow 3s ease-in-out infinite',
+        'scan-line': 'scanningLine 3s ease-in-out infinite',
+        'data-pulse': 'dataPulse 4s ease-in-out infinite',
+        'fade-slide': 'fadeSlideUp 0.4s ease-out forwards',
+        'data-flow': 'dataFlow 2s linear infinite',
+        'shake': 'shake 0.4s ease-in-out',
+        'float': 'floatParticle 6s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -100,6 +107,39 @@ const config: Config = {
         pathDraw: {
           '0%': { strokeDashoffset: '1000' },
           '100%': { strokeDashoffset: '0' },
+        },
+        mGlow: {
+          '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
+          '50%': { opacity: '0.8', transform: 'scale(1.02)' },
+        },
+        scanningLine: {
+          '0%': { top: '0%', opacity: '0' },
+          '5%': { opacity: '1' },
+          '90%': { opacity: '1' },
+          '100%': { top: '100%', opacity: '0' },
+        },
+        dataPulse: {
+          '0%, 100%': { borderColor: 'rgba(255,255,255,0.06)' },
+          '50%': { borderColor: 'rgba(255,255,255,0.12)' },
+        },
+        fadeSlideUp: {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        dataFlow: {
+          '0%': { backgroundPosition: '200% center' },
+          '100%': { backgroundPosition: '-200% center' },
+        },
+        shake: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-2px)' },
+          '20%, 40%, 60%, 80%': { transform: 'translateX(2px)' },
+        },
+        floatParticle: {
+          '0%, 100%': { transform: 'translateY(0) translateX(0)', opacity: '0' },
+          '10%': { opacity: '0.3' },
+          '90%': { opacity: '0.3' },
+          '100%': { transform: 'translateY(-100px) translateX(20px)', opacity: '0' },
         },
       },
       backgroundImage: {

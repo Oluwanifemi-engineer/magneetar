@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A0A0A"
+    android:fillViewport="true"
+    tools:context=".SignInActivity">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="28dp">
+
+        <!-- Back button -->
+        <ImageView
+            android:id="@+id/btn_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginTop="16dp"
+            android:padding="10dp"
+            android:src="@drawable/ic_arrow_back"
+            android:contentDescription="Back"
+            android:background="@drawable/btn_surface" />
+
+        <!-- Header -->
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/btn_back"
+            android:layout_marginTop="32dp"
+            android:text="@string/signin_title"
+            android:textColor="#F5F5F5"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/tv_subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/tv_title"
+            android:layout_marginTop="8dp"
+            android:text="@string/signin_subtitle"
+            android:textColor="#808080"
+            android:textSize="14sp"
+            android:fontFamily="sans-serif" />
+
+        <!-- Form -->
+        <LinearLayout
+            android:id="@+id/form_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/tv_subtitle"
+            android:layout_marginTop="32dp"
+            android:orientation="vertical">
+
+            <!-- Server URL -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="@string/server_url_hint"
+                android:textColor="#606060"
+                android:textSize="11sp"
+                android:letterSpacing="0.15"
+                android:fontFamily="sans-serif-medium" />
+
+            <EditText
+                android:id="@+id/et_server_url"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginBottom="20dp"
+                android:background="@drawable/input_background"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp"
+                android:textColor="#F5F5F5"
+                android:textColorHint="#404040"
+                android:textSize="14sp"
+                android:hint="https://api.magneetar.me"
+                android:inputType="textUri"
+                android:fontFamily="sans-serif" />
+
+            <!-- Email -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="@string/signin_email_hint"
+                android:textColor="#606060"
+                android:textSize="11sp"
+                android:letterSpacing="0.15"
+                android:fontFamily="sans-serif-medium" />
+
+            <EditText
+                android:id="@+id/et_email"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginBottom="20dp"
+                android:background="@drawable/input_background"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp"
+                android:textColor="#F5F5F5"
+                android:textColorHint="#404040"
+                android:textSize="14sp"
+                android:hint="you@example.com"
+                android:inputType="textEmailAddress"
+                android:fontFamily="sans-serif" />
+
+            <!-- Password -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="@string/signin_password_hint"
+                android:textColor="#606060"
+                android:textSize="11sp"
+                android:letterSpacing="0.15"
+                android:fontFamily="sans-serif-medium" />
+
+            <EditText
+                android:id="@+id/et_password"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:background="@drawable/input_background"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp"
+                android:textColor="#F5F5F5"
+                android:textColorHint="#404040"
+                android:textSize="14sp"
+                android:hint="Enter your password"
+                android:inputType="textPassword"
+                android:fontFamily="sans-serif" />
+
+            <!-- Error -->
+            <TextView
+                android:id="@+id/tv_error"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                android:textColor="#FF4444"
+                android:textSize="13sp"
+                android:gravity="center"
+                android:padding="12dp"
+                android:background="#15FF4444"
+                android:fontFamily="sans-serif" />
+
+            <!-- Submit -->
+            <Button
+                android:id="@+id/btn_signin"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="24dp"
+                android:background="@drawable/btn_primary"
+                android:text="@string/signin_button"
+                android:textColor="#0A0A0A"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.2"
+                android:fontFamily="sans-serif-medium"
+                android:stateListAnimator="@null" />
+
+        </LinearLayout>
+
+        <!-- Sign up link -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/form_container"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="32dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/signin_no_account"
+                android:textColor="#606060"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif" />
+
+            <TextView
+                android:id="@+id/tv_signup_link"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="6dp"
+                android:text="Sign Up"
+                android:textColor="#00FF88"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium" />
+
+        </LinearLayout>
+
+    </RelativeLayout>
+
+</ScrollView>

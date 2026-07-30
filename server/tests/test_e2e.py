@@ -26,7 +26,8 @@ for mod_name in list(sys.modules.keys()):
        or mod_name == "main" or mod_name == "auth" or mod_name == "models" \
        or mod_name.startswith("logging") or mod_name == "sentinel" \
        or mod_name == "alerts" or mod_name == "evidence" \
-       or mod_name == "encryption":
+       or mod_name == "encryption" \
+       or mod_name.startswith("routes") or mod_name == "websocket_manager":
         del sys.modules[mod_name]
 
 import config

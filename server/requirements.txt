@@ -31,3 +31,9 @@ firebase-admin>=6.0.0
 pytest>=8.0.0
 pytest-asyncio>=1.0.0
 httpx  # Reuse for test client
+
+# Password hashing
+bcrypt>=4.2.0
+
+# PDF generation for evidence reports
+reportlab>=4.2.0

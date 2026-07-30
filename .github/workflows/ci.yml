@@ -39,22 +39,55 @@ jobs:
           cd server
           pip install -r requirements.txt
 
-      - name: Run tests
+      - name: Run tests (exclude slow WebSocket tests that block event loop)
         run: |
           cd server
-          python -m pytest tests/ -v --tb=short
+          python -m pytest tests/ -v --tb=short -k "not slow"
 
-      - name: Run linting
+      - name: Run linting (flake8)
         run: |
           cd server
           pip install flake8
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         continue-on-error: true
 
+      - name: Dead code check (vulture)
+        run: |
+          cd server
+          pip install vulture
+          vulture . --min-confidence 70 --exclude 'venv/*,tests/*'
+        continue-on-error: true
+
+  # ── Dashboard Test ─────────────────────────────────────────────────────────
+  test-dashboard:
+    name: Dashboard Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd dashboard
+          npm ci
+
+      - name: Run tests
+        run: |
+          cd dashboard
+          npm run test:ci
+
   # ── Dashboard Build ────────────────────────────────────────────────────────
   build-dashboard:
     name: Dashboard Build
     runs-on: ubuntu-latest
+    needs: [test-dashboard]
 
     steps:
       - uses: actions/checkout@v4

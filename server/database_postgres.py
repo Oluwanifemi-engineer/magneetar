@@ -6,7 +6,7 @@ Falls back to SQLite when PostgreSQL is not configured.
 import json
 import os
 from datetime import datetime, timezone
-from typing import Optional, AsyncGenerator, AsyncContextManager
+from typing import Optional
 from contextlib import asynccontextmanager
 
 from config import settings

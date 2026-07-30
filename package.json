@@ -1,0 +1,27 @@
+{
+  "name": "magneetar",
+  "version": "1.0.0",
+  "description": "> **Military-grade anti-theft tracking system.**   > Track, protect, and recover your devices with intelligent telemetry and real-time alerts.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Oluwanifemi-engineer/magneetar.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Oluwanifemi-engineer/magneetar/issues"
+  },
+  "homepage": "https://github.com/Oluwanifemi-engineer/magneetar#readme",
+  "devDependencies": {
+    "@sentry/cli": "^3.6.2",
+    "firebase-tools": "^15.24.0"
+  }
+}

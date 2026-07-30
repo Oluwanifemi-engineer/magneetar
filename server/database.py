@@ -10,12 +10,22 @@ from config import settings
 DB_PATH = settings.DB_PATH
 
 
-def get_db():
-    """FastAPI dependency - yields a database connection."""
+def _connect() -> sqlite3.Connection:
+    """Create a new database connection with correct settings."""
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA busy_timeout=5000")  # Wait up to 5s if DB is locked
+    return conn
+
+
+def get_db():
+    """FastAPI dependency - yields a database connection.
+    Connection failures propagate to the caller for fast failure detection.
+    SQLite contention is handled by busy_timeout=5000 in _connect().
+    """
+    conn = _connect()
     try:
         yield conn
     finally:
@@ -25,11 +35,7 @@ def get_db():
 @contextmanager
 def get_db_context():
     """Context manager for non-FastAPI usage."""
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    if DB_PATH != ':memory:':
-        conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
+    conn = _connect()
     try:
         yield conn
     finally:
@@ -412,7 +418,34 @@ def purge_old_data(retention_days: int = 90):
         }
 
 
-# Initialize on import (skip for in-memory test DBs and pytest)
-import os as _os
-if _os.environ.get("MT_DB_PATH") != ":memory:" and not _os.environ.get("PYTEST_CURRENT_TEST"):
-    init_db()
+# ── Safe Initialization ───────────────────────────────────────────────────
+# init_db() is called explicitly by the application lifespan handler in main.py.
+# It is NOT called on import to avoid side effects during testing and import.
+#
+# To initialize manually:
+#   from database import init_db
+#   init_db()
+
+
+def ensure_initialized() -> bool:
+    """
+    Ensure the database is initialized.
+    Called once during server startup from the lifespan handler.
+    Returns True if initialization was performed, False if already initialized.
+    """
+    # In-memory databases always need initialization
+    if DB_PATH == ':memory:':
+        init_db()
+        return True
+    # File-based databases: init if file doesn't exist
+    if not os.path.exists(DB_PATH):
+        init_db()
+        return True
+    # File exists — verify tables are present (handle empty/corrupt files gracefully)
+    try:
+        with get_db_context() as conn:
+            conn.execute("SELECT COUNT(*) FROM devices").fetchone()
+        return False
+    except Exception:
+        init_db()
+        return True

@@ -64,6 +64,9 @@ class Settings:
     PORT: int = int(os.environ.get("MT_PORT", "8000"))
     LOG_LEVEL: str = os.environ.get("MT_LOG_LEVEL", "info")
 
+    # ── Reliability ────────────────────────────────────────────────────────
+    REQUEST_TIMEOUT_SECONDS: int = int(os.environ.get("MT_REQUEST_TIMEOUT", "30"))
+
     def validate(self) -> list[str]:
         """Validate required settings. Returns list of errors (empty if valid)."""
         errors = []

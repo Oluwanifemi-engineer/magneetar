@@ -22,7 +22,7 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Bold text defaults — everything is bolder */
+  /* Bold text defaults */
   h1, h2, h3, h4, h5, h6 {
     @apply font-bold tracking-tight;
   }
@@ -52,7 +52,7 @@
   /* Premium Panel with glass effect */
   .mag-panel {
     @apply bg-mag-panel/90 backdrop-blur-xl border border-mag-border/60 rounded-xl;
-    @apply shadow-mag-panel shadow-mag-inset;
+    @apply shadow-mag-panel;
   }
 
   /* Premium Card */
@@ -100,8 +100,8 @@
   /* Grid Background */
   .mag-grid-bg {
     background-image:
-      linear-gradient(rgba(233, 30, 140, 0.015) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(233, 30, 140, 0.015) 1px, transparent 1px);
+      linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
     background-size: 48px 48px;
   }
 
@@ -122,9 +122,9 @@
 
   .mag-btn-secondary {
     @apply mag-btn;
-    @apply border-mag-secondary/40 text-mag-secondary bg-mag-secondary/10;
-    @apply hover:bg-mag-secondary/20 hover:border-mag-secondary/60;
-    @apply focus:ring-mag-secondary/30;
+    @apply border-white/10 text-white/60 bg-white/[0.03];
+    @apply hover:bg-white/[0.06] hover:border-white/20 hover:text-white/80;
+    @apply focus:ring-white/10;
   }
 
   .mag-btn-danger {
@@ -143,24 +143,23 @@
 
   .mag-btn-ghost {
     @apply mag-btn;
-    @apply border-transparent text-mag-text-dim bg-transparent;
+    @apply border-transparent text-mag-text-dim/60 bg-transparent;
     @apply hover:text-mag-text hover:bg-mag-surface/40;
   }
 
   /* Tab Component */
   .mag-tab {
-    @apply flex items-center justify-center gap-1.5 px-4 py-3;
-    @apply text-xs font-bold tracking-wide;
-    @apply text-mag-text-dim/70 cursor-pointer transition-all duration-200;
+    @apply flex items-center justify-center gap-1.5 px-3 py-3;
+    @apply text-[10px] font-bold tracking-wide font-mono uppercase;
+    @apply text-mag-text-dim/50 cursor-pointer transition-all duration-200;
     @apply border-b-2 border-transparent;
-    @apply hover:text-mag-text hover:border-mag-border;
   }
   .mag-tab:hover {
-    @apply text-mag-text;
+    @apply text-mag-text/70;
   }
   .mag-tab.active {
     @apply text-mag-primary border-mag-primary;
-    @apply bg-mag-primary/5;
+    @apply bg-mag-primary/[0.03];
   }
 
   /* Input */
@@ -186,6 +185,18 @@
   }
   .mag-badge-info {
     @apply mag-badge bg-mag-primary/10 text-mag-primary border border-mag-primary/25;
+  }
+
+  /* M-Brand Logo */
+  .mag-m-logo {
+    @apply inline-flex items-center justify-center;
+    font-family: 'Inter', sans-serif;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .mag-m-logo-ring {
+    @apply absolute rounded-full border border-white/[0.08];
   }
 }
 
@@ -271,6 +282,10 @@
   );
 }
 
+.login-vignette {
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.8) 100%);
+}
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
@@ -281,18 +296,65 @@
   animation: shake 0.4s ease-in-out;
 }
 
-/* ─── Animations ───────────────────────────────────────────────────────────── */
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+/* ─── M-Logo Glow Effect ──────────────────────────────────────────────────── */
+@keyframes mGlow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.02); }
 }
 
+.animate-m-glow {
+  animation: mGlow 3s ease-in-out infinite;
+}
+
+/* ─── Scanning Effect ───────────────────────────────────────────────────────── */
+@keyframes scanningLine {
+  0% { top: 0%; opacity: 0; }
+  5% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+.animate-scan-line {
+  animation: scanningLine 3s ease-in-out infinite;
+}
+
+/* ─── Dashboard Subtle Animations ──────────────────────────────────────────── */
+@keyframes dataPulse {
+  0%, 100% { border-color: rgba(255,255,255,0.06); }
+  50% { border-color: rgba(255,255,255,0.12); }
+}
+
+.animate-data-pulse {
+  animation: dataPulse 4s ease-in-out infinite;
+}
+
+/* ─── Fade in from bottom ──────────────────────────────────────────────────── */
+@keyframes fadeSlideUp {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-slide {
+  animation: fadeSlideUp 0.4s ease-out forwards;
+}
+
+/* ─── Subtle Background Particle Effect ───────────────────────────────────── */
+@keyframes floatParticle {
+  0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }
+  10% { opacity: 0.3; }
+  90% { opacity: 0.3; }
+  100% { transform: translateY(-100px) translateX(20px); opacity: 0; }
+}
+
+/* ─── Dashboard - Data Flow Animation ─────────────────────────────────────── */
 @keyframes data-flow {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 100% 50%; }
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
 }
 
 .animate-data-flow {
-  background-size: 200% 200%;
+  background-image: linear-gradient(90deg, transparent, rgba(233,30,140,0.15), transparent);
+  background-size: 200% 100%;
+  background-position: 0% 0;
   animation: data-flow 2s linear infinite;
 }

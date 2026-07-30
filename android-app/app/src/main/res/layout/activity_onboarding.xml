@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A0A0A"
+    android:fillViewport="true"
+    tools:context=".OnboardingActivity">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="32dp">
+
+        <!-- M Logo area -->
+        <LinearLayout
+            android:id="@+id/logo_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="48dp"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <!-- M Text Logo -->
+            <TextView
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:gravity="center"
+                android:text="M"
+                android:textColor="#FFFFFF"
+                android:textSize="36sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:background="@drawable/btn_surface" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/app_name"
+                android:textColor="#FFFFFF"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="TACTICAL COMMAND CENTER"
+                android:textColor="#404040"
+                android:textSize="10sp"
+                android:letterSpacing="0.4"
+                android:fontFamily="sans-serif" />
+
+        </LinearLayout>
+
+        <!-- Divider -->
+        <LinearLayout
+            android:id="@+id/divider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/logo_container"
+            android:layout_marginTop="32dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <View
+                android:layout_width="48dp"
+                android:layout_height="1dp"
+                android:background="#20FFFFFF" />
+
+            <View
+                android:layout_width="6dp"
+                android:layout_height="6dp"
+                android:layout_marginLeft="12dp"
+                android:layout_marginRight="12dp"
+                android:background="#00FF88"
+                android:alpha="0.5" />
+
+            <View
+                android:layout_width="48dp"
+                android:layout_height="1dp"
+                android:background="#20FFFFFF" />
+
+        </LinearLayout>
+
+        <!-- Title -->
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/divider"
+            android:layout_marginTop="32dp"
+            android:text="@string/onboarding_title"
+            android:textColor="#F5F5F5"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textAlignment="center"
+            android:lineSpacingExtra="4dp"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- Subtitle -->
+        <TextView
+            android:id="@+id/subtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/title"
+            android:layout_marginTop="16dp"
+            android:text="@string/onboarding_subtitle"
+            android:textColor="#808080"
+            android:textSize="14sp"
+            android:textAlignment="center"
+            android:lineSpacingExtra="6dp"
+            android:fontFamily="sans-serif" />
+
+        <!-- Features list -->
+        <LinearLayout
+            android:id="@+id/features_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/subtitle"
+            android:layout_marginTop="32dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_marginRight="14dp"
+                    android:background="#00FF88"
+                    android:alpha="0.8" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/onboarding_feature_tracking"
+                    android:textColor="#C0C0C0"
+                    android:textSize="13sp"
+                    android:lineSpacingExtra="4dp"
+                    android:fontFamily="sans-serif" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_marginRight="14dp"
+                    android:background="#00FF88"
+                    android:alpha="0.6" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/onboarding_feature_stealth"
+                    android:textColor="#C0C0C0"
+                    android:textSize="13sp"
+                    android:lineSpacingExtra="4dp"
+                    android:fontFamily="sans-serif" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_marginRight="14dp"
+                    android:background="#00FF88"
+                    android:alpha="0.4" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/onboarding_feature_persistence"
+                    android:textColor="#C0C0C0"
+                    android:textSize="13sp"
+                    android:lineSpacingExtra="4dp"
+                    android:fontFamily="sans-serif" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_marginRight="14dp"
+                    android:background="#00FF88"
+                    android:alpha="0.3" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/onboarding_feature_remote"
+                    android:textColor="#C0C0C0"
+                    android:textSize="13sp"
+                    android:lineSpacingExtra="4dp"
+                    android:fontFamily="sans-serif" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- CTA Buttons -->
+        <LinearLayout
+            android:id="@+id/buttons_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/features_container"
+            android:layout_marginTop="40dp"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <Button
+                android:id="@+id/btn_get_started"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="@drawable/btn_primary"
+                android:text="@string/onboarding_get_started"
+                android:textColor="#0A0A0A"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.2"
+                android:fontFamily="sans-serif-medium"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_sign_in"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/btn_secondary"
+                android:text="@string/onboarding_sign_in"
+                android:textColor="#C0C0C0"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.2"
+                android:fontFamily="sans-serif-medium"
+                android:stateListAnimator="@null" />
+
+        </LinearLayout>
+
+        <!-- Footer -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/buttons_container"
+            android:layout_marginTop="32dp"
+            android:layout_marginBottom="32dp"
+            android:text="@string/app_version"
+            android:textColor="#303030"
+            android:textSize="11sp"
+            android:textAlignment="center"
+            android:fontFamily="sans-serif"
+            android:letterSpacing="0.1" />
+
+    </RelativeLayout>
+
+</ScrollView>

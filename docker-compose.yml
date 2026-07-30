@@ -46,6 +46,7 @@ services:
       - MT_DATABASE_URL=postgresql://magneetar:${MT_DB_PASSWORD:-changeme}@db:5432/magneetar
     volumes:
       - magneetar-data:/app/data
+      - ./server/static/apk:/app/static/apk
     depends_on:
       db:
         condition: service_healthy
@@ -75,9 +76,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: magneetar-tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate run
-    environment:
-      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN:-}
+    command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN}
     depends_on:
       - server
       - dashboard

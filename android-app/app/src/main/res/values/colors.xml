@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Core -->
+    <color name="primary">#0A0A0A</color>
+    <color name="primary_dark">#000000</color>
+    <color name="accent">#00FF88</color>
+    <color name="accent_dark">#00CC66</color>
+
+    <!-- Surfaces -->
+    <color name="surface">#111111</color>
+    <color name="surface_light">#1A1A1A</color>
+    <color name="surface_elevated">#222222</color>
+
+    <!-- Text -->
+    <color name="text_primary">#F5F5F5</color>
+    <color name="text_secondary">#808080</color>
+    <color name="text_muted">#404040</color>
+
+    <!-- States -->
+    <color name="success">#00FF88</color>
+    <color name="warning">#FFB800</color>
+    <color name="error">#FF4444</color>
+    <color name="info">#4488FF</color>
+
+    <!-- Overlay -->
+    <color name="overlay">#80000000</color>
+    <color name="border">#1FFFFFFF</color>
+</resources>

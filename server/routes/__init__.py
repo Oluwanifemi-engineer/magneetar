@@ -1,0 +1,1 @@
+"""Magneetar API Route Modules."""

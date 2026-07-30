@@ -3,10 +3,12 @@ Magneetar Alert System
 Multi-channel alerts: Email (SendGrid), SMS (Termii), WhatsApp (Twilio), Push (FCM).
 """
 import os
+import time
 import asyncio
 import logging
 import httpx
 from datetime import datetime, timezone
+import random
 from typing import Optional
 from database import get_db_context, log_audit
 from config import settings
@@ -15,7 +17,88 @@ logger = logging.getLogger(__name__)
 
 
 class AlertEngine:
-    """Send alerts via multiple channels with graceful degradation."""
+    """Send alerts via multiple channels with graceful degradation.
+
+    Reliability features:
+    - Exponential backoff with jitter (1 retry per channel)
+    - Per-channel failure tracking (circuit-breaker light)
+    - Timeout per HTTP call (10s)
+    """
+
+    # ── Retry / Circuit-Breaker ─────────────────────────────────────────
+    MAX_CONSECUTIVE_FAILURES = 5
+    """If a channel fails this many times consecutively, the circuit opens."""
+    CIRCUIT_BREAKER_COOLDOWN = 300
+    """Seconds after opening the circuit before allowing a probe attempt (half-open state). Default 5 minutes."""
+
+    def __init__(self):
+        """Initialize alert engine with per-instance circuit-breaker state."""
+        self._channel_failures: dict[str, int] = {}
+        self._channel_disabled_at: dict[str, float] = {}
+
+    def _should_skip_channel(self, channel: str) -> bool:
+        """Check if a channel should be skipped (circuit-breaker open).
+
+        Automatically allows a probe attempt after CIRCUIT_BREAKER_COOLDOWN seconds
+        (half-open state) so that transient provider outages don't permanently disable alerts.
+        """
+        failures = self._channel_failures.get(channel, 0)
+        if failures < self.MAX_CONSECUTIVE_FAILURES:
+            return False
+
+        # Circuit is open — check if cooldown has elapsed (half-open probe)
+        disabled_at = self._channel_disabled_at.get(channel, 0.0)
+        if time.time() - disabled_at > self.CIRCUIT_BREAKER_COOLDOWN:
+            logger.info(f"Channel '{channel}' circuit breaker cooldown elapsed — allowing probe attempt")
+            return False
+
+        return True
+
+    def _record_success(self, channel: str):
+        self._channel_failures[channel] = 0
+        self._channel_disabled_at.pop(channel, None)  # clean up stale timestamp
+
+    def _record_failure(self, channel: str):
+        self._channel_failures[channel] = self._channel_failures.get(channel, 0) + 1
+        failures = self._channel_failures[channel]
+        if failures >= self.MAX_CONSECUTIVE_FAILURES:
+            self._channel_disabled_at[channel] = time.time()
+            logger.error(
+                f"Channel '{channel}' circuit opened after {failures} consecutive failures. "
+                f"Will re-try in {self.CIRCUIT_BREAKER_COOLDOWN}s."
+            )
+
+    async def _send_with_retry(
+        self,
+        channel: str,
+        send_fn,
+        *args,
+        **kwargs
+    ) -> bool:
+        """Send with one retry using exponential backoff + jitter."""
+        if self._should_skip_channel(channel):
+            logger.warning(f"Skipping channel '{channel}' — circuit breaker open for {int(time.time() - self._channel_disabled_at.get(channel, 0))}s")
+            return False
+
+        for attempt in range(2):  # Attempt 0 and attempt 1
+            try:
+                success = await send_fn(*args, **kwargs)
+                if success:
+                    self._record_success(channel)
+                    return True
+                # send_fn returned False (e.g., API returned non-200)
+                if attempt == 0:
+                    wait = 1.0 + random.random()  # 1–2s jitter
+                    logger.info(f"Retrying {channel} in {wait:.1f}s (attempt {attempt + 1})")
+                    await asyncio.sleep(wait)
+            except Exception as e:
+                logger.warning(f"{channel} attempt {attempt + 1} failed: {e}")
+                if attempt == 0:
+                    wait = 1.0 + random.random()
+                    await asyncio.sleep(wait)
+
+        self._record_failure(channel)
+        return False
 
     ALERT_TEMPLATES = {
         "theft_detected": {
@@ -266,18 +349,26 @@ class AlertEngine:
         for channel in channels:
             success = False
             if channel == "email" and email_to:
-                success = await self.send_email(email_to, alert_type, data)
+                success = await self._send_with_retry(
+                    "email", self.send_email, email_to, alert_type, data
+                )
             elif channel == "sms" and phone_to:
-                success = await self.send_sms(phone_to, alert_type, data)
+                success = await self._send_with_retry(
+                    "sms", self.send_sms, phone_to, alert_type, data
+                )
             elif channel == "push":
                 # Send push to all registered FCM tokens
                 if push_tokens:
                     for token in push_tokens:
-                        token_success = await self.send_push(token, alert_type, data)
+                        token_success = await self._send_with_retry(
+                            "push", self.send_push, token, alert_type, data
+                        )
                         if token_success:
                             success = True  # At least one succeeded
             elif channel == "whatsapp" and phone_to:
-                success = await self.send_whatsapp(phone_to, alert_type, data)
+                success = await self._send_with_retry(
+                    "whatsapp", self.send_whatsapp, phone_to, alert_type, data
+                )
 
             results[channel] = success
 

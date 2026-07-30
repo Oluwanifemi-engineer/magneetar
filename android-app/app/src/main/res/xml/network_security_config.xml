@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+        Magneetar connects to user-defined servers. Since the user controls
+        their own server (self-hosted/local), we allow cleartext HTTP for all
+        hosts so local dev/testing works. In production, set your server URL
+        to https:// (e.g. https://api.magneetar.me) for full TLS encryption.
+        HTTPS traffic is always fully encrypted regardless of this setting.
+    -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

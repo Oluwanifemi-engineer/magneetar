@@ -150,6 +150,15 @@ class EvidenceBuilder:
                 "media_items": [dict(m) for m in media],
             }
 
+    def get_media_for_case(self, case_id: str) -> list[dict]:
+        """Get full media items (including data_b64) for an evidence case."""
+        with get_db_context() as conn:
+            rows = conn.execute(
+                "SELECT * FROM media WHERE evidence_case_id=?",
+                (case_id,)
+            ).fetchall()
+            return [dict(r) for r in rows]
+
     def compile_pdf_data(self, case_id: str) -> Optional[dict]:
         """
         Compile evidence data for PDF generation.

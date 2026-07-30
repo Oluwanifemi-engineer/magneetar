@@ -20,8 +20,9 @@
 - [8. Technology Stack](#8-technology-stack)
 - [9. Deployment Architecture](#9-deployment-architecture)
 - [10. Future Hardware Integration](#10-future-hardware-integration)
-- [11. Design Principles](#11-design-principles)
-- [12. Architecture Evolution](#12-architecture-evolution)
+- [11. Reliability Architecture](#11-reliability-architecture)
+- [12. Design Principles](#12-design-principles)
+- [13. Architecture Evolution](#13-architecture-evolution)
 - [13. References](#13-references)
 - [14. Revision History](#14-revision-history)
 
@@ -526,7 +527,122 @@ Potential future hardware capabilities include:
 
 The software architecture has been intentionally designed to accommodate these future components without requiring significant architectural redesign.
 
-## 12. Architecture Evolution
+## 11. Reliability Architecture
+
+Magneetar incorporates several reliability patterns across the stack to ensure
+system resilience under varying operational conditions.
+
+### 11.1 WebSocket Connection Management
+
+Dashboard WebSocket connections are bounded to prevent resource exhaustion.
+Up to **100 concurrent connections** are allowed; beyond that, the oldest
+connection is evicted with a `1013` close code. A background heartbeat task
+runs every **30 seconds**, sending a `{"type": "ping"}` message to every
+connection. Connections that fail to receive the ping (half-open TCP) are
+silently pruned and logged.
+
+```python
+# websocket_manager.py
+MAX_DASHBOARD_CONNECTIONS = 100
+
+# Lifespan startup (main.py)
+await start_connection_heartbeat(interval=30)
+```
+
+**Rationale:** WebSocket `send_json()` raises an exception on dead connections,
+making it a reliable detector of silently-disconnected clients without requiring
+application-level PONG responses.
+
+### 11.2 Alert Delivery with Retry & Circuit Breaker
+
+All alert channels (email, SMS, WhatsApp, push) use a retry-wrapped send
+pattern with the following guarantees:
+
+- **1 automatic retry** with 1–2 second random jitter after any failure or timeout
+- **Per-channel circuit breaker**: after 5 consecutive failures, a channel is
+  automatically skipped (no useless timeout waits) until the next server restart
+- **Success resets** the failure counter immediately, preventing transient issues
+  from permanently disabling a channel
+
+```python
+# alerts.py — retry wrapper
+async def _send_with_retry(self, channel, send_fn, *args, **kwargs):
+    if self._should_skip_channel(channel):
+        return False  # circuit breaker open
+    for attempt in range(2):
+        try:
+            if await send_fn(*args, **kwargs):
+                self._record_success(channel)
+                return True
+            await asyncio.sleep(1 + random.random())  # jitter
+        except Exception:
+            await asyncio.sleep(1 + random.random())
+    self._record_failure(channel)
+    return False
+```
+
+### 11.3 Request Timeout Middleware
+
+Every HTTP request is bounded by a configurable timeout (default **30 seconds**).
+If a handler does not respond within this window, the client receives a `504`
+response and the handler coroutine is cancelled, preventing resource leaks from
+stuck database queries or external API calls.
+
+```python
+# config.py
+REQUEST_TIMEOUT_SECONDS: int = env("MT_REQUEST_TIMEOUT", "30")
+```
+
+### 11.4 Health Endpoint with Dependency Checks
+
+The `/health` endpoint now verifies:
+- **Database connectivity**: runs `SELECT 1` and reports `database: true/false`
+- If the database is unreachable, `status` changes to `"degraded"`
+
+```json
+// Normal
+{"status": "online", "database": true, "version": "1.0.0", ...}
+
+// Degraded
+{"status": "degraded", "database": false, "version": "1.0.0", ...}
+```
+
+### 11.5 Graceful Shutdown
+
+On shutdown, the server:
+1. Cancels background tasks (heartbeat, rate-limit cleanup)
+2. Notifies all connected WebSocket clients with `{"type": "shutdown", "reconnect": true}`
+3. Waits up to 500ms for the notification to be delivered
+4. Clears all connection state
+
+This allows the dashboard to immediately reconnect to a new instance without
+user-visible disruption.
+
+### 11.6 Startup Validation
+
+A pre-flight validation script (`scripts/validate-startup.sh`) must pass before
+the server starts:
+- Environment variable completeness and format validation
+- Database directory writability check
+- Required port availability
+- Critical Python dependency check
+- Disk space warning at < 100 MB free
+
+### 11.7 Reliability Testing
+
+- **Unit tests** in `server/tests/test_reliability.py` cover:
+  - WebSocket connection limits and eviction
+  - Stale connection pruning
+  - Alert retry and circuit breaker behavior
+  - Health endpoint with database offline check
+- **E2E reliability suite** in `scripts/reliability-test.sh` simulates real
+  failure scenarios against a running instance
+
+## 12. Design Principles
+
+Magneetar follows a set of design principles that guide architectural and engineering decisions. These principles are intended to be stable, technology-agnostic, and applicable across all components of the system.
+
+## 13. Architecture Evolution
 
 The Magneetar architecture is intended to evolve alongside the project.
 

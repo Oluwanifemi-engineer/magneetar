@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A0A0A"
+    android:fillViewport="true"
+    tools:context=".PermissionsActivity">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="28dp">
+
+        <!-- Header -->
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:text="@string/perm_title"
+            android:textColor="#F5F5F5"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/tv_subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/tv_title"
+            android:layout_marginTop="8dp"
+            android:text="@string/perm_subtitle"
+            android:textColor="#808080"
+            android:textSize="14sp"
+            android:fontFamily="sans-serif" />
+
+        <!-- Permission list -->
+        <LinearLayout
+            android:id="@+id/permissions_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/tv_subtitle"
+            android:layout_marginTop="28dp"
+            android:orientation="vertical">
+
+            <!-- Location -->
+            <LinearLayout
+                android:id="@+id/perm_location"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginBottom="4dp"
+                android:background="@drawable/btn_surface"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/perm_location"
+                    android:textColor="#C0C0C0"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif" />
+
+                <TextView
+                    android:id="@+id/perm_location_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Required"
+                    android:textColor="#FFB800"
+                    android:textSize="11sp"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+
+            <!-- Camera -->
+            <LinearLayout
+                android:id="@+id/perm_camera"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginBottom="4dp"
+                android:background="@drawable/btn_surface"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/perm_camera"
+                    android:textColor="#C0C0C0"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif" />
+
+                <TextView
+                    android:id="@+id/perm_camera_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Required"
+                    android:textColor="#FFB800"
+                    android:textSize="11sp"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+
+            <!-- Microphone -->
+            <LinearLayout
+                android:id="@+id/perm_mic"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginBottom="4dp"
+                android:background="@drawable/btn_surface"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/perm_microphone"
+                    android:textColor="#C0C0C0"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif" />
+
+                <TextView
+                    android:id="@+id/perm_mic_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Required"
+                    android:textColor="#FFB800"
+                    android:textSize="11sp"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+
+            <!-- Storage -->
+            <LinearLayout
+                android:id="@+id/perm_storage"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginBottom="4dp"
+                android:background="@drawable/btn_surface"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/perm_storage"
+                    android:textColor="#C0C0C0"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif" />
+
+                <TextView
+                    android:id="@+id/perm_storage_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Required"
+                    android:textColor="#FFB800"
+                    android:textSize="11sp"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+
+            <!-- Device Admin -->
+            <LinearLayout
+                android:id="@+id/perm_device_admin"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginBottom="4dp"
+                android:background="@drawable/btn_surface"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/perm_device_admin"
+                    android:textColor="#C0C0C0"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif" />
+
+                <TextView
+                    android:id="@+id/perm_admin_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Required"
+                    android:textColor="#FFB800"
+                    android:textSize="11sp"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+
+            <!-- Battery Optimization -->
+            <LinearLayout
+                android:id="@+id/perm_battery"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginBottom="4dp"
+                android:background="@drawable/btn_surface"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/perm_battery"
+                    android:textColor="#C0C0C0"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif" />
+
+                <TextView
+                    android:id="@+id/perm_battery_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Required"
+                    android:textColor="#FFB800"
+                    android:textSize="11sp"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Grant All button -->
+        <Button
+            android:id="@+id/btn_grant_permissions"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_below="@id/permissions_container"
+            android:layout_marginTop="32dp"
+            android:background="@drawable/btn_primary"
+            android:text="@string/perm_grant_all"
+            android:textColor="#0A0A0A"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.2"
+            android:fontFamily="sans-serif-medium"
+            android:stateListAnimator="@null" />
+
+        <!-- Continue button (initially hidden) -->
+        <Button
+            android:id="@+id/btn_continue"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_below="@id/btn_grant_permissions"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/btn_secondary"
+            android:text="@string/perm_continue"
+            android:textColor="#C0C0C0"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.2"
+            android:fontFamily="sans-serif-medium"
+            android:visibility="gone"
+            android:stateListAnimator="@null" />
+
+        <!-- Footer -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/btn_continue"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="32dp"
+            android:text="Permissions can be managed later in Settings"
+            android:textColor="#404040"
+            android:textSize="12sp"
+            android:textAlignment="center"
+            android:fontFamily="sans-serif" />
+
+    </RelativeLayout>
+
+</ScrollView>

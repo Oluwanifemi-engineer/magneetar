@@ -32,16 +32,16 @@ export default function DashboardPage() {
       <MapView />
 
       {/* Right Panel */}
-      <div className={`bg-mag-panel/90 backdrop-blur-xl border-l border-mag-border/60 flex flex-col transition-all duration-300 ease-out ${rightPanelOpen ? 'w-80' : 'w-0 overflow-hidden'}`}>
+      <div className={`bg-mag-panel/90 backdrop-blur-xl border-l border-mag-border/60 flex flex-col transition-all duration-300 ease-out relative ${rightPanelOpen ? 'w-80' : 'w-0 overflow-hidden'}`}>
         {/* Panel Toggle */}
         <button
           onClick={() => setRightPanelOpen(!rightPanelOpen)}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-50 w-6 h-12 flex items-center justify-center bg-mag-panel/90 border border-mag-border/60 rounded-l-lg hover:bg-mag-surface transition-colors shadow-sm"
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-50 w-5 h-10 flex items-center justify-center bg-mag-panel/90 border border-mag-border/60 rounded-l-lg hover:bg-mag-surface transition-colors shadow-sm group"
         >
           <svg
-            width="12" height="12" viewBox="0 0 24 24"
+            width="10" height="10" viewBox="0 0 24 24"
             fill="none" stroke="currentColor" strokeWidth="2"
-            className={`text-mag-text-dim transition-transform duration-200 ${rightPanelOpen ? 'rotate-180' : ''}`}
+            className={`text-mag-text-dim/40 group-hover:text-mag-text-dim transition-transform duration-200 ${rightPanelOpen ? 'rotate-180' : ''}`}
           >
             <polyline points="15 18 9 12 15 6" />
           </svg>
@@ -57,13 +57,22 @@ export default function DashboardPage() {
             />
 
             {/* Tab Content */}
-            <div className="flex-1 overflow-y-auto animate-fade-in">
+            <div className="flex-1 overflow-y-auto">
               {activeTab === 'sentinel' && <SentinelPanel />}
               {activeTab === 'commands' && <CommandPanel />}
               {activeTab === 'location' && <DevicePanel />}
               {activeTab === 'media' && <MediaGallery />}
               {activeTab === 'evidence' && <EvidencePanel />}
               {activeTab === 'errors' && <ErrorPanel />}
+            </div>
+
+            {/* Panel footer */}
+            <div className="px-4 py-2 border-t border-mag-border/30 flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <div className="w-1 h-1 rounded-full bg-mag-accent/40" />
+                <span className="text-[8px] font-mono text-mag-text-dim/30 font-bold uppercase tracking-wider">Live</span>
+              </div>
+              <div className="w-1 h-1 rounded-full bg-mag-primary/30" />
             </div>
           </>
         )}

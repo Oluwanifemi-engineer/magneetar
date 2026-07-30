@@ -163,18 +163,15 @@ export function useWebSocket() {
         break;
 
       case 'command_ack':
-        // Update command status
-        console.log('[WebSocket] Command acknowledged:', data);
+        // Command acknowledgment received
         break;
 
       case 'heartbeat':
-        // Update device status
-        console.log('[WebSocket] Heartbeat:', data);
+        // Device heartbeat — nothing to do, connection is alive
         break;
 
       case 'sentinel':
-        // Update sentinel score
-        console.log('[WebSocket] Sentinel update:', data);
+        // Sentinel score update received
         break;
 
       case 'pong':

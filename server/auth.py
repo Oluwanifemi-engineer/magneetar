@@ -330,19 +330,44 @@ def get_current_device_or_key(
 # ─── User Authentication ─────────────────────────────────────────────────────
 
 def hash_password(password: str) -> str:
-    """Hash a password using SHA-256 with salt (lightweight, no bcrypt dep)."""
-    import hashlib
-    salt = secrets.token_hex(16)
-    h = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
-    return f"{salt}:{h.hex()}"
+    """Hash a password using bcrypt.
+    Falls back to PBKDF2-SHA256 if bcrypt is not installed.
+    """
+    try:
+        import bcrypt
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+    except ImportError:
+        # Fallback for environments without bcrypt
+        import hashlib
+        salt = secrets.token_hex(16)
+        h = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 600000)
+        return f"pbkdf2:{salt}:{h.hex()}"
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    """Verify a password against its hash."""
-    import hashlib
+    """Verify a password against its hash.
+    Supports both bcrypt (preferred) and PBKDF2-SHA256 (fallback) formats.
+    """
     try:
-        salt, h = password_hash.split(':')
-        check = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
+        # Try bcrypt first (format: $2b$... or $2a$...)
+        if password_hash.startswith("$"):
+            import bcrypt
+            return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+    except ImportError:
+        pass
+    except Exception:
+        return False
+
+    # Fallback: PBKDF2-SHA256 (format: pbkdf2:salt:hash)
+    try:
+        import hashlib
+        parts = password_hash.split(':')
+        if len(parts) < 3 or parts[0] != 'pbkdf2':
+            return False
+        salt = parts[1]
+        h = parts[2]
+        check = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 600000)
         return check.hex() == h
     except Exception:
         return False

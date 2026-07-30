@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { Device, Location, Command, MediaItem, TabId, Alert } from '@/types';
 import { isOnline, getSignalLevel, calculateDistance, calculateBearing, bearingToLabel } from '@/lib/utils';
 
@@ -66,136 +67,178 @@ interface MagneetarState {
     bearing: number;
     bearingLabel: string;
   } | null;
+
+  // Hydration tracking
+  _hasHydrated: boolean;
 }
+
+// ─── Persist Configuration ──────────────────────────────────────────────────
+// Only persist auth credentials, UI preferences, and map state.
+// Ephemeral data (devices, locations, alerts) is reloaded on each session.
+
+const PERSIST_KEYS: (keyof MagneetarState)[] = [
+  'serverUrl',
+  'apiKey',
+  'isAuthenticated',
+  'isConnected',
+  'sidebarOpen',
+  'mapCenter',
+  'mapZoom',
+  'followDevice',
+  'showTrail',
+];
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
-export const useStore = create<MagneetarState>((set, get) => ({
-  // Auth
-  serverUrl: '',
-  apiKey: '',
-  isAuthenticated: false,
-  isConnected: false,
-
-  setCredentials: (serverUrl, apiKey) =>
-    set({ serverUrl, apiKey, isAuthenticated: true }),
-
-  setConnected: (connected) =>
-    set({ isConnected: connected }),
-
-  logout: () =>
-    set({
-      isAuthenticated: false,
-      isConnected: false,
+export const useStore = create<MagneetarState>()(
+  persist(
+    (set, get) => ({
+      // Auth
       serverUrl: '',
       apiKey: '',
+      isAuthenticated: false,
+      isConnected: false,
+
+      setCredentials: (serverUrl, apiKey) =>
+        set({ serverUrl, apiKey, isAuthenticated: true }),
+
+      setConnected: (connected) =>
+        set({ isConnected: connected }),
+
+      logout: () =>
+        set({
+          isAuthenticated: false,
+          isConnected: false,
+          serverUrl: '',
+          apiKey: '',
+          devices: [],
+          selectedDeviceId: null,
+          locations: [],
+          latestLocation: null,
+          commands: [],
+          media: [],
+          alerts: [],
+        }),
+
+      // Devices
       devices: [],
       selectedDeviceId: null,
+
+      setDevices: (devices) => {
+        const state = get();
+        if (!state.selectedDeviceId && devices.length > 0) {
+          set({ devices, selectedDeviceId: devices[0].id });
+        } else {
+          set({ devices });
+        }
+      },
+
+      selectDevice: (id) => {
+        set({ selectedDeviceId: id, locations: [], commands: [], media: [], latestLocation: null });
+      },
+
+      // Locations
       locations: [],
       latestLocation: null,
+
+      setLocations: (locations) => {
+        const latest = locations.length > 0 ? locations[0] : null;
+        set({ locations, latestLocation: latest });
+        if (latest && get().followDevice) {
+          set({ mapCenter: [latest.lat, latest.lng] });
+        }
+      },
+
+      // Commands
       commands: [],
+      setCommands: (commands) => set({ commands }),
+
+      // Media
       media: [],
+      setMedia: (media) => set({ media }),
+
+      // Map
+      mapCenter: [9.0820, 8.6753],
+      mapZoom: 6,
+      followDevice: true,
+      showTrail: true,
+
+      setMapCenter: (center) => set({ mapCenter: center }),
+      setMapZoom: (zoom) => set({ mapZoom: zoom }),
+      setFollowDevice: (follow) => set({ followDevice: follow }),
+      setShowTrail: (show) => set({ showTrail: show }),
+
+      // UI
+      sidebarOpen: true,
+      activeTab: 'commands',
+
+      setSidebarOpen: (open) => set({ sidebarOpen: open }),
+      setActiveTab: (tab) => set({ activeTab: tab }),
+
+      // Alerts
       alerts: [],
+      unreadAlertCount: 0,
+
+      addAlert: (alert) =>
+        set((state) => ({
+          alerts: [alert, ...state.alerts].slice(0, 100),
+          unreadAlertCount: state.unreadAlertCount + 1,
+        })),
+
+      markAlertRead: (id) =>
+        set((state) => ({
+          alerts: state.alerts.map((a) => (a.id === id ? { ...a, read: true } : a)),
+          unreadAlertCount: Math.max(0, state.unreadAlertCount - 1),
+        })),
+
+      clearAlerts: () =>
+        set({ alerts: [], unreadAlertCount: 0 }),
+
+      // Computed helpers
+      getSelectedDevice: () => {
+        const state = get();
+        return state.devices.find((d) => d.id === state.selectedDeviceId) || null;
+      },
+
+      getDeviceStatus: (deviceId) => {
+        const device = get().devices.find((d) => d.id === deviceId);
+        if (!device) return { isOnline: false, signal: 'none' };
+        return {
+          isOnline: isOnline(device.last_seen),
+          signal: getSignalLevel(device.last_seen),
+        };
+      },
+
+      getNavigationInfo: (userLat, userLng) => {
+        const loc = get().latestLocation;
+        if (!loc) return null;
+        const distance = calculateDistance(userLat, userLng, loc.lat, loc.lng);
+        const bearing = calculateBearing(userLat, userLng, loc.lat, loc.lng);
+        return {
+          distance,
+          bearing,
+          bearingLabel: bearingToLabel(bearing),
+        };
+      },
+
+      // Hydration tracking
+      _hasHydrated: false,
     }),
-
-  // Devices
-  devices: [],
-  selectedDeviceId: null,
-
-  setDevices: (devices) => {
-    const state = get();
-    if (!state.selectedDeviceId && devices.length > 0) {
-      set({ devices, selectedDeviceId: devices[0].id });
-    } else {
-      set({ devices });
+    {
+      name: 'magneetar-storage',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => {
+        const persisted: Record<string, unknown> = {};
+        for (const key of PERSIST_KEYS) {
+          persisted[key] = state[key as keyof typeof state];
+        }
+        return persisted;
+      },
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state._hasHydrated = true;
+        }
+      },
     }
-  },
-
-  selectDevice: (id) => {
-    set({ selectedDeviceId: id, locations: [], commands: [], media: [], latestLocation: null });
-  },
-
-  // Locations
-  locations: [],
-  latestLocation: null,
-
-  setLocations: (locations) => {
-    const latest = locations.length > 0 ? locations[0] : null;
-    set({ locations, latestLocation: latest });
-    if (latest && get().followDevice) {
-      set({ mapCenter: [latest.lat, latest.lng] });
-    }
-  },
-
-  // Commands
-  commands: [],
-  setCommands: (commands) => set({ commands }),
-
-  // Media
-  media: [],
-  setMedia: (media) => set({ media }),
-
-  // Map
-  mapCenter: [9.0820, 8.6753],
-  mapZoom: 6,
-  followDevice: true,
-  showTrail: true,
-
-  setMapCenter: (center) => set({ mapCenter: center }),
-  setMapZoom: (zoom) => set({ mapZoom: zoom }),
-  setFollowDevice: (follow) => set({ followDevice: follow }),
-  setShowTrail: (show) => set({ showTrail: show }),
-
-  // UI
-  sidebarOpen: true,
-  activeTab: 'commands',
-
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
-  setActiveTab: (tab) => set({ activeTab: tab }),
-
-  // Alerts
-  alerts: [],
-  unreadAlertCount: 0,
-
-  addAlert: (alert) =>
-    set((state) => ({
-      alerts: [alert, ...state.alerts].slice(0, 100),
-      unreadAlertCount: state.unreadAlertCount + 1,
-    })),
-
-  markAlertRead: (id) =>
-    set((state) => ({
-      alerts: state.alerts.map((a) => (a.id === id ? { ...a, read: true } : a)),
-      unreadAlertCount: Math.max(0, state.unreadAlertCount - 1),
-    })),
-
-  clearAlerts: () =>
-    set({ alerts: [], unreadAlertCount: 0 }),
-
-  // Computed helpers
-  getSelectedDevice: () => {
-    const state = get();
-    return state.devices.find((d) => d.id === state.selectedDeviceId) || null;
-  },
-
-  getDeviceStatus: (deviceId) => {
-    const device = get().devices.find((d) => d.id === deviceId);
-    if (!device) return { isOnline: false, signal: 'none' };
-    return {
-      isOnline: isOnline(device.last_seen),
-      signal: getSignalLevel(device.last_seen),
-    };
-  },
-
-  getNavigationInfo: (userLat, userLng) => {
-    const loc = get().latestLocation;
-    if (!loc) return null;
-    const distance = calculateDistance(userLat, userLng, loc.lat, loc.lng);
-    const bearing = calculateBearing(userLat, userLng, loc.lat, loc.lng);
-    return {
-      distance,
-      bearing,
-      bearingLabel: bearingToLabel(bearing),
-    };
-  },
-}));
+  )
+);

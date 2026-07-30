@@ -361,13 +361,15 @@ class DashboardStats(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str = "online"
-    version: str = "1.0.0"
+    version: str = "1.1.0"
     uptime: float = 0.0
     server_time: str
+    database: Optional[bool] = None
+    """Database connectivity: True=healthy, False=degraded, None=not checked"""
 
 
 class ConfigResponse(BaseModel):
-    app_version: str = "1.0.0"
+    app_version: str = "1.1.0"
     min_android_version: int = 24
     features_enabled: List[str] = [
         "sentinel", "phantom_mode", "evidence_collection",
