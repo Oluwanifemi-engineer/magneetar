@@ -125,6 +125,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      actions: write  # required for type=gha cache backend
 
     steps:
       - uses: actions/checkout@v4
@@ -155,7 +156,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}-server
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,ignore-error=true
 
       - name: Build and push dashboard image
         uses: docker/build-push-action@v6
@@ -165,7 +166,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}-dashboard
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,ignore-error=true
 
   # ── Android Build ─────────────────────────────────────────────────────────
   build-android:
@@ -182,14 +183,19 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
+      - name: Set up Android SDK (installs platform 34 + build tools, accepts licenses)
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-34 build-tools;34.0.0"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build APK
+      - name: Build APK (debug, for sideloading)
         run: |
           cd android-app
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleDebug --stacktrace -PSERVER_URL="$SERVER_URL" -PAPI_KEY="$API_KEY"
         env:
           SERVER_URL: ${{ secrets.SERVER_URL }}
           API_KEY: ${{ secrets.API_KEY }}
