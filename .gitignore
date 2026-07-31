@@ -77,5 +77,9 @@ htmlcov/
 coverage/
 server/firebase-key.json
 
-# Firebase config placeholder (no real secrets — committed for CI builds)
-# To use real Firebase, replace android-app/google-services.json with your real file
+# Firebase config — a placeholder is committed at
+# android-app/app/google-services.json so CI builds succeed. It contains NO
+# real secrets. To use real Firebase, replace that file with your real one
+# (or inject it via the GOOGLE_SERVICES_JSON secret in GitHub Actions).
+# NOTE: android-app/app/google-services.json is tracked by git; use
+# `git update-index --skip-worktree` if you keep real credentials locally.
