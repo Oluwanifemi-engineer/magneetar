@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import '@testing-library/jest-dom/jest-globals';
 
 // Mock the store
@@ -11,7 +11,6 @@ const mockSetSidebarOpen = jest.fn();
 let mockDevices: any[] = [];
 let mockSidebarOpen = true;
 let mockSelectedDeviceId: string | null = null;
-let mockStats: any = null;
 let mockIsConnected = true;
 
 jest.mock('@/store/useStore', () => ({    useStore: jest.fn((selector: any) => {
@@ -63,34 +62,41 @@ jest.mock('@/lib/utils', () => ({
 
 import { Sidebar } from '@/components/layout/Sidebar';
 
+// Sidebar fetches stats in a useEffect — wrap render in act() so the async
+// getStats → setStats update is flushed inside act (no React warnings).
+async function renderSidebar() {
+  await act(async () => {
+    render(<Sidebar />);
+  });
+}
+
 describe('Sidebar Component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDevices = [];
     mockSidebarOpen = true;
     mockSelectedDeviceId = null;
-    mockStats = null;
     mockIsConnected = true;
   });
 
-  it('renders the brand name when open', () => {
-    render(<Sidebar />);
+  it('renders the brand name when open', async () => {
+    await renderSidebar();
     expect(screen.getByText('MAGNEETAR')).toBeInTheDocument();
     expect(screen.getByText('COMMAND CENTER')).toBeInTheDocument();
   });
 
-  it('shows devices section header when open', () => {
-    render(<Sidebar />);
+  it('shows devices section header when open', async () => {
+    await renderSidebar();
     expect(screen.getByText('Devices')).toBeInTheDocument();
   });
 
-  it('shows empty state when no devices', () => {
-    render(<Sidebar />);
+  it('shows empty state when no devices', async () => {
+    await renderSidebar();
     expect(screen.getByText('No devices registered.')).toBeInTheDocument();
     expect(screen.getByText('Connect to server first.')).toBeInTheDocument();
   });
 
-  it('shows device list when devices exist', () => {
+  it('shows device list when devices exist', async () => {
     mockDevices = [
       {
         id: 'device-001',
@@ -101,7 +107,7 @@ describe('Sidebar Component', () => {
     ];
     mockSelectedDeviceId = 'device-001';
 
-    render(<Sidebar />);
+    await renderSidebar();
     expect(screen.getByText('My Phone')).toBeInTheDocument();
     expect(screen.getByText('device-001')).toBeInTheDocument();
   });
@@ -112,8 +118,8 @@ describe('Sidebar Collapsed State', () => {
     mockSidebarOpen = false;
   });
 
-  it('does not show brand when collapsed', () => {
-    render(<Sidebar />);
+  it('does not show brand when collapsed', async () => {
+    await renderSidebar();
     expect(screen.queryByText('MAGNEETAR')).not.toBeInTheDocument();
   });
 });
