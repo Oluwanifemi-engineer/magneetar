@@ -203,5 +203,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: magneetar-release-apk
-          path: android-app/app/build/outputs/apk/release/*.apk
+          name: magneetar-debug-apk
+          path: android-app/app/build/outputs/apk/debug/*.apk
