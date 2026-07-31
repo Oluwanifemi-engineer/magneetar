@@ -49,7 +49,7 @@ class MagneetarAPI {
     const res = await fetch(`${this.serverUrl}${path}`, opts);
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(error.detail || `HTTP ${res.status}`);
+      throw new Error(extractErrorMessage(error) || `HTTP ${res.status}`);
     }
     return res.json();
   }
@@ -186,6 +186,24 @@ class MagneetarAPI {
 }
 
 // ─── Singleton ───────────────────────────────────────────────────────────────
+
+/**
+ * Convert a FastAPI error body into a readable string.
+ * 422 validation errors put an array of `{loc, msg}` objects in `detail`;
+ * stringifying that directly yields "[object Object]".
+ * Returns the fallback when nothing readable is found.
+ */
+export function extractErrorMessage(body: any, fallback = ''): string {
+  const detail = body?.detail;
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((d: any) => (typeof d?.msg === 'string' ? d.msg : null))
+      .filter(Boolean);
+    if (msgs.length) return msgs.join('; ');
+  }
+  if (typeof detail === 'string' && detail.trim()) return detail;
+  return fallback;
+}
 
 let apiInstance: MagneetarAPI | null = null;
 

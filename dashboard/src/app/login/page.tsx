@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
+import { extractErrorMessage } from '@/lib/api';
 
 type LoginMode = 'account' | 'apikey';
 
@@ -43,14 +44,13 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
-        const res = await fetch(`${baseUrl}/api/auth/login`, {
+        const res = await fetch(`${baseUrl}/api/auth/user/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
         });
         if (!res.ok) {
-          const err = await res.json().catch(() => ({ detail: 'Login failed' }));
-          throw new Error(err.detail || 'Invalid credentials');
+          throw new Error(extractErrorMessage(await res.json().catch(() => null), 'Invalid email or password'));
         }
         const data = await res.json();
         sessionStorage.setItem('mt_server_url', baseUrl);
@@ -65,11 +65,15 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
-        // API key health check
-        const res = await fetch(`${baseUrl}/health`, {
-          headers: { 'x-api-key': apiKey },
+        // API key validation — the login endpoint is the authoritative check
+        const res = await fetch(`${baseUrl}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: apiKey }),
         });
-        if (!res.ok) throw new Error('Server unreachable or invalid API key');
+        if (!res.ok) {
+          throw new Error(extractErrorMessage(await res.json().catch(() => null), 'Server unreachable or invalid API key'));
+        }
         sessionStorage.setItem('mt_server_url', baseUrl);
         sessionStorage.setItem('mt_api_key', apiKey);
         sessionStorage.setItem('mt_auth_mode', 'apikey');
