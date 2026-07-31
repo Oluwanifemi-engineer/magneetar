@@ -4,7 +4,7 @@
 > Track, protect, and recover your devices with intelligent telemetry and real-time alerts.
 
 ![Status](https://img.shields.io/badge/status-production-green)
-![Tests](https://img.shields.io/badge/tests-62%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-161%20passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
 ![Kotlin](https://img.shields.io/badge/kotlin-Android-orange)
@@ -65,7 +65,15 @@
 git clone https://github.com/magneetar/magneetar.git
 cd magneetar
 bash scripts/generate-env.sh   # Generate secure secrets
+make setup                    # venv + server deps (incl. dev tooling) + npm ci
+make pre-commit-install       # install git hooks (black, isort, flake8, eslint)
 ```
+
+> `make setup` installs both `server/requirements.txt` (runtime) and
+> `server/requirements-dev.txt` (pinned lint/test tooling that matches the
+> pre-commit hook environment), then runs `npm ci` for the dashboard.
+> `make pre-commit-install` wires the quality-gate hooks into your git
+> workflow so every commit is checked automatically.
 
 ### 2. Configure Environment
 
@@ -87,28 +95,28 @@ MT_DATABASE_URL=postgresql://user:pass@localhost:5432/magneetar
 ### 3. Start Development Server
 
 ```bash
-cd server
-pip install -r requirements.txt
-python main.py
-# Server running at http://localhost:8000
+make server
+# Server running at http://localhost:8000 (uvicorn --reload)
 ```
 
 ### 4. Start Dashboard (Development)
 
 ```bash
-cd dashboard
-npm install
-npm run dev
+make dashboard
 # Dashboard at http://localhost:3000
 ```
 
-### 5. Run Tests
+### 5. Run Tests & Quality Gates
 
 ```bash
-cd server
-python -m pytest tests/ -v
-# 62 tests should pass
+make test          # backend pytest (CI subset) + dashboard jest
+make validate      # full CI-equivalent gate: lint + typecheck + test + pre-commit
+make test-all      # ALL backend tests (incl. slow WebSocket tests)
 ```
+
+> **119 backend tests + 42 dashboard tests** should pass (`make test-all` for the
+> complete backend suite). `make validate` runs every gate that CI enforces,
+> so a green local `make validate` predicts a green GitHub Actions run.
 
 ---
 
@@ -277,8 +285,15 @@ Download the APK artifact and install on your device.
 
 ### CI/CD
 - **GitHub Actions** — test, build, deploy
+- **Blocking flake8 lint gate** — full `.flake8` selection, pinned to match pre-commit
 - **Multi-stage Docker builds** — optimized images
 - **Health checks** on all services
+
+### Developer Tooling
+- **`Makefile`** — one-command gates (`make setup`, `make validate`, `make test`, …)
+- **`pre-commit`** — black, isort, flake8, eslint run on every commit
+- **`server/requirements-dev.txt`** — pinned lint/test tooling, single source of truth
+- **`make help`** — list every available target
 
 ---
 
@@ -293,7 +308,7 @@ magneetar/
 │   ├── sentinel.py          # Theft detection AI
 │   ├── alerts.py            # Push/SMS/Email alerts
 │   ├── models.py            # Pydantic models
-│   └── tests/               # 62 unit + E2E tests
+│   └── tests/               # 119 unit + E2E tests
 ├── dashboard/               # Next.js web dashboard
 │   ├── src/app/             # Pages & layouts
 │   ├── src/components/      # UI components
