@@ -32,6 +32,8 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME"
           ls "$ANDROID_HOME/platforms/" 2>&1
           ls "$ANDROID_HOME/build-tools/" 2>&1
+          test -d "$ANDROID_HOME/platforms/android-34" && echo "OK: platform android-34 present" || echo "MISSING: platform android-34"
+          test -d "$ANDROID_HOME/build-tools/34.0.0" && echo "OK: build-tools 34.0.0 present" || echo "MISSING: build-tools 34.0.0"
 
       - name: Make gradlew executable
         working-directory: android-app
@@ -43,8 +45,9 @@ jobs:
         run: |
           ./gradlew assembleDebug --stacktrace --console=plain -PSERVER_URL="$SERVER_URL" -PAPI_KEY="$API_KEY" \
             > "$GITHUB_WORKSPACE/gradle-build.log" 2>&1 || {
-              echo "::error::Gradle build FAILED (exit $?) — last 60 lines:"
-              tail -60 "$GITHUB_WORKSPACE/gradle-build.log" | sed 's/^/::error::  /' || true
+              echo "::error::Gradle build FAILED (exit $?) — what went wrong:"
+              grep -A 20 "What went wrong:" "$GITHUB_WORKSPACE/gradle-build.log" | sed 's/^/::error::  /' || true
+              grep -B2 -A 10 -E "Caused by:|Execution failed for task|FAILURE:" "$GITHUB_WORKSPACE/gradle-build.log" | sed 's/^/::error::  /' || true
               echo "::error::Full log saved to artifact on failure"
               exit 1
             }
