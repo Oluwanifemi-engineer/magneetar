@@ -42,14 +42,14 @@ jobs:
         shell: bash
         run: |
           ./gradlew assembleDebug --stacktrace --console=plain -PSERVER_URL="$SERVER_URL" -PAPI_KEY="$API_KEY" \
-            > /tmp/gradle-build.log 2>&1 || {
+            > "$GITHUB_WORKSPACE/gradle-build.log" 2>&1 || {
               echo "::error::Gradle build FAILED (exit $?) — last 60 lines:"
-              tail -60 /tmp/gradle-build.log | sed 's/^/::error::  /' || true
+              tail -60 "$GITHUB_WORKSPACE/gradle-build.log" | sed 's/^/::error::  /' || true
               echo "::error::Full log saved to artifact on failure"
               exit 1
             }
           echo "::notice::Gradle build succeeded"
-          tail -20 /tmp/gradle-build.log
+          tail -20 "$GITHUB_WORKSPACE/gradle-build.log"
         env:
           SERVER_URL: ${{ secrets.SERVER_URL }}
           API_KEY: ${{ secrets.API_KEY }}
@@ -59,7 +59,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gradle-build-log
-          path: /tmp/gradle-build.log
+          path: gradle-build.log
           retention-days: 7
 
       - name: Upload APK artifact
