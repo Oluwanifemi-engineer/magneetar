@@ -35,6 +35,21 @@ jobs:
           test -d "$ANDROID_HOME/platforms/android-34" && echo "OK: platform android-34 present" || echo "MISSING: platform android-34"
           test -d "$ANDROID_HOME/build-tools/34.0.0" && echo "OK: build-tools 34.0.0 present" || echo "MISSING: build-tools 34.0.0"
 
+      - name: Inject real google-services.json (optional)
+        # Placeholder is committed; if you set the GOOGLE_SERVICES_JSON
+        # secret (base64 of your real android-app/app/google-services.json),
+        # this replaces it so Firebase push actually works.
+        shell: bash
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" | base64 -d > android-app/app/google-services.json
+            echo "::notice::Injected real google-services.json from secret"
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON secret not set — using placeholder google-services.json"
+          fi
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+
       - name: Make gradlew executable
         working-directory: android-app
         run: chmod +x ./gradlew
