@@ -7,6 +7,7 @@ import asyncio
 import logging
 import os
 import random
+import re
 import time
 from datetime import datetime, timezone
 
@@ -15,6 +16,36 @@ from config import settings
 from database import get_db_context
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_phone_to_e164(phone: str, default_country_code: str = "234") -> str:
+    """Convert a phone number to E.164 format for Twilio.
+
+    Twilio requires recipient numbers in E.164 (e.g. +2348081234567).
+    Users commonly enter local formats, so normalize only the UNAMBIGUOUS
+    cases (never guess on bare digits, which could be a number already
+    carrying a country code or an unrelated ID):
+      - "+2348081234567"            → unchanged (already E.164)
+      - "08081234567" (national)    → +2348081234567
+      - "002348081234567" (dialing) → +2348081234567
+      - "2348081234567" (CC, no +)  → +2348081234567
+      - "+1 (555) 123-4567"         → +15551234567 (formatting stripped)
+    Everything else is returned unchanged.
+    """
+    if not phone:
+        return phone
+    cleaned = re.sub(r"[\s\-().]", "", phone.strip())
+    if cleaned.startswith("+"):
+        return cleaned
+    if cleaned.startswith("00"):
+        return "+" + cleaned[2:]
+    if cleaned.startswith("0") and len(cleaned) >= 10:
+        # National number, e.g. Nigerian 0808... → +234808...
+        return "+" + default_country_code + cleaned[1:]
+    if cleaned.isdigit() and cleaned.startswith(default_country_code):
+        # International number typed without the '+' prefix
+        return "+" + cleaned
+    return phone
 
 
 class AlertEngine:
@@ -181,6 +212,7 @@ class AlertEngine:
 
     async def send_sms(self, to: str, template: str, data: dict) -> bool:
         """Send SMS via Twilio (preferred) or Termii (fallback)."""
+        to = normalize_phone_to_e164(to, settings.PHONE_COUNTRY_CODE)
         tmpl = self.ALERT_TEMPLATES.get(template, {})
         message = tmpl.get("sms", "").format(**data)
 
@@ -312,6 +344,7 @@ class AlertEngine:
         if not settings.TWILIO_SID or not settings.TWILIO_AUTH_TOKEN:
             return False
 
+        to = normalize_phone_to_e164(to, settings.PHONE_COUNTRY_CODE)
         tmpl = self.ALERT_TEMPLATES.get(template, {})
         message = tmpl.get("sms", "").format(**data)  # Reuse SMS template
 
@@ -359,6 +392,8 @@ class AlertEngine:
         # Get alert recipients from device settings
         email_to = data.get("email") or os.environ.get("MT_ALERT_EMAIL")
         phone_to = data.get("phone") or os.environ.get("MT_ALERT_PHONE")
+        if phone_to:
+            phone_to = normalize_phone_to_e164(phone_to, settings.PHONE_COUNTRY_CODE)
 
         # Look up stored FCM tokens from the database
         push_tokens: list[str] = []

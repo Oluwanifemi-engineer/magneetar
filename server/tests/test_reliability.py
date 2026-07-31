@@ -34,7 +34,7 @@ import database
 database.DB_PATH = test_db_path
 database.init_db(test_db_path)
 
-from alerts import AlertEngine, alert_engine
+from alerts import AlertEngine, alert_engine, normalize_phone_to_e164
 from fastapi.testclient import TestClient
 from main import app
 from websocket_manager import (
@@ -691,6 +691,92 @@ class TestAlertEngineChannels:
             channels_called = {c.args[0] for c in mock_retry.call_args_list}
             assert "whatsapp" in channels_called
             assert "sms" in channels_called
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4b. Phone Number Normalization (E.164)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestPhoneNormalization:
+    """Local phone numbers must be normalized to E.164 before hitting Twilio."""
+
+    def test_nigerian_local_format_converts_to_e164(self):
+        """0808... (11-digit local) → +234808... (E.164)."""
+        assert normalize_phone_to_e164("08081234567") == "+2348081234567"
+
+    def test_already_e164_unchanged(self):
+        """Numbers already in E.164 are returned untouched."""
+        assert normalize_phone_to_e164("+2348081234567") == "+2348081234567"
+        assert normalize_phone_to_e164("+15557654321") == "+15557654321"
+
+    def test_international_dialing_prefix_handled(self):
+        """00-prefixed international dialing → E.164."""
+        assert normalize_phone_to_e164("002348081234567") == "+2348081234567"
+
+    def test_formatting_stripped(self):
+        """Spaces, dashes, parens removed."""
+        assert normalize_phone_to_e164("+1 (555) 123-4567") == "+15551234567"
+
+    def test_empty_and_none_passthrough(self):
+        """Empty input returned as-is (no crash)."""
+        assert normalize_phone_to_e164("") == ""
+        assert normalize_phone_to_e164(None) is None
+
+    def test_short_nonlocal_number_unchanged(self):
+        """Ambiguous short numbers are never guessed at."""
+        assert normalize_phone_to_e164("1234") == "1234"
+
+    def test_bare_digits_without_country_code_unchanged(self):
+        """A bare number without '+' or leading 0 is ambiguous — pass through.
+        E.g. a US number typed as 15557654321 must NOT become +2341555...
+        (that would be a wrong-country mangling).
+        """
+        assert normalize_phone_to_e164("15557654321") == "15557654321"
+
+    def test_country_code_without_plus_prefix_added(self):
+        """Bare digits that already start with the country code get '+'. """
+        assert normalize_phone_to_e164("2348081234567") == "+2348081234567"
+
+    @pytest.mark.asyncio
+    async def test_send_sms_normalizes_local_number(self):
+        """send_sms must convert 0808... → +234808... before POSTing to Twilio."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_SMS_FROM = "+17432209510"
+        config.settings.TERMII_API_KEY = ""
+
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.text = "sent"
+
+        with patch("alerts.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            result = await engine.send_sms("08081234567", "theft_detected", {"location": "0,0"})
+
+        assert result is True
+        data = mock_client.return_value.__aenter__.return_value.post.call_args.kwargs["data"]
+        assert data["To"] == "+2348081234567"
+
+    @pytest.mark.asyncio
+    async def test_send_whatsapp_normalizes_local_number(self):
+        """send_whatsapp must normalize to E.164 before POSTing to Twilio."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.text = "sent"
+
+        with patch("alerts.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            result = await engine.send_whatsapp("08081234567", "theft_detected", {"location": "0,0"})
+
+        assert result is True
+        data = mock_client.return_value.__aenter__.return_value.post.call_args.kwargs["data"]
+        assert data["To"] == "whatsapp:+2348081234567"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

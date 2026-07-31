@@ -42,6 +42,9 @@ class Settings:
         "MT_TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886"
     )
     FIREBASE_CREDENTIALS: str = os.environ.get("MT_FIREBASE_KEY", "")
+    # Default country code for normalizing local phone numbers to E.164
+    # (e.g. Nigerian "0808..." → "+234808..."). Override per region.
+    PHONE_COUNTRY_CODE: str = os.environ.get("MT_COUNTRY_CODE", "234")
 
     # ── Monitoring ─────────────────────────────────────────────────────────
     SENTRY_DSN: str = os.environ.get("MT_SENTRY_DSN", "")
