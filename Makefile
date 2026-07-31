@@ -39,7 +39,7 @@ server-check: server-lint test  ## Run all server checks
 
 # ─── Tests ────────────────────────────────────────────────────────────────────
 
-test: test-backend test-dashboard  ## Run backend + dashboard tests (mirrors CI)
+test: test-backend test-dashboard  ## Run backend + dashboard tests (mirrors CI; full backend suite: make test-all)
 
 test-all:       ## Run ALL backend tests (including slow WebSocket tests)
 	cd server && source venv/bin/activate && python -m pytest tests/ -v --tb=short
