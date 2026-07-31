@@ -111,7 +111,7 @@ make dashboard
 ```bash
 make test          # backend pytest (full suite) + dashboard jest
 make validate      # full CI-equivalent gate: lint + typecheck + test + pre-commit
-make test-all      # ALL backend tests (incl. live WebSocket integration tests)
+make test-all      # everything — same as make test (alias kept for compatibility)
 ```
 
 > **121 backend tests + 42 dashboard tests** should pass. `make validate` runs

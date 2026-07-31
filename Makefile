@@ -42,10 +42,9 @@ server-check: server-lint test  ## Run all server checks
 
 # ─── Tests ────────────────────────────────────────────────────────────────────
 
-test: test-backend test-dashboard  ## Run backend + dashboard tests (mirrors CI; full backend suite: make test-all)
+test: test-backend test-dashboard  ## Run backend + dashboard tests (mirrors CI)
 
-test-all:       ## Run ALL backend tests (including live WebSocket integration tests)
-	cd server && source venv/bin/activate && python -m pytest tests/ -v --tb=short
+test-all: test  ## Run EVERYTHING (backend + dashboard) — alias of make test, kept for compatibility
 
 test-backend:   ## Run full backend suite (incl. live WebSocket integration tests — matches CI)
 	cd server && source venv/bin/activate && python -m pytest tests/ -v --tb=short
