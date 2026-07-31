@@ -1,0 +1,29 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAGNEETAR — Cloudflare Tunnel (locally-managed config)
+# ───────────────────────────────────────────────────────────────────────────────
+# Routes public hostnames to Docker service names on the magneetar_default
+# network. Using a config file (instead of --token dashboard-managed ingress)
+# keeps routing reproducible, versioned, and reviewable in this repo.
+#
+# Credentials file is mounted read-only from the host at:
+#   ~/.cloudflared/<TUNNEL_ID>.json  →  /etc/cloudflared/credentials.json
+#
+# IMPORTANT: origin services use Docker service names (server / dashboard),
+# NOT localhost — localhost inside the cloudflared container is the tunnel
+# container itself and would cause HTTP 503 from Cloudflare.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+tunnel: 6c8892f6-598b-42cc-99c9-8350dd573671
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  # API — backend server (port 8000 inside the container)
+  - hostname: api.magneetar.me
+    service: http://server:8000
+
+  # Dashboard — Nginx (port 80 inside the container)
+  - hostname: app.magneetar.me
+    service: http://dashboard:80
+
+  # Catch-all — reject unmatched hostnames
+  - service: http_status:404

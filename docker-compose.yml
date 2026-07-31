@@ -44,7 +44,12 @@ services:
       - ./server/.env
     environment:
       - MT_ENVIRONMENT=production
-      # Use PostgreSQL in Docker
+      # Use PostgreSQL in Docker.
+      # NOTE: MT_DB_PASSWORD is interpolated from the ROOT .env (compose only
+      # reads the project-root .env for ${} interpolation), and must stay in
+      # sync with server/.env (which the container also loads via env_file).
+      # If they drift, PostgreSQL auth silently fails and the server falls
+      # back to SQLite — keep both files updated together (generate-env.sh).
       - MT_DATABASE_URL=postgresql://magneetar:${MT_DB_PASSWORD:-changeme}@db:5432/magneetar
     volumes:
       - magneetar-data:/app/data
@@ -78,7 +83,20 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: magneetar-tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN}
+    # Run as root so the container can read the host credentials file
+    # (mode 0400, owned by the host user). cloudflared image is a minimal
+    # scratch binary — no other processes run under this user.
+    user: "0:0"
+    # Locally-managed config file (repo versioned) — routes to Docker service
+    # names (server / dashboard), fixing the 503 caused by localhost ingress
+    # inside the container. Credentials file is a host secret, never committed.
+    # NOTE: CF_TUNNEL_TOKEN in root .env is now DEPRECATED for this service —
+    # the token-driven dashboard-managed ingress is no longer used. It is kept
+    # in .env only for reference / rollback.
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    volumes:
+      - ~/.cloudflared/6c8892f6-598b-42cc-99c9-8350dd573671.json:/etc/cloudflared/credentials.json:ro
+      - ./deploy/cloudflared/config.yml:/etc/cloudflared/config.yml:ro
     depends_on:
       - server
       - dashboard
