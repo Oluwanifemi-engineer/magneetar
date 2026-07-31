@@ -77,6 +77,5 @@ htmlcov/
 coverage/
 server/firebase-key.json
 
-# Firebase config (contains API keys - do NOT commit to public repo)
-android-app/google-services.json
-android-app/app/google-services.json
+# Firebase config placeholder (no real secrets — committed for CI builds)
+# To use real Firebase, replace android-app/google-services.json with your real file

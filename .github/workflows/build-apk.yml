@@ -29,9 +29,9 @@ jobs:
         working-directory: android-app
         run: chmod +x ./gradlew
 
-      - name: Build release APK
+      - name: Build debug APK (unsigned, for sideloading)
         working-directory: android-app
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleDebug
         env:
           SERVER_URL: ${{ secrets.SERVER_URL }}
           API_KEY: ${{ secrets.API_KEY }}
@@ -39,6 +39,6 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Magneetar-release
-          path: android-app/app/build/outputs/apk/release/*.apk
+          name: Magneetar-debug
+          path: android-app/app/build/outputs/apk/debug/*.apk
           retention-days: 30
