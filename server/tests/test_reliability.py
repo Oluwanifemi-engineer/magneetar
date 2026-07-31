@@ -336,6 +336,26 @@ class TestWebSocketConnectionLimits:
 
     @pytest.mark.slow
     @pytest.mark.asyncio
+    async def test_websocket_accepts_access_token(self, live_ws_server):
+        """A connection with an 'access'-type token is also accepted and registered.
+
+        Completes the positive-auth matrix: both "dashboard" and "access"
+        types are allowed on /ws/dashboard.
+        """
+        token = create_token("dashboard:access", "access")
+        url = f"{live_ws_server}?token={token}"
+        active_dashboard_connections.clear()
+
+        async with websockets.connect(url) as ws:
+            assert await _wait_until(lambda: len(active_dashboard_connections) == 1)
+            await ws.send("ping")
+            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=2.0))
+            assert pong["type"] == "pong"
+
+        assert await _wait_until(lambda: len(active_dashboard_connections) == 0)
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
     async def test_websocket_rejects_invalid_token(self, live_ws_server):
         """A connection with a garbage token is rejected with close code 4001."""
         url = f"{live_ws_server}?token=not-a-real-token"
@@ -425,6 +445,36 @@ class TestWebSocketConnectionLimits:
 
         await _assert_closed_with_code(url, 4001)
         assert len(active_dashboard_connections) == 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 2b. Token Revocation — REST endpoints
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestRevokedTokensOnApi:
+    """Revoked JWTs must be rejected on REST endpoints too, not just WebSocket."""
+
+    def test_revoked_dashboard_token_rejected_with_401(self):
+        """A revoked dashboard token gets 401 on a JWT-protected endpoint."""
+        import jwt
+
+        token = create_token("dashboard:api-revoked", "dashboard")
+        jti = jwt.decode(token, config.settings.JWT_SECRET, algorithms=["HS256"])["jti"]
+        with database.get_db_context() as conn:
+            conn.execute("INSERT OR IGNORE INTO revoked_tokens (jti, reason) VALUES (?, ?)", (jti, "test"))
+            conn.commit()
+
+        response = client.get("/api/dashboard/devices", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 401
+        assert "revoked" in response.json().get("detail", "").lower()
+
+    def test_valid_dashboard_token_allowed_on_api(self):
+        """A valid dashboard token passes auth on the same protected endpoint."""
+        token = create_token("dashboard:api-valid", "dashboard")
+
+        response = client.get("/api/dashboard/devices", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
 
 
 # ═══════════════════════════════════════════════════════════════════════════

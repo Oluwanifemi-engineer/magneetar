@@ -14,7 +14,7 @@ Magneetar is a fully functional anti-theft tracking system with:
 - **Dashboard** — Next.js tactical command center
 - **Production deployment** — Docker Compose + PostgreSQL + Cloudflare Tunnel
 
-All **170 tests pass consistently** (128 backend + 42 dashboard). The system has been hardened with comprehensive reliability improvements including WebSocket connection limits, alert circuit breakers, per-device alert recipients, CI alert verification, and graceful degradation.
+All **173 tests pass consistently** (131 backend + 42 dashboard). The system has been hardened with comprehensive reliability improvements including WebSocket connection limits, alert circuit breakers, per-device alert recipients, CI alert verification, and graceful degradation.
 
 ---
 
@@ -26,10 +26,10 @@ All **170 tests pass consistently** (128 backend + 42 dashboard). The system has
 | Auth Tests (`test_auth.py`) | 15 | ✅ All pass |
 | Sentinel Tests (`test_sentinel.py`) | 14 | ✅ All pass |
 | E2E Tests (`test_e2e.py`) | 11 | ✅ All pass |
-| **Reliability Tests** (`test_reliability.py`) | **66** | ✅ **All pass** (WebSocket limits, live WS integration, auth-path incl. expired/revoked/tampered/missing-type, circuit breaker, per-device recipients) |
-| **Backend Total** | **128** | **✅ All pass** |
+| **Reliability Tests** (`test_reliability.py`) | **69** | ✅ **All pass** (WebSocket limits, live WS integration, full auth-path matrix incl. expired/revoked/tampered/missing-type, REST revocation, circuit breaker, per-device recipients) |
+| **Backend Total** | **131** | **✅ All pass** |
 | **Dashboard Tests** | **42** | **✅ All pass** (6 suites, `tsc --noEmit` clean) |
-| **Grand Total** | **170** | **✅ All pass** |
+| **Grand Total** | **173** | **✅ All pass** |
 
 ---
 
