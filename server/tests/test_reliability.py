@@ -4,14 +4,19 @@ Tests for: WebSocket connection limits, health endpoint DB check,
            AlertEngine retry/circuit breaker.
 """
 
+import asyncio
 import json
 import os
 import secrets
+import socket
 import tempfile
+import threading
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import uvicorn
+import websockets
 
 # ── Test Environment Setup ───────────────────────────────────────────────────
 _test_db_fd, test_db_path = tempfile.mkstemp(suffix=".db")
@@ -44,6 +49,54 @@ from websocket_manager import (  # noqa: E402
 )
 
 client = TestClient(app)
+
+
+async def _wait_until(predicate, timeout: float = 3.0) -> bool:
+    """Poll a plain condition until it holds or the timeout elapses.
+
+    WebSocket registration/eviction happens in the uvicorn thread, so the
+    test must poll the shared module-level connection list rather than sleep.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if predicate():
+            return True
+        await asyncio.sleep(0.05)
+    return False
+
+
+@pytest.fixture
+def live_ws_server():
+    """Run the real FastAPI app under uvicorn in a background thread.
+
+    Function-scoped (NOT module-scoped): the uvicorn lifespan starts a
+    ~30s heartbeat task that iterates the shared active_dashboard_connections
+    list. If it ran for the whole module, it could prune MagicMocks out from
+    under the mock-based WS tests mid-assertion — a CI flakiness vector.
+    Two quick server spins (~1-2s total) is a fair price for full isolation.
+
+    Starlette's sync TestClient.websocket_connect() deadlocks against
+    /ws/dashboard's persistent `while True: receive_text()` loop, so live
+    endpoint coverage uses a real uvicorn server + the websockets client.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+
+    server = uvicorn.Server(uvicorn.Config(app, log_level="warning", access_log=False))
+    thread = threading.Thread(target=server.run, args=([sock],), daemon=True)
+    thread.start()
+
+    deadline = time.time() + 10
+    while not server.started and time.time() < deadline:
+        time.sleep(0.05)
+    assert server.started, "uvicorn failed to start for WebSocket integration test"
+
+    yield f"ws://127.0.0.1:{port}/ws/dashboard"
+
+    server.should_exit = True
+    thread.join(timeout=5)
 
 
 # ── Cleanup ─────────────────────────────────────────────────────────────────
@@ -191,51 +244,61 @@ class TestWebSocketConnectionLimits:
         assert m not in active_dashboard_connections
 
     @pytest.mark.slow
-    def test_server_rejects_at_capacity_via_websocket(self):
-        """Full WebSocket endpoint should evict oldest connection.
-        NOTE: Skipped in CI (via -k "not slow") because TestClient
-        .websocket_connect() blocks the event loop. The mock-based
-        tests above cover the same logic. Run directly with:
-            pytest -k "slow"
-        """
-        active_dashboard_connections.clear()
+    @pytest.mark.asyncio
+    async def test_server_rejects_at_capacity_via_websocket(self, live_ws_server):
+        """Full WebSocket endpoint should evict oldest connection at capacity.
 
+        Live integration test — real uvicorn server + websockets client.
+        (TestClient.websocket_connect() blocks the event loop against the
+        endpoint's persistent receive loop, so it can't test this path.)
+        """
         import websocket_manager
 
         original_max = websocket_manager.MAX_DASHBOARD_CONNECTIONS
         websocket_manager.MAX_DASHBOARD_CONNECTIONS = 2
 
+        ws2 = ws3 = None
         try:
-            with client.websocket_connect("/ws/dashboard") as ws1:
-                data1 = ws1.receive_json()
-                assert data1 is not None
+            ws1 = await websockets.connect(live_ws_server)
+            ws2 = await websockets.connect(live_ws_server)
+            assert await _wait_until(lambda: len(active_dashboard_connections) == 2)
 
-                with client.websocket_connect("/ws/dashboard") as ws2:
-                    data2 = ws2.receive_json()
-                    assert data2 is not None
+            ws3 = await websockets.connect(live_ws_server)
 
-                    with client.websocket_connect("/ws/dashboard") as ws3:
-                        data3 = ws3.receive_json()
-                        assert data3 is not None
-
-            assert len(active_dashboard_connections) <= 2
+            # ws1 (oldest) must be evicted with close code 1013
+            assert await _wait_until(lambda: len(active_dashboard_connections) == 2)
+            try:
+                await asyncio.wait_for(ws1.recv(), timeout=2.0)
+                raise AssertionError("ws1 should have been evicted")
+            except websockets.exceptions.ConnectionClosed as exc:
+                assert getattr(exc.rcvd, "code", None) == 1013
         finally:
+            for ws in (ws2, ws3):
+                if ws is not None:
+                    try:
+                        await ws.close()
+                    except Exception:
+                        pass
             websocket_manager.MAX_DASHBOARD_CONNECTIONS = original_max
             active_dashboard_connections.clear()
 
     @pytest.mark.slow
-    def test_websocket_accepts_valid_connection(self):
-        """A single WebSocket connection should be accepted and registered.
-        NOTE: Skipped in CI (via -k "not slow") because TestClient
-        .websocket_connect() blocks the event loop. The mock-based
-        tests above cover the same logic. Run directly with:
-            pytest -k "slow"
+    @pytest.mark.asyncio
+    async def test_websocket_accepts_valid_connection(self, live_ws_server):
+        """A single WebSocket connection should be accepted, registered, and answer pings.
+
+        Live integration test — real uvicorn server + websockets client.
         """
         active_dashboard_connections.clear()
 
-        with client.websocket_connect("/ws/dashboard") as ws:
-            assert ws is not None
-            assert len(active_dashboard_connections) == 1
+        async with websockets.connect(live_ws_server) as ws:
+            assert await _wait_until(lambda: len(active_dashboard_connections) == 1)
+            await ws.send("ping")
+            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=2.0))
+            assert pong["type"] == "pong"
+
+        # Connection must be deregistered after the client disconnects
+        assert await _wait_until(lambda: len(active_dashboard_connections) == 0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

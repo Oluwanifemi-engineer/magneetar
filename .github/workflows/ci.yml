@@ -43,10 +43,10 @@ jobs:
           cd server
           pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Run tests (exclude slow WebSocket tests that block event loop)
+      - name: Run tests (full suite incl. live WebSocket integration tests)
         run: |
           cd server
-          python -m pytest tests/ -v --tb=short -k "not slow"
+          python -m pytest tests/ -v --tb=short
 
       - name: Run linting (flake8)
         # Uses the repo-root .flake8 config (auto-discovered by walking up from

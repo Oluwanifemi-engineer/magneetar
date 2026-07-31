@@ -44,11 +44,11 @@ server-check: server-lint test  ## Run all server checks
 
 test: test-backend test-dashboard  ## Run backend + dashboard tests (mirrors CI; full backend suite: make test-all)
 
-test-all:       ## Run ALL backend tests (including slow WebSocket tests)
+test-all:       ## Run ALL backend tests (including live WebSocket integration tests)
 	cd server && source venv/bin/activate && python -m pytest tests/ -v --tb=short
 
-test-backend:   ## Run backend tests (excludes slow WebSocket tests — matches CI)
-	cd server && source venv/bin/activate && python -m pytest tests/ -v --tb=short -k "not slow"
+test-backend:   ## Run full backend suite (incl. live WebSocket integration tests — matches CI)
+	cd server && source venv/bin/activate && python -m pytest tests/ -v --tb=short
 
 test-dashboard: ## Run dashboard tests (jest, CI mode)
 	cd dashboard && npm run test:ci
