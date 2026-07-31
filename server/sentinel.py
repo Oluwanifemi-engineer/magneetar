@@ -118,8 +118,15 @@ class SentinelEngine:
                         anomalies.append(f"Impossible jump: {distance_km:.0f}km in {time_diff:.0f}s")
 
         # ── Unusual Time Detection ────────────────────────────────────────
+        # Only flag late-night activity as suspicious when there is actual
+        # context: the device is moving (not parked at home), or other
+        # anomalies are already present. An idle device at 3am is normal.
         hour = datetime.now(timezone.utc).hour
-        if 2 <= hour <= 5:  # 2am-5am is unusual
+        # Threshold must stay above walking pace (~1.5 m/s): test_low_speed_safe
+        # uses 2.0 m/s and asserts a SAFE score, so 3.0 keeps idle devices
+        # unflagged at night while still catching slow moving vehicles.
+        is_moving = ping.speed is not None and ping.speed > 3.0  # > ~11 km/h
+        if 2 <= hour <= 5 and (is_moving or total_score > 0):  # 2am-5am
             sig = self.THEFT_SIGNALS["unusual_time"]
             anomalies.append(sig["description"])
             total_score += sig["weight"]
