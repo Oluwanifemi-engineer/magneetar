@@ -4,6 +4,7 @@ Multi-channel alerts: Email (SendGrid), SMS (Termii), WhatsApp (Twilio), Push (F
 """
 
 import asyncio
+import json
 import logging
 import os
 import random
@@ -16,6 +17,15 @@ from config import settings
 from database import get_db_context
 
 logger = logging.getLogger(__name__)
+
+# Default mapping from template placeholders ({{1}}, {{2}}, ...) to alert data
+# keys. Used when MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES is unset — keep in sync
+# with the template created in the Twilio Console.
+DEFAULT_WHATSAPP_TEMPLATE_VARIABLES = {
+    "1": "location",
+    "2": "time",
+    "3": "score",
+}
 
 
 def normalize_phone_to_e164(phone: str, default_country_code: str = "234") -> str:
@@ -331,44 +341,63 @@ class AlertEngine:
     async def send_whatsapp(self, to: str, template: str, data: dict) -> bool:
         """Send WhatsApp message via Twilio.
 
+        Two modes:
+        1. TEMPLATE (recommended for business-initiated alerts like theft):
+           When MT_TWILIO_WHATSAPP_TEMPLATE_SID is set, sends ContentSid +
+           ContentVariables. Templates work OUTSIDE the 24h window, so real
+           theft alerts always deliver. Placeholder variables come from
+           MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES (defaults to location/time/score).
+        2. FREE-FORM (sandbox / within the 24h window): when no template SID
+           is configured, falls back to Body text.
+
         Recipient must have joined the Twilio sandbox first (send the join
         keyword to the sandbox number) or be approved for the production
-        WhatsApp sender. Free-form text is allowed within the 24h window;
-        business-initiated messages outside it require an approved template.
-        NOTE: theft alerts are usually business-initiated — Twilio will reject
-        free-form Body outside the 24h window (error 63010/63017 requires
-        ContentSid + ContentVariables). If you see those errors in the logs,
-        create an approved template in the Twilio Console and extend
-        send_whatsapp to pass ContentSid/ContentVariables.
+        WhatsApp sender. If you see 63010/63017/63018 in the logs, the template
+        is missing, unapproved, or the variables don't match the template.
         """
         if not settings.TWILIO_SID or not settings.TWILIO_AUTH_TOKEN:
             return False
 
         to = normalize_phone_to_e164(to, settings.PHONE_COUNTRY_CODE)
         tmpl = self.ALERT_TEMPLATES.get(template, {})
-        message = tmpl.get("sms", "").format(**data)  # Reuse SMS template
+
+        # Build the payload: template mode (ContentSid) or free-form (Body)
+        payload: dict = {
+            "To": f"whatsapp:{to}",
+            "From": settings.TWILIO_WHATSAPP_FROM,
+        }
+        if settings.TWILIO_WHATSAPP_TEMPLATE_SID:
+            variables = dict(settings.TWILIO_WHATSAPP_TEMPLATE_VARIABLES) or DEFAULT_WHATSAPP_TEMPLATE_VARIABLES
+            content_variables = {k: str(data.get(v, "")) for k, v in variables.items()}
+            payload["ContentSid"] = settings.TWILIO_WHATSAPP_TEMPLATE_SID
+            payload["ContentVariables"] = json.dumps(content_variables)
+        else:
+            # Only build the free-form text when actually using Body — avoids
+            # dead work and a KeyError risk in template mode when data lacks
+            # a key the SMS template references.
+            message = tmpl.get("sms", "").format(**data)  # Reuse SMS template
+            payload["Body"] = message
 
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"https://api.twilio.com/2010-04-01/Accounts/{settings.TWILIO_SID}/Messages.json",
                     auth=(settings.TWILIO_SID, settings.TWILIO_AUTH_TOKEN),
-                    data={
-                        "To": f"whatsapp:{to}",
-                        "From": settings.TWILIO_WHATSAPP_FROM,
-                        "Body": message,
-                    },
+                    data=payload,
                     timeout=10,
                 )
                 if response.status_code in (200, 201):
                     return True
                 body = response.text[:300]
                 logger.warning(f"Twilio WhatsApp returned {response.status_code}: {body}")
-                if "63010" in body or "63017" in body:
+                if any(code in body for code in ("63010", "63016", "63017", "63018")):
                     logger.warning(
-                        "WhatsApp rejected the free-form message — outside the 24h window. "
-                        "Create an approved template and pass ContentSid/ContentVariables "
-                        "(see send_whatsapp docstring)."
+                        "WhatsApp message rejected — template problem. Set "
+                        "MT_TWILIO_WHATSAPP_TEMPLATE_SID to an approved Content "
+                        "template (HX...) and ensure MT_TWILIO_WHATSAPP_TEMPLATE_"
+                        "VARIABLES maps placeholders to data keys (location, time, "
+                        "score). Within the 24h window free-form Body works without "
+                        "a template."
                     )
                 return False
         except Exception as e:

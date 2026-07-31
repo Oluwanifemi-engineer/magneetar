@@ -3,11 +3,24 @@ Magneetar Server Configuration
 All configuration from environment variables - NEVER hardcode secrets.
 """
 
+import json
 import os
 import secrets
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+
+def _env_json_dict(name: str) -> dict:
+    """Parse an env var containing a JSON object; returns {} on unset/invalid."""
+    raw = os.environ.get(name, "")
+    if not raw.strip():
+        return {}
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else {}
+    except (ValueError, TypeError):
+        return {}
 
 # Load .env file if it exists
 env_path = Path(__file__).parent / ".env"
@@ -40,6 +53,17 @@ class Settings:
     # your approved WhatsApp Business sender after sandbox onboarding.
     TWILIO_WHATSAPP_FROM: str = os.environ.get(
         "MT_TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886"
+    )
+    # WhatsApp Content API template (ContentSid, e.g. "HX..."). Business-
+    # initiated alerts (theft, sim change...) arrive OUTSIDE the 24h window
+    # where free-form Body is rejected — set this to an approved template so
+    # alerts keep delivering. When empty, send_whatsapp falls back to Body.
+    TWILIO_WHATSAPP_TEMPLATE_SID: str = os.environ.get("MT_TWILIO_WHATSAPP_TEMPLATE_SID", "")
+    # JSON mapping of template placeholder ({{1}}, {{2}}...) to alert data keys,
+    # e.g. '{"1": "location", "2": "time", "3": "score"}'. Unset/invalid JSON
+    # degrades to a sensible default mapping.
+    TWILIO_WHATSAPP_TEMPLATE_VARIABLES: dict = _env_json_dict(
+        "MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES"
     )
     FIREBASE_CREDENTIALS: str = os.environ.get("MT_FIREBASE_KEY", "")
     # Default country code for normalizing local phone numbers to E.164
@@ -146,6 +170,30 @@ class Settings:
                 f"characters (current value is {len(self.TWILIO_AUTH_TOKEN)} chars). "
                 "Check the Twilio Console > Account Info."
             )
+
+        # WhatsApp Content template SIDs always start with "HX".
+        if self.TWILIO_WHATSAPP_TEMPLATE_SID and not self.TWILIO_WHATSAPP_TEMPLATE_SID.startswith("HX"):
+            warnings.append(
+                "MT_TWILIO_WHATSAPP_TEMPLATE_SID looks invalid: Twilio Content "
+                "template SIDs start with 'HX' (current value starts with "
+                f"'{self.TWILIO_WHATSAPP_TEMPLATE_SID[:2]}'). Find it in the "
+                "Twilio Console > Content > Templates."
+            )
+
+        # Template variables JSON must be an object if provided.
+        raw_vars = os.environ.get("MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES", "")
+        if raw_vars.strip():
+            try:
+                parsed = json.loads(raw_vars)
+                if not isinstance(parsed, dict):
+                    warnings.append(
+                        "MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES must be a JSON object "
+                        f"like '{{\"1\": \"location\"}}' (got a non-object). Using defaults."
+                    )
+            except (ValueError, TypeError):
+                warnings.append(
+                    "MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES is not valid JSON — using defaults."
+                )
 
         return warnings
 

@@ -463,6 +463,8 @@ def _restore_alert_settings():
         "TWILIO_AUTH_TOKEN": config.settings.TWILIO_AUTH_TOKEN,
         "TWILIO_SMS_FROM": config.settings.TWILIO_SMS_FROM,
         "TWILIO_WHATSAPP_FROM": config.settings.TWILIO_WHATSAPP_FROM,
+        "TWILIO_WHATSAPP_TEMPLATE_SID": config.settings.TWILIO_WHATSAPP_TEMPLATE_SID,
+        "TWILIO_WHATSAPP_TEMPLATE_VARIABLES": config.settings.TWILIO_WHATSAPP_TEMPLATE_VARIABLES,
         "TERMII_API_KEY": config.settings.TERMII_API_KEY,
     }
     yield
@@ -657,6 +659,115 @@ class TestAlertEngineChannels:
         assert "template" in warn_calls.lower()
 
     @pytest.mark.asyncio
+    async def test_send_whatsapp_uses_template_when_configured(self):
+        """With a template SID set, send_whatsapp sends ContentSid+ContentVariables."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_WHATSAPP_TEMPLATE_SID = "HX" + "a" * 32
+        config.settings.TWILIO_WHATSAPP_TEMPLATE_VARIABLES = {
+            "1": "location",
+            "2": "time",
+            "3": "score",
+        }
+
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.text = "sent"
+
+        with patch("alerts.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            result = await engine.send_whatsapp(
+                "+2348081234567", "theft_detected",
+                {"location": "9.08, 8.67", "time": "2026-01-01T00:00:00", "score": "85"},
+            )
+
+        assert result is True
+        data = mock_client.return_value.__aenter__.return_value.post.call_args.kwargs["data"]
+        assert data["ContentSid"] == "HX" + "a" * 32
+        assert "Body" not in data
+        variables = json.loads(data["ContentVariables"])
+        assert variables == {"1": "9.08, 8.67", "2": "2026-01-01T00:00:00", "3": "85"}
+
+    @pytest.mark.asyncio
+    async def test_send_whatsapp_template_uses_default_variables_mapping(self):
+        """Unset template variables fall back to the default location/time/score map."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_WHATSAPP_TEMPLATE_SID = "HX" + "b" * 32
+        config.settings.TWILIO_WHATSAPP_TEMPLATE_VARIABLES = {}  # unset → defaults
+
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.text = "sent"
+
+        with patch("alerts.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            await engine.send_whatsapp(
+                "+2348081234567", "theft_detected",
+                {"location": "9.08, 8.67", "time": "2026-01-01T00:00:00", "score": "85"},
+            )
+
+        data = mock_client.return_value.__aenter__.return_value.post.call_args.kwargs["data"]
+        variables = json.loads(data["ContentVariables"])
+        # Default map: 1→location, 2→time, 3→score
+        assert variables["1"] == "9.08, 8.67"
+        assert variables["2"] == "2026-01-01T00:00:00"
+        assert variables["3"] == "85"
+
+    @pytest.mark.asyncio
+    async def test_send_whatsapp_template_missing_key_becomes_empty(self):
+        """Missing data keys in template mode must not crash — empty string instead."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_WHATSAPP_TEMPLATE_SID = "HX" + "c" * 32
+        config.settings.TWILIO_WHATSAPP_TEMPLATE_VARIABLES = {"1": "location", "2": "missing_key"}
+
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.text = "sent"
+
+        with patch("alerts.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            result = await engine.send_whatsapp(
+                "+2348081234567", "theft_detected", {"location": "9.08, 8.67"},
+            )
+
+        assert result is True
+        data = mock_client.return_value.__aenter__.return_value.post.call_args.kwargs["data"]
+        variables = json.loads(data["ContentVariables"])
+        assert variables["1"] == "9.08, 8.67"
+        assert variables["2"] == ""
+
+    @pytest.mark.asyncio
+    async def test_send_whatsapp_template_63018_detected(self):
+        """63018 (template not found) must be detected and logged with guidance."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_WHATSAPP_TEMPLATE_SID = "HX" + "d" * 32
+
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.text = '{"code": 63018, "message": "Template not found"}'
+
+        with (
+            patch("alerts.httpx.AsyncClient") as mock_client,
+            patch("alerts.logger") as mock_logger,
+        ):
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            result = await engine.send_whatsapp(
+                "+2348081234567", "theft_detected", {"location": "0,0"},
+            )
+
+        assert result is False
+        warn_calls = " ".join(str(c.args) for c in mock_logger.warning.call_args_list)
+        assert "63018" in warn_calls
+        assert "TEMPLATE_SID" in warn_calls
+
+    @pytest.mark.asyncio
     async def test_send_all_default_channels_include_whatsapp(self):
         """Default channel set must route whatsapp through _send_with_retry.
 
@@ -836,3 +947,26 @@ class TestValidateOptional:
 
         warnings = config.settings.validate_optional()
         assert any("MT_TWILIO_SMS_FROM is empty" in w for w in warnings)
+
+    def test_template_sid_wrong_prefix_warns(self):
+        """A non-HX-prefixed Content template SID must warn."""
+        config.settings.TWILIO_WHATSAPP_TEMPLATE_SID = "XX" + "x" * 32
+
+        warnings = config.settings.validate_optional()
+        assert any("MT_TWILIO_WHATSAPP_TEMPLATE_SID" in w and "HX" in w for w in warnings)
+
+    def test_template_sid_valid_prefix_no_warning(self):
+        """An HX-prefixed template SID must not warn."""
+        config.settings.TWILIO_WHATSAPP_TEMPLATE_SID = "HX" + "1" * 32
+
+        warnings = config.settings.validate_optional()
+        assert not any("MT_TWILIO_WHATSAPP_TEMPLATE_SID" in w for w in warnings)
+
+    def test_template_variables_invalid_json_warns(self, monkeypatch):
+        """Invalid JSON in MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES must warn."""
+        monkeypatch.setenv("MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES", "{not json}")
+        # Force re-parse to exercise the env-based warning path
+        config.settings.TWILIO_WHATSAPP_TEMPLATE_VARIABLES = {}
+
+        warnings = config.settings.validate_optional()
+        assert any("not valid JSON" in w for w in warnings)
