@@ -16,12 +16,14 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        val serverUrl = project.findProperty("SERVER_URL") as String?
-            ?: "https://api.magneetar.me"
-        val apiKey = project.findProperty("API_KEY") as String?
-            ?: "changeme-set-in-env"
-        val sentryDsn = project.findProperty("SENTRY_DSN") as String?
-            ?: System.getenv("MT_SENTRY_DSN") ?: ""
+        // takeIf { it.isNotBlank() } so an empty -P value falls back to the default
+        val serverUrl = (project.findProperty("SERVER_URL") as String?)
+            ?.takeIf { it.isNotBlank() } ?: "https://api.magneetar.me"
+        val apiKey = (project.findProperty("API_KEY") as String?)
+            ?.takeIf { it.isNotBlank() } ?: "changeme-set-in-env"
+        val sentryDsn = (project.findProperty("SENTRY_DSN") as String?)
+            ?.takeIf { it.isNotBlank() }
+            ?: System.getenv("MT_SENTRY_DSN")?.takeIf { it.isNotBlank() } ?: ""
 
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")
         buildConfigField("String", "API_KEY", "\"$apiKey\"")
