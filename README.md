@@ -4,7 +4,7 @@
 > Track, protect, and recover your devices with intelligent telemetry and real-time alerts.
 
 ![Status](https://img.shields.io/badge/status-production-green)
-![Tests](https://img.shields.io/badge/tests-167%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-170%20passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
 ![Kotlin](https://img.shields.io/badge/kotlin-Android-orange)
@@ -114,7 +114,7 @@ make validate      # full CI-equivalent gate: lint + typecheck + test + pre-comm
 make test-all      # everything — same as make test (alias kept for compatibility)
 ```
 
-> **125 backend tests + 42 dashboard tests** should pass. `make validate` runs
+> **128 backend tests + 42 dashboard tests** should pass. `make validate` runs
 > every gate that CI enforces, so a green local `make validate` predicts a green
 > GitHub Actions run.
 
@@ -308,7 +308,7 @@ magneetar/
 │   ├── sentinel.py          # Theft detection AI
 │   ├── alerts.py            # Push/SMS/Email alerts
 │   ├── models.py            # Pydantic models
-│   └── tests/               # 125 unit + E2E tests
+│   └── tests/               # 128 unit + E2E tests
 ├── dashboard/               # Next.js web dashboard
 │   ├── src/app/             # Pages & layouts
 │   ├── src/components/      # UI components

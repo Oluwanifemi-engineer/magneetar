@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Shellcheck gate**: pre-commit now runs `shellcheck` (shellcheck-py `v0.11.0.1`) against all `scripts/*.sh`, catching quoting/portability bugs at commit time.
-- **WebSocket auth-path integration tests**: 4 new live tests in `test_reliability.py` — valid `dashboard` token accepted (registration + ping/pong + deregistration), invalid token rejected with close code 4001, wrong token type (`device`) rejected with 4001, and **expired token** rejected with 4001.
+- **WebSocket auth-path integration tests**: 7 live tests in `test_reliability.py` — valid `dashboard` token accepted (registration + ping/pong + deregistration); invalid token, wrong token type (`device`), **expired token**, **revoked jti**, **tampered signature**, and **missing `type` claim** all rejected with close code 4001. The repeated close-code assertion blocks were factored into a shared `_assert_closed_with_code()` helper.
 - **Dashboard typecheck gate**: pre-commit now runs `tsc --noEmit` on dashboard TS/TSX changes (local system hook) — the same type-safety gate CI already enforces via the `test-dashboard` job.
 
 ### Changed

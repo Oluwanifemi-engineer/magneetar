@@ -66,6 +66,20 @@ async def _wait_until(predicate, timeout: float = 3.0) -> bool:
     return False
 
 
+async def _assert_closed_with_code(url: str, code: int) -> None:
+    """Assert that connecting to `url` is closed by the server with `code`.
+
+    The /ws/dashboard endpoint accepts first and only closes afterward (e.g.
+    4001 on auth failure), so the client sees the close frame on recv().
+    """
+    try:
+        async with websockets.connect(url) as ws:
+            await asyncio.wait_for(ws.recv(), timeout=2.0)
+        raise AssertionError("connection should have been closed")
+    except websockets.exceptions.ConnectionClosed as exc:
+        assert getattr(exc.rcvd, "code", None) == code
+
+
 @pytest.fixture
 def live_ws_server():
     """Run the real FastAPI app under uvicorn in a background thread.
@@ -324,12 +338,7 @@ class TestWebSocketConnectionLimits:
         url = f"{live_ws_server}?token=not-a-real-token"
         active_dashboard_connections.clear()
 
-        try:
-            async with websockets.connect(url) as ws:
-                await asyncio.wait_for(ws.recv(), timeout=2.0)
-            raise AssertionError("connection should have been closed")
-        except websockets.exceptions.ConnectionClosed as exc:
-            assert getattr(exc.rcvd, "code", None) == 4001
+        await _assert_closed_with_code(url, 4001)
         assert len(active_dashboard_connections) == 0
 
     @pytest.mark.slow
@@ -340,12 +349,7 @@ class TestWebSocketConnectionLimits:
         url = f"{live_ws_server}?token={token}"
         active_dashboard_connections.clear()
 
-        try:
-            async with websockets.connect(url) as ws:
-                await asyncio.wait_for(ws.recv(), timeout=2.0)
-            raise AssertionError("connection should have been closed")
-        except websockets.exceptions.ConnectionClosed as exc:
-            assert getattr(exc.rcvd, "code", None) == 4001
+        await _assert_closed_with_code(url, 4001)
         assert len(active_dashboard_connections) == 0
 
     @pytest.mark.slow
@@ -359,12 +363,64 @@ class TestWebSocketConnectionLimits:
         url = f"{live_ws_server}?token={token}"
         active_dashboard_connections.clear()
 
-        try:
-            async with websockets.connect(url) as ws:
-                await asyncio.wait_for(ws.recv(), timeout=2.0)
-            raise AssertionError("connection should have been closed")
-        except websockets.exceptions.ConnectionClosed as exc:
-            assert getattr(exc.rcvd, "code", None) == 4001
+        await _assert_closed_with_code(url, 4001)
+        assert len(active_dashboard_connections) == 0
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_websocket_rejects_revoked_token(self, live_ws_server):
+        """A token whose jti is on the revocation list is rejected with 4001.
+
+        Covers the end-to-end revocation path: DB row → decode_token's
+        revocation check → generic handler → close 4001.
+        """
+        import jwt
+
+        token = create_token("dashboard:revoked", "dashboard")
+        jti = jwt.decode(token, config.settings.JWT_SECRET, algorithms=["HS256"])["jti"]
+        with database.get_db_context() as conn:
+            conn.execute("INSERT OR IGNORE INTO revoked_tokens (jti, reason) VALUES (?, ?)", (jti, "test"))
+            conn.commit()
+
+        url = f"{live_ws_server}?token={token}"
+        active_dashboard_connections.clear()
+
+        await _assert_closed_with_code(url, 4001)
+        assert len(active_dashboard_connections) == 0
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_websocket_rejects_tampered_signature(self, live_ws_server):
+        """A valid token with a corrupted signature is rejected with 4001."""
+        token = create_token("dashboard:tampered", "dashboard")
+        # Flip one char in the signature segment (base64url chars only)
+        tampered = token[:-1] + ("A" if token[-1] != "A" else "B")
+        assert tampered != token
+        url = f"{live_ws_server}?token={tampered}"
+        active_dashboard_connections.clear()
+
+        await _assert_closed_with_code(url, 4001)
+        assert len(active_dashboard_connections) == 0
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_websocket_rejects_token_missing_type(self, live_ws_server):
+        """A validly-signed JWT with no type claim is rejected with 4001.
+
+        Covers payload.get("type") not in ("dashboard", "access") when the
+        claim is absent entirely.
+        """
+        from datetime import datetime, timedelta, timezone
+
+        import jwt
+
+        now = datetime.now(timezone.utc)
+        payload = {"sub": "dashboard:no-type", "iat": now, "exp": now + timedelta(hours=1)}
+        token = jwt.encode(payload, config.settings.JWT_SECRET, algorithm="HS256")
+        url = f"{live_ws_server}?token={token}"
+        active_dashboard_connections.clear()
+
+        await _assert_closed_with_code(url, 4001)
         assert len(active_dashboard_connections) == 0
 
 
