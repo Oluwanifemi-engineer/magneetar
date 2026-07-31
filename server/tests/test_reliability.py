@@ -69,8 +69,11 @@ async def _wait_until(predicate, timeout: float = 3.0) -> bool:
 async def _assert_closed_with_code(url: str, code: int) -> None:
     """Assert that connecting to `url` is closed by the server with `code`.
 
-    The /ws/dashboard endpoint accepts first and only closes afterward (e.g.
-    4001 on auth failure), so the client sees the close frame on recv().
+    Assumes the endpoint accepts first and only closes afterward (e.g. 4001 on
+    auth failure), so the client sees the close frame on recv(). If an endpoint
+    ever rejected during the HTTP handshake instead, websockets.connect() would
+    raise InvalidStatus (not ConnectionClosed) and this helper would surface it
+    as a raw error rather than an assertion.
     """
     try:
         async with websockets.connect(url) as ws:

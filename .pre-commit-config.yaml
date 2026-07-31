@@ -84,12 +84,16 @@ repos:
   # ─── TypeScript typecheck (dashboard) — local hook ────────────────────────
   # Mirrors the `npx tsc --noEmit` gate CI already runs (test-dashboard job),
   # giving the same type-safety check at commit time. Requires dashboard
-  # node_modules (npx + typescript) — run `make dashboard-install` first.
+  # node_modules (typescript). The guard gives a clear install hint instead of
+  # npx silently offering to fetch a bogus `tsc` package.
   - repo: local
     hooks:
       - id: tsc
         name: tsc (dashboard typecheck)
-        entry: bash -c 'cd dashboard && npx tsc --noEmit'
+        entry: >-
+          bash -c 'test -x dashboard/node_modules/.bin/tsc ||
+          { echo "TypeScript not installed — run: make dashboard-install"; exit 1; };
+          cd dashboard && npx tsc --noEmit'
         language: system
         pass_filenames: false
         files: ^dashboard/.*\.(ts|tsx)$
