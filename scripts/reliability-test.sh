@@ -110,7 +110,10 @@ test_health_no_auth() {
     echo "─── 1.3 Health Requires No Auth ───"
 
     local code
-    code=$(curl -s -o /dev/null -w '%{http_code}' "$API/health" 2>/dev/null || echo "000")
+    # NOTE: `|| true` (not `|| echo "000"`) — -w '%{http_code}' already emits
+    # 000 on failure; the echo would concatenate into "000000" (see the
+    # pre-flight probe in the MAIN section below).
+    code=$(curl -s -o /dev/null -w '%{http_code}' "$API/health" 2>/dev/null || true)
 
     if [ "$code" = "200" ]; then
         pass "Health endpoint is publicly accessible (HTTP $code)"
@@ -147,7 +150,7 @@ test_heartbeat_endpoint() {
         -X POST "$API/api/device/heartbeat" \
         -H "Content-Type: application/json" \
         -d '{"device_id":"reliability-test","battery_percent":50}' \
-        2>/dev/null || echo "000")
+        2>/dev/null || true)
 
     if [ "$code" = "403" ] || [ "$code" = "422" ] || [ "$code" = "401" ]; then
         pass "Heartbeat without auth rejected (expected, got HTTP $code)"
@@ -278,6 +281,23 @@ if [ "$AUTO_START" = true ]; then
         echo "  Server already running at $API"
     else
         start_server
+    fi
+fi
+
+# Pre-flight: give a clear error when the API is unreachable instead of a
+# wall of per-check failures. (In --start mode the server is already handled.)
+# NOTE: use `|| true` here — `-w '%{http_code}'` already emits "000" on
+# failure, so an `|| echo "000"` would concatenate into "000000" and the
+# comparison below would never match.
+if [ "$AUTO_START" = false ]; then
+    probe_code=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 10 "$API/health" 2>/dev/null || true)
+    if [ "$probe_code" = "000" ]; then
+        echo ""
+        echo "  ⚠️  Cannot reach API at $API — no server detected."
+        echo "      Start it first:                   make server"
+        echo "      or run with auto-start:           bash scripts/reliability-test.sh --start"
+        echo ""
+        exit 1
     fi
 fi
 

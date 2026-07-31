@@ -12,9 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Shellcheck gate**: pre-commit now runs `shellcheck` (shellcheck-py `v0.11.0.1`) against all `scripts/*.sh`, catching quoting/portability bugs at commit time.
-- **WebSocket auth-path integration tests**: 3 new live tests in `test_reliability.py` — valid `dashboard` token accepted (registration + ping/pong + deregistration), invalid token rejected with close code 4001, and wrong token type (`device`) rejected with 4001.
+- **WebSocket auth-path integration tests**: 4 new live tests in `test_reliability.py` — valid `dashboard` token accepted (registration + ping/pong + deregistration), invalid token rejected with close code 4001, wrong token type (`device`) rejected with 4001, and **expired token** rejected with 4001.
+- **Dashboard typecheck gate**: pre-commit now runs `tsc --noEmit` on dashboard TS/TSX changes (local system hook) — the same type-safety gate CI already enforces via the `test-dashboard` job.
 
 ### Changed
+
+- **`firebase-setup.sh` bash portability**: `TOKEN_ARGS` call sites now use the `"${arr[@]+...}"` expansion idiom, so the script no longer errors on an empty array under `set -u` when run with macOS's default bash 3.2.
+- **`reliability-test.sh` pre-flight check**: when the API is unreachable in manual (non-`--start`) mode, the script now prints a clear "start the server first" message instead of a wall of cryptic per-check failures.
 
 - **Makefile `test-all`** is now a single-source-of-truth alias of `make test` (`test-all: test`). After the `-k "not slow"` removal it had become byte-identical to `test-backend`; the alias keeps the two aggregate targets from drifting apart while preserving compatibility for existing docs/habits.
 - **Shellcheck remediation across `scripts/`**: fixed all 16 findings — removed unused `PLACEHOLDER` variable, converted the unquoted `$TOKEN_FLAG` string to a properly-quoted `TOKEN_ARGS` array, replaced the `&&`/`||` short-circuit with an explicit `if/else`, grouped consecutive redirects, split `local` declaration from assignment, switched to `trap 'cleanup' EXIT`, and replaced `ls` piping with `find` for APK counting. Remaining `info`-level findings that are intentional (remote path expansion, `ls -lh` display, trap-indirect invocation, dynamic `source`) are suppressed with targeted line-level disables and justification comments.

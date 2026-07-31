@@ -96,14 +96,16 @@ echo -e "  Project name: ${CYAN}Magneetar${NC}"
 echo -e "  Project ID:   ${CYAN}$PROJECT_ID${NC}"
 echo ""
 
-# Optional auth args for headless (CI) usage — empty array keeps call sites clean
+# Optional auth args for headless (CI) usage — empty array keeps call sites clean.
+# NOTE: call sites use the "${arr[@]+...}" idiom because plain "${arr[@]}" on an
+# EMPTY array errors under `set -u` on bash < 4.4 (macOS ships bash 3.2).
 TOKEN_ARGS=()
 [ -n "${FIREBASE_TOKEN:-}" ] && TOKEN_ARGS=(--token "$FIREBASE_TOKEN")
 
 "$FIREBASE_BIN" projects:create "Magneetar" \
     --project "$PROJECT_ID" \
     --display-name "Magneetar" \
-    "${TOKEN_ARGS[@]}" 2>&1 | head -5
+    "${TOKEN_ARGS[@]+"${TOKEN_ARGS[@]}"}" 2>&1 | head -5
 
 log "Project created: $PROJECT_ID"
 
@@ -123,7 +125,7 @@ cd "$TMP_DIR"
     --package-name "com.magneetar.app" \
     --display-name "Magneetar Android" \
     ANDROID \
-    "${TOKEN_ARGS[@]}" 2>&1 | head -3
+    "${TOKEN_ARGS[@]+"${TOKEN_ARGS[@]}"}" 2>&1 | head -3
 
 log "Android app registered"
 
@@ -132,7 +134,7 @@ log "Android app registered"
 header "Step 4/6 — Downloading google-services.json"
 
 # Get the app ID and download config
-APP_IDS=$("$FIREBASE_BIN" apps:list --project "$PROJECT_ID" --json "${TOKEN_ARGS[@]}" 2>/dev/null | \
+APP_IDS=$("$FIREBASE_BIN" apps:list --project "$PROJECT_ID" --json "${TOKEN_ARGS[@]+"${TOKEN_ARGS[@]}"}" 2>/dev/null | \
     python3 -c "import sys,json; apps=json.load(sys.stdin).get('apps',[]); [print(a['appId']) for a in apps if a.get('packageName')=='com.magneetar.app']" 2>/dev/null || true)
 
 if [ -n "$APP_IDS" ]; then
@@ -142,7 +144,7 @@ if [ -n "$APP_IDS" ]; then
     "$FIREBASE_BIN" apps:android:get-config \
         --project "$PROJECT_ID" \
         --app "$APP_ID" \
-        "${TOKEN_ARGS[@]}" 2>/dev/null > "$FCM_CONFIG"
+        "${TOKEN_ARGS[@]+"${TOKEN_ARGS[@]}"}" 2>/dev/null > "$FCM_CONFIG"
 
     log "google-services.json downloaded to: $FCM_CONFIG"
 else
@@ -176,7 +178,7 @@ fi
 FCM_KEY=$("$FIREBASE_BIN" apps:android:get-config \
     --project "$PROJECT_ID" \
     --app "$APP_ID" \
-    "${TOKEN_ARGS[@]}" 2>/dev/null | python3 -c "
+    "${TOKEN_ARGS[@]+"${TOKEN_ARGS[@]}"}" 2>/dev/null | python3 -c "
 import sys,json
 try:
     cfg = json.load(sys.stdin)

@@ -348,6 +348,25 @@ class TestWebSocketConnectionLimits:
             assert getattr(exc.rcvd, "code", None) == 4001
         assert len(active_dashboard_connections) == 0
 
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_websocket_rejects_expired_token(self, live_ws_server):
+        """An expired dashboard token is rejected with close code 4001."""
+        from datetime import timedelta
+
+        # exp in the past → decode_token raises ExpiredSignatureError → 4001
+        token = create_token("dashboard:expired", "dashboard", timedelta(seconds=-60))
+        url = f"{live_ws_server}?token={token}"
+        active_dashboard_connections.clear()
+
+        try:
+            async with websockets.connect(url) as ws:
+                await asyncio.wait_for(ws.recv(), timeout=2.0)
+            raise AssertionError("connection should have been closed")
+        except websockets.exceptions.ConnectionClosed as exc:
+            assert getattr(exc.rcvd, "code", None) == 4001
+        assert len(active_dashboard_connections) == 0
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 3. AlertEngine — Retry & Circuit Breaker

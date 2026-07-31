@@ -80,3 +80,16 @@ repos:
         additional_dependencies:
           - eslint@8.57.1
           - eslint-config-next@14.2.21
+
+  # ─── TypeScript typecheck (dashboard) — local hook ────────────────────────
+  # Mirrors the `npx tsc --noEmit` gate CI already runs (test-dashboard job),
+  # giving the same type-safety check at commit time. Requires dashboard
+  # node_modules (npx + typescript) — run `make dashboard-install` first.
+  - repo: local
+    hooks:
+      - id: tsc
+        name: tsc (dashboard typecheck)
+        entry: bash -c 'cd dashboard && npx tsc --noEmit'
+        language: system
+        pass_filenames: false
+        files: ^dashboard/.*\.(ts|tsx)$
