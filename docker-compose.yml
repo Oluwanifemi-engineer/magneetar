@@ -34,6 +34,8 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+      args:
+        APP_VERSION: "1.1.0"
     container_name: magneetar-server
     restart: unless-stopped
     ports:

@@ -23,6 +23,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Accept version from build arg (fallback to 1.0.0)
+ARG APP_VERSION=1.0.0
+
+# Write VERSION file so main.py can read it at runtime
+RUN echo "$APP_VERSION" > /VERSION
+
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
