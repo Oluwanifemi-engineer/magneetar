@@ -132,6 +132,11 @@ jobs:
           cd dashboard
           npm ci
 
+      - name: Type check
+        run: |
+          cd dashboard
+          npx tsc --noEmit
+
       - name: Run tests
         run: |
           cd dashboard

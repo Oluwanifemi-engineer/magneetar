@@ -3,17 +3,16 @@
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/jest-globals';
 
 // ─── Mutable mock state ───────────────────────────────────────────────────
 let mockSelectedDeviceId: string | null = 'device-001';
 let mockCommands: any[] = [];
 const mockSetCommands = jest.fn();
-const mockIssueCommand = jest.fn();
-const mockGetCommands = jest.fn();
+const mockIssueCommand = jest.fn<(...args: any[]) => any>();
+const mockGetCommands = jest.fn<(...args: any[]) => any>();
 
-jest.mock('@/store/useStore', () => ({
-  useStore: jest.fn((selector) => {
+jest.mock('@/store/useStore', () => ({    useStore: jest.fn((selector: any) => {
     const state = {
       selectedDeviceId: mockSelectedDeviceId,
       commands: mockCommands,

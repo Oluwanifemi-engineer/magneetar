@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { render, screen, fireEvent } from '@testing-library/react';
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/jest-globals';
 
 // ─── Mutable mock state ───────────────────────────────────────────────────
 let mockIsAuthenticated = true;
@@ -16,8 +16,7 @@ const mockSetCredentials = jest.fn();
 const mockSetConnected = jest.fn();
 const mockLogout = jest.fn();
 
-jest.mock('@/store/useStore', () => ({
-  useStore: jest.fn((selector) => {
+jest.mock('@/store/useStore', () => ({    useStore: jest.fn((selector: any) => {
     const state = {
       serverUrl: mockServerUrl,
       apiKey: mockApiKey,
@@ -40,7 +39,7 @@ jest.mock('lucide-react', () => ({
 
 jest.mock('@/lib/api', () => ({
   getAPI: () => ({
-    healthCheck: jest.fn().mockResolvedValue({ status: 'ok' }),
+    healthCheck: jest.fn<(...args: any[]) => any>().mockResolvedValue({ status: 'ok' }),
   }),
 }));
 

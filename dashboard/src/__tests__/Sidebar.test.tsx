@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/jest-globals';
 
 // Mock the store
 const mockSelectDevice = jest.fn();
@@ -14,8 +14,7 @@ let mockSelectedDeviceId: string | null = null;
 let mockStats: any = null;
 let mockIsConnected = true;
 
-jest.mock('@/store/useStore', () => ({
-  useStore: jest.fn((selector) => {
+jest.mock('@/store/useStore', () => ({    useStore: jest.fn((selector: any) => {
     const state = {
       devices: mockDevices,
       selectedDeviceId: mockSelectedDeviceId,
@@ -40,7 +39,7 @@ jest.mock('lucide-react', () => ({
 
 jest.mock('@/lib/api', () => ({
   getAPI: () => ({
-    getStats: jest.fn().mockResolvedValue({
+    getStats: jest.fn<(...args: any[]) => any>().mockResolvedValue({
       total_devices: 3,
       active_devices: 1,
       stolen_devices: 0,

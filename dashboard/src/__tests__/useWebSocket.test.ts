@@ -3,7 +3,17 @@
  */
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { renderHook, act, cleanup } from '@testing-library/react';
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/jest-globals';
+
+// ─── Typed handle for the mocked store module ───────────────────────────
+// jest.requireMock returns `unknown`; this cast restores the surface the
+// tests actually use (getState/setState static methods on the zustand mock).
+type UseStoreMockModule = {
+  useStore: {
+    getState: jest.Mock;
+    setState: jest.Mock;
+  };
+};
 
 // ─── Fresh WebSocket mock per test (getter/setter pattern) ──────────────
 let mockWsSend: jest.Mock;
@@ -56,7 +66,7 @@ const mockSetConnected = jest.fn();
 // return value. The inner function CAN access outer variables because it
 // runs at render time, not at module-init time.
 jest.mock('@/store/useStore', () => {
-  const storeFn = jest.fn((selector: any) => {
+  const storeFn: any = jest.fn((selector: any) => {
     // These are evaluated at renderHook time — safely past TDZ
     const state: any = {
       serverUrl: mockServerUrl,
@@ -106,7 +116,7 @@ describe('useWebSocket Hook', () => {
     (globalThis as any).WebSocket = mockWebSocket;
 
     // Reset getState/setState to default values
-    const useStoreModule = jest.requireMock('@/store/useStore');
+    const useStoreModule = jest.requireMock('@/store/useStore') as UseStoreMockModule;
     useStoreModule.useStore.getState.mockReturnValue({
       devices: [],
       selectedDeviceId: null,
@@ -152,7 +162,7 @@ describe('useWebSocket Hook', () => {
   });
 
   it('handles location messages from WebSocket', () => {
-    const useStoreModule = jest.requireMock('@/store/useStore');
+    const useStoreModule = jest.requireMock('@/store/useStore') as UseStoreMockModule;
     const testDevice = {
       id: 'device-001', lat: null, lng: null,
       battery_percent: null, is_online: false, last_seen: '',
