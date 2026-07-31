@@ -32,6 +32,15 @@ class Settings:
     TERMII_API_KEY: str = os.environ.get("MT_TERMII_KEY", "")
     TWILIO_SID: str = os.environ.get("MT_TWILIO_SID", "")
     TWILIO_AUTH_TOKEN: str = os.environ.get("MT_TWILIO_AUTH_TOKEN", "")
+    # Twilio number used as the SMS sender (e.g. "+15551234567", SMS-capable).
+    # On a trial account, use the Twilio-assigned trial number and verify
+    # the recipient in the console before sending.
+    TWILIO_SMS_FROM: str = os.environ.get("MT_TWILIO_SMS_FROM", "")
+    # WhatsApp sender. Defaults to Twilio's shared sandbox number; replace with
+    # your approved WhatsApp Business sender after sandbox onboarding.
+    TWILIO_WHATSAPP_FROM: str = os.environ.get(
+        "MT_TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886"
+    )
     FIREBASE_CREDENTIALS: str = os.environ.get("MT_FIREBASE_KEY", "")
 
     # ── Monitoring ─────────────────────────────────────────────────────────
@@ -90,6 +99,52 @@ class Settings:
                 errors.append("MT_ENCRYPTION_KEY must be valid hex")
 
         return errors
+
+    def validate_optional(self) -> list[str]:
+        """Validate OPTIONAL integrations. Returns warnings (non-fatal).
+
+        A misconfigured optional service (e.g. a Twilio SID typo) should NOT
+        prevent the server from starting — tracking, the dashboard, and other
+        channels must keep working. The alert circuit breaker degrades
+        gracefully instead.
+        """
+        warnings = []
+
+        # Twilio Account SIDs always start with "AC" (e.g. ACxxxxxxxx...). A
+        # wrong prefix (like a pasted User SID starting with "US") causes every
+        # WhatsApp/SMS send to fail with HTTP 401 — warn here instead.
+        if self.TWILIO_SID and not (len(self.TWILIO_SID) == 34 and self.TWILIO_SID.startswith("AC")):
+            warnings.append(
+                "MT_TWILIO_SID looks invalid: Twilio Account SIDs are 34 chars "
+                "and start with 'AC' (current value starts with "
+                f"'{self.TWILIO_SID[:2]}'). Check the Twilio Console > Account Info."
+            )
+
+        if self.TWILIO_SMS_FROM and not self.TWILIO_SMS_FROM.startswith("+"):
+            warnings.append(
+                "MT_TWILIO_SMS_FROM must be in E.164 format starting with '+', "
+                f"e.g. +15551234567 (got: {self.TWILIO_SMS_FROM!r})"
+            )
+
+        # Twilio configured but no SMS sender → SMS silently no-ops (falls to
+        # Termii, also usually unconfigured). Flag it so partial setup is obvious.
+        if self.TWILIO_SID and self.TWILIO_AUTH_TOKEN and not self.TWILIO_SMS_FROM:
+            warnings.append(
+                "Twilio is configured but MT_TWILIO_SMS_FROM is empty — SMS via "
+                "Twilio will not send. Set it to an SMS-capable Twilio number "
+                "(e.g. +15551234567) to enable SMS alerts."
+            )
+
+        # Twilio Auth Tokens are 32 chars; a wrong-length token causes the same
+        # silent 401s as a bad SID, so flag it for parity.
+        if self.TWILIO_AUTH_TOKEN and len(self.TWILIO_AUTH_TOKEN) != 32:
+            warnings.append(
+                "MT_TWILIO_AUTH_TOKEN looks invalid: Twilio Auth Tokens are 32 "
+                f"characters (current value is {len(self.TWILIO_AUTH_TOKEN)} chars). "
+                "Check the Twilio Console > Account Info."
+            )
+
+        return warnings
 
     def generate_secrets(self) -> dict:
         """Generate secure random secrets for initial setup."""

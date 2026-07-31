@@ -447,3 +447,306 @@ class TestAlertEngineRetry:
             await engine._send_with_retry("cap_ch", send_fn)
 
         assert engine._channel_failures["cap_ch"] == engine.MAX_CONSECUTIVE_FAILURES
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4. AlertEngine — Channel Providers (Twilio SMS / WhatsApp)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+# Fixture restores config.settings after each test — it is a shared module-
+# level singleton, so mutations MUST NOT leak into other tests.
+@pytest.fixture(autouse=True)
+def _restore_alert_settings():
+    saved = {
+        "TWILIO_SID": config.settings.TWILIO_SID,
+        "TWILIO_AUTH_TOKEN": config.settings.TWILIO_AUTH_TOKEN,
+        "TWILIO_SMS_FROM": config.settings.TWILIO_SMS_FROM,
+        "TWILIO_WHATSAPP_FROM": config.settings.TWILIO_WHATSAPP_FROM,
+        "TERMII_API_KEY": config.settings.TERMII_API_KEY,
+    }
+    yield
+    for k, v in saved.items():
+        setattr(config.settings, k, v)
+
+
+class TestAlertEngineChannels:
+    """SMS/WhatsApp channels must route to Twilio and use configurable From."""
+
+    @pytest.mark.asyncio
+    async def test_send_sms_prefers_twilio(self):
+        """When Twilio SMS From is configured, send_sms uses Twilio."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_SMS_FROM = "+15551234567"
+        config.settings.TERMII_API_KEY = ""
+
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.text = "sent"
+
+        with patch("alerts.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            result = await engine.send_sms("+15557654321", "theft_detected", {"location": "0,0"})
+
+        assert result is True
+        call_kwargs = mock_client.return_value.__aenter__.return_value.post.call_args
+        url = call_kwargs.args[0]
+        data = call_kwargs.kwargs["data"]
+        assert "api.twilio.com" in url
+        assert data["To"] == "+15557654321"
+        assert data["From"] == "+15551234567"
+        assert "MAGNEETAR" in data["Body"]
+
+    @pytest.mark.asyncio
+    async def test_send_sms_falls_back_to_termii_when_twilio_unconfigured(self):
+        """When Twilio SMS From is missing, send_sms falls back to Termii."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_SMS_FROM = ""  # not configured → fallback
+        config.settings.TERMII_API_KEY = "termii-key-123"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+
+        with patch("alerts.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            result = await engine.send_sms("+15557654321", "theft_detected", {"location": "0,0"})
+
+        assert result is True
+        url = mock_client.return_value.__aenter__.return_value.post.call_args.args[0]
+        assert "api.termii.com" in url
+
+    @pytest.mark.asyncio
+    async def test_send_sms_returns_false_when_no_provider_configured(self):
+        """No Twilio SMS From and no Termii key → returns False (no exception)."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_SMS_FROM = ""
+        config.settings.TERMII_API_KEY = ""
+
+        result = await engine.send_sms("+15557654321", "theft_detected", {"location": "0,0"})
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_send_sms_false_when_twilio_rejects_and_termii_unconfigured(self):
+        """Twilio non-2xx AND no Termii key → send_sms returns False."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_SMS_FROM = "+15551234567"
+        config.settings.TERMII_API_KEY = ""
+
+        twilio_fail = MagicMock()
+        twilio_fail.status_code = 401
+        twilio_fail.text = '{"code": 20003, "message": "Authentication Error"}'
+
+        with patch("alerts.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=twilio_fail)
+            result = await engine.send_sms("+15557654321", "theft_detected", {"location": "0,0"})
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_send_sms_falls_back_to_termii_when_twilio_rejects(self):
+        """Twilio returns non-2xx (e.g. 401) → send_sms falls through to Termii."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_SMS_FROM = "+15551234567"
+        config.settings.TERMII_API_KEY = "termii-key-123"
+
+        twilio_fail = MagicMock()
+        twilio_fail.status_code = 401
+        twilio_fail.text = '{"code": 20003, "message": "Authentication Error"}'
+        termii_ok = MagicMock()
+        termii_ok.status_code = 200
+
+        # First call (Twilio) fails, second call (Termii) succeeds
+        with patch("alerts.httpx.AsyncClient") as mock_client:
+            mock_post = mock_client.return_value.__aenter__.return_value.post
+            mock_post.side_effect = [twilio_fail, termii_ok]
+            result = await engine.send_sms("+15557654321", "theft_detected", {"location": "0,0"})
+
+        assert result is True
+        assert mock_post.await_count == 2
+        urls = [call.args[0] for call in mock_post.call_args_list]
+        assert "api.twilio.com" in urls[0]
+        assert "api.termii.com" in urls[1]
+
+    @pytest.mark.asyncio
+    async def test_send_whatsapp_uses_configured_from(self):
+        """WhatsApp uses the configurable TWILIO_WHATSAPP_FROM number."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_WHATSAPP_FROM = "whatsapp:+15559998888"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.text = "sent"
+
+        with patch("alerts.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            result = await engine.send_whatsapp("+15557654321", "theft_detected", {"location": "0,0"})
+
+        assert result is True
+        call_kwargs = mock_client.return_value.__aenter__.return_value.post.call_args
+        data = call_kwargs.kwargs["data"]
+        assert data["To"] == "whatsapp:+15557654321"
+        assert data["From"] == "whatsapp:+15559998888"
+
+    @pytest.mark.asyncio
+    async def test_send_whatsapp_defaults_to_sandbox_number(self):
+        """WhatsApp defaults to Twilio's shared sandbox number."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_WHATSAPP_FROM = "whatsapp:+14155238886"  # default
+
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.text = "sent"
+
+        with patch("alerts.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            await engine.send_whatsapp("+15557654321", "theft_detected", {"location": "0,0"})
+
+        data = mock_client.return_value.__aenter__.return_value.post.call_args.kwargs["data"]
+        assert data["From"] == "whatsapp:+14155238886"
+
+    @pytest.mark.asyncio
+    async def test_send_whatsapp_returns_false_when_twilio_missing(self):
+        """No Twilio creds → WhatsApp returns False without making a request."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = ""
+        config.settings.TWILIO_AUTH_TOKEN = ""
+
+        with patch("alerts.httpx.AsyncClient") as mock_client:
+            result = await engine.send_whatsapp("+15557654321", "theft_detected", {"location": "0,0"})
+
+        assert result is False
+        mock_client.return_value.__aenter__.return_value.post.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_send_whatsapp_rejects_template_required_error(self):
+        """63010 (template required) → returns False and logs actionable warning."""
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.text = '{"code": 63010, "message": "Template required"}'
+
+        with (
+            patch("alerts.httpx.AsyncClient") as mock_client,
+            patch("alerts.logger") as mock_logger,
+        ):
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            result = await engine.send_whatsapp("+15557654321", "theft_detected", {"location": "0,0"})
+
+        assert result is False
+        # An actionable warning about the approved template must be logged
+        warn_calls = " ".join(str(c.args) for c in mock_logger.warning.call_args_list)
+        assert "63010" in warn_calls
+        assert "template" in warn_calls.lower()
+
+    @pytest.mark.asyncio
+    async def test_send_all_default_channels_include_whatsapp(self):
+        """Default channel set must route whatsapp through _send_with_retry.
+
+        Sets TWILIO_SID because send_all only fires the whatsapp branch when
+        Twilio is configured (guard added to avoid needless retries for an
+        unconfigured channel). The autouse _twilio_settings fixture restores
+        the value afterward, so no leakage.
+        """
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        with (
+            patch.object(engine, "_send_with_retry", new=AsyncMock(return_value=True)) as mock_retry,
+            patch("alerts.get_db_context") as mock_db,
+        ):
+            mock_db.return_value.__enter__.return_value = MagicMock()
+            results = await engine.send_all(
+                device_id="test-device",
+                alert_type="theft_detected",
+                data={
+                    "phone": "+234800000000",
+                    "location": "9.08, 8.67",
+                    "time": "2026-01-01T00:00:00",
+                    "score": "85",
+                },
+            )
+
+            assert results.get("whatsapp") is True
+            assert results.get("sms") is True
+            assert "push" in results
+            # whatsapp + sms + push each routed through the retry wrapper
+            channels_called = {c.args[0] for c in mock_retry.call_args_list}
+            assert "whatsapp" in channels_called
+            assert "sms" in channels_called
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. Config — Optional Integration Validation (non-fatal)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestValidateOptional:
+    """validate_optional() must warn (never raise) on bad optional config."""
+
+    def test_empty_twilio_settings_produce_no_warnings(self):
+        """Unset optional integrations must not warn."""
+        config.settings.TWILIO_SID = ""
+        config.settings.TWILIO_AUTH_TOKEN = ""
+        config.settings.TWILIO_SMS_FROM = ""
+
+        assert config.settings.validate_optional() == []
+
+    def test_invalid_sid_prefix_warns(self):
+        """A 'US' prefixed SID (the exact user mistake) must warn, not raise."""
+        config.settings.TWILIO_SID = "US" + "x" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "y" * 32
+
+        warnings = config.settings.validate_optional()
+        assert any("MT_TWILIO_SID" in w and "AC" in w for w in warnings)
+
+    def test_valid_ac_sid_produces_no_warning(self):
+        """A correct 34-char AC-prefixed SID must not warn."""
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+
+        warnings = config.settings.validate_optional()
+        assert not any("MT_TWILIO_SID" in w for w in warnings)
+
+    def test_invalid_auth_token_length_warns(self):
+        """A non-32-char Auth Token must warn."""
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "short-token"
+
+        warnings = config.settings.validate_optional()
+        assert any("MT_TWILIO_AUTH_TOKEN" in w and "32" in w for w in warnings)
+
+    def test_invalid_sms_from_format_warns(self):
+        """A non-E.164 SMS From (no '+') must warn."""
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_SMS_FROM = "15551234567"
+
+        warnings = config.settings.validate_optional()
+        assert any("MT_TWILIO_SMS_FROM" in w for w in warnings)
+
+    def test_twilio_configured_but_sms_from_missing_warns(self):
+        """Twilio creds present but no SMS From → warn (SMS would silently no-op)."""
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_SMS_FROM = ""
+
+        warnings = config.settings.validate_optional()
+        assert any("MT_TWILIO_SMS_FROM is empty" in w for w in warnings)

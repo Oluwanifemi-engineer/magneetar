@@ -180,12 +180,36 @@ class AlertEngine:
             return False
 
     async def send_sms(self, to: str, template: str, data: dict) -> bool:
-        """Send SMS via Termii API (Nigerian provider)."""
-        if not settings.TERMII_API_KEY:
-            return False
-
+        """Send SMS via Twilio (preferred) or Termii (fallback)."""
         tmpl = self.ALERT_TEMPLATES.get(template, {})
         message = tmpl.get("sms", "").format(**data)
+
+        # ── Preferred: Twilio SMS (same account as WhatsApp) ─────────────
+        if settings.TWILIO_SID and settings.TWILIO_AUTH_TOKEN and settings.TWILIO_SMS_FROM:
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        f"https://api.twilio.com/2010-04-01/Accounts/{settings.TWILIO_SID}/Messages.json",
+                        auth=(settings.TWILIO_SID, settings.TWILIO_AUTH_TOKEN),
+                        data={
+                            "To": to,
+                            "From": settings.TWILIO_SMS_FROM,
+                            "Body": message,
+                        },
+                        timeout=10,
+                    )
+                    if response.status_code in (200, 201):
+                        return True
+                    logger.warning(
+                        f"Twilio SMS returned {response.status_code}: {response.text[:300]}"
+                    )
+            except Exception as e:
+                logger.warning(f"Twilio SMS send failed: {e}")
+                # fall through to Termii fallback below
+
+        # ── Fallback: Termii API (Nigerian provider) ──────────────────────
+        if not settings.TERMII_API_KEY:
+            return False
 
         try:
             async with httpx.AsyncClient() as client:
@@ -273,7 +297,18 @@ class AlertEngine:
             return False
 
     async def send_whatsapp(self, to: str, template: str, data: dict) -> bool:
-        """Send WhatsApp message via Twilio."""
+        """Send WhatsApp message via Twilio.
+
+        Recipient must have joined the Twilio sandbox first (send the join
+        keyword to the sandbox number) or be approved for the production
+        WhatsApp sender. Free-form text is allowed within the 24h window;
+        business-initiated messages outside it require an approved template.
+        NOTE: theft alerts are usually business-initiated — Twilio will reject
+        free-form Body outside the 24h window (error 63010/63017 requires
+        ContentSid + ContentVariables). If you see those errors in the logs,
+        create an approved template in the Twilio Console and extend
+        send_whatsapp to pass ContentSid/ContentVariables.
+        """
         if not settings.TWILIO_SID or not settings.TWILIO_AUTH_TOKEN:
             return False
 
@@ -287,12 +322,22 @@ class AlertEngine:
                     auth=(settings.TWILIO_SID, settings.TWILIO_AUTH_TOKEN),
                     data={
                         "To": f"whatsapp:{to}",
-                        "From": "whatsapp:+14155238886",
+                        "From": settings.TWILIO_WHATSAPP_FROM,
                         "Body": message,
                     },
                     timeout=10,
                 )
-                return response.status_code in (200, 201)
+                if response.status_code in (200, 201):
+                    return True
+                body = response.text[:300]
+                logger.warning(f"Twilio WhatsApp returned {response.status_code}: {body}")
+                if "63010" in body or "63017" in body:
+                    logger.warning(
+                        "WhatsApp rejected the free-form message — outside the 24h window. "
+                        "Create an approved template and pass ContentSid/ContentVariables "
+                        "(see send_whatsapp docstring)."
+                    )
+                return False
         except Exception as e:
             logger.warning(f"WhatsApp send failed: {e}")
             return False
@@ -305,7 +350,9 @@ class AlertEngine:
         Returns dict of channel -> success status.
         """
         if channels is None:
-            channels = ["email", "sms", "push"]
+            # Email is optional — included when configured; WhatsApp is a core
+            # channel alongside SMS and push (phone number required).
+            channels = ["email", "whatsapp", "sms", "push"]
 
         results = {}
 
@@ -353,7 +400,11 @@ class AlertEngine:
                         token_success = await self._send_with_retry("push", self.send_push, token, alert_type, data)
                         if token_success:
                             success = True  # At least one succeeded
-            elif channel == "whatsapp" and phone_to:
+            elif channel == "whatsapp" and phone_to and settings.TWILIO_SID and settings.TWILIO_AUTH_TOKEN:
+                # Skip silently when Twilio isn't fully configured (send_whatsapp
+                # requires BOTH SID and Auth Token) — avoids needless retries and
+                # circuit-breaker failures for a channel that was never set up
+                # (mirrors how email only fires when email_to exists).
                 success = await self._send_with_retry("whatsapp", self.send_whatsapp, phone_to, alert_type, data)
 
             results[channel] = success

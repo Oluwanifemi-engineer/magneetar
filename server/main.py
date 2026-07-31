@@ -95,6 +95,12 @@ async def lifespan(app: FastAPI):
         logger.error("     then edit server/.env with your alert service credentials.")
         raise RuntimeError(f"Server cannot start: {len(config_errors)} configuration errors")
 
+    # ── Optional integrations: warn (non-fatal) ────────────────────────────
+    # Misconfigured optional services (e.g. a bad Twilio SID) must not take
+    # down the server — alerts degrade gracefully via the circuit breaker.
+    for warn in settings.validate_optional():
+        logger.warning(f"⚠️  Optional configuration: {warn}")
+
     logger.info(
         "Magneetar server starting",
         extra={
