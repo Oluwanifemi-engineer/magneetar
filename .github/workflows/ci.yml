@@ -47,11 +47,15 @@ jobs:
           python -m pytest tests/ -v --tb=short -k "not slow"
 
       - name: Run linting (flake8)
+        # Uses the repo-root .flake8 config (auto-discovered by walking up from
+        # server/). Full check — F401/E501/B008 etc. — matching local pre-commit.
+        # Versions pinned to match the pre-commit hook env (flake8 rev 7.2.0 +
+        # flake8-bugbear) so CI and local never drift. BLOCKING on purpose: a
+        # lint regression fails CI instead of passing silently in logs.
         run: |
           cd server
-          pip install flake8
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        continue-on-error: true
+          pip install flake8==7.2.0 flake8-bugbear==25.11.29
+          flake8 . --count --statistics
 
       - name: Dead code check (vulture)
         run: |

@@ -153,8 +153,7 @@ class AlertEngine:
         "sim_changed": {
             "subject": "⚠️ MAGNEETAR: SIM card changed",
             "email": (
-                "A different SIM card was detected in your device.\n\n"
-                "New SIM detected at: {location}\nTime: {time}"
+                "A different SIM card was detected in your device.\n\n" "New SIM detected at: {location}\nTime: {time}"
             ),
             "sms": "MAGNEETAR: SIM changed on your device at {location}.",
             "push_title": "⚠️ SIM Changed",
