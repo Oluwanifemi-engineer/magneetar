@@ -84,7 +84,9 @@ def init_db(db_path: str = None):
             is_stolen BOOLEAN DEFAULT FALSE,
             theft_confirmed_at TIMESTAMP,
             operating_mode TEXT DEFAULT 'normal',
-            sentinel_score INTEGER DEFAULT 0
+            sentinel_score INTEGER DEFAULT 0,
+            alert_phone TEXT,
+            alert_email TEXT
         );
 
         CREATE INDEX IF NOT EXISTS idx_devices_key_hash ON devices(device_key_hash);
@@ -97,6 +99,13 @@ def init_db(db_path: str = None):
         c.execute("ALTER TABLE devices ADD COLUMN device_key_hash TEXT")
     except sqlite3.OperationalError:
         pass  # Column already exists — fresh DB or already migrated
+
+    # Per-device alert recipients (override the global MT_ALERT_PHONE/EMAIL)
+    for col in ("alert_phone", "alert_email"):
+        try:
+            c.execute(f"ALTER TABLE devices ADD COLUMN {col} TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
 
     c.executescript(
         """

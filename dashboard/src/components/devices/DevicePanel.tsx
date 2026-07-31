@@ -1,13 +1,57 @@
 'use client';
 
+import { useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { cn, relativeTime, formatCoordinate } from '@/lib/utils';
-import { MapPin, LocateFixed, Navigation, ExternalLink } from 'lucide-react';
+import { BellRing, MapPin, LocateFixed, Navigation, ExternalLink, Save, Check } from 'lucide-react';
 import { CoordDisplay } from '@/components/ui/CoordDisplay';
+import { getAPI } from '@/lib/api';
 
 export function DevicePanel() {
-  const { devices, selectedDeviceId, latestLocation } = useStore();
+  const { devices, selectedDeviceId, latestLocation, setDevices } = useStore();
   const device = devices.find(d => d.id === selectedDeviceId);
+
+  // Alert recipient settings state (per-device override of global defaults)
+  const [alertPhone, setAlertPhone] = useState('');
+  const [alertEmail, setAlertEmail] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Sync form fields when the selected device changes
+  const deviceKey = device?.id;
+  const [lastDeviceKey, setLastDeviceKey] = useState<string | undefined>(undefined);
+  if (deviceKey && deviceKey !== lastDeviceKey) {
+    setLastDeviceKey(deviceKey);
+    setAlertPhone(device?.alert_phone || '');
+    setAlertEmail(device?.alert_email || '');
+    setError('');
+    setSaved(false);
+  }
+
+  const saveAlertSettings = async () => {
+    if (!device) return;
+    setSaving(true);
+    setError('');
+    setSaved(false);
+    try {
+      await getAPI().updateDeviceAlertSettings(device.id, alertPhone.trim(), alertEmail.trim());
+      setSaved(true);
+      // Refresh the device list so the stored recipients stay in sync
+      try {
+        const { devices: freshDevices } = await getAPI().getDevices();
+        setDevices(freshDevices);
+      } catch {
+        /* non-fatal — UI already reflects the saved values */
+      }
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e: any) {
+      setError(e.message || 'Failed to save alert settings');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!device) {
     return (
@@ -102,6 +146,61 @@ export function DevicePanel() {
           Open in Google Maps
         </a>
       )}
+
+      {/* Alert Settings (per-device recipients) */}
+      <div className="bg-mag-surface/30 border border-mag-border/30 rounded-xl p-4 space-y-3">
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="w-full flex items-center justify-between text-[11px] font-mono text-mag-text-dim/80 uppercase tracking-wider font-bold hover:text-mag-text transition-colors"
+        >
+          <span className="flex items-center gap-1.5">
+            <BellRing size={12} className="text-mag-accent" />
+            Alert Settings
+          </span>
+          <span className="text-mag-text-dim/50">{showSettings ? '−' : '+'}</span>
+        </button>
+
+        {showSettings && (
+          <div className="space-y-2 pt-1">
+            <div>
+              <label className="text-[10px] font-mono text-mag-text-dim/60 font-bold mb-1 block">
+                Alert Phone (E.164, e.g. +2348081234567)
+              </label>
+              <input
+                value={alertPhone}
+                onChange={e => setAlertPhone(e.target.value)}
+                placeholder="Leave empty to use global default"
+                className="w-full bg-mag-bg/60 border border-mag-border/40 rounded-lg px-3 py-2 text-xs font-mono text-mag-text placeholder:text-mag-text-dim/30 focus:outline-none focus:border-mag-primary/60 transition-colors"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-mono text-mag-text-dim/60 font-bold mb-1 block">
+                Alert Email
+              </label>
+              <input
+                value={alertEmail}
+                onChange={e => setAlertEmail(e.target.value)}
+                placeholder="Leave empty to use global default"
+                className="w-full bg-mag-bg/60 border border-mag-border/40 rounded-lg px-3 py-2 text-xs font-mono text-mag-text placeholder:text-mag-text-dim/30 focus:outline-none focus:border-mag-primary/60 transition-colors"
+              />
+            </div>
+
+            {error && <div className="text-[10px] font-mono text-red-400">{error}</div>}
+
+            <button
+              onClick={saveAlertSettings}
+              disabled={saving}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-mag-primary/90 hover:bg-mag-primary disabled:opacity-50 text-white text-xs font-bold transition-all"
+            >
+              {saved ? <Check size={13} /> : <Save size={13} />}
+              {saving ? 'Saving...' : saved ? 'Saved' : 'Save Alert Settings'}
+            </button>
+            <p className="text-[10px] font-mono text-mag-text-dim/40">
+              Per-device recipients override the global default for SMS, WhatsApp & email alerts.
+            </p>
+          </div>
+        )}
+      </div>
 
       {!latestLocation && (
         <div className="text-mag-text-dim/30 text-[10px] font-mono text-center py-4">

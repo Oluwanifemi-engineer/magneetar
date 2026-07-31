@@ -169,6 +169,17 @@ class MagneetarAPI {
     return this.request(`/api/dashboard/devices/${deviceId}/alias`, 'PATCH', { alias });
   }
 
+  async updateDeviceAlertSettings(deviceId: string, alertPhone: string, alertEmail: string): Promise<{
+    status: string;
+    alert_phone: string;
+    alert_email: string;
+  }> {
+    return this.request(`/api/dashboard/devices/${deviceId}/alert-settings`, 'PATCH', {
+      alert_phone: alertPhone,
+      alert_email: alertEmail,
+    });
+  }
+
   async markDeviceRecovered(deviceId: string): Promise<{ status: string }> {
     return this.request(`/api/dashboard/devices/${deviceId}/recover`, 'POST');
   }

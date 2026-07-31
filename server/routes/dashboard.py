@@ -112,6 +112,8 @@ async def list_devices(db: sqlite3.Connection = Depends(get_db), auth: str = Dep
                 "lng": d["lng"],
                 "battery_percent": d["battery_percent"],
                 "is_online": is_online,
+                "alert_phone": d["alert_phone"] if "alert_phone" in d.keys() else None,
+                "alert_email": d["alert_email"] if "alert_email" in d.keys() else None,
             }
         )
 
@@ -132,6 +134,38 @@ async def update_device_alias(
     log_audit("device_alias_updated", actor=auth, details=f"Device: {device_id}, Alias: {alias}")
 
     return {"status": "ok", "alias": alias}
+
+
+@router.patch("/api/dashboard/devices/{device_id}/alert-settings")
+async def update_device_alert_settings(
+    device_id: str, body: dict, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+):
+    """Set per-device alert recipients (phone/email). Empty string clears the override."""
+    device = db.execute("SELECT id FROM devices WHERE id=?", (device_id,)).fetchone()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    alert_phone = (body.get("alert_phone") or "").strip()
+    alert_email = (body.get("alert_email") or "").strip()
+
+    # Validate phone if provided — must be E.164-like (start with +) or empty.
+    if alert_phone and not alert_phone.startswith("+"):
+        raise HTTPException(status_code=400, detail="Alert phone must be in E.164 format starting with '+'")
+    if alert_email and "@" not in alert_email:
+        raise HTTPException(status_code=400, detail="Invalid alert email address")
+
+    db.execute(
+        "UPDATE devices SET alert_phone=?, alert_email=? WHERE id=?", (alert_phone, alert_email, device_id)
+    )
+    db.commit()
+
+    log_audit(
+        "device_alert_settings_updated",
+        actor=auth,
+        details=f"Device: {device_id}, phone_set={'yes' if alert_phone else 'no'}, email_set={'yes' if alert_email else 'no'}",
+    )
+
+    return {"status": "ok", "alert_phone": alert_phone, "alert_email": alert_email}
 
 
 @router.post("/api/dashboard/devices/{device_id}/recover")

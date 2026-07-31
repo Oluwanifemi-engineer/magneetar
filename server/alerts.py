@@ -418,9 +418,29 @@ class AlertEngine:
 
         results = {}
 
-        # Get alert recipients from device settings
-        email_to = data.get("email") or os.environ.get("MT_ALERT_EMAIL")
-        phone_to = data.get("phone") or os.environ.get("MT_ALERT_PHONE")
+        # Get alert recipients — resolution order:
+        #   1. Explicit values in the alert data (highest priority)
+        #   2. Per-device settings stored on the devices row
+        #   3. Global environment defaults (MT_ALERT_PHONE / MT_ALERT_EMAIL)
+        email_to = data.get("email") or ""
+        phone_to = data.get("phone") or ""
+        if not email_to or not phone_to:
+            try:
+                with get_db_context() as conn:
+                    row = conn.execute(
+                        "SELECT alert_email, alert_phone FROM devices WHERE id=?", (device_id,)
+                    ).fetchone()
+                    if row:
+                        if not email_to:
+                            email_to = row["alert_email"] or ""
+                        if not phone_to:
+                            phone_to = row["alert_phone"] or ""
+            except Exception:
+                pass  # DB unavailable — fall back to env defaults below
+        if not email_to:
+            email_to = os.environ.get("MT_ALERT_EMAIL", "")
+        if not phone_to:
+            phone_to = os.environ.get("MT_ALERT_PHONE", "")
         if phone_to:
             phone_to = normalize_phone_to_e164(phone_to, settings.PHONE_COUNTRY_CODE)
 

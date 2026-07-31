@@ -383,7 +383,12 @@ class TestAlertEngineRetry:
             patch.object(engine, "_send_with_retry", new=AsyncMock(return_value=True)) as mock_retry,
             patch("alerts.get_db_context") as mock_db,
         ):
-            mock_db.return_value.__enter__.return_value = MagicMock()
+            # Per-device recipient lookup must return no row (None) so the
+            # recipient resolution falls through to data/env instead of
+            # treating the mock as a real device row.
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchone.return_value = None
+            mock_db.return_value.__enter__.return_value = mock_conn
             results = await engine.send_all(
                 device_id="test-device",
                 alert_type="theft_detected",
@@ -408,7 +413,10 @@ class TestAlertEngineRetry:
             patch.object(engine, "_send_with_retry", new=AsyncMock(return_value=True)),
             patch("alerts.get_db_context") as mock_db,
         ):
-            mock_db.return_value.__enter__.return_value = MagicMock()
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchone.return_value = None
+            mock_conn.execute.return_value.fetchall.return_value = []
+            mock_db.return_value.__enter__.return_value = mock_conn
             results = await engine.send_all(
                 device_id="no-token-device",
                 alert_type="theft_detected",
@@ -802,6 +810,105 @@ class TestAlertEngineChannels:
             channels_called = {c.args[0] for c in mock_retry.call_args_list}
             assert "whatsapp" in channels_called
             assert "sms" in channels_called
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4b2. Per-Device Alert Recipients
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestPerDeviceRecipients:
+    """send_all must resolve per-device recipients: data > device row > env."""
+
+    def _insert_device(self, device_id: str, phone: str, email: str):
+        with database.get_db_context() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO devices (id, alert_phone, alert_email) VALUES (?, ?, ?)",
+                (device_id, phone, email),
+            )
+            conn.commit()
+
+    @pytest.mark.asyncio
+    async def test_send_all_uses_per_device_phone_from_db(self):
+        """When data has no phone, send_all falls back to the device's alert_phone."""
+        device_id = "pd-recipient-dev"
+        self._insert_device(device_id, "+2348081234567", "dev@example.com")
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+        config.settings.TWILIO_SMS_FROM = "+17432209510"
+
+        with patch.object(engine, "_send_with_retry", new=AsyncMock(return_value=True)) as mock_retry:
+            results = await engine.send_all(
+                device_id=device_id,
+                alert_type="theft_detected",
+                data={"location": "9.08, 8.67", "time": "2026-01-01T00:00:00", "score": "85"},
+            )
+
+        # whatsapp must have been attempted with the per-device phone (E.164)
+        wa_calls = [c for c in mock_retry.call_args_list if c.args[0] == "whatsapp"]
+        assert wa_calls, "whatsapp channel should have been attempted"
+        assert wa_calls[0].args[2] == "+2348081234567"
+        # email must have been attempted with the per-device email
+        email_calls = [c for c in mock_retry.call_args_list if c.args[0] == "email"]
+        assert email_calls, "email channel should have been attempted"
+        assert email_calls[0].args[2] == "dev@example.com"
+        assert results.get("whatsapp") is True
+
+    @pytest.mark.asyncio
+    async def test_send_all_data_phone_overrides_device(self):
+        """An explicit phone in the alert data must override the device setting."""
+        device_id = "pd-override-dev"
+        self._insert_device(device_id, "+2348081111111", "")
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+
+        with patch.object(engine, "_send_with_retry", new=AsyncMock(return_value=True)) as mock_retry:
+            await engine.send_all(
+                device_id=device_id,
+                alert_type="theft_detected",
+                data={
+                    "phone": "08089999999",  # local format — must normalize
+                    "location": "0,0",
+                    "time": "2026-01-01T00:00:00",
+                    "score": "85",
+                },
+            )
+
+        wa_calls = [c for c in mock_retry.call_args_list if c.args[0] == "whatsapp"]
+        assert wa_calls, "whatsapp channel should have been attempted"
+        # Data phone (normalized) wins over the device's +2348081111111
+        assert wa_calls[0].args[2] == "+2348089999999"
+
+    @pytest.mark.asyncio
+    async def test_send_all_no_device_row_falls_back_to_env(self, monkeypatch):
+        """Device without recipients + no data phone → global env is used."""
+        # Create the device row (required by alerts FK) but leave its recipient
+        # fields empty so the lookup falls through to the env fallback.
+        with database.get_db_context() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO devices (id, alert_phone, alert_email) VALUES (?, '', '')",
+                ("no-recipient-dev",),
+            )
+            conn.commit()
+
+        monkeypatch.setenv("MT_ALERT_PHONE", "+2348123456789")
+        monkeypatch.setenv("MT_ALERT_EMAIL", "")
+        engine = AlertEngine()
+        config.settings.TWILIO_SID = "AC" + "1" * 32
+        config.settings.TWILIO_AUTH_TOKEN = "2" * 32
+
+        with patch.object(engine, "_send_with_retry", new=AsyncMock(return_value=True)) as mock_retry:
+            await engine.send_all(
+                device_id="no-recipient-dev",
+                alert_type="theft_detected",
+                data={"location": "0,0", "time": "2026-01-01T00:00:00", "score": "85"},
+            )
+
+        wa_calls = [c for c in mock_retry.call_args_list if c.args[0] == "whatsapp"]
+        assert wa_calls
+        assert wa_calls[0].args[2] == "+2348123456789"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

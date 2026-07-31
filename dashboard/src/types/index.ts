@@ -15,6 +15,8 @@ export interface Device {
   lng: number | null;
   battery_percent: number | null;
   is_online: boolean;
+  alert_phone: string | null;
+  alert_email: string | null;
 }
 
 export interface DeviceWithStatus extends Device {
