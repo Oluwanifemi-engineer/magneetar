@@ -1,6 +1,7 @@
-import type { Config } from 'jest';
-
-const config: Config = {
+// Jest configuration — plain JS to avoid requiring ts-node in CI.
+// (ts-jest handles TypeScript test files; only this config file is JS.)
+/** @type {import('jest').Config} */
+const config = {
   testEnvironment: 'jsdom',
   roots: ['<rootDir>/src'],
   testMatch: [
@@ -19,4 +20,4 @@ const config: Config = {
   },
 };
 
-export default config;
+module.exports = config;
