@@ -20,8 +20,8 @@ Exit codes: 0 = all OK, 1 = config/credential problem, 2 = network error.
 
 import base64
 import json
-import os
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -34,12 +34,19 @@ def load_env(path: Path) -> dict:
         if not line or line.startswith("#") or "=" not in line:
             continue
         k, v = line.split("=", 1)
-        out[k.strip()] = v.strip()
+        v = v.strip()
+        # Strip surrounding matching quotes (single or double)
+        if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+            v = v[1:-1]
+        out[k.strip()] = v
     return out
 
 
 def api_call(sid: str, token: str, path: str) -> tuple:
-    """Call the Twilio REST API. Returns (status_code, parsed_json_or_text)."""
+    """Call the Twilio REST API. Returns (status_code, parsed_json_or_text).
+
+    status_code == 0 signals a network error (not an HTTP response).
+    """
     auth = base64.b64encode(f"{sid}:{token}".encode()).decode()
     req = urllib.request.Request(
         f"https://api.twilio.com/2010-04-01/Accounts/{sid}{path}",
@@ -74,6 +81,8 @@ def main() -> int:
     sendgrid = env.get("MT_SENDGRID_KEY", "")
 
     problems = 0
+    network_error = False
+    auth_ok = False
 
     print("═" * 62)
     print("  Magneetar — Twilio Configuration Checker")
@@ -102,6 +111,7 @@ def main() -> int:
     if sid_ok and token_ok:
         status, body = api_call(sid, token, ".json")
         if status == 200:
+            auth_ok = True
             name = body.get("friendly_name") or body.get("name") or "unknown"
             acct_type = body.get("type", "unknown")
             print(f"    ✅ Authenticated as '{name}' ({acct_type})")
@@ -113,6 +123,11 @@ def main() -> int:
             print("      Fix: console.twilio.com → Account Info → copy SID AND token")
             print("      from the SAME account, paste both, re-run this script.")
             problems += 1
+        elif status == 0:
+            network_error = True
+            msg = body.get("message", body) if isinstance(body, dict) else body
+            print(f"    ⚠️  Network error (could not reach Twilio): {str(msg)[:160]}")
+            print("      Check internet connectivity and try again.")
         else:
             msg = body.get("message", body) if isinstance(body, dict) else body
             print(f"    ⚠️  HTTP {status}: {str(msg)[:160]}")
@@ -123,7 +138,7 @@ def main() -> int:
 
     # ── 4. SMS-capable numbers ───────────────────────────────────────────
     print("\n[4] SMS-capable numbers on the account:")
-    if sid_ok and token_ok:
+    if auth_ok:
         status, body = api_call(sid, token, "/IncomingPhoneNumbers.json?PageSize=20")
         if status == 200:
             nums = body.get("incoming_phone_numbers", [])
@@ -136,15 +151,18 @@ def main() -> int:
                 print(f"    • {n.get('friendly_name')}  SMS={cap.get('sms')}  "
                       f"Voice={cap.get('voice')}  ({n.get('status')})")
         else:
-            print("    ⏭  skipped (API auth failed above)")
+            print("    ⏭  skipped (numbers list request failed)")
     else:
-        print("    ⏭  skipped (fix credentials first)")
+        print("    ⏭  skipped (credentials must authenticate first)")
 
     # ── 5. Channel wiring summary ────────────────────────────────────────
     print("\n[5] Alert channel wiring:")
-    print(f"    WhatsApp: {'✅ wired' if sid_ok and token_ok else '❌ blocked'} "
-          f"(From={wa_from})")
-    if sid_ok and token_ok and sms_from:
+    if auth_ok:
+        print(f"    WhatsApp: ✅ wired (From={wa_from})")
+    else:
+        print(f"    WhatsApp: ❌ blocked (credentials not authenticating) "
+              f"(From={wa_from})")
+    if auth_ok and sms_from:
         print(f"    SMS:      ✅ wired (From={sms_from})")
     elif termii:
         print("    SMS:      ⚠️  Twilio SMS From missing — falls back to Termii")
@@ -156,6 +174,9 @@ def main() -> int:
           f"{'✅ set' if alert_phone else '❌ NOT SET — alerts cannot deliver'}")
 
     print("\n" + "═" * 62)
+    if network_error:
+        print("  ⚠️  Network error prevented full verification — retry.")
+        return 2
     if problems == 0:
         print("  ✅ All Twilio checks passed.")
         if not alert_phone:
