@@ -32,8 +32,11 @@ server-install: ## Install server dependencies (runtime + dev tooling)
 server-lint:    ## Lint server code with flake8 (repo-root .flake8 config)
 	cd server && source venv/bin/activate && flake8 . --count --statistics
 
-server-format:  ## Format server code with black
-	cd server && source venv/bin/activate && black .
+server-format:  ## Format server code with black (line length matches pre-commit black hook)
+	# NOTE: isort is intentionally NOT here — pre-commit is its single gate.
+	# A second venv-based isort disagrees with the hook env (different config
+	# discovery), which would reintroduce the drift this project avoids.
+	cd server && source venv/bin/activate && black --line-length=120 .
 
 server-check: server-lint test  ## Run all server checks
 
@@ -76,8 +79,8 @@ dashboard-build: ## Build the dashboard for production
 dashboard-lint: ## Lint dashboard code
 	cd dashboard && npm run lint
 
-dashboard-format: ## Format dashboard code with Prettier
-	cd dashboard && npx prettier --write 'src/**/*.{ts,tsx,css}'
+dashboard-format: ## Format dashboard code with ESLint --fix (matches pre-commit eslint hook)
+	cd dashboard && npm run lint -- --fix
 
 # ─── Android ──────────────────────────────────────────────────────────────────
 
