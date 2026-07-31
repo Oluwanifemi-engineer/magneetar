@@ -1,6 +1,6 @@
 # Magneetar — Project Status Report
 
-**Generated:** July 30, 2026  
+**Generated:** July 31, 2026  
 **Version:** 1.1.0  
 **Status:** 🟢 Production Ready
 
@@ -14,7 +14,7 @@ Magneetar is a fully functional anti-theft tracking system with:
 - **Dashboard** — Next.js tactical command center
 - **Production deployment** — Docker Compose + PostgreSQL + Cloudflare Tunnel
 
-All **125 tests pass consistently** (83 backend + 42 dashboard). The system has been hardened with comprehensive reliability improvements including WebSocket connection limits, alert circuit breakers, request timeouts, and graceful degradation.
+All **161 tests pass consistently** (119 backend + 42 dashboard). The system has been hardened with comprehensive reliability improvements including WebSocket connection limits, alert circuit breakers, per-device alert recipients, CI alert verification, and graceful degradation.
 
 ---
 
@@ -22,14 +22,14 @@ All **125 tests pass consistently** (83 backend + 42 dashboard). The system has 
 
 | Test Suite | Count | Status |
 |------------|-------|--------|
-| API Tests (`test_api.py`) | 35 | ✅ All pass |
-| Auth Tests (`test_auth.py`) | 20 | ✅ All pass |
-| Sentinel Tests (`test_sentinel.py`) | 10 | ✅ All pass |
-| E2E Tests (`test_e2e.py`) | 7 | ✅ All pass |
-| **Reliability Tests** (`test_reliability.py`) | **21** | ✅ **All pass** (WebSocket limits, health DB, alert circuit breaker) |
-| **Backend Total** | **83** | **✅ All pass** |
-| **Dashboard Tests** | **42** | **✅ All pass** (6 suites) |
-| **Grand Total** | **125** | **✅ All pass** |
+| API Tests (`test_api.py`) | 22 | ✅ All pass |
+| Auth Tests (`test_auth.py`) | 15 | ✅ All pass |
+| Sentinel Tests (`test_sentinel.py`) | 14 | ✅ All pass |
+| E2E Tests (`test_e2e.py`) | 11 | ✅ All pass |
+| **Reliability Tests** (`test_reliability.py`) | **57** | ✅ **All pass** (WebSocket limits, circuit breaker, per-device recipients) |
+| **Backend Total** | **119** | **✅ All pass** |
+| **Dashboard Tests** | **42** | **✅ All pass** (6 suites, `tsc --noEmit` clean) |
+| **Grand Total** | **161** | **✅ All pass** |
 
 ---
 
@@ -49,6 +49,10 @@ All **125 tests pass consistently** (83 backend + 42 dashboard). The system has 
 | DB Connection Resilience | SQLite `PRAGMA busy_timeout=5000` for concurrent access |
 | Startup Validation Script | Pre-flight checks: env vars, DB writability, ports, deps |
 | E2E Reliability Test Script | Shell-based integration test suite |
+| Per-Device Alert Recipients | Per-device `alert_phone`/`alert_email` (fallback to env defaults) |
+| CI Alert Credential Check | Read-only Twilio auth check on every push (non-blocking) |
+| CI Alert Smoke Test | Manual `workflow_dispatch` — sends 1 real WhatsApp + SMS |
+| Dashboard Type Checking | `npx tsc --noEmit` gates CI; all test TS errors eliminated |
 
 ### ✅ Backend (Python/FastAPI)
 
@@ -62,7 +66,7 @@ All **125 tests pass consistently** (83 backend + 42 dashboard). The system has 
 | Media Storage | `routes/devices.py` | Photo/audio evidence storage |
 | Remote Commands | `routes/devices.py` | Lock, wipe, alarm, capture, burst |
 | Offline Queue | `routes/devices.py` | Batch upload of queued pings |
-| Alert Engine | `alerts.py` | Email (SendGrid), SMS (Termii), Push (FCM), WhatsApp (Twilio) |
+| Alert Engine | `alerts.py` | SMS (Twilio), WhatsApp (Twilio), Push (FCM); email parked (SendGrid access pending) |
 | Push Notifications | `alerts.py`, `MagneetarMessagingService.kt` | Firebase Cloud Messaging |
 | Rate Limiting | `auth.py` | Per-endpoint rate limits |
 | Request Timing | `main.py` | Slow request monitoring + X-Process-Time-Ms header |
@@ -121,7 +125,7 @@ All **125 tests pass consistently** (83 backend + 42 dashboard). The system has 
 | Health Checks | ✅ All pass | All 3 services: DB, server, dashboard |
 | DB Backup Script | ✅ Created | `bash scripts/backup-db.sh` with rotation |
 | Startup Validation | ✅ Created | `scripts/validate-startup.sh` with multi-exit codes |
-| GitHub Actions CI | ✅ Configured | Tests, pre-commit, Docker build, APK build |
+| GitHub Actions CI | ✅ Configured | Tests, typecheck, Docker build, APK build, alert credential check |
 
 ---
 
@@ -135,11 +139,12 @@ All **125 tests pass consistently** (83 backend + 42 dashboard). The system has 
 | `MT_JWT_SECRET` | ✅ Yes | JWT signing secret (min 64 chars) |
 | `MT_ENCRYPTION_KEY` | ✅ Yes | Data encryption key (64 hex chars = 32 bytes) |
 | `MT_FIREBASE_KEY` | ❌ No | Firebase credentials path or JSON |
-| `MT_SENDGRID_KEY` | ❌ No | Email alerts via SendGrid |
-| `MT_TERMII_KEY` | ❌ No | SMS alerts via Termii |
-| `MT_TWILIO_SID` / `MT_TWILIO_AUTH_TOKEN` | ❌ No | WhatsApp alerts via Twilio |
-| `MT_ALERT_EMAIL` | ❌ No | Email recipient for alerts |
-| `MT_ALERT_PHONE` | ❌ No | SMS recipient for alerts |
+| `MT_TWILIO_SID` / `MT_TWILIO_AUTH_TOKEN` | ❌ No | Twilio API credentials (SMS + WhatsApp) |
+| `MT_TWILIO_SMS_FROM` | ❌ No | Twilio SMS-capable sender number |
+| `MT_TWILIO_WHATSAPP_FROM` | ❌ No | Twilio WhatsApp sender (sandbox `whatsapp:+14155238886`) |
+| `MT_ALERT_EMAIL` | ❌ No | Default email recipient (parked until SendGrid access) |
+| `MT_ALERT_PHONE` | ❌ No | Default SMS/WhatsApp recipient |
+| `MT_SENDGRID_KEY` | ❌ No | Email alerts via SendGrid (parked — access pending) |
 | `MT_SENTRY_DSN` | ❌ No | Sentry error monitoring |
 | `MT_DATABASE_URL` | ❌ No | PostgreSQL connection string |
 | `MT_REQUEST_TIMEOUT` | ❌ No | Request timeout in seconds (default: 30) |
@@ -197,12 +202,12 @@ Interactive API docs available at:
 ## Next Steps
 
 ### Immediate
-- [ ] Configure `MT_SENTRY_DSN` for production error tracking
-- [ ] Push v1.1.0 to origin and deploy via docker-compose
-- [ ] Build and sign Android APK for production distribution
+- [x] Push v1.1.0 to origin and deploy via docker-compose
+- [x] Build and sign Android APK (GitHub Actions `build-apk.yml`)
+- [x] Fix pre-commit B008 warnings (FastAPI `Depends()` pattern — ignored via flake8 config)
+- [ ] Add repo secrets so CI alert checks run: `MT_TWILIO_SID`, `MT_TWILIO_AUTH_TOKEN`, `MT_TWILIO_SMS_FROM`, `MT_TWILIO_WHATSAPP_FROM`, `MT_ALERT_PHONE`
 
 ### Short-term
-- [ ] Fix remaining pre-commit B008 warnings in auth.py
 - [ ] Set up automatic daily database backups via cron
 - [ ] Configure pre-commit hooks permanently (`pre-commit install`)
 
