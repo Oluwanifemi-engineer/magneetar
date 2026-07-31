@@ -475,6 +475,14 @@ class AlertEngine:
 
             # Log alert to database
             recipient = email_to if channel == "email" else (phone_to if channel in ("sms", "whatsapp") else "fcm")
+            # Template mode tolerates missing data keys, so format defensively:
+            # missing keys become empty strings instead of raising KeyError.
+            safe_data = {k: (v if v is not None else "") for k, v in data.items()}
+            message_text = self.ALERT_TEMPLATES.get(alert_type, {}).get("sms", "")
+            try:
+                log_message = message_text.format(**safe_data)
+            except (KeyError, IndexError):
+                log_message = message_text  # fall back to raw template
             with get_db_context() as conn:
                 conn.execute(
                     """INSERT INTO alerts (device_id, alert_type, channel, recipient, message, delivered)
@@ -484,7 +492,7 @@ class AlertEngine:
                         alert_type,
                         channel,
                         recipient,
-                        self.ALERT_TEMPLATES.get(alert_type, {}).get("sms", "").format(**data),
+                        log_message,
                         success,
                     ),
                 )
