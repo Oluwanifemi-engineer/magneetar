@@ -268,6 +268,7 @@ if [ "$UPLOAD" = true ]; then
         SSH_TARGET="${DEPLOY_USER}@${DEPLOY_SERVER}"
         log "Uploading to $SSH_TARGET:$DEPLOY_PATH"
 
+        # shellcheck disable=SC2029  # $DEPLOY_PATH intentionally expands locally to build the remote command
         ssh "$SSH_TARGET" "mkdir -p $DEPLOY_PATH" 2>/dev/null || warn "Remote mkdir failed"
         scp "$APK_DIR/$RENAMED_APK" "$SSH_TARGET:$DEPLOY_PATH/" 2>&1 || {
             warn "Upload failed — server may not be reachable"

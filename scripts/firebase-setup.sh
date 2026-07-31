@@ -52,10 +52,8 @@ FIREBASE_VER=$("$FIREBASE_BIN" --version 2>/dev/null)
 log "Firebase CLI: v${FIREBASE_VER}"
 
 # Validate google-services.json is a placeholder (not real)
-PLACEHOLDER=false
 if [ -f "$FCM_CONFIG" ]; then
     if grep -q "magneetar-placeholder" "$FCM_CONFIG" 2>/dev/null; then
-        PLACEHOLDER=true
         warn "Placeholder google-services.json detected (project not yet created)"
     else
         log "Real google-services.json already present"
@@ -98,13 +96,14 @@ echo -e "  Project name: ${CYAN}Magneetar${NC}"
 echo -e "  Project ID:   ${CYAN}$PROJECT_ID${NC}"
 echo ""
 
-TOKEN_FLAG=""
-[ -n "${FIREBASE_TOKEN:-}" ] && TOKEN_FLAG="--token $FIREBASE_TOKEN"
+# Optional auth args for headless (CI) usage — empty array keeps call sites clean
+TOKEN_ARGS=()
+[ -n "${FIREBASE_TOKEN:-}" ] && TOKEN_ARGS=(--token "$FIREBASE_TOKEN")
 
 "$FIREBASE_BIN" projects:create "Magneetar" \
     --project "$PROJECT_ID" \
     --display-name "Magneetar" \
-    $TOKEN_FLAG 2>&1 | head -5
+    "${TOKEN_ARGS[@]}" 2>&1 | head -5
 
 log "Project created: $PROJECT_ID"
 
@@ -124,7 +123,7 @@ cd "$TMP_DIR"
     --package-name "com.magneetar.app" \
     --display-name "Magneetar Android" \
     ANDROID \
-    $TOKEN_FLAG 2>&1 | head -3
+    "${TOKEN_ARGS[@]}" 2>&1 | head -3
 
 log "Android app registered"
 
@@ -133,7 +132,7 @@ log "Android app registered"
 header "Step 4/6 — Downloading google-services.json"
 
 # Get the app ID and download config
-APP_IDS=$("$FIREBASE_BIN" apps:list --project "$PROJECT_ID" --json $TOKEN_FLAG 2>/dev/null | \
+APP_IDS=$("$FIREBASE_BIN" apps:list --project "$PROJECT_ID" --json "${TOKEN_ARGS[@]}" 2>/dev/null | \
     python3 -c "import sys,json; apps=json.load(sys.stdin).get('apps',[]); [print(a['appId']) for a in apps if a.get('packageName')=='com.magneetar.app']" 2>/dev/null || true)
 
 if [ -n "$APP_IDS" ]; then
@@ -143,7 +142,7 @@ if [ -n "$APP_IDS" ]; then
     "$FIREBASE_BIN" apps:android:get-config \
         --project "$PROJECT_ID" \
         --app "$APP_ID" \
-        $TOKEN_FLAG 2>/dev/null > "$FCM_CONFIG"
+        "${TOKEN_ARGS[@]}" 2>/dev/null > "$FCM_CONFIG"
 
     log "google-services.json downloaded to: $FCM_CONFIG"
 else
@@ -161,11 +160,13 @@ header "Step 5/6 — Configuring Cloud Messaging"
 # Enable FCM API via Google Cloud
 echo -e "  Enabling Firebase Cloud Messaging API..."
 if command -v gcloud &>/dev/null; then
-    gcloud services enable fcm.googleapis.com \
-        --project "$PROJECT_ID" 2>/dev/null && \
-    log "FCM API enabled" || \
-    warn "Could not enable FCM API via gcloud. Enable manually at:
+    if gcloud services enable fcm.googleapis.com \
+        --project "$PROJECT_ID" 2>/dev/null; then
+        log "FCM API enabled"
+    else
+        warn "Could not enable FCM API via gcloud. Enable manually at:
   https://console.cloud.google.com/apis/library/fcm.googleapis.com"
+    fi
 else
     warn "gcloud CLI not found. Enable FCM API manually at:
   https://console.cloud.google.com/apis/library/fcm.googleapis.com"
@@ -175,7 +176,7 @@ fi
 FCM_KEY=$("$FIREBASE_BIN" apps:android:get-config \
     --project "$PROJECT_ID" \
     --app "$APP_ID" \
-    $TOKEN_FLAG 2>/dev/null | python3 -c "
+    "${TOKEN_ARGS[@]}" 2>/dev/null | python3 -c "
 import sys,json
 try:
     cfg = json.load(sys.stdin)

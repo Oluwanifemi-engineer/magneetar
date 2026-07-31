@@ -53,6 +53,14 @@ repos:
         additional_dependencies:
           - flake8-bugbear==25.11.29  # keep in sync with server/requirements-dev.txt
 
+  # ─── Shell (scripts/) ────────────────────────────────────────────────────
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        name: shellcheck (scripts)
+        files: ^scripts/.*\.sh$
+
   # ─── JavaScript / TypeScript (dashboard) ─────────────────────────────────
   # Uses eslint with Next.js's config. TypeScript handling is managed
   # by eslint-config-next internally — no pinned @typescript-eslint deps

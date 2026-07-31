@@ -38,6 +38,7 @@ database.DB_PATH = test_db_path
 database.init_db(test_db_path)
 
 from alerts import AlertEngine, normalize_phone_to_e164  # noqa: E402
+from auth import create_token  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from main import app  # noqa: E402
 from websocket_manager import (  # noqa: E402
@@ -299,6 +300,53 @@ class TestWebSocketConnectionLimits:
 
         # Connection must be deregistered after the client disconnects
         assert await _wait_until(lambda: len(active_dashboard_connections) == 0)
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_websocket_accepts_valid_token(self, live_ws_server):
+        """A connection with a valid dashboard/access token is accepted and registered."""
+        token = create_token("dashboard:test", "dashboard")
+        url = f"{live_ws_server}?token={token}"
+        active_dashboard_connections.clear()
+
+        async with websockets.connect(url) as ws:
+            assert await _wait_until(lambda: len(active_dashboard_connections) == 1)
+            await ws.send("ping")
+            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=2.0))
+            assert pong["type"] == "pong"
+
+        assert await _wait_until(lambda: len(active_dashboard_connections) == 0)
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_websocket_rejects_invalid_token(self, live_ws_server):
+        """A connection with a garbage token is rejected with close code 4001."""
+        url = f"{live_ws_server}?token=not-a-real-token"
+        active_dashboard_connections.clear()
+
+        try:
+            async with websockets.connect(url) as ws:
+                await asyncio.wait_for(ws.recv(), timeout=2.0)
+            raise AssertionError("connection should have been closed")
+        except websockets.exceptions.ConnectionClosed as exc:
+            assert getattr(exc.rcvd, "code", None) == 4001
+        assert len(active_dashboard_connections) == 0
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_websocket_rejects_wrong_token_type(self, live_ws_server):
+        """A device-type token (not dashboard/access) is rejected with 4001."""
+        token = create_token("device-123", "device")
+        url = f"{live_ws_server}?token={token}"
+        active_dashboard_connections.clear()
+
+        try:
+            async with websockets.connect(url) as ws:
+                await asyncio.wait_for(ws.recv(), timeout=2.0)
+            raise AssertionError("connection should have been closed")
+        except websockets.exceptions.ConnectionClosed as exc:
+            assert getattr(exc.rcvd, "code", None) == 4001
+        assert len(active_dashboard_connections) == 0
 
 
 # ═══════════════════════════════════════════════════════════════════════════

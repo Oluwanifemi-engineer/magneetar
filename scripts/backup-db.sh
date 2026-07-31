@@ -51,6 +51,7 @@ if $LIST_MODE; then
     echo -e "${GREEN}Available backups:${NC}"
     echo ""
     if ls "$BACKUP_DIR"/magneetar_*.sql.gz 1>/dev/null 2>&1; then
+        # shellcheck disable=SC2012  # ls -lh gives human-readable sizes for display
         ls -lh "$BACKUP_DIR"/magneetar_*.sql.gz | awk '{print $6, $7, $8, " — ", $NF}'
     else
         echo "   No backups found."

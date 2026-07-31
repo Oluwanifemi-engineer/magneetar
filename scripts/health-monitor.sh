@@ -77,7 +77,8 @@ show_status() {
 init_cron() {
     local script_path
     script_path="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
-    local cron_job="*/5 * * * * cd $(dirname "$script_path")/.. && bash $script_path >> /tmp/magneetar-monitor/cron.log 2>&1"
+    local cron_job
+    cron_job="*/5 * * * * cd $(dirname "$script_path")/.. && bash $script_path >> /tmp/magneetar-monitor/cron.log 2>&1"
 
     if crontab -l 2>/dev/null | grep -q "$script_path"; then
         echo "✅ Cron job already configured"

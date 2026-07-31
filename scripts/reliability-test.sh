@@ -40,6 +40,7 @@ fail()  { FAIL_COUNT=$((FAIL_COUNT + 1)); echo "  ❌ FAIL: $1"; }
 start_server() {
     echo "  Starting server..."
     cd "$(dirname "$0")/../server"
+    # shellcheck disable=SC1091  # venv path is relative to runtime CWD
     source venv/bin/activate 2>/dev/null || true
     nohup uvicorn main:app --host 127.0.0.1 --port 8000 > /tmp/magneetar-server.log 2>&1 &
     SERVER_PID=$!
@@ -56,6 +57,7 @@ start_server() {
     return 1
 }
 
+# shellcheck disable=SC2329  # invoked indirectly via cleanup()'s trap EXIT
 stop_server() {
     if [ -n "$SERVER_PID" ]; then
         kill "$SERVER_PID" 2>/dev/null || true
@@ -250,10 +252,11 @@ print_summary() {
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════════
 
+# shellcheck disable=SC2329  # invoked indirectly via trap EXIT
 cleanup() {
     stop_server
 }
-trap cleanup EXIT
+trap 'cleanup' EXIT
 
 # Parse arguments
 AUTO_START=false

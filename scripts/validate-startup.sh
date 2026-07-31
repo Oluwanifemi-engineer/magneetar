@@ -76,6 +76,7 @@ if [ "$CHECK_SERVER" = true ]; then
     # Load .env if present
     if [ -f "$SERVER_DIR/.env" ]; then
         set -a
+        # shellcheck disable=SC1091  # .env is a plain key=value file, not a shell script
         source "$SERVER_DIR/.env"
         set +a
         pass "Loaded environment from $SERVER_DIR/.env"
@@ -339,7 +340,7 @@ if [ "$CHECK_SERVER" = true ]; then
     # Check static directory for APK
     STATIC_DIR="$SERVER_DIR/static/apk"
     if [ -d "$STATIC_DIR" ]; then
-        APK_COUNT=$(ls -1 "$STATIC_DIR"/*.apk 2>/dev/null | wc -l)
+        APK_COUNT=$(find "$STATIC_DIR" -maxdepth 1 -name '*.apk' 2>/dev/null | wc -l)
         if [ "$APK_COUNT" -gt 0 ]; then
             pass "APK files found: $APK_COUNT in $STATIC_DIR"
         else

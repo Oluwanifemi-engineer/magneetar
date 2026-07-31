@@ -74,10 +74,12 @@ if [ "$USE_DOCKER" = "--docker" ]; then
     echo "✅ Generated Docker DB password file: server/.db_password"
     echo ""
     # Also append to .env
-    echo "" >> "$ENV_FILE"
-    echo "# Docker PostgreSQL" >> "$ENV_FILE"
-    echo "MT_DB_PASSWORD=${DB_PASSWORD}" >> "$ENV_FILE"
-    echo "MT_DATABASE_URL=postgresql://magneetar:${DB_PASSWORD}@db:5432/magneetar" >> "$ENV_FILE"
+    {
+        echo ""
+        echo "# Docker PostgreSQL"
+        echo "MT_DB_PASSWORD=${DB_PASSWORD}"
+        echo "MT_DATABASE_URL=postgresql://magneetar:${DB_PASSWORD}@db:5432/magneetar"
+    } >> "$ENV_FILE"
 fi
 
 echo "✅ Generated: $ENV_FILE"
