@@ -12,6 +12,8 @@ on:
     branches: [main]
   release:
     types: [published]
+  # Manual trigger for the live alert smoke test (sends real WhatsApp/SMS)
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -57,6 +59,58 @@ jobs:
           pip install vulture
           vulture . --min-confidence 70 --exclude 'venv/*,tests/*'
         continue-on-error: true
+
+  # ── Alert Credential Check (free, read-only, non-blocking) ───────────────
+  # Verifies stored Twilio credentials still authenticate against the real API.
+  # No messages are sent and no charges incurred. Runs on every push/PR;
+  # continue-on-error keeps the pipeline green if secrets aren't configured yet.
+  alert-credential-check:
+    name: Alert Credential Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify Twilio credentials (read-only API auth check)
+        run: |
+          python3 scripts/twilio-config-check.py
+        env:
+          MT_TWILIO_SID: ${{ secrets.MT_TWILIO_SID }}
+          MT_TWILIO_AUTH_TOKEN: ${{ secrets.MT_TWILIO_AUTH_TOKEN }}
+          MT_TWILIO_SMS_FROM: ${{ secrets.MT_TWILIO_SMS_FROM }}
+          MT_TWILIO_WHATSAPP_FROM: ${{ secrets.MT_TWILIO_WHATSAPP_FROM }}
+          MT_ALERT_PHONE: ${{ secrets.MT_ALERT_PHONE }}
+        continue-on-error: true
+
+  # ── Live Alert Smoke Test (manual — sends ONE real WhatsApp + SMS) ───────
+  # Triggered from the Actions tab (workflow_dispatch). Confirms end-to-end
+  # delivery against real Twilio — credentials, numbers, and carrier routing.
+  alert-smoke-test:
+    name: Alert Smoke Test (live)
+    runs-on: ubuntu-latest
+    needs: [test-backend]
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Send real WhatsApp + SMS smoke alert
+        run: |
+          python3 scripts/alert-smoke-test.py
+        env:
+          MT_TWILIO_SID: ${{ secrets.MT_TWILIO_SID }}
+          MT_TWILIO_AUTH_TOKEN: ${{ secrets.MT_TWILIO_AUTH_TOKEN }}
+          MT_TWILIO_SMS_FROM: ${{ secrets.MT_TWILIO_SMS_FROM }}
+          MT_TWILIO_WHATSAPP_FROM: ${{ secrets.MT_TWILIO_WHATSAPP_FROM }}
+          MT_ALERT_PHONE: ${{ secrets.MT_ALERT_PHONE }}
 
   # ── Dashboard Test ─────────────────────────────────────────────────────────
   test-dashboard:

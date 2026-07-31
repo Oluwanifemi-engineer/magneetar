@@ -20,6 +20,7 @@ Exit codes: 0 = all OK, 1 = config/credential problem, 2 = network error.
 
 import base64
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -29,6 +30,8 @@ from pathlib import Path
 def load_env(path: Path) -> dict:
     """Parse an .env file into a dict (last active value wins, no expansion)."""
     out = {}
+    if not path.exists():
+        return out
     for line in path.read_text().splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
@@ -40,6 +43,11 @@ def load_env(path: Path) -> dict:
             v = v[1:-1]
         out[k.strip()] = v
     return out
+
+
+def env_value(file_env: dict, key: str) -> str:
+    """Env vars (CI secrets) take priority; fall back to the .env file."""
+    return os.environ.get(key, "") or file_env.get(key, "")
 
 
 def api_call(sid: str, token: str, path: str) -> tuple:
@@ -67,18 +75,24 @@ def api_call(sid: str, token: str, path: str) -> tuple:
 def main() -> int:
     repo_root = Path(__file__).resolve().parent.parent
     env_path = repo_root / "server" / ".env"
-    if not env_path.exists():
-        print(f"❌ server/.env not found at {env_path}")
-        return 1
+    file_env = load_env(env_path)
 
-    env = load_env(env_path)
-    sid = env.get("MT_TWILIO_SID", "")
-    token = env.get("MT_TWILIO_AUTH_TOKEN", "")
-    sms_from = env.get("MT_TWILIO_SMS_FROM", "")
-    wa_from = env.get("MT_TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
-    alert_phone = env.get("MT_ALERT_PHONE", "")
-    termii = env.get("MT_TERMII_KEY", "")
-    sendgrid = env.get("MT_SENDGRID_KEY", "")
+    # In CI, server/.env does not exist (gitignored) and credentials arrive via
+    # environment variables. Only bail if BOTH the file is missing AND no
+    # Twilio env vars are set — otherwise proceed with whatever is available.
+    env_has_twilio = os.environ.get("MT_TWILIO_SID") or os.environ.get("MT_TWILIO_AUTH_TOKEN")
+    if not file_env and not env_has_twilio:
+        print(f"❌ No configuration found: server/.env missing at {env_path} and no Twilio env vars set.")
+        return 1
+    # Env vars (CI secrets) override the .env file so the script works in
+    # GitHub Actions with secrets passed as environment variables.
+    sid = env_value(file_env, "MT_TWILIO_SID")
+    token = env_value(file_env, "MT_TWILIO_AUTH_TOKEN")
+    sms_from = env_value(file_env, "MT_TWILIO_SMS_FROM")
+    wa_from = env_value(file_env, "MT_TWILIO_WHATSAPP_FROM") or "whatsapp:+14155238886"
+    alert_phone = env_value(file_env, "MT_ALERT_PHONE")
+    termii = env_value(file_env, "MT_TERMII_KEY")
+    sendgrid = env_value(file_env, "MT_SENDGRID_KEY")
 
     problems = 0
     network_error = False
@@ -168,7 +182,7 @@ def main() -> int:
         print("    SMS:      ⚠️  Twilio SMS From missing — falls back to Termii")
     else:
         print("    SMS:      ❌ no sender (set MT_TWILIO_SMS_FROM or MT_TERMII_KEY)")
-    print(f"    Push:     {'✅ wired' if env.get('MT_FIREBASE_KEY') else '❌ not configured'}")
+    print(f"    Push:     {'✅ wired' if env_value(file_env, 'MT_FIREBASE_KEY') else '❌ not configured'}")
     print(f"    Email:    {'✅ wired' if sendgrid else '⏸ parked (SendGrid key empty)'}")
     print(f"    Alert phone (MT_ALERT_PHONE): "
           f"{'✅ set' if alert_phone else '❌ NOT SET — alerts cannot deliver'}")
