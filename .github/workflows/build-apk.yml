@@ -31,7 +31,7 @@ jobs:
 
       - name: Build debug APK (unsigned, for sideloading)
         working-directory: android-app
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug -PSERVER_URL="$SERVER_URL" -PAPI_KEY="$API_KEY"
         env:
           SERVER_URL: ${{ secrets.SERVER_URL }}
           API_KEY: ${{ secrets.API_KEY }}
