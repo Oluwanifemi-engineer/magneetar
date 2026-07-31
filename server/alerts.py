@@ -114,7 +114,8 @@ class AlertEngine:
         """Send with one retry using exponential backoff + jitter."""
         if self._should_skip_channel(channel):
             logger.warning(
-                f"Skipping channel '{channel}' — circuit breaker open for {int(time.time() - self._channel_disabled_at.get(channel, 0))}s"
+                f"Skipping channel '{channel}' — circuit breaker open for "
+                f"{int(time.time() - self._channel_disabled_at.get(channel, 0))}s"
             )
             return False
 
@@ -141,14 +142,20 @@ class AlertEngine:
     ALERT_TEMPLATES = {
         "theft_detected": {
             "subject": "🚨 MAGNEETAR ALERT: Device theft detected",
-            "email": "Your device may have been stolen. Open the dashboard to track it in real-time.\n\nLocation: {location}\nTime: {time}\nThreat Score: {score}/100",
+            "email": (
+                "Your device may have been stolen. Open the dashboard to track it in real-time.\n\n"
+                "Location: {location}\nTime: {time}\nThreat Score: {score}/100"
+            ),
             "sms": "MAGNEETAR: Your phone may be stolen. Track it at magneetar.me/dashboard. Location: {location}",
             "push_title": "🚨 Theft Detected",
             "push_body": "Your device is moving suspiciously. Tap to track.",
         },
         "sim_changed": {
             "subject": "⚠️ MAGNEETAR: SIM card changed",
-            "email": "A different SIM card was detected in your device.\n\nNew SIM detected at: {location}\nTime: {time}",
+            "email": (
+                "A different SIM card was detected in your device.\n\n"
+                "New SIM detected at: {location}\nTime: {time}"
+            ),
             "sms": "MAGNEETAR: SIM changed on your device at {location}.",
             "push_title": "⚠️ SIM Changed",
             "push_body": "A new SIM card was inserted in your device.",
@@ -176,7 +183,10 @@ class AlertEngine:
         },
         "factory_reset": {
             "subject": "🚨 MAGNEETAR CRITICAL: Factory reset attempted",
-            "email": "A factory reset was attempted on your device.\n\nLocation: {location}\nTime: {time}\nEvidence has been captured.",
+            "email": (
+                "A factory reset was attempted on your device.\n\n"
+                "Location: {location}\nTime: {time}\nEvidence has been captured."
+            ),
             "sms": "MAGNEETAR CRITICAL: Factory reset attempted at {location}. Evidence captured.",
             "push_title": "🚨 Factory Reset",
             "push_body": "Factory reset attempted. Evidence captured.",
@@ -242,9 +252,7 @@ class AlertEngine:
                     )
                     if response.status_code in (200, 201):
                         return True
-                    logger.warning(
-                        f"Twilio SMS returned {response.status_code}: {response.text[:300]}"
-                    )
+                    logger.warning(f"Twilio SMS returned {response.status_code}: {response.text[:300]}")
             except Exception as e:
                 logger.warning(f"Twilio SMS send failed: {e}")
                 # fall through to Termii fallback below

@@ -3,7 +3,6 @@ Magneetar Sentinel Engine
 Server-side theft detection system with anomaly scoring.
 """
 
-import json
 import math
 from datetime import datetime, timezone
 from typing import Optional

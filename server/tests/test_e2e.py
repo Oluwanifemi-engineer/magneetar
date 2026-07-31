@@ -4,14 +4,11 @@ Standalone integration tests. Uses sys.modules cleanup to avoid
 module caching conflicts with other test files.
 """
 
-import json
 import os
 import secrets
 import sys
 import tempfile
 import time
-
-import pytest
 
 # Set test environment BEFORE any imports
 _test_db_fd, test_db_path = tempfile.mkstemp(suffix=".db")
@@ -40,18 +37,17 @@ for mod_name in list(sys.modules.keys()):
     ):
         del sys.modules[mod_name]
 
-import config
-import database as db_module
-from config import settings
+import database as db_module  # noqa: E402 (env set above)
+from config import settings  # noqa: E402
 
 # Force settings to use test DB path
 settings.DB_PATH = test_db_path
 db_module.DB_PATH = test_db_path
 db_module.init_db(test_db_path)
 
-import main as main_module
-from auth import create_dashboard_tokens, create_device_tokens
-from fastapi.testclient import TestClient
+import main as main_module  # noqa: E402
+from auth import create_dashboard_tokens, create_device_tokens  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 client = TestClient(main_module.app)
 

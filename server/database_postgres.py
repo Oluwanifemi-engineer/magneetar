@@ -4,10 +4,6 @@ Production-grade PostgreSQL backend with connection pooling.
 Falls back to SQLite when PostgreSQL is not configured.
 """
 
-import json
-import os
-from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from typing import Optional
 
 from config import settings

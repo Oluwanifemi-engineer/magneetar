@@ -3,16 +3,11 @@ Magneetar API Tests
 Tests for all server endpoints.
 """
 
-import hashlib
-import json
-
 # Set test environment before importing anything
 import os
 import secrets
 import tempfile
-from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 # Create a temporary database file for tests
@@ -25,25 +20,22 @@ os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
 os.environ["MT_DB_PATH"] = test_db_path
 
 # Override the settings module's DB_PATH
-import config
-
-# Import config first to set DB_PATH
-from config import Settings, get_settings
+import config  # noqa: E402 (env set above)
 
 config.settings.DB_PATH = test_db_path
 
 # Import database module and set DB_PATH
-import database
+import database  # noqa: E402
 
 database.DB_PATH = test_db_path
 
 # Initialize database
-from database import get_db, get_db_context, init_db
+from database import init_db  # noqa: E402
 
 init_db(test_db_path)
 
-from auth import create_dashboard_tokens, create_device_tokens
-from main import app
+from auth import create_dashboard_tokens, create_device_tokens  # noqa: E402
+from main import app  # noqa: E402
 
 client = TestClient(app)
 

@@ -14,8 +14,8 @@ os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
 os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
 os.environ["MT_DB_PATH"] = ":memory:"
 
-from models import TelemetryPing
-from sentinel import SentinelEngine
+from models import TelemetryPing  # noqa: E402 (env set above)
+from sentinel import SentinelEngine  # noqa: E402
 
 
 @pytest.fixture

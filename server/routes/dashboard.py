@@ -3,8 +3,6 @@ Magneetar Dashboard-Facing API Routes
 All endpoints for the web dashboard (devices, locations, commands, evidence, etc.)
 """
 
-import json
-import os
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -13,25 +11,21 @@ from auth import (
     check_command_rate_limit,
     check_login_rate_limit,
     create_dashboard_tokens,
-    decode_token,
     refresh_access_token,
     require_dashboard_auth,
 )
 from config import settings
-from database import get_db, log_audit, log_error
+from database import get_db, log_audit
 from evidence import evidence_builder
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from logging_config import get_logger
 from models import (
-    Command,
     CommandRequest,
     GeofenceRequest,
     LoginRequest,
     RefreshRequest,
     TokenResponse,
 )
-from pydantic import BaseModel
-from websocket_manager import active_dashboard_connections
 
 logger = get_logger("magneetar")
 
@@ -154,15 +148,16 @@ async def update_device_alert_settings(
     if alert_email and "@" not in alert_email:
         raise HTTPException(status_code=400, detail="Invalid alert email address")
 
-    db.execute(
-        "UPDATE devices SET alert_phone=?, alert_email=? WHERE id=?", (alert_phone, alert_email, device_id)
-    )
+    db.execute("UPDATE devices SET alert_phone=?, alert_email=? WHERE id=?", (alert_phone, alert_email, device_id))
     db.commit()
 
     log_audit(
         "device_alert_settings_updated",
         actor=auth,
-        details=f"Device: {device_id}, phone_set={'yes' if alert_phone else 'no'}, email_set={'yes' if alert_email else 'no'}",
+        details=(
+            f"Device: {device_id}, phone_set={'yes' if alert_phone else 'no'}, "
+            f"email_set={'yes' if alert_email else 'no'}"
+        ),
     )
 
     return {"status": "ok", "alert_phone": alert_phone, "alert_email": alert_email}
@@ -441,7 +436,10 @@ async def create_geofence(
 ):
     """Create a geofence for a device."""
     cur = db.execute(
-        "INSERT INTO geofences (device_id, name, center_lat, center_lng, radius_meters, is_safe_zone) VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            "INSERT INTO geofences (device_id, name, center_lat, center_lng, "
+            "radius_meters, is_safe_zone) VALUES (?, ?, ?, ?, ?, ?)"
+        ),
         (fence.device_id, fence.name, fence.center_lat, fence.center_lng, fence.radius_meters, fence.is_safe_zone),
     )
     db.commit()

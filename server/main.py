@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from auth import decode_token
 from config import settings
 from database import ensure_initialized, log_error
-from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from logging_config import get_logger
@@ -265,17 +265,17 @@ SERVER_START = time.time()
 # ─── Include Route Modules ───────────────────────────────────────────────────
 
 # User auth routes (sign-up, sign-in, profile)
-from user_auth import router as user_auth_router
+from user_auth import router as user_auth_router  # noqa: E402
 
 app.include_router(user_auth_router)
 
 # Device-facing routes (registration, location, media, commands, heartbeats)
-from routes.devices import router as device_router
+from routes.devices import router as device_router  # noqa: E402
 
 app.include_router(device_router)
 
 # Dashboard-facing routes (admin UI, stats, errors, evidence, geofences)
-from routes.dashboard import router as dashboard_router
+from routes.dashboard import router as dashboard_router  # noqa: E402
 
 app.include_router(dashboard_router)
 

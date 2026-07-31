@@ -4,7 +4,6 @@ Generates actual PDF documents for theft evidence cases using ReportLab.
 """
 
 import base64
-import os
 from datetime import datetime, timezone
 from io import BytesIO
 from typing import Optional
@@ -12,13 +11,10 @@ from typing import Optional
 from config import settings
 from evidence import evidence_builder
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import cm, mm
+from reportlab.lib.units import mm
 from reportlab.platypus import HRFlowable, Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-from reportlab.platypus.doctemplate import BaseDocTemplate, PageTemplate
-from reportlab.platypus.frames import Frame
 
 
 class EvidencePDFGenerator:

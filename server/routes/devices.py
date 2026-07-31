@@ -3,13 +3,11 @@ Magneetar Device-Facing API Routes
 All endpoints for device communication (registration, location, media, commands, etc.)
 """
 
-import asyncio
 import base64
 import hashlib
 import json
 import sqlite3
-import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional
 
 from alerts import alert_engine
@@ -31,10 +29,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from logging_config import get_logger
 from models import (
     CommandAck,
-    CommandRequest,
-    ConfigResponse,
     DeviceRegistration,
-    HealthResponse,
     HeartbeatPacket,
     LocationReport,
     MediaReport,
@@ -250,7 +245,10 @@ async def post_location_simple(
     ts = report.timestamp or now
 
     db.execute(
-        "INSERT INTO locations (device_id, lat, lng, accuracy, provider, device_timestamp, server_timestamp) VALUES (?,?,?,?,?,?,?)",
+        (
+            "INSERT INTO locations (device_id, lat, lng, accuracy, provider, "
+            "device_timestamp, server_timestamp) VALUES (?,?,?,?,?,?,?)"
+        ),
         (device_id, report.lat, report.lng, report.accuracy, report.provider, ts, now),
     )
     db.execute("UPDATE devices SET last_seen=? WHERE id=?", (now, device_id))

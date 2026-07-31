@@ -4,11 +4,9 @@ Tests for: WebSocket connection limits, health endpoint DB check,
            AlertEngine retry/circuit breaker.
 """
 
-import asyncio
 import json
 import os
 import secrets
-import sys
 import tempfile
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -25,19 +23,19 @@ os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
 os.environ["MT_DB_PATH"] = test_db_path
 
 # Import modules with clean env
-import config
+import config  # noqa: E402 (env set above)
 
 config.settings.DB_PATH = test_db_path
 
-import database
+import database  # noqa: E402
 
 database.DB_PATH = test_db_path
 database.init_db(test_db_path)
 
-from alerts import AlertEngine, alert_engine, normalize_phone_to_e164
-from fastapi.testclient import TestClient
-from main import app
-from websocket_manager import (
+from alerts import AlertEngine, normalize_phone_to_e164  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from main import app  # noqa: E402
+from websocket_manager import (  # noqa: E402
     MAX_DASHBOARD_CONNECTIONS,
     _safe_remove,
     active_dashboard_connections,
@@ -126,7 +124,7 @@ class TestWebSocketConnectionLimits:
         """can_accept_new_connection() returns False when at the limit."""
         active_dashboard_connections.clear()
         # Fill to capacity
-        for i in range(MAX_DASHBOARD_CONNECTIONS):
+        for _i in range(MAX_DASHBOARD_CONNECTIONS):
             active_dashboard_connections.append(MagicMock())
         assert can_accept_new_connection() is False
 
@@ -137,7 +135,7 @@ class TestWebSocketConnectionLimits:
 
         active_dashboard_connections.clear()
         mocks = []
-        for i in range(3):
+        for _i in range(3):
             m = MagicMock()
             m.close = AsyncMock()
             active_dashboard_connections.append(m)
@@ -289,7 +287,7 @@ class TestAlertEngineRetry:
         send_fn = AsyncMock(return_value=False)
 
         # 5 consecutive failures
-        for attempt in range(engine.MAX_CONSECUTIVE_FAILURES):
+        for _attempt in range(engine.MAX_CONSECUTIVE_FAILURES):
             result = await engine._send_with_retry("test_ch", send_fn)
             assert result is False
 
@@ -686,7 +684,8 @@ class TestAlertEngineChannels:
         with patch("alerts.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
             result = await engine.send_whatsapp(
-                "+2348081234567", "theft_detected",
+                "+2348081234567",
+                "theft_detected",
                 {"location": "9.08, 8.67", "time": "2026-01-01T00:00:00", "score": "85"},
             )
 
@@ -713,7 +712,8 @@ class TestAlertEngineChannels:
         with patch("alerts.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
             await engine.send_whatsapp(
-                "+2348081234567", "theft_detected",
+                "+2348081234567",
+                "theft_detected",
                 {"location": "9.08, 8.67", "time": "2026-01-01T00:00:00", "score": "85"},
             )
 
@@ -740,7 +740,9 @@ class TestAlertEngineChannels:
         with patch("alerts.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
             result = await engine.send_whatsapp(
-                "+2348081234567", "theft_detected", {"location": "9.08, 8.67"},
+                "+2348081234567",
+                "theft_detected",
+                {"location": "9.08, 8.67"},
             )
 
         assert result is True
@@ -767,7 +769,9 @@ class TestAlertEngineChannels:
         ):
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
             result = await engine.send_whatsapp(
-                "+2348081234567", "theft_detected", {"location": "0,0"},
+                "+2348081234567",
+                "theft_detected",
+                {"location": "0,0"},
             )
 
         assert result is False
@@ -953,7 +957,7 @@ class TestPhoneNormalization:
         assert normalize_phone_to_e164("15557654321") == "15557654321"
 
     def test_country_code_without_plus_prefix_added(self):
-        """Bare digits that already start with the country code get '+'. """
+        """Bare digits that already start with the country code get '+'."""
         assert normalize_phone_to_e164("2348081234567") == "+2348081234567"
 
     @pytest.mark.asyncio

@@ -22,6 +22,7 @@ def _env_json_dict(name: str) -> dict:
     except (ValueError, TypeError):
         return {}
 
+
 # Load .env file if it exists
 env_path = Path(__file__).parent / ".env"
 if env_path.exists():
@@ -51,9 +52,7 @@ class Settings:
     TWILIO_SMS_FROM: str = os.environ.get("MT_TWILIO_SMS_FROM", "")
     # WhatsApp sender. Defaults to Twilio's shared sandbox number; replace with
     # your approved WhatsApp Business sender after sandbox onboarding.
-    TWILIO_WHATSAPP_FROM: str = os.environ.get(
-        "MT_TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886"
-    )
+    TWILIO_WHATSAPP_FROM: str = os.environ.get("MT_TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
     # WhatsApp Content API template (ContentSid, e.g. "HX..."). Business-
     # initiated alerts (theft, sim change...) arrive OUTSIDE the 24h window
     # where free-form Body is rejected — set this to an approved template so
@@ -62,9 +61,7 @@ class Settings:
     # JSON mapping of template placeholder ({{1}}, {{2}}...) to alert data keys,
     # e.g. '{"1": "location", "2": "time", "3": "score"}'. Unset/invalid JSON
     # degrades to a sensible default mapping.
-    TWILIO_WHATSAPP_TEMPLATE_VARIABLES: dict = _env_json_dict(
-        "MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES"
-    )
+    TWILIO_WHATSAPP_TEMPLATE_VARIABLES: dict = _env_json_dict("MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES")
     FIREBASE_CREDENTIALS: str = os.environ.get("MT_FIREBASE_KEY", "")
     # Default country code for normalizing local phone numbers to E.164
     # (e.g. Nigerian "0808..." → "+234808..."). Override per region.
@@ -188,12 +185,10 @@ class Settings:
                 if not isinstance(parsed, dict):
                     warnings.append(
                         "MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES must be a JSON object "
-                        f"like '{{\"1\": \"location\"}}' (got a non-object). Using defaults."
+                        'like {"1": "location"} (got a non-object). Using defaults.'
                     )
             except (ValueError, TypeError):
-                warnings.append(
-                    "MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES is not valid JSON — using defaults."
-                )
+                warnings.append("MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES is not valid JSON — using defaults.")
 
         return warnings
 

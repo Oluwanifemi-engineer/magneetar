@@ -5,7 +5,6 @@ Each location's lat/lng encrypted individually with per-device derived keys.
 """
 
 import base64
-import hashlib
 import os
 
 from config import settings

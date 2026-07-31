@@ -45,9 +45,10 @@ repos:
     hooks:
       - id: flake8
         name: flake8 (Python linter)
-        # B008 is a false positive for FastAPI's dependency-injection pattern
-        # (`= Depends(...)` / `= Header(...)` in argument defaults) — safe to ignore.
-        args: [--max-line-length=120, --extend-ignore=E203,W503,B008]
+        # Config lives in the repo-root .flake8 file (auto-discovered by flake8
+        # from the CWD). Do NOT put config in args here: YAML flow-style lists
+        # split on commas, so `--extend-ignore=E203,W503,B008` would be parsed as
+        # four separate args (W503/B008 treated as filenames → E902).
         files: ^server/
         additional_dependencies:
           - flake8-bugbear

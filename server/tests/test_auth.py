@@ -5,7 +5,6 @@ Tests for JWT authentication and authorization.
 
 import os
 import secrets
-import time
 
 import pytest
 
@@ -15,8 +14,15 @@ os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
 os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
 os.environ["MT_DB_PATH"] = "/tmp/magneetar-test-auth.db"
 
-from auth import create_dashboard_tokens, create_device_tokens, create_token, decode_token, refresh_access_token
-from database import init_db
+from auth import (  # noqa: E402 (env set above)
+    create_dashboard_tokens,
+    create_device_tokens,
+    create_token,
+    decode_token,
+    refresh_access_token,
+)
+from database import init_db  # noqa: E402
+from fastapi import HTTPException  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -71,14 +77,14 @@ class TestTokenValidation:
         assert payload["sub"] == "valid-subject"
 
     def test_invalid_token_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(HTTPException):
             decode_token("invalid.token.here")
 
     def test_tampered_token_raises(self):
         token = create_token("test", "access")
         # Tamper with token
         tampered = token[:-5] + "XXXXX"
-        with pytest.raises(Exception):
+        with pytest.raises(HTTPException):
             decode_token(tampered)
 
 
@@ -128,5 +134,5 @@ class TestTokenRefresh:
     def test_refresh_token_rejects_access_token(self):
         tokens = create_device_tokens("device-bad")
         # Try to use access token as refresh
-        with pytest.raises(Exception):
+        with pytest.raises(HTTPException):
             refresh_access_token(tokens["token"])

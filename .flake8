@@ -1,0 +1,21 @@
+[flake8]
+# ─── Magneetar flake8 configuration ─────────────────────────────────────────
+# Single source of truth for flake8 settings.
+#
+# IMPORTANT: flake8 7.x discovers config from the CURRENT WORKING DIRECTORY
+# upward. pre-commit runs hooks from the repo root, so this file MUST live at
+# the repo root — a server/setup.cfg is never read when flake8 runs from root.
+max-line-length = 120
+# E203: whitespace before ':' (conflicts with black)
+# W503: line break before binary operator (conflicts with black)
+# B008: function calls in argument defaults — false positive for FastAPI's
+#       dependency-injection pattern (`= Depends(...)` / `= Header(...)`).
+extend-ignore = E203, W503, B008
+exclude =
+    .git,
+    venv,
+    .venv,
+    __pycache__,
+    .pytest_cache,
+    node_modules,
+    *.egg-info

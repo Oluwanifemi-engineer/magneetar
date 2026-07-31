@@ -4,7 +4,6 @@ Evidence package builder with chain of custody and PDF generation.
 """
 
 import hashlib
-import json
 import secrets
 import string
 from datetime import datetime, timezone
