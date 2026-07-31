@@ -39,10 +39,28 @@ jobs:
 
       - name: Build debug APK (unsigned, for sideloading)
         working-directory: android-app
-        run: ./gradlew assembleDebug --stacktrace -PSERVER_URL="$SERVER_URL" -PAPI_KEY="$API_KEY"
+        shell: bash
+        run: |
+          ./gradlew assembleDebug --stacktrace --console=plain -PSERVER_URL="$SERVER_URL" -PAPI_KEY="$API_KEY" \
+            > /tmp/gradle-build.log 2>&1 || {
+              echo "::error::Gradle build FAILED (exit $?) — last 60 lines:"
+              tail -60 /tmp/gradle-build.log | sed 's/^/::error::  /' || true
+              echo "::error::Full log saved to artifact on failure"
+              exit 1
+            }
+          echo "::notice::Gradle build succeeded"
+          tail -20 /tmp/gradle-build.log
         env:
           SERVER_URL: ${{ secrets.SERVER_URL }}
           API_KEY: ${{ secrets.API_KEY }}
+
+      - name: Upload build log (on failure only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-log
+          path: /tmp/gradle-build.log
+          retention-days: 7
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
