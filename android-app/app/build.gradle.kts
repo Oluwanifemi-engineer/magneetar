@@ -26,7 +26,7 @@ android {
         // versionName is read from the repo-root VERSION file at build time
         // (same value the server reports and the APK filename uses).
         // versionCode must strictly increase on every Play release.
-        versionCode = 3
+        versionCode = 4
         versionName = appVersion
 
         // takeIf { it.isNotBlank() } so an empty -P value falls back to the default
