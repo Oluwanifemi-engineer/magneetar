@@ -20,6 +20,7 @@ from auth import (  # noqa: E402 (env set above)
     create_token,
     decode_token,
     refresh_access_token,
+    verify_api_key,
 )
 from database import init_db  # noqa: E402
 from fastapi import HTTPException  # noqa: E402
@@ -112,6 +113,28 @@ class TestDashboardTokens:
         tokens = create_dashboard_tokens("api-key")
         payload = decode_token(tokens["token"])
         assert payload["type"] == "dashboard"
+
+
+class TestVerifyApiKey:
+    """verify_api_key — master-key bootstrap auth for device endpoints."""
+
+    TEST_KEY = "test-api-key-" + "a" * 32
+
+    def test_valid_api_key_passes(self):
+        assert verify_api_key(self.TEST_KEY) == self.TEST_KEY
+
+    def test_invalid_api_key_rejected(self):
+        with pytest.raises(HTTPException) as exc:
+            verify_api_key("wrong-key-" + "b" * 32)
+        assert exc.value.status_code == 401
+
+    def test_prefix_mismatch_rejected(self):
+        # A near-match key (same length, differs early) must still 401 — the
+        # constant-time comparison must not accept partial matches.
+        near = "test-api-key-" + "a" * 31 + "Z"
+        with pytest.raises(HTTPException) as exc:
+            verify_api_key(near)
+        assert exc.value.status_code == 401
 
 
 class TestTokenRefresh:

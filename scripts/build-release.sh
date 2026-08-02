@@ -224,6 +224,19 @@ header "Step 6/9 — Building Release APK"
 export MT_KEYSTORE_PASS="${MT_KEYSTORE_PASS:-magneetar123}"
 export MT_KEY_ALIAS_PASS="${MT_KEY_ALIAS_PASS:-magneetar123}"
 
+# Export MT_API_KEY from local.properties (gitignored) when not already set.
+# The release APK's API_KEY must match the server's MT_API_KEY or the server
+# rejects every device request with 401 (devices stay offline in the dashboard).
+if [ -z "${MT_API_KEY:-}" ] && [ -f "$ANDROID_DIR/local.properties" ]; then
+    export MT_API_KEY
+    MT_API_KEY=$(grep '^API_KEY=' "$ANDROID_DIR/local.properties" | head -1 | cut -d= -f2-)
+    if [ -n "$MT_API_KEY" ]; then
+        log "API key loaded from local.properties"
+    else
+        err "MT_API_KEY not set and no API_KEY= line in local.properties — the built APK cannot talk to the server"
+    fi
+fi
+
 ./gradlew assembleRelease --no-daemon 2>&1 | tail -10
 
 if [ ! -f "$APK_DIR/app-release.apk" ]; then

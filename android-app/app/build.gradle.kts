@@ -5,11 +5,74 @@ plugins {
     id("io.sentry.android.gradle")
 }
 
+import org.gradle.api.GradleException
+
 // Read the app version from the repo-root VERSION file (single source of
 // truth — the server's APP_VERSION and the /apk/download filename use it too).
 val appVersion: String = run {
     val versionFile = rootProject.projectDir.parentFile.resolve("VERSION")
     if (versionFile.exists()) versionFile.readText().trim() else "1.0.0"
+}
+
+// ── Build-time config resolution ──────────────────────────────────────────
+// Priority (highest first):
+//   1. -PAPI_KEY=... / -PSERVER_URL=... project flags (CI / ad-hoc builds)
+//   2. MT_API_KEY / MT_SENTRY_DSN environment variables
+//   3. android-app/local.properties (gitignored — the normal local build)
+//
+// project.findProperty() does NOT read local.properties (only gradle.properties
+// and -P flags do), so without this explicit fallback a plain release build
+// used to silently bake the placeholder "changeme-set-in-env" key — the server
+// then rejected every device request with 401 and devices stayed offline in the
+// dashboard even though the phone was alive.
+
+fun localProperty(key: String): String? = try {
+    val propsFile = rootProject.file("local.properties")
+    if (propsFile.exists()) {
+        propsFile.readLines()
+            .map { it.trim() }
+            .firstOrNull { it.isNotEmpty() && !it.startsWith("#") && it.startsWith("$key=") }
+            ?.substringAfter('=')
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+    } else null
+} catch (e: Exception) { null }
+
+val serverUrl = (project.findProperty("SERVER_URL") as String?)
+    ?.takeIf { it.isNotBlank() }
+    ?: System.getenv("SERVER_URL")?.takeIf { it.isNotBlank() }
+    ?: localProperty("SERVER_URL")
+    ?: "https://api.magneetar.me"
+
+val apiKey = (project.findProperty("API_KEY") as String?)
+    ?.takeIf { it.isNotBlank() }
+    ?: System.getenv("MT_API_KEY")?.takeIf { it.isNotBlank() }
+    ?: localProperty("API_KEY")
+    ?: "changeme-set-in-env"
+
+val sentryDsn = (project.findProperty("SENTRY_DSN") as String?)
+    ?.takeIf { it.isNotBlank() }
+    ?: System.getenv("MT_SENTRY_DSN")?.takeIf { it.isNotBlank() }
+    ?: localProperty("SENTRY_DSN")
+    ?: ""
+
+// Fail fast: a build that assembles a release APK MUST carry the real API
+// key. Shipping the placeholder makes the server 401 every device request
+// (devices stay offline in the dashboard) — catch it at build time, not on a
+// user's phone. Check the explicitly requested task names AND the aggregate
+// tasks (build/assemble/bundle/publish) that transitively build the release
+// variant, so the guard can't be slipped past by an implied task.
+if (apiKey == "changeme-set-in-env" &&
+    gradle.startParameter.taskNames.any { task ->
+        val name = task.lowercase()
+        name.contains("release") ||
+            name in listOf("build", "assemble", "bundle", "publish", "install")
+    }
+) {
+    throw GradleException(
+        "API_KEY is not configured. Add API_KEY to android-app/local.properties " +
+        "or pass -PAPI_KEY=<master key> (must match the server's MT_API_KEY)."
+    )
 }
 
 android {
@@ -28,16 +91,6 @@ android {
         // versionCode must strictly increase on every Play release.
         versionCode = 5
         versionName = appVersion
-
-        // takeIf { it.isNotBlank() } so an empty -P value falls back to the default
-        val serverUrl = (project.findProperty("SERVER_URL") as String?)
-            ?.takeIf { it.isNotBlank() } ?: "https://api.magneetar.me"
-        val apiKey = (project.findProperty("API_KEY") as String?)
-            ?.takeIf { it.isNotBlank() }
-            ?: System.getenv("MT_API_KEY")?.takeIf { it.isNotBlank() } ?: "changeme-set-in-env"
-        val sentryDsn = (project.findProperty("SENTRY_DSN") as String?)
-            ?.takeIf { it.isNotBlank() }
-            ?: System.getenv("MT_SENTRY_DSN")?.takeIf { it.isNotBlank() } ?: ""
 
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")
         buildConfigField("String", "API_KEY", "\"$apiKey\"")

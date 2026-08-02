@@ -4,6 +4,7 @@ JWT tokens for device and dashboard authentication.
 """
 
 import hashlib
+import hmac
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
@@ -141,7 +142,18 @@ def verify_api_key(x_api_key: str = Header(...)) -> str:
     """Verify the master API key. Returns the key if valid."""
     if not settings.API_KEY:
         raise HTTPException(status_code=500, detail="API key not configured")
-    if x_api_key != settings.API_KEY:
+    # Constant-time comparison. The master key is the bootstrap credential
+    # embedded in every device build, so a timing side-channel on the plain
+    # != comparison could in principle help an attacker guess it over many
+    # requests. hmac.compare_digest runs in constant time for equal-length
+    # inputs. (FastAPI enforces the header via Header(...), so x_api_key is
+    # always a str here.) A TypeError (e.g. non-ASCII key) is treated as a
+    # mismatch — a clean 401, never a 500.
+    try:
+        matches = hmac.compare_digest(x_api_key, settings.API_KEY)
+    except TypeError:
+        matches = False
+    if not matches:
         raise HTTPException(status_code=401, detail="Invalid API key")
     return x_api_key
 
