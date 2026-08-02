@@ -1,4 +1,4 @@
-import { deviceDisplayName, isOnline, relativeTime, parseTimestamp, formatTimestamp, locationTimestamp } from '@/lib/utils';
+import { deviceDisplayName, isOnline, getSignalLevel, relativeTime, parseTimestamp, formatTimestamp, locationTimestamp } from '@/lib/utils';
 
 describe('deviceDisplayName', () => {
   it('prefers the owner-set alias', () => {
@@ -34,12 +34,34 @@ describe('isOnline', () => {
     expect(isOnline(null)).toBe(false);
   });
 
-  it('respects the freshness threshold', () => {
+  it('default threshold matches the server: online for 5 minutes since last_seen', () => {
     const now = new Date().toISOString();
+    const threeMinAgo = new Date(Date.now() - 3 * 60_000).toISOString();
     const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+    const tenMinAgo = new Date(Date.now() - 10 * 60_000).toISOString();
     expect(isOnline(now)).toBe(true);
+    // Still inside the server's 5-minute online window (device heartbeats
+    // every 60s — a couple of missed beats must NOT show offline).
+    expect(isOnline(threeMinAgo)).toBe(true);
+    // At/after the 5-minute boundary → offline, matching server is_online.
     expect(isOnline(fiveMinAgo)).toBe(false);
-    expect(isOnline(fiveMinAgo, 10 * 60_000)).toBe(true);
+    expect(isOnline(tenMinAgo)).toBe(false);
+    // Explicit threshold override still works.
+    expect(isOnline(tenMinAgo, 15 * 60_000)).toBe(true);
+  });
+});
+
+describe('getSignalLevel — buckets match the 5-minute online window', () => {
+  it('returns none without a timestamp', () => {
+    expect(getSignalLevel(null)).toBe('none');
+  });
+
+  it('maps freshness to strong/medium/weak/none', () => {
+    const now = new Date().toISOString();
+    expect(getSignalLevel(now)).toBe('strong');
+    expect(getSignalLevel(new Date(Date.now() - 90_000).toISOString())).toBe('medium');
+    expect(getSignalLevel(new Date(Date.now() - 4 * 60_000).toISOString())).toBe('weak');
+    expect(getSignalLevel(new Date(Date.now() - 10 * 60_000).toISOString())).toBe('none');
   });
 });
 

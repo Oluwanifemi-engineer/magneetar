@@ -101,7 +101,16 @@ export function formatTimestamp(ts: string | null | undefined): string {
   });
 }
 
-export function isOnline(lastSeen: string | null, thresholdMs = 60000): boolean {
+/**
+ * True when lastSeen falls inside the freshness window.
+ *
+ * Default (5 min) mirrors the server's definition of online — the dashboard
+ * API computes is_online at <300s (server/routes/dashboard.py), the active-
+ * device count uses '-5 minutes', and devices heartbeat every 60s. A 60s
+ * threshold (the old default) flipped devices to offline on a single missed
+ * heartbeat even though the server still considered them online.
+ */
+export function isOnline(lastSeen: string | null, thresholdMs = 300000): boolean {
   if (!lastSeen) return false;
   const d = parseTimestamp(lastSeen);
   if (!d) return false;
@@ -227,8 +236,11 @@ export function getSignalLevel(lastSeen: string | null): SignalLevel {
   const d = parseTimestamp(lastSeen);
   if (!d) return 'none';
   const diff = Date.now() - d.getTime();
-  if (diff < 15000) return 'strong';
-  if (diff < 30000) return 'medium';
-  if (diff < 60000) return 'weak';
+  // Buckets mirror the online window: devices heartbeat every 60s and the
+  // server keeps a device 'online' for 5 minutes, so anything within that
+  // window is a live signal — only past it do we drop to 'none'.
+  if (diff < 60000) return 'strong';
+  if (diff < 180000) return 'medium';
+  if (diff < 300000) return 'weak';
   return 'none';
 }
