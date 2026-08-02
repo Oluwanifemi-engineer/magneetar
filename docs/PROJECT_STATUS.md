@@ -14,7 +14,7 @@ Magneetar is a fully functional anti-theft tracking system with:
 - **Dashboard** — Next.js tactical command center with a premium landing + auth experience
 - **Production deployment** — Docker Compose + Cloudflare Tunnel (SQLite on the persisted volume is the live data plane)
 
-All **267 tests pass consistently** (193 backend + 74 dashboard). The system is hardened with reliability improvements (WebSocket connection limits, alert circuit breakers, per-device recipients, CI alert verification), and **Milestone 2 (Multi-User & Device Ownership) P0s are now complete**: devices link to accounts on Android at registration and via a claim endpoint, every dashboard endpoint is scoped by ownership, WebSocket broadcasts are owner-filtered, and per-user device limits are enforced. **Guardian Network (Milestone 3 P0)** is also live: opt-in guardians, blurred nearby scans, sighting reports, and recovery-request lifecycle — all verified end-to-end in production.
+All **306 tests pass consistently** (219 backend + 87 dashboard). The system is hardened with reliability improvements (WebSocket connection limits, alert circuit breakers, per-device recipients, CI alert verification), and **Milestone 2 (Multi-User & Device Ownership) P0s are now complete**: devices link to accounts on Android at registration and via a claim endpoint, every dashboard endpoint is scoped by ownership, WebSocket broadcasts are owner-filtered, and per-user device limits are enforced. **Guardian Network (Milestone 3 P0)** is also live: opt-in guardians, blurred nearby scans, sighting reports, and recovery-request lifecycle — all verified end-to-end in production.
 
 ---
 
@@ -22,17 +22,19 @@ All **267 tests pass consistently** (193 backend + 74 dashboard). The system is 
 
 | Test Suite | Count | Status |
 |------------|-------|--------|
-| API Tests (`test_api.py`) | 22 | ✅ All pass |
+| API Tests (`test_api.py`) | 26 | ✅ All pass |
 | Auth Tests (`test_auth.py`) | 15 | ✅ All pass |
 | Sentinel Tests (`test_sentinel.py`) | 17 | ✅ All pass (incl. confirmation-gate regressions for the theft-unlock fix) |
 | E2E Tests (`test_e2e.py`) | 11 | ✅ All pass |
+| Offline Monitor Tests (`test_offline_monitor.py`) | 6 | ✅ All pass |
 | Reliability Tests (`test_reliability.py`) | 69 | ✅ All pass (WebSocket limits, live WS integration, full auth-path matrix incl. expired/revoked/tampered/missing-type, REST revocation, circuit breaker, per-device recipients) |
 | **Multi-User Tests** (`test_multi_user.py`) | **36** | ✅ **All pass** (register-with-user-token linking, claim endpoint by key/id, ownership scoping across all dashboard endpoints, per-user device limits, idempotent re-claims, **ghost-owner recovery**: claimable orphaned devices, stale deleted-account tokens rejected) |
 | **Guardian Tests** (`test_guardian.py`) | **23** | ✅ **All pass** (opt-in, recovery launch/close, blurred scans, rate-limited sightings, ownership isolation) |
 | **Heartbeat/Theft Tests** (`test_heartbeat_theft.py`) | **3** | ✅ **All pass** (heartbeat w/ admin inactive → 200 + last_seen advances + no stolen-mode; sub-threshold activation is a no-op) |
-| **Backend Total** | **196** | **✅ All pass** |
-| **Dashboard Tests** | **81** | **✅ All pass** (13 suites, `tsc --noEmit` clean, incl. `deviceDisplayName` fallback tests) |
-| **Grand Total** | **277** | **✅ All pass** |
+| **Alert Settings Tests** (`test_alert_settings.py`) | **13** | ✅ **All pass** (per-device channels, enabled types, quiet hours, emergency always-deliver, dedup-row regression) |
+| **Backend Total** | **219** | **✅ All pass** |
+| **Dashboard Tests** | **87** | **✅ All pass** (14 suites, `tsc --noEmit` clean, incl. `deviceDisplayName` + `DevicePanel.test.tsx` alert-settings tests) |
+| **Grand Total** | **306** | **✅ All pass** |
 
 ---
 
@@ -69,6 +71,18 @@ All **267 tests pass consistently** (193 backend + 74 dashboard). The system is 
 | Per-Device Alert Recipients | Per-device `alert_phone`/`alert_email` (fallback to env defaults) |
 | CI Alert Credential Check | Read-only Twilio auth check on every push (non-blocking) |
 | CI Alert Smoke Test | Manual `workflow_dispatch` — sends 1 real WhatsApp + SMS |
+
+### ✅ Per-Device Alert Preferences (in-flight → next release)
+
+| Feature | Details |
+|---------|---------|
+| Channel toggles | Per-device restriction of which channels fire (email/WhatsApp/SMS/push chips; NULL = all four global channels) |
+| Alert-type toggles | Per-device enable/disable of non-emergency alert types; **theft, SIM change, and factory reset are locked — they ALWAYS deliver** (bypass both gates) |
+| Quiet hours | Suppress non-emergency alerts between configured hours (wraparound-aware, e.g. 22:00→07:00, server-local time) |
+| Fail-open design | A DB hiccup while loading per-device prefs degrades to global defaults — an emergency is never silenced by an infra blip |
+| Storage | Devices row: `alert_channels`/`enabled_types` (JSON text), `quiet_hours_start`/`end` (INTEGER 0-23); empty/None clears to global defaults |
+| Validation | `PATCH .../alert-settings` validates channels/types against `alerts.ALL_CHANNELS`/`ALL_ALERT_TYPES` and hours 0-23 (400 on invalid) |
+| Tests | 13 backend (`test_alert_settings.py`) + 6 dashboard (`DevicePanel.test.tsx`) |
 
 ### ✅ Backend (Python/FastAPI)
 
@@ -232,10 +246,10 @@ Interactive API docs available at:
 
 ### Short-term
 - [x] Implement multi-user support with device ownership (Milestone 2 P0)
+- [x] Set up automatic daily database backups + health monitor via cron (`scripts/install-cron.sh`, idempotent)
 - [ ] Run `scripts/firebase-setup.sh` (interactive `firebase login` required) → produces google-services.json + **service-account JSON** for `MT_FIREBASE_KEY`
 - [ ] End-to-end FCM push verification (send a real theft alert to a physical device)
 - [ ] Set Sentry DSN (`MT_SENTRY_DSN`) and enable ProGuard mapping uploads
-- [ ] Set up automatic daily database backups via cron
 - [ ] Configure pre-commit hooks permanently (`pre-commit install`)
 
 ### Medium-term

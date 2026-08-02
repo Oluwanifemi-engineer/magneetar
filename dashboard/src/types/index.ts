@@ -17,6 +17,10 @@ export interface Device {
   is_online: boolean;
   alert_phone: string | null;
   alert_email: string | null;
+  alert_channels: string[] | null;
+  enabled_types: string[] | null;
+  quiet_hours_start: number | null;
+  quiet_hours_end: number | null;
 }
 
 export interface DeviceWithStatus extends Device {

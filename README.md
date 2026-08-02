@@ -4,7 +4,7 @@
 > Military-grade anti-theft tracking and live location circles for Android — track, protect, and recover your devices while keeping family, coworkers, and teams in sync.
 
 ![Status](https://img.shields.io/badge/status-production-green)
-![Tests](https://img.shields.io/badge/tests-267%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-306%20passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
 ![Kotlin](https://img.shields.io/badge/kotlin-Android-orange)
@@ -114,7 +114,7 @@ make validate      # full CI-equivalent gate: lint + typecheck + test + pre-comm
 make test-all      # everything — same as make test (alias kept for compatibility)
 ```
 
-> **193 backend tests + 74 dashboard tests** should pass. `make validate` runs
+> **219 backend tests + 87 dashboard tests** should pass. `make validate` runs
 > every gate that CI enforces, so a green local `make validate` predicts a green
 > GitHub Actions run.
 

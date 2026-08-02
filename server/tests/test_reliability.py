@@ -592,7 +592,7 @@ class TestAlertEngineRetry:
         engine = AlertEngine()
         with (
             patch.object(engine, "_send_with_retry", new=AsyncMock(return_value=True)) as mock_retry,
-            patch("alerts.get_db_context") as mock_db,
+            patch("database.get_db_context") as mock_db,
         ):
             mock_db.return_value.__enter__.return_value = MagicMock()
             results = await engine.send_all(
@@ -618,7 +618,7 @@ class TestAlertEngineRetry:
         engine = AlertEngine()
         with (
             patch.object(engine, "_send_with_retry", new=AsyncMock(return_value=True)) as mock_retry,
-            patch("alerts.get_db_context") as mock_db,
+            patch("database.get_db_context") as mock_db,
         ):
             # Per-device recipient lookup must return no row (None) so the
             # recipient resolution falls through to data/env instead of
@@ -648,7 +648,7 @@ class TestAlertEngineRetry:
         engine = AlertEngine()
         with (
             patch.object(engine, "_send_with_retry", new=AsyncMock(return_value=True)),
-            patch("alerts.get_db_context") as mock_db,
+            patch("database.get_db_context") as mock_db,
         ):
             mock_conn = MagicMock()
             mock_conn.execute.return_value.fetchone.return_value = None
@@ -1032,7 +1032,7 @@ class TestAlertEngineChannels:
         config.settings.TWILIO_AUTH_TOKEN = "2" * 32
         with (
             patch.object(engine, "_send_with_retry", new=AsyncMock(return_value=True)) as mock_retry,
-            patch("alerts.get_db_context") as mock_db,
+            patch("database.get_db_context") as mock_db,
         ):
             mock_db.return_value.__enter__.return_value = MagicMock()
             results = await engine.send_all(

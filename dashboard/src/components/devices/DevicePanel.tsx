@@ -7,6 +7,25 @@ import { BellRing, MapPin, LocateFixed, Navigation, ExternalLink, Save, Check, T
 import { CoordDisplay } from '@/components/ui/CoordDisplay';
 import { getAPI } from '@/lib/api';
 
+// All toggleable alert types, mirroring server alerts.ALL_ALERT_TYPES. The
+// emergency types (theft, SIM change, factory reset) always deliver and are
+// locked in the UI; the rest can be silenced per-device. Keeping the list in
+// sync here matters because toggling ANY type sends this exact set to the
+// server as the stored enabled_types override.
+const ALL_ALERT_TYPES = [
+  'theft_detected',
+  'sim_changed',
+  'factory_reset',
+  'battery_low',
+  'device_offline',
+  'device_recovered',
+  'geofence_exit',
+];
+
+// All alert channels, mirroring server alerts.ALL_CHANNELS. An empty selection
+// means "use the global defaults" (all four fire).
+const ALL_CHANNELS = ['email', 'whatsapp', 'sms', 'push'];
+
 export function DevicePanel() {
   const { devices, selectedDeviceId, latestLocation, setDevices, selectDevice } = useStore();
   const device = devices.find(d => d.id === selectedDeviceId);
@@ -14,6 +33,10 @@ export function DevicePanel() {
   // Alert recipient settings state (per-device override of global defaults)
   const [alertPhone, setAlertPhone] = useState('');
   const [alertEmail, setAlertEmail] = useState('');
+  const [alertChannels, setAlertChannels] = useState<string[] | null>(null);
+  const [enabledTypes, setEnabledTypes] = useState<string[] | null>(null);
+  const [quietStart, setQuietStart] = useState<number | null>(null);
+  const [quietEnd, setQuietEnd] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
@@ -35,6 +58,10 @@ export function DevicePanel() {
     setLastDeviceKey(deviceKey);
     setAlertPhone(device?.alert_phone || '');
     setAlertEmail(device?.alert_email || '');
+    setAlertChannels(device?.alert_channels ?? null);
+    setEnabledTypes(device?.enabled_types ?? null);
+    setQuietStart(device?.quiet_hours_start ?? null);
+    setQuietEnd(device?.quiet_hours_end ?? null);
     setError('');
     setSaved(false);
     setEditingName(false);
@@ -71,7 +98,12 @@ export function DevicePanel() {
     setError('');
     setSaved(false);
     try {
-      await getAPI().updateDeviceAlertSettings(device.id, alertPhone.trim(), alertEmail.trim());
+      await getAPI().updateDeviceAlertSettings(device.id, alertPhone.trim(), alertEmail.trim(), {
+        alert_channels: alertChannels && alertChannels.length ? alertChannels : null,
+        enabled_types: enabledTypes && enabledTypes.length ? enabledTypes : null,
+        quiet_hours_start: quietStart,
+        quiet_hours_end: quietEnd,
+      });
       setSaved(true);
       // Refresh the device list so the stored recipients stay in sync
       try {
@@ -86,6 +118,21 @@ export function DevicePanel() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Toggle helpers for channel/type chip sets (null = use global defaults)
+  const toggleChannel = (ch: string) => {
+    setAlertChannels(prev => {
+      const base = prev ?? ALL_CHANNELS;
+      return base.includes(ch) ? base.filter(c => c !== ch) : [...base, ch];
+    });
+  };
+
+  const toggleType = (t: string) => {
+    setEnabledTypes(prev => {
+      const base = prev ?? ALL_ALERT_TYPES;
+      return base.includes(t) ? base.filter(x => x !== t) : [...base, t];
+    });
   };
 
   if (!device) {
@@ -266,6 +313,110 @@ export function DevicePanel() {
               />
             </div>
 
+            {/* Channels — empty selection = all (global default) */}
+            <div>
+              <label className="text-[10px] font-mono text-mag-text-dim/60 font-bold mb-1 block">
+                Channels (uncheck to disable a channel)
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {ALL_CHANNELS.map(ch => {
+                  const active = (alertChannels ?? ALL_CHANNELS).includes(ch);
+                  return (
+                    <button
+                      key={ch}
+                      type="button"
+                      onClick={() => toggleChannel(ch)}
+                      aria-pressed={active}
+                      aria-label={`Toggle ${ch} channel`}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold uppercase tracking-wide transition-all ${
+                        active
+                          ? 'bg-mag-primary/25 text-mag-accent border border-mag-primary/40'
+                          : 'bg-mag-bg/40 text-mag-text-dim/40 border border-mag-border/30 hover:text-mag-text-dim/70'
+                      }`}
+                    >
+                      {ch}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Alert types — empty selection = all types enabled */}
+            <div>
+              <label className="text-[10px] font-mono text-mag-text-dim/60 font-bold mb-1 block">
+                Alert types (theft / SIM / factory-reset always deliver)
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  ['theft_detected', 'Theft'],
+                  ['sim_changed', 'SIM change'],
+                  ['factory_reset', 'Factory reset'],
+                  ['battery_low', 'Battery low'],
+                  ['device_offline', 'Offline'],
+                  ['device_recovered', 'Recovered'],
+                  ['geofence_exit', 'Geofence exit'],
+                ].map(([type, label]) => {
+                  const base = enabledTypes ?? ALL_ALERT_TYPES;
+                  const active = base.includes(type);
+                  const locked = type === 'theft_detected' || type === 'sim_changed' || type === 'factory_reset';
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => !locked && toggleType(type)}
+                      disabled={locked}
+                      aria-pressed={active}
+                      aria-label={`Toggle ${label} alert type`}
+                      title={locked ? 'Emergency alerts always deliver' : undefined}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold uppercase tracking-wide transition-all ${
+                        active
+                          ? 'bg-mag-accent/20 text-mag-accent border border-mag-accent/40'
+                          : 'bg-mag-bg/40 text-mag-text-dim/40 border border-mag-border/30 hover:text-mag-text-dim/70'
+                      } disabled:cursor-not-allowed disabled:opacity-80`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Quiet hours — suppress non-emergency alerts overnight */}
+            <div>
+              <label className="text-[10px] font-mono text-mag-text-dim/60 font-bold mb-1 block">
+                Quiet hours (suppress non-emergency alerts)
+              </label>
+              <div className="flex items-center gap-2">
+                <select
+                  value={quietStart ?? ''}
+                  onChange={e => setQuietStart(e.target.value === '' ? null : Number(e.target.value))}
+                  aria-label="Quiet hours start"
+                  className="flex-1 bg-mag-bg/60 border border-mag-border/40 rounded-lg px-2 py-1.5 text-xs font-mono text-mag-text focus:outline-none focus:border-mag-primary/60 transition-colors"
+                >
+                  <option value="">Off</option>
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <option key={h} value={h}>
+                      {String(h).padStart(2, '0')}:00
+                    </option>
+                  ))}
+                </select>
+                <span className="text-mag-text-dim/50 text-[10px] font-mono">to</span>
+                <select
+                  value={quietEnd ?? ''}
+                  onChange={e => setQuietEnd(e.target.value === '' ? null : Number(e.target.value))}
+                  aria-label="Quiet hours end"
+                  className="flex-1 bg-mag-bg/60 border border-mag-border/40 rounded-lg px-2 py-1.5 text-xs font-mono text-mag-text focus:outline-none focus:border-mag-primary/60 transition-colors"
+                >
+                  <option value="">Off</option>
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <option key={h} value={h}>
+                      {String(h).padStart(2, '0')}:00
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {error && <div className="text-[10px] font-mono text-red-400">{error}</div>}
 
             <button
@@ -277,7 +428,8 @@ export function DevicePanel() {
               {saving ? 'Saving...' : saved ? 'Saved' : 'Save Alert Settings'}
             </button>
             <p className="text-[10px] font-mono text-mag-text-dim/40">
-              Per-device recipients override the global default for SMS, WhatsApp & email alerts.
+              Per-device recipients & preferences override the global defaults. Emergency alerts
+              (theft, SIM change, factory reset) always deliver.
             </p>
           </div>
         )}

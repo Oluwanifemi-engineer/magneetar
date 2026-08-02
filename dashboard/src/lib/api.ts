@@ -178,14 +178,29 @@ class MagneetarAPI {
     return this.request(`/api/dashboard/devices/${deviceId}/alias`, 'PATCH', { alias });
   }
 
-  async updateDeviceAlertSettings(deviceId: string, alertPhone: string, alertEmail: string): Promise<{
+  async updateDeviceAlertSettings(
+    deviceId: string,
+    alertPhone: string,
+    alertEmail: string,
+    opts: {
+      alert_channels?: string[] | null;
+      enabled_types?: string[] | null;
+      quiet_hours_start?: number | null;
+      quiet_hours_end?: number | null;
+    } = {},
+  ): Promise<{
     status: string;
     alert_phone: string;
     alert_email: string;
+    alert_channels: string[] | null;
+    enabled_types: string[] | null;
+    quiet_hours_start: number | null;
+    quiet_hours_end: number | null;
   }> {
     return this.request(`/api/dashboard/devices/${deviceId}/alert-settings`, 'PATCH', {
       alert_phone: alertPhone,
       alert_email: alertEmail,
+      ...opts,
     });
   }
 

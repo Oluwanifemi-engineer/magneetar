@@ -14,7 +14,25 @@ from datetime import datetime, timezone
 
 import httpx
 from config import settings
-from database import get_db_context
+
+# Alert types that MUST always deliver — theft, SIM swap, and factory-reset
+# attempts are emergencies; quiet hours and per-device type toggles must never
+# silence them.
+ALWAYS_DELIVER_TYPES = {"theft_detected", "factory_reset", "sim_changed"}
+
+# All alert types the system can raise (drives per-device type toggles).
+ALL_ALERT_TYPES = {
+    "theft_detected",
+    "sim_changed",
+    "battery_low",
+    "device_offline",
+    "device_recovered",
+    "factory_reset",
+    "geofence_exit",
+}
+
+# All channels send_all can use (drives per-device channel toggles).
+ALL_CHANNELS = ["email", "whatsapp", "sms", "push"]
 
 logger = logging.getLogger(__name__)
 
@@ -411,17 +429,149 @@ class AlertEngine:
             logger.warning(f"WhatsApp send failed: {e}")
             return False
 
+    def _load_device_alert_prefs(self, device_id: str) -> dict:
+        """Read per-device alert preferences from the devices row.
+
+        Returns dict with 'channels' (list or None = all), 'enabled_types'
+        (set or None = all), 'quiet_hours_start'/'quiet_hours_end' (int hour
+        0-23 or None). Any failure degrades to global defaults so a DB hiccup
+        can never suppress emergency alerts.
+
+        get_db_context is imported INSIDE the method (codebase convention, see
+        main.py / offline_monitor.py): test_e2e evicts the database module from
+        sys.modules mid-suite, and a stale import-time binding would read a DB
+        path from a dead module instance.
+        """
+        from database import get_db_context
+
+        prefs = {
+            "channels": None,
+            "enabled_types": None,
+            "quiet_hours_start": None,
+            "quiet_hours_end": None,
+        }
+        try:
+            with get_db_context() as conn:
+                row = conn.execute(
+                    "SELECT alert_channels, enabled_types, quiet_hours_start, quiet_hours_end "
+                    "FROM devices WHERE id=?",
+                    (device_id,),
+                ).fetchone()
+                if not row:
+                    return prefs
+                if row["alert_channels"]:
+                    try:
+                        channels = json.loads(row["alert_channels"])
+                        if isinstance(channels, list):
+                            prefs["channels"] = [c for c in channels if c in ALL_CHANNELS]
+                    except (ValueError, TypeError):
+                        pass
+                if row["enabled_types"]:
+                    try:
+                        types = json.loads(row["enabled_types"])
+                        if isinstance(types, list):
+                            prefs["enabled_types"] = set(types) & ALL_ALERT_TYPES
+                    except (ValueError, TypeError):
+                        pass
+                # Quiet hours are INTEGER on fresh DBs, but the earliest
+                # migration added them with TEXT affinity — coerce both forms.
+                for field in ("quiet_hours_start", "quiet_hours_end"):
+                    val = row[field]
+                    if val is not None and str(val).lstrip("-").isdigit():
+                        prefs[field] = int(val)
+        except Exception as e:
+            logger.warning(f"Could not load alert preferences for {device_id}: {e}")
+        return prefs
+
+    def _in_quiet_hours(self, start: int, end: int) -> bool:
+        """True when the current local hour is inside the [start, end) window.
+
+        Handles wraparound (e.g. 22 -> 6 means overnight 22:00-06:00). A
+        missing or equal start/end is never a suppression window.
+        """
+        if start is None or end is None or start == end:
+            return False
+        hour = datetime.now().hour
+        if start < end:
+            return start <= hour < end
+        return hour >= start or hour < end  # wraps past midnight
+
+    def _log_alert(
+        self, device_id: str, alert_type: str, channel: str, data: dict, delivered: bool, recipient: str = ""
+    ) -> None:
+        """Persist an alert attempt. delivered=False = suppressed or failed.
+
+        Suppressed attempts are still recorded so incident dedup stays intact
+        (the offline monitor keys on an alerts row to alert once per outage)
+        and so the dashboard's alert history is a truthful audit trail.
+        Failures to write the log are warnings, never raised: the alert itself
+        already fired (or was intentionally suppressed) — a logging hiccup must
+        not crash the caller.
+        """
+        safe_data = {k: (v if v is not None else "") for k, v in data.items()}
+        message_text = self.ALERT_TEMPLATES.get(alert_type, {}).get("sms", "")
+        try:
+            log_message = message_text.format(**safe_data)
+        except (KeyError, IndexError):
+            log_message = message_text  # fall back to raw template
+        from database import get_db_context  # see _load_device_alert_prefs
+
+        try:
+            with get_db_context() as conn:
+                conn.execute(
+                    """INSERT INTO alerts (device_id, alert_type, channel, recipient, message, delivered)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (device_id, alert_type, channel, recipient, log_message, delivered),
+                )
+                conn.commit()
+        except Exception as e:
+            logger.warning(f"Failed to log alert row for {device_id}/{alert_type}/{channel}: {e}")
+
     async def send_all(
         self, device_id: str, alert_type: str, data: dict, channels: list[str] = None
     ) -> dict[str, bool]:
         """
         Send alert via all configured channels.
         Returns dict of channel -> success status.
+
+        Per-device preferences (from the devices row) refine the defaults:
+        - channels:      restrict which channels fire (None = all four). NOTE:
+                         an explicit `channels` argument bypasses this for the
+                         call (no current caller does so)
+        - enabled_types: alert types that may alert (None = all); emergencies
+                         (theft, SIM change, factory reset) always deliver
+        - quiet hours:   non-emergency alerts are suppressed between the
+                         configured start/end hours (None = never)
+        Suppressed attempts are still persisted (delivered=0) so the
+        offline-monitor's alerts-table dedup records the incident — otherwise it
+        would re-match the device on every sweep (audit spam + wasted DB work).
         """
+        prefs = self._load_device_alert_prefs(device_id)
+
+        # Enabled-type gate — emergency types are never silenced.
+        if (
+            prefs["enabled_types"]
+            and alert_type not in ALWAYS_DELIVER_TYPES
+            and alert_type not in prefs["enabled_types"]
+        ):
+            logger.info(f"Alert '{alert_type}' suppressed for {device_id} — type disabled per-device")
+            for ch in channels or ALL_CHANNELS:
+                self._log_alert(device_id, alert_type, ch, data, delivered=False)
+            return {c: False for c in (channels or ALL_CHANNELS)}
+
+        # Quiet-hours gate — emergencies always deliver.
+        if alert_type not in ALWAYS_DELIVER_TYPES and self._in_quiet_hours(
+            prefs["quiet_hours_start"], prefs["quiet_hours_end"]
+        ):
+            logger.info(f"Alert '{alert_type}' suppressed for {device_id} — inside quiet hours")
+            for ch in channels or ALL_CHANNELS:
+                self._log_alert(device_id, alert_type, ch, data, delivered=False)
+            return {c: False for c in (channels or ALL_CHANNELS)}
+
         if channels is None:
             # Email is optional — included when configured; WhatsApp is a core
             # channel alongside SMS and push (phone number required).
-            channels = ["email", "whatsapp", "sms", "push"]
+            channels = prefs["channels"] or ALL_CHANNELS
 
         results = {}
 
@@ -429,6 +579,8 @@ class AlertEngine:
         #   1. Explicit values in the alert data (highest priority)
         #   2. Per-device settings stored on the devices row
         #   3. Global environment defaults (MT_ALERT_PHONE / MT_ALERT_EMAIL)
+        from database import get_db_context  # see _load_device_alert_prefs
+
         email_to = data.get("email") or ""
         phone_to = data.get("phone") or ""
         if not email_to or not phone_to:
@@ -502,28 +654,7 @@ class AlertEngine:
 
             # Log alert to database
             recipient = email_to if channel == "email" else (phone_to if channel in ("sms", "whatsapp") else "fcm")
-            # Template mode tolerates missing data keys, so format defensively:
-            # missing keys become empty strings instead of raising KeyError.
-            safe_data = {k: (v if v is not None else "") for k, v in data.items()}
-            message_text = self.ALERT_TEMPLATES.get(alert_type, {}).get("sms", "")
-            try:
-                log_message = message_text.format(**safe_data)
-            except (KeyError, IndexError):
-                log_message = message_text  # fall back to raw template
-            with get_db_context() as conn:
-                conn.execute(
-                    """INSERT INTO alerts (device_id, alert_type, channel, recipient, message, delivered)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    (
-                        device_id,
-                        alert_type,
-                        channel,
-                        recipient,
-                        log_message,
-                        success,
-                    ),
-                )
-                conn.commit()
+            self._log_alert(device_id, alert_type, channel, data, success, recipient)
 
         return results
 

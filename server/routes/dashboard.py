@@ -38,6 +38,33 @@ def _resolve_user_id(auth: str) -> Optional[str]:
     return user_id_from_subject(auth)
 
 
+def _parse_json_list(raw) -> Optional[list]:
+    """Parse a JSON-TEXT list column; None for NULL or invalid."""
+    if raw is None:
+        return None
+    import json as _json
+
+    try:
+        parsed = _json.loads(raw)
+        return parsed if isinstance(parsed, list) else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_int(raw) -> Optional[int]:
+    """Coerce an hour column to int; None for NULL or unparseable.
+
+    Quiet hours added by the pre-v1.2 migration were ALTERed with TEXT
+    affinity, so values on upgraded DBs can arrive as strings ('22').
+    """
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (ValueError, TypeError):
+        return None
+
+
 def _assert_device_access(db, device_id: str, auth: str):
     """Admins can access any device; users only devices linked to their account."""
     user_id = _resolve_user_id(auth)
@@ -139,6 +166,12 @@ async def list_devices(db: sqlite3.Connection = Depends(get_db), auth: str = Dep
                 "is_online": is_online,
                 "alert_phone": d["alert_phone"] if "alert_phone" in d.keys() else None,
                 "alert_email": d["alert_email"] if "alert_email" in d.keys() else None,
+                # Per-device prefs stored as JSON TEXT — parse for the client;
+                # NULL (no override) stays None so the UI shows global defaults.
+                "alert_channels": _parse_json_list(d["alert_channels"]) if "alert_channels" in d.keys() else None,
+                "enabled_types": _parse_json_list(d["enabled_types"]) if "enabled_types" in d.keys() else None,
+                "quiet_hours_start": _parse_int(d["quiet_hours_start"]) if "quiet_hours_start" in d.keys() else None,
+                "quiet_hours_end": _parse_int(d["quiet_hours_end"]) if "quiet_hours_end" in d.keys() else None,
             }
         )
 
@@ -166,11 +199,16 @@ async def update_device_alias(
 async def update_device_alert_settings(
     device_id: str, body: dict, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
-    """Set per-device alert recipients (phone/email). Empty string clears the override."""
+    """Set per-device alert preferences (recipients, channels, enabled types,
+    quiet hours). Empty string/None clears the override to global defaults."""
     _assert_device_access(db, device_id, auth)
     device = db.execute("SELECT id FROM devices WHERE id=?", (device_id,)).fetchone()
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
+
+    import json as _json
+
+    from alerts import ALL_ALERT_TYPES, ALL_CHANNELS
 
     alert_phone = (body.get("alert_phone") or "").strip()
     alert_email = (body.get("alert_email") or "").strip()
@@ -181,7 +219,50 @@ async def update_device_alert_settings(
     if alert_email and "@" not in alert_email:
         raise HTTPException(status_code=400, detail="Invalid alert email address")
 
-    db.execute("UPDATE devices SET alert_phone=?, alert_email=? WHERE id=?", (alert_phone, alert_email, device_id))
+    # Channels: optional list from ALL_CHANNELS; None/empty clears to all.
+    alert_channels_raw = body.get("alert_channels")
+    alert_channels = None
+    if alert_channels_raw is not None:
+        if not isinstance(alert_channels_raw, list):
+            raise HTTPException(status_code=400, detail="alert_channels must be a list")
+        invalid = set(alert_channels_raw) - set(ALL_CHANNELS)
+        if invalid:
+            raise HTTPException(status_code=400, detail=f"Invalid channels: {sorted(invalid)}")
+        alert_channels = _json.dumps(list(dict.fromkeys(alert_channels_raw))) if alert_channels_raw else None
+
+    # Enabled types: optional list from ALL_ALERT_TYPES; None/empty clears to all.
+    enabled_raw = body.get("enabled_types")
+    enabled_types = None
+    if enabled_raw is not None:
+        if not isinstance(enabled_raw, list):
+            raise HTTPException(status_code=400, detail="enabled_types must be a list")
+        invalid = set(enabled_raw) - set(ALL_ALERT_TYPES)
+        if invalid:
+            raise HTTPException(status_code=400, detail=f"Invalid alert types: {sorted(invalid)}")
+        enabled_types = _json.dumps(list(dict.fromkeys(enabled_raw))) if enabled_raw else None
+
+    # Quiet hours: optional ints 0-23; None clears. Booleans are excluded
+    # (True is an int subclass in Python and would pass isinstance()). A
+    # one-sided window is meaningless — [start, end) is empty — so a partial
+    # pair is normalized to "off" (both None) rather than stored inert.
+    quiet_start = body.get("quiet_hours_start")
+    quiet_end = body.get("quiet_hours_end")
+    if quiet_start is not None and not (
+        isinstance(quiet_start, int) and not isinstance(quiet_start, bool) and 0 <= quiet_start <= 23
+    ):
+        raise HTTPException(status_code=400, detail="quiet_hours_start must be an hour 0-23")
+    if quiet_end is not None and not (
+        isinstance(quiet_end, int) and not isinstance(quiet_end, bool) and 0 <= quiet_end <= 23
+    ):
+        raise HTTPException(status_code=400, detail="quiet_hours_end must be an hour 0-23")
+    if quiet_start is None or quiet_end is None:
+        quiet_start = quiet_end = None
+
+    db.execute(
+        """UPDATE devices SET alert_phone=?, alert_email=?, alert_channels=?, enabled_types=?,
+           quiet_hours_start=?, quiet_hours_end=? WHERE id=?""",
+        (alert_phone, alert_email, alert_channels, enabled_types, quiet_start, quiet_end, device_id),
+    )
     db.commit()
 
     log_audit(
@@ -189,11 +270,21 @@ async def update_device_alert_settings(
         actor=auth,
         details=(
             f"Device: {device_id}, phone_set={'yes' if alert_phone else 'no'}, "
-            f"email_set={'yes' if alert_email else 'no'}"
+            f"email_set={'yes' if alert_email else 'no'}, "
+            f"channels={alert_channels or 'all'}, types={enabled_types or 'all'}, "
+            f"quiet={quiet_start is not None and f'{quiet_start}-{quiet_end}' or 'off'}"
         ),
     )
 
-    return {"status": "ok", "alert_phone": alert_phone, "alert_email": alert_email}
+    return {
+        "status": "ok",
+        "alert_phone": alert_phone,
+        "alert_email": alert_email,
+        "alert_channels": _json.loads(alert_channels) if alert_channels else None,
+        "enabled_types": _json.loads(enabled_types) if enabled_types else None,
+        "quiet_hours_start": quiet_start,
+        "quiet_hours_end": quiet_end,
+    }
 
 
 @router.delete("/api/dashboard/devices/{device_id}")

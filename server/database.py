@@ -86,7 +86,14 @@ def init_db(db_path: str = None):
             operating_mode TEXT DEFAULT 'normal',
             sentinel_score INTEGER DEFAULT 0,
             alert_phone TEXT,
-            alert_email TEXT
+            alert_email TEXT,
+            -- Per-device alert preferences (NULL = global defaults)
+            -- alert_channels: JSON array e.g. ["whatsapp","sms","push"]
+            -- enabled_types:  JSON array e.g. ["theft","sim_change","offline"]
+            alert_channels TEXT,
+            enabled_types TEXT,
+            quiet_hours_start INTEGER,
+            quiet_hours_end INTEGER
         );
     """
     )
@@ -106,6 +113,22 @@ def init_db(db_path: str = None):
     for col in ("alert_phone", "alert_email"):
         try:
             c.execute(f"ALTER TABLE devices ADD COLUMN {col} TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+    # Per-device alert preferences (channels, enabled types, quiet hours)
+    for col in ("alert_channels", "enabled_types"):
+        try:
+            c.execute(f"ALTER TABLE devices ADD COLUMN {col} TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+    # Quiet hours are hours 0-23 — INTEGER affinity so existing DBs (migrated
+    # via ALTER) store real ints, matching the CREATE TABLE declaration on
+    # fresh DBs (TEXT affinity would store 22 as the string '22').
+    for col in ("quiet_hours_start", "quiet_hours_end"):
+        try:
+            c.execute(f"ALTER TABLE devices ADD COLUMN {col} INTEGER")
         except sqlite3.OperationalError:
             pass  # Column already exists
 
@@ -531,16 +554,28 @@ def ensure_initialized() -> bool:
     # Guardian Network tables).
     # ⚠️ Keep this set in sync with the tables created in init_db().
     required_tables = {
-        "users", "devices", "locations", "media", "commands", "evidence_cases",
-        "alerts", "heartbeats", "geofences", "guardian_profiles",
-        "recovery_requests", "recovery_sightings", "audit_log", "fcm_tokens",
-        "rate_limits", "revoked_tokens", "error_log",
+        "users",
+        "devices",
+        "locations",
+        "media",
+        "commands",
+        "evidence_cases",
+        "alerts",
+        "heartbeats",
+        "geofences",
+        "guardian_profiles",
+        "recovery_requests",
+        "recovery_sightings",
+        "audit_log",
+        "fcm_tokens",
+        "rate_limits",
+        "revoked_tokens",
+        "error_log",
     }
     try:
         with get_db_context() as conn:
             present = {
-                row["name"]
-                for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+                row["name"] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
             }
         if required_tables.issubset(present):
             return False
