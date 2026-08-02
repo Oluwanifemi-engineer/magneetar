@@ -1,6 +1,6 @@
 # Magneetar Deployment Guide
 
-## Production deployment with PostgreSQL, Docker, and Cloudflare Tunnel
+## Production deployment with Docker and Cloudflare Tunnel
 
 ---
 
@@ -8,7 +8,12 @@
 
 Magneetar can be deployed:
 - **Development**: SQLite + local server (quick start)
-- **Production**: PostgreSQL + Docker + Cloudflare Tunnel (recommended)
+- **Production**: Docker + Cloudflare Tunnel (recommended)
+
+The app's live data plane is **SQLite** at `/app/data/magneetar.db` on the
+persisted `magneetar-data` volume (see `MT_DB_PATH`). PostgreSQL is optional
+and holds no app data in the current deployment — `backup-db.sh` snapshots the
+SQLite database.
 
 ---
 
@@ -33,7 +38,7 @@ npm run dev
 
 ---
 
-## 2. Production with Docker & PostgreSQL
+## 2. Production with Docker
 
 ### Prerequisites
 
@@ -59,11 +64,11 @@ docker compose up -d
 ```
 
 Services:
-| Service    | Port   | URL                      |
-|------------|--------|--------------------------|
-| PostgreSQL | 5432   | internal (db:5432)       |
-| API Server | 8000   | http://localhost:8000     |
-| Dashboard  | 3000   | http://localhost:3000     |
+| Service    | Port   | URL                       |
+|------------|--------|---------------------------|
+| API Server | 8000   | http://localhost:8000      |
+| Dashboard  | 3000   | http://localhost:3000      |
+| PostgreSQL (optional, not the live data plane) | 5432 | internal (db:5432) |
 
 ### Step 3: Verify
 
@@ -72,16 +77,18 @@ curl http://localhost:8000/health
 # → {"status":"online","version":"1.0.0",...}
 ```
 
-### Step 4: Set up PostgreSQL (production) vs SQLite (dev)
+### Step 4: Choose the database engine
 
-The server auto-detects `MT_DATABASE_URL`. Set it to use PostgreSQL:
+The server auto-detects `MT_DATABASE_URL`. The current production deployment
+uses **SQLite on a persisted volume** (the default when `MT_DATABASE_URL` is
+blank), because the route layer reads/writes SQLite via `database.py`:
 
 ```env
-# Production (PostgreSQL)
-MT_DATABASE_URL=postgresql://magneetar:your-password@db:5432/magneetar
+# Production (default — SQLite on persisted volume)
+MT_DB_PATH=/app/data/magneetar.db
 
-# Development (SQLite — leave blank)
-# MT_DATABASE_URL=
+# Optional (PostgreSQL — secondary/experimental, not the live data plane)
+# MT_DATABASE_URL=postgresql://magneetar:your-password@db:5432/magneetar
 ```
 
 ---
@@ -159,8 +166,8 @@ cloudflared:
 | `MT_API_KEY` | ✅ Yes | — | Min 32 chars, used by dashboard to login |
 | `MT_JWT_SECRET` | ✅ Yes | — | Min 64 chars, JWT signing key |
 | `MT_ENCRYPTION_KEY` | ✅ Yes | — | 32 bytes hex, encryption key |
-| `MT_DATABASE_URL` | No | — | PostgreSQL URL (blank = SQLite) |
-| `MT_DB_PATH` | No | `magneetar.db` | SQLite database path |
+| `MT_DATABASE_URL` | No | — | Optional PostgreSQL URL (not the live data plane) |
+| `MT_DB_PATH` | No | `magneetar.db` | SQLite database path — set to `/app/data/magneetar.db` (persisted volume) in production |
 | `MT_ENVIRONMENT` | No | `development` | `development` or `production` |
 | `MT_HOST` | No | `0.0.0.0` | Server bind address |
 | `MT_PORT` | No | `8000` | Server port |
@@ -180,8 +187,8 @@ cloudflared:
 - [ ] `MT_API_KEY` is at least 32 random characters
 - [ ] `MT_JWT_SECRET` is at least 64 random characters
 - [ ] `MT_ENCRYPTION_KEY` is exactly 32 bytes (64 hex chars)
-- [ ] PostgreSQL is used in production (not SQLite)
-- [ ] SQLite volume uses Docker volume (not bind mount)
+- [x] SQLite database lives on the persisted Docker volume (`MT_DB_PATH=/app/data/magneetar.db`)
+- [x] Daily backups run via `bash scripts/backup-db.sh` (snapshots the live SQLite DB)
 - [ ] CORS is configured with specific origins in production
 - [ ] HTTPS is enforced (via Cloudflare or reverse proxy)
 - [ ] Rate limiting is active (default: 5 login attempts/10 min)
@@ -197,13 +204,20 @@ cloudflared:
 
 ### Backup
 
-- [ ] PostgreSQL database is backed up daily
-- [ ] Once a day:
+- [x] Live SQLite database is backed up daily (`bash scripts/backup-db.sh`)
+- [ ] Set up automatic daily backups via cron:
   ```bash
-  docker exec magneetar-db pg_dump -U magneetar magneetar > backup-$(date +%Y%m%d).sql
+  # crontab -e
+  0 3 * * * cd /path/to/magneetar && bash scripts/backup-db.sh >> /var/log/magneetar-backup.log 2>&1
   ```
-- [ ] Test restore procedure documented
+- [x] Test restore procedure documented (`bash scripts/backup-db.sh --restore <file>`)
 - [ ] Evidence files and media are backed up separately
+
+> **Note:** The app's live data plane is SQLite at `/app/data/magneetar.db` (the
+> persisted `magneetar-data` volume) inside the `magneetar-server` container.
+> `backup-db.sh` snapshots that database via the SQLite online backup API.
+> PostgreSQL (`magneetar-db`) is optional and holds no app data — do not back
+> it up in place of the SQLite database.
 
 ### Alerts (Configure at least one)
 
@@ -330,4 +344,4 @@ docker compose up -d
 
 ---
 
-> **Need help?** Open an issue at github.com/your-org/magneetar
+> **Need help?** Open an issue at github.com/Oluwanifemi-engineer/magneetar

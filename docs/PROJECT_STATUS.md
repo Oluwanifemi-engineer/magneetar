@@ -1,6 +1,6 @@
 # Magneetar — Project Status Report
 
-**Generated:** July 31, 2026  
+**Generated:** August 1, 2026  
 **Version:** 1.1.0  
 **Status:** 🟢 Production Ready
 
@@ -9,12 +9,12 @@
 ## Executive Summary
 
 Magneetar is a fully functional anti-theft tracking system with:
-- **Android app** — stealth tracking, evidence capture, remote commands
-- **Backend API** — FastAPI with intelligent theft detection (Sentinel AI)
-- **Dashboard** — Next.js tactical command center
-- **Production deployment** — Docker Compose + PostgreSQL + Cloudflare Tunnel
+- **Android app** — stealth tracking, evidence capture, remote commands, multi-user device linking
+- **Backend API** — FastAPI with intelligent theft detection (Sentinel AI) and full device-ownership scoping
+- **Dashboard** — Next.js tactical command center with a premium landing + auth experience
+- **Production deployment** — Docker Compose + Cloudflare Tunnel (SQLite on the persisted volume is the live data plane)
 
-All **173 tests pass consistently** (131 backend + 42 dashboard). The system has been hardened with comprehensive reliability improvements including WebSocket connection limits, alert circuit breakers, per-device alert recipients, CI alert verification, and graceful degradation.
+All **267 tests pass consistently** (193 backend + 74 dashboard). The system is hardened with reliability improvements (WebSocket connection limits, alert circuit breakers, per-device recipients, CI alert verification), and **Milestone 2 (Multi-User & Device Ownership) P0s are now complete**: devices link to accounts on Android at registration and via a claim endpoint, every dashboard endpoint is scoped by ownership, WebSocket broadcasts are owner-filtered, and per-user device limits are enforced. **Guardian Network (Milestone 3 P0)** is also live: opt-in guardians, blurred nearby scans, sighting reports, and recovery-request lifecycle — all verified end-to-end in production.
 
 ---
 
@@ -24,16 +24,30 @@ All **173 tests pass consistently** (131 backend + 42 dashboard). The system has
 |------------|-------|--------|
 | API Tests (`test_api.py`) | 22 | ✅ All pass |
 | Auth Tests (`test_auth.py`) | 15 | ✅ All pass |
-| Sentinel Tests (`test_sentinel.py`) | 14 | ✅ All pass |
+| Sentinel Tests (`test_sentinel.py`) | 17 | ✅ All pass (incl. confirmation-gate regressions for the theft-unlock fix) |
 | E2E Tests (`test_e2e.py`) | 11 | ✅ All pass |
-| **Reliability Tests** (`test_reliability.py`) | **69** | ✅ **All pass** (WebSocket limits, live WS integration, full auth-path matrix incl. expired/revoked/tampered/missing-type, REST revocation, circuit breaker, per-device recipients) |
-| **Backend Total** | **131** | **✅ All pass** |
-| **Dashboard Tests** | **42** | **✅ All pass** (6 suites, `tsc --noEmit` clean) |
-| **Grand Total** | **173** | **✅ All pass** |
+| Reliability Tests (`test_reliability.py`) | 69 | ✅ All pass (WebSocket limits, live WS integration, full auth-path matrix incl. expired/revoked/tampered/missing-type, REST revocation, circuit breaker, per-device recipients) |
+| **Multi-User Tests** (`test_multi_user.py`) | **36** | ✅ **All pass** (register-with-user-token linking, claim endpoint by key/id, ownership scoping across all dashboard endpoints, per-user device limits, idempotent re-claims, **ghost-owner recovery**: claimable orphaned devices, stale deleted-account tokens rejected) |
+| **Guardian Tests** (`test_guardian.py`) | **23** | ✅ **All pass** (opt-in, recovery launch/close, blurred scans, rate-limited sightings, ownership isolation) |
+| **Backend Total** | **193** | **✅ All pass** |
+| **Dashboard Tests** | **74** | **✅ All pass** (11 suites, `tsc --noEmit` clean) |
+| **Grand Total** | **267** | **✅ All pass** |
 
 ---
 
 ## Features Implemented
+
+### ✅ Multi-User & Device Ownership (Milestone 2 — P0 Complete)
+
+| Feature | Details |
+|---------|---------|
+| Device → User linking | `POST /api/device/register` accepts a user bearer token alongside the API key and sets `owner_id` |
+| Claim endpoint | `POST /api/device/claim` links an existing device to the signed-in account (by device key or id; 403 for cross-account claims) |
+| Multi-device dashboard | Dashboard device lists filtered by the authenticated user; admins see all |
+| Ownership scoping | Locations, commands, media, alerts, geofences, evidence, alias, recover, and stats return **403 to non-owners**; error-log endpoints are admin-only |
+| WebSocket scoping | Broadcasts filtered per device owner via an in-memory `device→owner` cache (hydrated from the DB on connect, survives restarts) |
+| Per-user device limits | `MAX_DEVICES_PER_USER` enforced at register (new links) and claim; same-owner re-register/re-claim stays idempotent |
+| Android account linking | `TrackingService` registers with the signed-in user's token (with plain-registration fallback); new `DeviceLinker` fires `/api/device/claim` after sign-in/sign-up |
 
 ### ✅ Reliability & Resilience (v1.1.0)
 
@@ -42,6 +56,8 @@ All **173 tests pass consistently** (131 backend + 42 dashboard). The system has
 | WebSocket Connection Limit | Max 100 concurrent dashboard connections, oldest-connection eviction |
 | Stale Connection Heartbeat | 30s ping + 90s pong timeout, prunes dead/unresponsive clients |
 | Alert Circuit Breaker | Auto-recovery after 5min cooldown, half-open probe state |
+| Command Expiry | Unacknowledged PENDING commands auto-marked `expired` (5 min wipe/lock/alarm, 30 min otherwise); device poll skips them via `datetime()`-normalized comparison |
+| Stats Data-Plane Fix | `/api/dashboard/stats` reads the SQLite data plane like every other endpoint (was the only endpoint querying the empty Docker Postgres → 0/0/0 counters); active counts use `datetime()`-normalized timestamps |
 | Alert Retry with Jitter | 1 retry per channel with 1-2s random backoff |
 | Request Timeout Middleware | 30s default, returns 504 on hang |
 | Health Endpoint with DB Check | Returns `status: "degraded"` when DB unreachable |
@@ -52,13 +68,12 @@ All **173 tests pass consistently** (131 backend + 42 dashboard). The system has
 | Per-Device Alert Recipients | Per-device `alert_phone`/`alert_email` (fallback to env defaults) |
 | CI Alert Credential Check | Read-only Twilio auth check on every push (non-blocking) |
 | CI Alert Smoke Test | Manual `workflow_dispatch` — sends 1 real WhatsApp + SMS |
-| Dashboard Type Checking | `npx tsc --noEmit` gates CI; all test TS errors eliminated |
 
 ### ✅ Backend (Python/FastAPI)
 
 | Feature | File(s) | Details |
 |---------|---------|---------|
-| Device Registration | `routes/devices.py`, `auth.py` | JWT tokens + device key auth |
+| Device Registration | `routes/devices.py`, `auth.py` | JWT tokens + device key auth + user-account linking |
 | Telemetry Ingestion | `routes/devices.py` | Full TelemetryPing schema |
 | Sentinel AI | `sentinel.py` | Theft scoring with false-positive prevention |
 | Geofencing | `sentinel.py`, `routes/devices.py` | Safe zones with exit alerts |
@@ -66,8 +81,8 @@ All **173 tests pass consistently** (131 backend + 42 dashboard). The system has
 | Media Storage | `routes/devices.py` | Photo/audio evidence storage |
 | Remote Commands | `routes/devices.py` | Lock, wipe, alarm, capture, burst |
 | Offline Queue | `routes/devices.py` | Batch upload of queued pings |
-| Alert Engine | `alerts.py` | SMS (Twilio), WhatsApp (Twilio), Push (FCM); email parked (SendGrid access pending) |
-| Push Notifications | `alerts.py`, `MagneetarMessagingService.kt` | Firebase Cloud Messaging |
+| Alert Engine | `alerts.py` | SMS (Twilio), WhatsApp (Twilio), Push (FCM v1 via firebase-admin); email parked (SendGrid access pending) |
+| Push Notifications | `alerts.py`, `MagneetarMessagingService.kt` | Firebase Cloud Messaging (HTTP v1) |
 | Rate Limiting | `auth.py` | Per-endpoint rate limits |
 | Request Timing | `main.py` | Slow request monitoring + X-Process-Time-Ms header |
 | Error Tracking | `database.py`, `main.py` | Built-in error_log table + dashboard viewer |
@@ -83,6 +98,7 @@ All **173 tests pass consistently** (131 backend + 42 dashboard). The system has
 | Tracking Service | `TrackingService.kt` | Background location, heartbeat, command loop |
 | Persistence Service | `PersistenceService.kt` | Dual-service redundancy for reliable background operation |
 | Device Key | `TrackingService.kt` | 256-bit unique device key on first launch |
+| Account Linking | `TrackingService.kt`, `DeviceLinker.kt` | Device registered with the signed-in user's token; claim on sign-in |
 | Camera Capture | `TrackingService.kt` | Front + rear camera evidence |
 | Audio Capture | `TrackingService.kt` | 20-second audio evidence |
 | Location Burst | `TrackingService.kt` | 5 rapid location updates |
@@ -91,13 +107,15 @@ All **173 tests pass consistently** (131 backend + 42 dashboard). The system has
 | Boot Persistence | `BootReceiver.kt` | Auto-start on boot, Chinese OEM delay, `LOCKED_BOOT_COMPLETED` |
 | Watchdog Receiver | `WatchdogReceiver.kt` | AlarmManager-based self-healing |
 | Health Check Worker | `HealthCheckWorker.kt` | Periodic WorkManager health verification |
-| OEM Compatibility | `OEMUtils.kt` | Huawei, Xiaomi, Oppo, Vivo detection + workarounds |
+| OEM Compatibility | `OEMUtils.kt` | Huawei, Xiaomi, Oppo, Vivo, **Transsion (Tecno/Infinix/Itel)** detection + auto-start workarounds |
+| Environment Receiver | `EnvironmentReceiver.kt` | Restarts tracking services on power/connectivity/time/unlock events — the moments OEM battery killers release paused apps |
 | WakeLock Management | `TrackingService.kt` | Huawei-whitelisted tags, periodic refresh |
-| FCM Service | `MagneetarMessagingService.kt` | Push notifications via Firebase |
+| FCM Service | `MagneetarMessagingService.kt` | Push notifications via Firebase (onNewToken → server registration) |
 | Sign Up / Sign In | `SignUpActivity.kt`, `SignInActivity.kt` | Email/password auth flow |
 | Onboarding | `OnboardingActivity.kt` | First-launch walkthrough |
-| Permissions | `PermissionsActivity.kt` | Location, camera, audio, notifications |
-| Sentry Crash Reporting | `build.gradle.kts` | Optional configuration via env var |
+| Open Dashboard | `HomeActivity.kt` | Opens the **dashboard login page** (`https://app.<host>/login`, derived from the API server URL with scheme preservation) instead of the API server root; non-`api.*` self-hosted servers fall back to the server URL |
+| Permissions | `PermissionsActivity.kt` | Location, camera, audio, notifications (incl. Android 13+ POST_NOTIFICATIONS) |
+| Sentry Crash Reporting | `build.gradle.kts`, `MainActivity.kt` | Optional via env/property DSN; disabled safely when empty |
 | ProGuard | `proguard-rules.pro` | Code shrinking for release builds |
 | Release Signing | `build.gradle.kts` | Production APK signing configuration |
 
@@ -105,7 +123,9 @@ All **173 tests pass consistently** (131 backend + 42 dashboard). The system has
 
 | Feature | Details |
 |---------|---------|
-| Real-time Map | Leaflet with live device tracking via WebSocket |
+| Landing Page | Premium SaaS marketing page — twin-pillar positioning ("Protect what you own. Stay close to who you love."), hero, 12-feature grid (incl. Family & Team Circles, Guardian Network), how-it-works, "Built for Africa" (NBS-sourced stats), "Our story" (Built at OAU, verified facts), security, CTA, footer, auth-aware CTAs, direct APK download buttons |
+| Login / Signup | Cinematic two-panel auth — animated aurora, live command-center telemetry mockup, social proof, cursor-tracking spotlight glass cards, sliding Account/API Key toggle, password visibility toggle |
+| Real-time Map | Leaflet + MapTiler dark tiles (Carto fallback without key), auto-zoom to street level (z17) on device select, offline "last seen" banner, seekable Trail Replay timeline, OSRM route + Google Maps/Waze fallback |
 | Device Panel | Device list with status indicators |
 | Command Panel | Issue remote commands (ping, capture, lock, wipe) |
 | Evidence Panel | View captured media |
@@ -120,10 +140,10 @@ All **173 tests pass consistently** (131 backend + 42 dashboard). The system has
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| Docker Compose | ✅ Running | PostgreSQL 16 + server + dashboard |
+| Docker Compose | ✅ Running | server + dashboard + optional Postgres (SQLite on persisted volume is the live data plane) |
 | Cloudflare Tunnel | ✅ Running | api.magneetar.me → server / app.magneetar.me → dashboard |
 | Health Checks | ✅ All pass | All 3 services: DB, server, dashboard |
-| DB Backup Script | ✅ Created | `bash scripts/backup-db.sh` with rotation |
+| DB Backup Script | ✅ Fixed + verified | `bash scripts/backup-db.sh` snapshots the **live SQLite DB** (was dumping empty Postgres); backup → restore round-trip verified, integrity-checked; daily cron installed (3 AM); CI smoke test (`scripts/test-backup-smoke.sh`) in pipeline |
 | Startup Validation | ✅ Created | `scripts/validate-startup.sh` with multi-exit codes |
 | GitHub Actions CI | ✅ Configured | Tests, typecheck, Docker build, APK build, alert credential check |
 
@@ -138,14 +158,14 @@ All **173 tests pass consistently** (131 backend + 42 dashboard). The system has
 | `MT_API_KEY` | ✅ Yes | Master API key for legacy auth (min 32 chars) |
 | `MT_JWT_SECRET` | ✅ Yes | JWT signing secret (min 64 chars) |
 | `MT_ENCRYPTION_KEY` | ✅ Yes | Data encryption key (64 hex chars = 32 bytes) |
-| `MT_FIREBASE_KEY` | ❌ No | Firebase credentials path or JSON |
+| `MT_FIREBASE_KEY` | ❌ No | **Service-account JSON path** for firebase-admin (FCM HTTP v1) |
 | `MT_TWILIO_SID` / `MT_TWILIO_AUTH_TOKEN` | ❌ No | Twilio API credentials (SMS + WhatsApp) |
 | `MT_TWILIO_SMS_FROM` | ❌ No | Twilio SMS-capable sender number |
 | `MT_TWILIO_WHATSAPP_FROM` | ❌ No | Twilio WhatsApp sender (sandbox `whatsapp:+14155238886`) |
 | `MT_ALERT_EMAIL` | ❌ No | Default email recipient (parked until SendGrid access) |
 | `MT_ALERT_PHONE` | ❌ No | Default SMS/WhatsApp recipient |
 | `MT_SENDGRID_KEY` | ❌ No | Email alerts via SendGrid (parked — access pending) |
-| `MT_SENTRY_DSN` | ❌ No | Sentry error monitoring |
+| `MT_SENTRY_DSN` | ❌ No | Sentry DSN (Android `SENTRY_DSN` gradle property fallback) |
 | `MT_DATABASE_URL` | ❌ No | PostgreSQL connection string |
 | `MT_REQUEST_TIMEOUT` | ❌ No | Request timeout in seconds (default: 30) |
 | `CF_TUNNEL_TOKEN` | ❌ No | Cloudflare tunnel token |
@@ -176,7 +196,7 @@ bash scripts/backup-db.sh
 
 ### Run backend tests
 ```bash
-cd server && python -m pytest tests/ -v
+cd server && ./venv/bin/python -m pytest tests/ -v
 ```
 
 ### Run dashboard tests
@@ -208,17 +228,22 @@ Interactive API docs available at:
 - [ ] Add repo secrets so CI alert checks run: `MT_TWILIO_SID`, `MT_TWILIO_AUTH_TOKEN`, `MT_TWILIO_SMS_FROM`, `MT_TWILIO_WHATSAPP_FROM`, `MT_ALERT_PHONE`
 
 ### Short-term
+- [x] Implement multi-user support with device ownership (Milestone 2 P0)
+- [ ] Run `scripts/firebase-setup.sh` (interactive `firebase login` required) → produces google-services.json + **service-account JSON** for `MT_FIREBASE_KEY`
+- [ ] End-to-end FCM push verification (send a real theft alert to a physical device)
+- [ ] Set Sentry DSN (`MT_SENTRY_DSN`) and enable ProGuard mapping uploads
 - [ ] Set up automatic daily database backups via cron
 - [ ] Configure pre-commit hooks permanently (`pre-commit install`)
 
 ### Medium-term
-- [ ] Implement multi-user support with device ownership
-- [ ] Add battery optimization / doze mode handling
-- [ ] Set up Sentry performance monitoring
-- [ ] Create mobile-responsive dashboard for phones
+- [ ] Role-based access (admin, viewer, device-only) — Milestone 2 P1
+- [ ] Device sharing between accounts — Milestone 2 P1
+- [ ] Analytics (crash-free rate, active devices, command success rate)
+- [ ] Performance profiling on low-end devices
+- [ ] Sentinel ML-based anomaly detection — Milestone 4
 
 ### Long-term
+- [ ] Guardian Network (community-powered recovery) — Milestone 3
 - [ ] BLE beacon integration for proximity alerts
 - [ ] Embedded hardware for GPS tracking modules
-- [ ] Machine learning for improved theft pattern detection
 - [ ] Cross-platform iOS app

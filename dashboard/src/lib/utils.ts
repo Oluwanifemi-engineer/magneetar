@@ -1,5 +1,11 @@
 import { clsx, type ClassValue } from 'clsx';
 
+// ─── External URLs ───────────────────────────────────────────────────────────
+
+// The release APK is served from the API host — see /apk/download in
+// server/main.py (same host the footer's API docs link to).
+export const APK_DOWNLOAD_URL = 'https://api.magneetar.me/apk/download';
+
 // ─── Math Helpers ───────────────────────────────────────────────────────────
 function toRad(deg: number): number {
   return deg * (Math.PI / 180);
@@ -141,7 +147,7 @@ export function getCommandLabel(command: string): string {
     capture_audio: 'AUDIO',
     lock: 'LOCK',
     wipe: 'WIPE',
-    siren: 'SIREN',
+    alarm: 'SIREN',
     display_message: 'MESSAGE',
     get_sim_info: 'SIM INFO',
     get_battery: 'BATTERY',

@@ -1,48 +1,38 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { LandingNav } from '@/components/landing/LandingNav';
+import { Hero } from '@/components/landing/Hero';
+import { Features } from '@/components/landing/Features';
+import { HowItWorks } from '@/components/landing/HowItWorks';
+import { Africa } from '@/components/landing/Africa';
+import { Provenance } from '@/components/landing/Provenance';
+import { Security } from '@/components/landing/Security';
+import { CTA } from '@/components/landing/CTA';
+import { Footer } from '@/components/landing/Footer';
 
 export default function HomePage() {
-  const router = useRouter();
+  const [authed, setAuthed] = useState(false);
 
   useEffect(() => {
     const serverUrl = sessionStorage.getItem('mt_server_url');
     const apiKey = sessionStorage.getItem('mt_api_key');
-
-    if (serverUrl && apiKey) {
-      router.replace('/dashboard');
-    } else {
-      router.replace('/login');
-    }
-  }, [router]);
+    setAuthed(Boolean(serverUrl && apiKey));
+  }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-mag-bg relative overflow-hidden">
-      {/* Grid background */}
-      <div className="absolute inset-0 mag-grid-bg opacity-30" />
-      {/* Scan line */}
-      <div className="absolute left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-white/[0.03] to-transparent animate-scan-line pointer-events-none" />
-
-      <div className="text-center relative z-10 animate-fade-slide">
-        {/* M Logo */}
-        <div className="inline-flex items-center justify-center mb-6">
-          <img src="/m-logo.svg" alt="M" className="w-16 h-16" />
-        </div>
-
-        <div className="text-mag-text text-2xl font-display font-bold tracking-[0.3em] mb-2">
-          MAGNEETAR
-        </div>
-        <div className="text-mag-text-dim/40 text-[10px] font-mono tracking-[0.4em] uppercase font-bold">
-          Tactical Command Center
-        </div>
-        <div className="mt-8 flex items-center justify-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-mag-accent/60 animate-pulse-slow" />
-          <span className="text-mag-text-dim/40 text-xs font-mono animate-pulse">
-            INITIALIZING...
-          </span>
-        </div>
-      </div>
+    <div className="min-h-screen bg-mag-bg text-white overflow-x-hidden">
+      <LandingNav authed={authed} />
+      <main>
+        <Hero authed={authed} />
+        <Features />
+        <HowItWorks />
+        <Africa />
+        <Provenance />
+        <Security />
+        <CTA authed={authed} />
+      </main>
+      <Footer />
     </div>
   );
 }

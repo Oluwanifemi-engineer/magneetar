@@ -1,14 +1,14 @@
 # Magneetar
 
-> **Military-grade anti-theft tracking system.**  
-> Track, protect, and recover your devices with intelligent telemetry and real-time alerts.
+> **Protect what you own. Stay close to who you love.**  
+> Military-grade anti-theft tracking and live location circles for Android — track, protect, and recover your devices while keeping family, coworkers, and teams in sync.
 
 ![Status](https://img.shields.io/badge/status-production-green)
-![Tests](https://img.shields.io/badge/tests-173%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-267%20passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
 ![Kotlin](https://img.shields.io/badge/kotlin-Android-orange)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![License](https://img.shields.io/badge/license-BSL--1.1-orange)
 
 ---
 
@@ -62,7 +62,7 @@
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/magneetar/magneetar.git
+git clone https://github.com/Oluwanifemi-engineer/magneetar.git
 cd magneetar
 bash scripts/generate-env.sh   # Generate secure secrets
 make setup                    # venv + server deps (incl. dev tooling) + npm ci
@@ -114,7 +114,7 @@ make validate      # full CI-equivalent gate: lint + typecheck + test + pre-comm
 make test-all      # everything — same as make test (alias kept for compatibility)
 ```
 
-> **131 backend tests + 42 dashboard tests** should pass. `make validate` runs
+> **193 backend tests + 74 dashboard tests** should pass. `make validate` runs
 > every gate that CI enforces, so a green local `make validate` predicts a green
 > GitHub Actions run.
 
@@ -328,7 +328,13 @@ magneetar/
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+**Business Source License 1.1 (source-available)** — see [LICENSE](LICENSE) for details.
+
+The code is publicly readable and may be used for personal, educational, and
+non-commercial purposes. Commercial use of the Licensed Work as a competing
+anti-theft / tracking / monitoring service is not permitted until the Change
+Date (**2030-08-01**), at which point the project converts to the Apache
+License 2.0.
 
 ---
 
