@@ -32,7 +32,7 @@ export function Hero({ authed }: { authed: boolean }) {
               <span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-400" />
             </span>
             <span className="text-[11px] font-mono font-bold tracking-wider text-white/70">
-              v1.1.0 · PRODUCTION READY
+              v1.2.0 · PRODUCTION READY
             </span>
           </div>
 

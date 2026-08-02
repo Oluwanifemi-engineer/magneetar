@@ -325,7 +325,7 @@ policy:
 - The public `GET /api/config` endpoint tells old clients what the server
   expects:
   ```json
-  {"app_version": "1.1.0", "min_android_version": 24, "features_enabled": [...]}
+  {"app_version": "1.2.0", "min_android_version": 24, "features_enabled": [...]}
   ```
 - The Android app reads `/api/config` after registration and, if the device
   OS is older than `min_android_version` or a newer app exists, shows a

@@ -435,7 +435,7 @@ class DashboardStats(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str = "online"
-    version: str = "1.1.0"
+    version: str = "1.2.0"
     uptime: float = 0.0
     server_time: str
     database: Optional[bool] = None
@@ -443,7 +443,7 @@ class HealthResponse(BaseModel):
 
 
 class ConfigResponse(BaseModel):
-    app_version: str = "1.1.0"
+    app_version: str = "1.2.0"
     min_android_version: int = 24
     features_enabled: List[str] = [
         "sentinel",
