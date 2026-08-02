@@ -418,13 +418,37 @@ async def get_config():
 
 @app.get("/apk/download")
 async def download_apk():
-    """Download the latest Magneetar release APK."""
-    apk_path = os.path.join(os.path.dirname(__file__), "static", "apk", f"magneetar-v{APP_VERSION}-release.apk")
-    if not os.path.exists(apk_path):
-        raise HTTPException(status_code=404, detail="APK not found on server")
-    return FileResponse(
-        apk_path, media_type="application/vnd.android.package-archive", filename=f"Magneetar-v{APP_VERSION}-release.apk"
-    )
+    """Download the latest Magneetar release APK.
+
+    Resolves in order of preference so a version bump never breaks the link:
+    1. magneetar-v{APP_VERSION}-release.apk  (the release built for this version)
+    2. magneetar-latest.apk                  (the always-current pointer)
+    3. the newest magneetar-*.apk on disk     (last resort)
+    """
+    apk_dir = os.path.join(os.path.dirname(__file__), "static", "apk")
+
+    def _candidates():
+        yield os.path.join(apk_dir, f"magneetar-v{APP_VERSION}-release.apk")
+        yield os.path.join(apk_dir, "magneetar-latest.apk")
+        try:
+            apks = sorted(
+                (f for f in os.listdir(apk_dir) if f.endswith(".apk") and f.startswith("magneetar-")),
+                key=lambda f: os.path.getmtime(os.path.join(apk_dir, f)),
+                reverse=True,
+            )
+        except OSError:
+            apks = []
+        for name in apks:
+            yield os.path.join(apk_dir, name)
+
+    for path in _candidates():
+        if os.path.exists(path):
+            return FileResponse(
+                path,
+                media_type="application/vnd.android.package-archive",
+                filename=f"Magneetar-v{APP_VERSION}-release.apk",
+            )
+    raise HTTPException(status_code=404, detail="APK not found on server")
 
 
 # ─── WebSocket ───────────────────────────────────────────────────────────────
@@ -456,9 +480,7 @@ async def dashboard_websocket(websocket: WebSocket):
                     from database import get_db_context
 
                     with get_db_context() as conn:
-                        rows = conn.execute(
-                            "SELECT id FROM devices WHERE owner_id=?", (owner,)
-                        ).fetchall()
+                        rows = conn.execute("SELECT id FROM devices WHERE owner_id=?", (owner,)).fetchall()
                         for row in rows:
                             update_device_owner(row["id"], owner)
                 except Exception:

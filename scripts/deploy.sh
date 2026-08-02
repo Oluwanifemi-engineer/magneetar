@@ -131,18 +131,18 @@ fi
 echo ""
 
 # ── 7. Ensure Cloudflare tunnel is running ────────────────────────────────────
-echo "🔒 Checking Cloudflare tunnel..."
-if pgrep -f 'cloudflared tunnel run magneetar' > /dev/null 2>&1; then
-    echo "   ✅ Cloudflare tunnel is running"
+# The tunnel runs as the `cloudflared` Docker COMPOSE service (routing to the
+# compose service names server/dashboard). It must NOT be re-launched as a
+# host process: a host-level `cloudflared tunnel run` registers the SAME
+# tunnel name and steers ingress to localhost:8000 (unreachable on the host),
+# producing 502s on the public endpoints until it is killed. Only manage the
+# container.
+echo "🔒 Checking Cloudflare tunnel (Docker service)..."
+if docker compose ps cloudflared --format '{{.Status}}' 2>/dev/null | grep -qi 'Up'; then
+    echo "   ✅ Cloudflare tunnel container is running"
 else
-    echo "   ⚠️  Cloudflare tunnel not running — restarting..."
-    nohup cloudflared tunnel run magneetar > /tmp/cloudflared.log 2>&1 &
-    sleep 3
-    if pgrep -f 'cloudflared tunnel run magneetar' > /dev/null 2>&1; then
-        echo "   ✅ Cloudflare tunnel restarted"
-    else
-        echo "   ❌ Failed to restart Cloudflare tunnel"
-    fi
+    echo "   ⚠️  Cloudflare tunnel container down — restarting..."
+    docker compose up -d --no-deps cloudflared 2>&1 || echo "   ❌ Failed to restart Cloudflare tunnel container"
 fi
 echo ""
 
