@@ -3,9 +3,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
-import { cn, relativeTime, isOnline, getSignalLevel } from '@/lib/utils';
+import { cn, relativeTime, isOnline, getSignalLevel, deviceDisplayName } from '@/lib/utils';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
-import { ChevronLeft, ChevronRight, Smartphone, BarChart3, FileText, BookOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Smartphone, BarChart3, FileText, BookOpen, Copy, Battery, MapPin } from 'lucide-react';
+
+function sentinelLevel(score: number): string {
+  if (score >= 70) return 'HIGH';
+  if (score >= 40) return 'ELEVATED';
+  return 'SAFE';
+}
 
 interface DashboardStats {
   total_devices: number;
@@ -42,9 +48,11 @@ export function Sidebar() {
 
   return (
     <aside className={cn(
-      'bg-mag-panel/90 backdrop-blur-xl border-r border-mag-border/60 flex flex-col transition-all duration-300 ease-out relative',
+      'bg-mag-panel/90 backdrop-blur-xl border-r border-mag-border/60 flex flex-col transition-all duration-300 ease-out relative overflow-hidden',
       sidebarOpen ? 'w-72' : 'w-12'
     )}>
+      {/* Left gradient accent rail */}
+      <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-mag-primary/25 to-transparent pointer-events-none" />
       {/* ─── Toggle ──────────────────────────────────────────────────────── */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -61,14 +69,15 @@ export function Sidebar() {
       {sidebarOpen && (
         <>
           {/* ─── M Brand Bar ──────────────────────────────────────────────── */}
-          <div className="px-4 py-3 border-b border-mag-border/30 flex items-center gap-3 shrink-0">
-            <div className="w-7 h-7 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center shrink-0 overflow-hidden">
-              <img src="/m-logo.svg" alt="M" className="w-4 h-4" />
+          <div className="px-4 py-3 border-b border-mag-border/30 flex items-center gap-3 shrink-0 relative">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-mag-primary/15 via-transparent to-cyan-500/10 border border-white/[0.08] flex items-center justify-center shrink-0 overflow-hidden shadow-[0_0_14px_rgba(233,30,140,0.12)]">
+              <img src="/m-logo.svg" alt="M" className="w-4 h-4 drop-shadow-[0_0_5px_rgba(233,30,140,0.45)]" />
             </div>
             <div>
-              <div className="text-[11px] font-bold tracking-[0.2em] text-mag-text/80">MAGNEETAR</div>
+              <div className="text-[11px] font-bold tracking-[0.2em] text-gradient-primary">MAGNEETAR</div>
               <div className="text-[8px] font-mono text-mag-text-dim/30 tracking-[0.2em] font-bold">COMMAND CENTER</div>
             </div>
+            <div className="ml-auto w-1 h-1 rounded-full bg-mag-accent shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
           </div>
 
           {/* ─── Stats Overview ────────────────────────────────────────────── */}
@@ -81,15 +90,15 @@ export function Sidebar() {
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-1.5">
-                <div className="bg-mag-surface/20 border border-mag-border/25 rounded-lg p-2 text-center">
-                  <div className="font-mono text-sm font-bold text-mag-text tabular-nums">{stats.total_devices}</div>
+                <div className="bg-mag-surface/20 border border-mag-border/25 rounded-lg p-2 text-center transition-all duration-200 hover:border-mag-primary/25 hover:shadow-[0_0_12px_rgba(233,30,140,0.06)]">
+                  <div className="font-mono text-sm font-bold text-gradient-primary tabular-nums">{stats.total_devices}</div>
                   <div className="text-[7px] font-mono text-mag-text-dim/40 font-bold uppercase tracking-wider">Total</div>
                 </div>
-                <div className="bg-mag-accent/[0.04] border border-mag-accent/15 rounded-lg p-2 text-center">
+                <div className="bg-mag-accent/[0.04] border border-mag-accent/15 rounded-lg p-2 text-center transition-all duration-200 hover:border-mag-accent/35 hover:shadow-[0_0_12px_rgba(34,197,94,0.08)]">
                   <div className="font-mono text-sm font-bold text-mag-accent tabular-nums">{stats.active_devices}</div>
                   <div className="text-[7px] font-mono text-mag-text-dim/40 font-bold uppercase tracking-wider">Active</div>
                 </div>
-                <div className="bg-mag-danger/[0.04] border border-mag-danger/15 rounded-lg p-2 text-center">
+                <div className="bg-mag-danger/[0.04] border border-mag-danger/15 rounded-lg p-2 text-center transition-all duration-200 hover:border-mag-danger/35 hover:shadow-[0_0_12px_rgba(239,68,68,0.08)]">
                   <div className="font-mono text-sm font-bold text-mag-danger tabular-nums">{stats.stolen_devices}</div>
                   <div className="text-[7px] font-mono text-mag-text-dim/40 font-bold uppercase tracking-wider">Stolen</div>
                 </div>
@@ -135,6 +144,15 @@ export function Sidebar() {
               devices.map((device, idx) => {
                 const online = isOnline(device.last_seen);
                 const signal = getSignalLevel(device.last_seen);
+                const scoreColor =
+                  device.is_stolen || device.sentinel_score >= 70 ? 'bg-mag-danger' :
+                  device.sentinel_score >= 40 ? 'bg-mag-warning' :
+                  'bg-mag-accent';
+                const scoreText =
+                  device.is_stolen ? 'text-mag-danger bg-mag-danger/10' :
+                  device.sentinel_score >= 70 ? 'text-mag-danger bg-mag-danger/10' :
+                  device.sentinel_score >= 40 ? 'text-mag-warning bg-mag-warning/10' :
+                  'text-mag-accent bg-mag-accent/10';
 
                 return (
                   <button
@@ -149,7 +167,7 @@ export function Sidebar() {
                   >
                     <div className="flex items-center justify-between mb-0.5">
                       <span className="text-sm font-bold text-mag-text truncate group-hover:text-mag-text-bright transition-colors max-w-[65%]">
-                        {device.alias || 'Device'}
+                        {deviceDisplayName(device)}
                       </span>
                       <StatusIndicator
                         isOnline={online}
@@ -171,6 +189,53 @@ export function Sidebar() {
                         {relativeTime(device.last_seen)}
                       </span>
                     </div>
+
+                    {/* Mini Sentinel score — always visible, not just in the tab */}
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <span className={cn(
+                        'text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded',
+                        scoreText
+                      )}>
+                        {device.is_stolen ? 'STOLEN' : sentinelLevel(device.sentinel_score)}
+                      </span>
+                      <span className="text-[9px] font-mono font-bold text-mag-text tabular-nums">
+                        {device.sentinel_score}
+                      </span>
+                      <div className="flex-1 h-1 rounded-full bg-mag-bg/50 overflow-hidden">
+                        <div
+                          className={cn('h-full rounded-full transition-all duration-500', scoreColor)}
+                          style={{ width: `${Math.min(device.sentinel_score, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Last-known coordinates + battery + copy (works offline) */}
+                    {(device.lat != null && device.lng != null) && (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <MapPin size={8} className="text-mag-text-dim/30 shrink-0" />
+                        <span className="font-mono text-[8px] text-mag-text-dim/40 font-bold truncate">
+                          {device.lat.toFixed(4)}, {device.lng.toFixed(4)}
+                        </span>
+                        <span
+                          role="button"
+                          tabIndex={-1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard?.writeText(`${device.lat},${device.lng}`);
+                          }}
+                          title="Copy coordinates"
+                          className="text-mag-text-dim/40 hover:text-mag-accent cursor-pointer transition-colors shrink-0"
+                        >
+                          <Copy size={9} />
+                        </span>
+                        {device.battery_percent != null && (
+                          <span className="ml-auto flex items-center gap-1 text-[8px] font-mono text-mag-text-dim/45 font-bold tabular-nums">
+                            <Battery size={9} className={cn(device.battery_percent <= 20 ? 'text-mag-danger' : 'text-mag-accent')} />
+                            {device.battery_percent}%
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </button>
                 );
               })

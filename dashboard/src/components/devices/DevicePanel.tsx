@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import { useStore } from '@/store/useStore';
-import { cn, relativeTime, formatCoordinate } from '@/lib/utils';
-import { BellRing, MapPin, LocateFixed, Navigation, ExternalLink, Save, Check } from 'lucide-react';
+import { cn, relativeTime, formatCoordinate, deviceDisplayName } from '@/lib/utils';
+import { BellRing, MapPin, LocateFixed, Navigation, ExternalLink, Save, Check, Trash2, X } from 'lucide-react';
 import { CoordDisplay } from '@/components/ui/CoordDisplay';
 import { getAPI } from '@/lib/api';
 
 export function DevicePanel() {
-  const { devices, selectedDeviceId, latestLocation, setDevices } = useStore();
+  const { devices, selectedDeviceId, latestLocation, setDevices, selectDevice } = useStore();
   const device = devices.find(d => d.id === selectedDeviceId);
 
   // Alert recipient settings state (per-device override of global defaults)
@@ -18,6 +18,9 @@ export function DevicePanel() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   // Sync form fields when the selected device changes
   const deviceKey = device?.id;
@@ -73,7 +76,7 @@ export function DevicePanel() {
       <div className="bg-mag-surface/40 border border-mag-border/40 rounded-xl p-4">
         <h3 className="text-base font-bold text-mag-text flex items-center gap-2 mb-3">
           <div className="w-2.5 h-2.5 rounded-full bg-mag-primary shadow-[0_0_10px_rgba(233,30,140,0.5)]" />
-          {device.alias || 'Device'}
+          {deviceDisplayName(device)}
         </h3>
 
         <div className="space-y-2">
@@ -207,6 +210,64 @@ export function DevicePanel() {
           No location data available yet.
         </div>
       )}
+
+      {/* Permanent deletion (privacy policy promise) */}
+      <div className="bg-mag-surface/30 border border-mag-border/30 rounded-xl p-4">
+        {!confirmDelete ? (
+          <button
+            onClick={() => { setConfirmDelete(true); setDeleteError(''); }}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-mag-danger/25 text-mag-danger/80 hover:text-mag-danger hover:border-mag-danger/50 hover:bg-mag-danger/[0.05] text-[11px] font-mono font-bold uppercase tracking-wider transition-all"
+          >
+            <Trash2 size={13} />
+            Delete Device Permanently
+          </button>
+        ) : (
+          <div className="space-y-2.5">
+            <div className="text-[11px] font-mono text-mag-danger/90 leading-relaxed">
+              Permanently delete <span className="font-bold">{device.alias || device.model || device.id}</span>? All
+              locations, media, evidence, alerts & recovery requests are erased. This cannot be undone.
+            </div>
+            {deleteError && <div className="text-[10px] font-mono text-red-400">{deleteError}</div>}
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  setDeleting(true);
+                  setDeleteError('');
+                  try {
+                    await getAPI().deleteDevice(device.id);
+                    const { devices: freshDevices } = await getAPI().getDevices();
+                    setDevices(freshDevices);
+                    // If the deleted device was selected, move to the first
+                    // remaining device so the panel doesn't go stale.
+                    if (selectedDeviceId === device.id) {
+                      selectDevice(freshDevices[0]?.id ?? null);
+                    }
+                    setConfirmDelete(false);
+                  } catch (e: any) {
+                    setDeleteError(e.message || 'Failed to delete device');
+                    // Keep the confirm card open so the error stays visible.
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+                disabled={deleting}
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-mag-danger/90 hover:bg-mag-danger disabled:opacity-50 text-white text-[11px] font-bold transition-all"
+              >
+                <Trash2 size={12} />
+                {deleting ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-mag-border/40 text-mag-text-dim/70 hover:text-mag-text text-[11px] font-bold transition-all"
+              >
+                <X size={12} />
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

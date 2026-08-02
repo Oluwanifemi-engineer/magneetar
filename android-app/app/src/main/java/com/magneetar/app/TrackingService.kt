@@ -40,11 +40,13 @@ class TrackingService : Service() {
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    // Auth state
-    private var accessToken: String? = null
-    private var refreshToken: String? = null
+    // Auth state (read/written from several Dispatchers.IO coroutines — the
+    // loops and the auth-death re-registration path run on different threads)
+    @Volatile private var accessToken: String? = null
+    @Volatile private var refreshToken: String? = null
+    @Volatile private var isRegistered = false
+    @Volatile private var isRegistering = false
     private var pingSequence = 0
-    private var isRegistered = false
 
     private val deviceId: String by lazy {
         val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
@@ -146,12 +148,16 @@ class TrackingService : Service() {
 
     // ── Registration & Auth ───────────────────────────────────────────────────
 
-    private suspend fun registerDevice() {
+    private suspend fun registerDeviceInternal() {
         try {
             val body = JSONObject().apply {
                 put("device_id", deviceId)
                 put("fingerprint", Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "")
-                put("model", Build.MODEL)
+                // Human-friendly default device name for the dashboard —
+                // "Samsung SM-A037F" instead of the bare model code "SM-A037F".
+                // Shown until the owner renames the device (alias takes over).
+                val manufacturer = Build.MANUFACTURER.trim().replaceFirstChar { it.uppercase() }
+                put("model", "$manufacturer ${Build.MODEL}".trim())
                 put("os_version", "Android ${Build.VERSION.RELEASE}")
                 put("app_version", BuildConfig.VERSION_NAME)
                 put("imei_hash", "") // Not available on Android 10+
@@ -159,8 +165,30 @@ class TrackingService : Service() {
                 put("device_key", deviceKey)
             }.toString().toRequestBody(JSON)
 
-            val response = postRaw("/api/device/register", body, useApiKey = true)
-            if (response != null) {
+            // Multi-user support: when a user is signed in, send their bearer
+            // token along with the API key so the server links this device to
+            // the account (owner_id). It then shows up in that user's dashboard.
+            val userToken = getSharedPreferences("mt", Context.MODE_PRIVATE).getString("user_token", "") ?: ""
+            val extraHeaders = if (userToken.isNotEmpty()) {
+                mapOf("Authorization" to "Bearer $userToken")
+            } else {
+                emptyMap()
+            }
+
+            var (code, response) = postRaw(
+                "/api/device/register", body, useApiKey = true, extraHeaders = extraHeaders
+            )
+
+            // If account linking was rejected (e.g. device already claimed by a
+            // different account), fall back to a plain registration so tracking
+            // still works — the device just stays unlinked.
+            if (code !in 200..299 && extraHeaders.isNotEmpty()) {
+                val (plainCode, plainBody) = postRaw("/api/device/register", body, useApiKey = true)
+                code = plainCode
+                response = plainBody
+            }
+
+            if (code in 200..299 && response != null) {
                 val json = JSONObject(response)
                 accessToken = json.optString("token").takeIf { it.isNotEmpty() }
                 refreshToken = json.optString("refresh_token").takeIf { it.isNotEmpty() }
@@ -175,12 +203,33 @@ class TrackingService : Service() {
                         apply()
                     }
                 }
+            } else {
+                // Registration failed (network or auth) — retry later.
+                // Release the guard first so the retry can re-enter.
+                isRegistering = false
+                delay(15_000)
+                registerDevice()
+                return
             }
         } catch (e: Exception) {
             e.printStackTrace()
             // Retry later
+            isRegistering = false
             delay(15_000)
             registerDevice()
+            return
+        } finally {
+            isRegistering = false
+        }
+    }
+
+    private suspend fun registerDevice() {
+        if (isRegistering) return  // one registration attempt at a time
+        isRegistering = true
+        try {
+            registerDeviceInternal()
+        } finally {
+            isRegistering = false
         }
     }
 
@@ -191,8 +240,8 @@ class TrackingService : Service() {
                 put("refresh_token", rt)
             }.toString().toRequestBody(JSON)
 
-            val response = postRaw("/api/device/refresh", body, useApiKey = false)
-            if (response != null) {
+            val (code, response) = postRaw("/api/device/refresh", body, useApiKey = false)
+            if (code in 200..299 && response != null) {
                 val json = JSONObject(response)
                 accessToken = json.optString("token")
                 refreshToken = json.optString("refresh_token")
@@ -263,11 +312,16 @@ class TrackingService : Service() {
             android.util.Log.d("TrackingService", "Chinese OEM detected — using aggressive location strategy")
         }
         try {
+            // requestLocationUpdates() must run with a Looper. The service calls
+            // startLocationUpdates() from a Dispatchers.IO coroutine (no Looper),
+            // which crashed with "Can't create handler inside thread...". Passing
+            // the main looper explicitly makes the call thread-safe.
+            val mainLooper = Looper.getMainLooper()
             locationManager.requestLocationUpdates(
-                LocationManager.GPS_PROVIDER, LOCATION_INTERVAL_MS, 0f, listener
+                LocationManager.GPS_PROVIDER, LOCATION_INTERVAL_MS, 0f, listener, mainLooper
             )
             locationManager.requestLocationUpdates(
-                LocationManager.NETWORK_PROVIDER, LOCATION_INTERVAL_MS, 0f, listener
+                LocationManager.NETWORK_PROVIDER, LOCATION_INTERVAL_MS, 0f, listener, mainLooper
             )
         } catch (e: SecurityException) {
             e.printStackTrace()
@@ -739,7 +793,12 @@ class TrackingService : Service() {
         return headers
     }
 
-    private suspend fun postRaw(path: String, body: RequestBody, useApiKey: Boolean = false): String? =
+    private suspend fun postRaw(
+        path: String,
+        body: RequestBody,
+        useApiKey: Boolean = false,
+        extraHeaders: Map<String, String> = emptyMap(),
+    ): Pair<Int, String?> =
         withContext(Dispatchers.IO) {
             try {
                 val builder = Request.Builder()
@@ -750,8 +809,9 @@ class TrackingService : Service() {
                 } else {
                     authHeaders().forEach { (k, v) -> builder.addHeader(k, v) }
                 }
-                client.newCall(builder.build()).execute().use { it.body?.string() }
-            } catch (e: Exception) { null }
+                extraHeaders.forEach { (k, v) -> builder.addHeader(k, v) }
+                client.newCall(builder.build()).execute().use { it.code to it.body?.string() }
+            } catch (e: Exception) { -1 to null }
         }
 
     private suspend fun post(path: String, body: RequestBody): String? =
@@ -762,19 +822,38 @@ class TrackingService : Service() {
                     .post(body)
                 authHeaders().forEach { (k, v) -> builder.addHeader(k, v) }
                 val response = client.newCall(builder.build()).execute()
-                if (response.code == 401 && refreshToken != null) {
-                    // Token expired, try refresh
+
+                if (response.code in 200..299) {
+                    response.use { it.body?.string() }
+                } else if (response.code == 401) {
+                    // Access token expired — try a refresh, then retry once.
                     response.close()
-                    if (refreshAccessToken()) {
-                        // Retry with new token
+                    if (refreshToken != null && refreshAccessToken()) {
                         val retryBuilder = Request.Builder()
                             .url("$SERVER$path")
                             .post(body)
                         authHeaders().forEach { (k, v) -> retryBuilder.addHeader(k, v) }
-                        client.newCall(retryBuilder.build()).execute().use { it.body?.string() }
-                    } else null
+                        client.newCall(retryBuilder.build()).execute().use { retry ->
+                            if (retry.code in 200..299) {
+                                retry.body?.string()
+                            } else {
+                                onAuthFailed()
+                                null
+                            }
+                        }
+                    } else {
+                        // Access AND refresh tokens are dead — the server treats us
+                        // as unauthenticated. Re-register so tracking continues
+                        // instead of failing silently (this used to freeze the
+                        // dashboard's "last seen" while the app showed Connected).
+                        onAuthFailed()
+                        null
+                    }
                 } else {
-                    response.use { it.body?.string() }
+                    // Any other non-2xx (500, 429, ...) is a failure — never treat
+                    // an error body as a valid response.
+                    response.close()
+                    null
                 }
             } catch (e: Exception) { null }
         }
@@ -787,26 +866,66 @@ class TrackingService : Service() {
                     .get()
                 authHeaders().forEach { (k, v) -> builder.addHeader(k, v) }
                 val response = client.newCall(builder.build()).execute()
-                if (response.code == 401 && refreshToken != null) {
+
+                if (response.code in 200..299) {
+                    response.use { it.body?.string() }
+                } else if (response.code == 401) {
+                    // Access token expired — try a refresh, then retry once.
                     response.close()
-                    if (refreshAccessToken()) {
+                    if (refreshToken != null && refreshAccessToken()) {
                         val retryBuilder = Request.Builder()
                             .url("$SERVER$path")
                             .get()
                         authHeaders().forEach { (k, v) -> retryBuilder.addHeader(k, v) }
-                        client.newCall(retryBuilder.build()).execute().use { it.body?.string() }
-                    } else null
+                        client.newCall(retryBuilder.build()).execute().use { retry ->
+                            if (retry.code in 200..299) {
+                                retry.body?.string()
+                            } else {
+                                onAuthFailed()
+                                null
+                            }
+                        }
+                    } else {
+                        onAuthFailed()
+                        null
+                    }
                 } else {
-                    response.use { it.body?.string() }
+                    // Any other non-2xx is a failure — never treat an error body
+                    // as a valid response.
+                    response.close()
+                    null
                 }
             } catch (e: Exception) { null }
         }
 
+    /**
+     * The server rejected our credentials (access AND refresh both dead).
+     * Without this, post()/get() returned null forever while the app kept
+     * showing "Connected" — the dashboard's last_seen went stale even though
+     * the phone was alive. Re-register to mint a fresh token pair (also
+     * re-links to the signed-in account). Idempotent: registerDevice() is
+     * guarded by isRegistering and retries on failure.
+     */
+    private fun onAuthFailed() {
+        if (isRegistered) {
+            isRegistered = false
+            scope.launch { registerDevice() }
+        }
+    }
+
     // ── Utils ─────────────────────────────────────────────────────────────────
 
-    private fun isoNow(): String =
-        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-            .format(Date())
+    /**
+     * Current time as an ISO-8601 UTC timestamp. The server validates
+     * device_timestamp against UTC (within 5 minutes) — emitting local time
+     * without an offset (e.g. UTC+1 in Nigeria) made every report look an
+     * hour in the future and fail the anti-spoofing timestamp check.
+     */
+    private fun isoNow(): String {
+        val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+        fmt.timeZone = TimeZone.getTimeZone("UTC")
+        return fmt.format(Date())
+    }
 
     // ── WakeLock Management ─────────────────────────────────────────────
 

@@ -21,6 +21,24 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
+// ─── Device Display Name ─────────────────────────────────────────────────────
+
+/**
+ * Best display name for a device. Devices register with a hardware model
+ * (e.g. "Samsung SM-A037F") but no alias, so the old `alias || 'Device'`
+ * rendered every un-renamed device as a useless "Device" — ambiguous once an
+ * account owns several phones. Prefer the owner's alias, then the registered
+ * model, and only fall back to a generic label.
+ */
+export function deviceDisplayName(
+  device: { alias?: string | null; model?: string | null } | null | undefined
+): string {
+  if (!device) return 'Device';
+  if (device.alias && device.alias.trim()) return device.alias;
+  if (device.model && device.model.trim()) return device.model;
+  return 'Device';
+}
+
 // ─── Time Utilities ──────────────────────────────────────────────────────────
 
 export function relativeTime(ts: string | null | undefined): string {

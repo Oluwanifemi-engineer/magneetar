@@ -13,6 +13,10 @@ import { GraduationCap, Cpu, Award } from 'lucide-react';
  *  - It hosts Africa's first MIT-collaboration iLab south of the Sahara.
  *  - CWUR 2026 ranks OAU #5 nationally in Nigeria / #58 in Africa.
  *
+ * The origin story frames OAU as the birthplace of the IDEA — not as a
+ * uniquely theft-prone place: phone theft is a common campus crime across
+ * Nigeria, and staying in touch with family is universal among students.
+ *
  * Deliberately NO fabricated user counts — real adoption numbers get added
  * when the campus launch has actual data behind them.
  */
@@ -55,13 +59,14 @@ export function Provenance() {
           <h2 className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight text-white leading-tight">
             Built by students who
             <br />
-            <span className="text-gradient-primary">lived this problem.</span>
+            <span className="text-gradient-primary">lived these problems.</span>
           </h2>
           <p className="mt-5 text-white/45 leading-relaxed">
-            Magneetar is being built at Obafemi Awolowo University — on a campus where phones
-            disappear from pockets, hostels, and lecture halls every day, and where staying in touch
-            with family back home is how students survive. We didn’t start from a boardroom; we
-            started from both problems at once.
+            Magneetar began at Obafemi Awolowo University — but the problems it solves aren’t
+            unique to any one campus. Phone theft is a reality on university campuses across
+            Nigeria, and staying in touch with family back home is how students everywhere hold
+            their lives together. We didn’t start from a boardroom; we started from problems our
+            whole generation recognizes.
           </p>
         </div>
 

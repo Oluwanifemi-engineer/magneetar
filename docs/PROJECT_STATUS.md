@@ -1,6 +1,6 @@
 # Magneetar — Project Status Report
 
-**Generated:** August 1, 2026  
+**Generated:** August 2, 2026  
 **Version:** 1.1.0  
 **Status:** 🟢 Production Ready
 
@@ -29,9 +29,10 @@ All **267 tests pass consistently** (193 backend + 74 dashboard). The system is 
 | Reliability Tests (`test_reliability.py`) | 69 | ✅ All pass (WebSocket limits, live WS integration, full auth-path matrix incl. expired/revoked/tampered/missing-type, REST revocation, circuit breaker, per-device recipients) |
 | **Multi-User Tests** (`test_multi_user.py`) | **36** | ✅ **All pass** (register-with-user-token linking, claim endpoint by key/id, ownership scoping across all dashboard endpoints, per-user device limits, idempotent re-claims, **ghost-owner recovery**: claimable orphaned devices, stale deleted-account tokens rejected) |
 | **Guardian Tests** (`test_guardian.py`) | **23** | ✅ **All pass** (opt-in, recovery launch/close, blurred scans, rate-limited sightings, ownership isolation) |
-| **Backend Total** | **193** | **✅ All pass** |
-| **Dashboard Tests** | **74** | **✅ All pass** (11 suites, `tsc --noEmit` clean) |
-| **Grand Total** | **267** | **✅ All pass** |
+| **Heartbeat/Theft Tests** (`test_heartbeat_theft.py`) | **3** | ✅ **All pass** (heartbeat w/ admin inactive → 200 + last_seen advances + no stolen-mode; sub-threshold activation is a no-op) |
+| **Backend Total** | **196** | **✅ All pass** |
+| **Dashboard Tests** | **81** | **✅ All pass** (13 suites, `tsc --noEmit` clean, incl. `deviceDisplayName` fallback tests) |
+| **Grand Total** | **277** | **✅ All pass** |
 
 ---
 
@@ -112,6 +113,7 @@ All **267 tests pass consistently** (193 backend + 74 dashboard). The system is 
 | WakeLock Management | `TrackingService.kt` | Huawei-whitelisted tags, periodic refresh |
 | FCM Service | `MagneetarMessagingService.kt` | Push notifications via Firebase (onNewToken → server registration) |
 | Sign Up / Sign In | `SignUpActivity.kt`, `SignInActivity.kt` | Email/password auth flow |
+| Telemetry Reliability | `TrackingService.kt` | UTC timestamps (was local-time-without-offset → failed server anti-spoofing check); 2xx-only response handling; **auto re-register when access+refresh tokens die** (no more silent "Connected" while the server hears nothing — the root cause of a frozen "last seen") |
 | Onboarding | `OnboardingActivity.kt` | First-launch walkthrough |
 | Open Dashboard | `HomeActivity.kt` | Opens the **dashboard login page** (`https://app.<host>/login`, derived from the API server URL with scheme preservation) instead of the API server root; non-`api.*` self-hosted servers fall back to the server URL |
 | Permissions | `PermissionsActivity.kt` | Location, camera, audio, notifications (incl. Android 13+ POST_NOTIFICATIONS) |
@@ -130,6 +132,7 @@ All **267 tests pass consistently** (193 backend + 74 dashboard). The system is 
 | Command Panel | Issue remote commands (ping, capture, lock, wipe) |
 | Evidence Panel | View captured media |
 | Sentinel Panel | Threat score visualization |
+| Device Names | `deviceDisplayName()` fallback alias → model → label in the Sidebar + Device Panel (no more ambiguous "Device" for multiple phones per account) |
 | Error Panel | View and filter backend errors |
 | Media Gallery | Photo/audio evidence browser |
 | ErrorBoundary | Catches React rendering errors gracefully |

@@ -17,18 +17,24 @@ from auth import (
     check_location_rate_limit,
     check_media_rate_limit,
     create_device_tokens,
+    decode_token,
     get_current_device_or_key,
+    get_current_user,
     hash_device_key,
     refresh_access_token,
+    security,
+    user_id_from_subject,
     verify_api_key,
 )
 from config import settings
 from database import get_db, log_audit
 from evidence import evidence_builder
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
 from logging_config import get_logger
 from models import (
     CommandAck,
+    DeviceClaimRequest,
     DeviceRegistration,
     HeartbeatPacket,
     LocationReport,
@@ -39,7 +45,7 @@ from models import (
 )
 from pydantic import BaseModel
 from sentinel import sentinel
-from websocket_manager import broadcast_to_dashboards
+from websocket_manager import broadcast_to_dashboards, update_device_owner
 
 logger = get_logger("magneetar")
 
@@ -49,24 +55,71 @@ router = APIRouter()
 # ─── Device Registration ─────────────────────────────────────────────────────
 
 
+def _user_exists(db, user_id: str) -> bool:
+    """True when the user account actually exists in the users table."""
+    return bool(db.execute("SELECT 1 FROM users WHERE id=?", (user_id,)).fetchone())
+
+
+def _user_id_from_credentials(credentials: Optional[HTTPAuthorizationCredentials]) -> Optional[str]:
+    """Resolve a user id from an optional bearer token, if it is a user token.
+
+    Returns None when the header is absent, unparseable, or not a user token
+    (e.g. a device token). Callers treat None as "no account linking".
+    """
+    if not credentials or not credentials.credentials:
+        return None
+    try:
+        payload = decode_token(credentials.credentials)
+    except HTTPException:
+        return None
+    return user_id_from_subject(payload.get("sub", ""))
+
+
 @router.post("/api/device/register")
 async def register_device(
-    reg: DeviceRegistration, db: sqlite3.Connection = Depends(get_db), x_api_key: str = Depends(verify_api_key)
+    reg: DeviceRegistration,
+    db: sqlite3.Connection = Depends(get_db),
+    x_api_key: str = Depends(verify_api_key),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ):
-    """Register a new device and get JWT tokens. Requires API key."""
+    """Register a new device and get JWT tokens. Requires API key.
+
+    If a valid user bearer token is also supplied, the device is linked to
+    that account (owner_id is set) so it appears in the user's dashboard.
+    """
     now = datetime.now(timezone.utc).isoformat()
     device_key_hash = None
     if reg.device_key:
         device_key_hash = hash_device_key(reg.device_key)
 
-    existing = db.execute("SELECT id FROM devices WHERE id=?", (reg.device_id,)).fetchone()
+    owner_id = _user_id_from_credentials(credentials)
+
+    # A stale user token (e.g. the account was permanently deleted) must not
+    # re-link a device to a ghost owner — verify the account still exists.
+    if owner_id and not _user_exists(db, owner_id):
+        owner_id = None
+
+    existing = db.execute("SELECT id, owner_id FROM devices WHERE id=?", (reg.device_id,)).fetchone()
+
+    # Enforce the per-user device limit when this registration links the device
+    # to an account (new links only — re-registering an already-owned device is fine).
+    if owner_id:
+        already_owned = existing["owner_id"] if existing else None
+        if already_owned and already_owned != owner_id:
+            # Orphaned ownership (owner account was permanently deleted) is
+            # claimable — only block when the existing owner account is real.
+            if _user_exists(db, already_owned):
+                raise HTTPException(status_code=403, detail="Device already linked to another account")
+        if already_owned is None or not _user_exists(db, already_owned):
+            _enforce_device_limit(db, owner_id)
 
     if existing:
         db.execute(
             """UPDATE devices
                SET device_fingerprint=?, model=?, os_version=?,
                    app_version=?, imei_hash=?, sim_serial_hash=?,
-                   device_key_hash=COALESCE(?, device_key_hash), last_seen=?
+                   device_key_hash=COALESCE(?, device_key_hash),
+                   owner_id=COALESCE(?, owner_id), last_seen=?
                WHERE id=?""",
             (
                 reg.fingerprint,
@@ -76,6 +129,7 @@ async def register_device(
                 reg.imei_hash,
                 reg.sim_serial_hash,
                 device_key_hash,
+                owner_id,
                 now,
                 reg.device_id,
             ),
@@ -83,8 +137,8 @@ async def register_device(
     else:
         db.execute(
             """INSERT INTO devices (id, device_fingerprint, model, os_version,
-               app_version, imei_hash, sim_serial_hash, device_key_hash, last_seen, registered)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               app_version, imei_hash, sim_serial_hash, device_key_hash, owner_id, last_seen, registered)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 reg.device_id,
                 reg.fingerprint,
@@ -94,20 +148,94 @@ async def register_device(
                 reg.imei_hash,
                 reg.sim_serial_hash,
                 device_key_hash,
+                owner_id,
                 now,
                 now,
             ),
         )
 
     db.commit()
+
+    # Sync the WebSocket owner cache with the ACTUAL owner after the write.
+    # COALESCE keeps an existing owner on re-register, so re-read the row to
+    # avoid flipping the cache to the registering user when ownership didn't
+    # change (which would leak another user's broadcasts to the wrong client).
+    final_owner = db.execute("SELECT owner_id FROM devices WHERE id=?", (reg.device_id,)).fetchone()
+    update_device_owner(reg.device_id, final_owner["owner_id"] if final_owner else None)
+
     tokens = create_device_tokens(reg.device_id)
     log_audit("device_registered", actor=reg.device_id, details=reg.model)
 
     return {
         **tokens,
         "has_device_key": device_key_hash is not None,
+        "owner_id": final_owner["owner_id"] if final_owner else None,
         "server_time": now,
     }
+
+
+def _enforce_device_limit(db, user_id: str):
+    """Raise 403 when the user already owns MAX_DEVICES_PER_USER devices."""
+    count = db.execute("SELECT COUNT(*) as cnt FROM devices WHERE owner_id=?", (user_id,)).fetchone()["cnt"]
+    if count >= settings.MAX_DEVICES_PER_USER:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Device limit reached ({settings.MAX_DEVICES_PER_USER})",
+        )
+
+
+@router.post("/api/device/claim")
+async def claim_device(
+    req: DeviceClaimRequest,
+    db: sqlite3.Connection = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+    x_device_key: Optional[str] = Header(None),
+):
+    """Link an existing device to the authenticated user's account.
+
+    The device is identified by its per-device secret key (x-device-key header)
+    or, failing that, by an explicit device_id in the body. The user is
+    authenticated with a user bearer token. Once linked, the device shows up
+    in the user's dashboard and is scoped to their account.
+    """
+    if user_id == "api_key_user":
+        raise HTTPException(status_code=401, detail="User authentication required")
+
+    # A stale token from a permanently deleted account must not claim devices
+    # (that would re-create a ghost link — same bug class as register).
+    if not _user_exists(db, user_id):
+        raise HTTPException(status_code=401, detail="Account no longer exists")
+
+    device = None
+    if x_device_key:
+        key_hash = hash_device_key(x_device_key)
+        device = db.execute(
+            "SELECT id, owner_id FROM devices WHERE device_key_hash=?", (key_hash,)
+        ).fetchone()
+    if device is None and req.device_id:
+        device = db.execute("SELECT id, owner_id FROM devices WHERE id=?", (req.device_id,)).fetchone()
+    if device is None:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    existing_owner = device["owner_id"]
+    # Only block cross-account claims when the existing owner is a REAL account.
+    # A device whose owner account was permanently deleted (orphaned ownership,
+    # e.g. after a DB restore) is claimable by anyone with the device key/id.
+    if existing_owner and _user_exists(db, existing_owner) and existing_owner != user_id:
+        raise HTTPException(status_code=403, detail="Device already linked to another account")
+
+    # Enforce per-user device limit before linking — skip when the device is
+    # already owned by this user so re-claims stay idempotent (same as the
+    # register path, which skips the limit for same-owner re-registrations).
+    if existing_owner != user_id:
+        _enforce_device_limit(db, user_id)
+
+    db.execute("UPDATE devices SET owner_id=? WHERE id=?", (user_id, device["id"]))
+    db.commit()
+    update_device_owner(device["id"], user_id)
+    log_audit("device_claimed", actor=user_id, details=f"Device: {device['id']}")
+
+    return {"status": "ok", "device_id": device["id"], "owner_id": user_id}
 
 
 # ─── Location Reports ────────────────────────────────────────────────────────
@@ -334,7 +462,7 @@ async def get_device_commands(
         """SELECT id, command, params, priority
            FROM commands
            WHERE device_id=? AND status='pending'
-           AND (expires_at IS NULL OR expires_at > datetime('now'))
+           AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
            ORDER BY priority ASC""",
         (device_id,),
     ).fetchall()
@@ -407,10 +535,27 @@ async def post_heartbeat(
 
     db.execute("UPDATE devices SET last_seen=?, app_version=? WHERE id=?", (now, hb.app_version, device_id))
 
-    if hb.device_admin_active is False:
-        sentinel.auto_activate_theft_mode(device_id, 40)
-
+    # ── Commit BEFORE any nested writes ──────────────────────────────────────
+    # auto_activate_theft_mode() and log_audit() open their OWN sqlite
+    # connection. Calling them while this request's write transaction is still
+    # open makes the nested writer block on our uncommitted writes and raise
+    # "database is locked" after busy_timeout — the resulting 500 rolls back
+    # the heartbeat's last_seen update, so the dashboard freezes the device's
+    # "last seen" at its previous time even though the phone is alive.
     db.commit()
+
+    # Device admin being disabled is a strong theft signal (weight 40 in
+    # sentinel.THEFT_SIGNALS), but it must NOT auto-activate stolen mode from a
+    # bare heartbeat: escalation is reserved for the location path's
+    # confirmation-gated score (>= THEFT_SCORE_THRESHOLD). Persist the elevated
+    # score so the dashboard reflects the signal; the location path still owns
+    # escalation to stolen.
+    if hb.device_admin_active is False:
+        db.execute(
+            "UPDATE devices SET sentinel_score = MAX(sentinel_score, 40) WHERE id=?",
+            (device_id,),
+        )
+        db.commit()
 
     device = db.execute("SELECT operating_mode FROM devices WHERE id=?", (device_id,)).fetchone()
 

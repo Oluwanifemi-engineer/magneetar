@@ -5,22 +5,36 @@ plugins {
     id("io.sentry.android.gradle")
 }
 
+// Read the app version from the repo-root VERSION file (single source of
+// truth — the server's APP_VERSION and the /apk/download filename use it too).
+val appVersion: String = run {
+    val versionFile = rootProject.projectDir.parentFile.resolve("VERSION")
+    if (versionFile.exists()) versionFile.readText().trim() else "1.0.0"
+}
+
 android {
     namespace = "com.magneetar.app"
-    compileSdk = 34
+    // Android 15 — required by Google Play for new apps/updates since Aug 31,
+    // 2025 (targetSdk 35+). Existing-app availability also requires 35+.
+    // Bump to 36 (Android 16) before Aug 31, 2026 (needs AGP 8.9.1+/Gradle 8.11.1+).
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.magneetar.app"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        targetSdk = 35
+        // versionName is read from the repo-root VERSION file at build time
+        // (same value the server reports and the APK filename uses).
+        // versionCode must strictly increase on every Play release.
+        versionCode = 3
+        versionName = appVersion
 
         // takeIf { it.isNotBlank() } so an empty -P value falls back to the default
         val serverUrl = (project.findProperty("SERVER_URL") as String?)
             ?.takeIf { it.isNotBlank() } ?: "https://api.magneetar.me"
         val apiKey = (project.findProperty("API_KEY") as String?)
-            ?.takeIf { it.isNotBlank() } ?: "changeme-set-in-env"
+            ?.takeIf { it.isNotBlank() }
+            ?: System.getenv("MT_API_KEY")?.takeIf { it.isNotBlank() } ?: "changeme-set-in-env"
         val sentryDsn = (project.findProperty("SENTRY_DSN") as String?)
             ?.takeIf { it.isNotBlank() }
             ?: System.getenv("MT_SENTRY_DSN")?.takeIf { it.isNotBlank() } ?: ""

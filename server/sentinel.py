@@ -12,6 +12,15 @@ from database import get_db_context, log_audit
 from models import TelemetryPing
 
 
+# ─── Threat-level boundaries (shared) ─────────────────────────────────────────
+# Single source of truth so compute_score()'s level thresholds and the
+# false-positive confirmation gate can never drift apart.
+ELEVATED_BAR = 30  # score >= 30 -> ELEVATED
+HIGH_BAR = 60  # score >= 60 -> HIGH (also the confirmation gate's bar)
+CAP_SCORE = 100  # hard ceiling for a single ping's score
+CAP_AFTER_CONFIRMATION = 79  # score stored while the gate is still holding
+
+
 class SentinelEngine:
     """
     Computes threat score from telemetry data.
@@ -38,6 +47,13 @@ class SentinelEngine:
     def __init__(self):
         self.confirmation_count = settings.ANOMALY_CONFIRMATION_COUNT
         self.theft_threshold = settings.THEFT_SCORE_THRESHOLD
+        # Confirmation bar: capped scores are persisted as CAP_AFTER_CONFIRMATION
+        # (79), so requiring the full theft threshold (80) made the gate
+        # unreachable — a device with any history could never be confirmed
+        # stolen (score pinned at 79). The HIGH-level boundary (HIGH_BAR) lets
+        # capped-but-elevated pings count toward the streak so a sustained
+        # theft pattern unlocks CRITICAL.
+        self.confirmation_bar = HIGH_BAR
 
     def compute_score(self, ping: TelemetryPing, history: list[dict]) -> tuple[int, str, list[str]]:
         """
@@ -131,26 +147,32 @@ class SentinelEngine:
             total_score += sig["weight"]
 
         # ── Cap Score ─────────────────────────────────────────────────────
-        total_score = min(total_score, 100)
+        total_score = min(total_score, CAP_SCORE)
 
         # ── Determine Threat Level ────────────────────────────────────────
         if total_score >= self.theft_threshold:
             threat_level = "CRITICAL"
-        elif total_score >= 60:
+        elif total_score >= HIGH_BAR:
             threat_level = "HIGH"
-        elif total_score >= 30:
+        elif total_score >= ELEVATED_BAR:
             threat_level = "ELEVATED"
         else:
             threat_level = "SAFE"
 
         # ── False Positive Prevention ─────────────────────────────────────
-        # Require consecutive anomalies to escalate to CRITICAL
+        # Require consecutive anomalies to escalate to CRITICAL. Compare recent
+        # scores against HIGH_BAR (60, HIGH level) rather than the full theft
+        # threshold: capped scores are stored as CAP_AFTER_CONFIRMATION (79), so
+        # a >=80 check could never be satisfied once any cap had applied — theft
+        # mode was unreachable for devices with history (observed live: stuck at
+        # 79). Capped-but-elevated pings count toward the streak, so a sustained
+        # theft pattern unlocks CRITICAL.
         if threat_level == "CRITICAL" and history:
             recent_scores = [loc.get("sentinel_score", 0) for loc in history[: self.confirmation_count]]
-            high_count = sum(1 for s in recent_scores if s >= self.theft_threshold)
+            high_count = sum(1 for s in recent_scores if s >= self.confirmation_bar)
             if high_count < self.confirmation_count - 1:
                 threat_level = "HIGH"
-                total_score = min(total_score, 79)
+                total_score = min(total_score, CAP_AFTER_CONFIRMATION)
 
         return total_score, threat_level, anomalies
 
@@ -161,7 +183,16 @@ class SentinelEngine:
         2. Queue capture commands
         3. Create evidence case
         4. Log to audit
+
+        Calls below settings.THEFT_SCORE_THRESHOLD are no-ops: escalating to
+        stolen mode is reserved for the location path, which only invokes this
+        after its false-positive confirmation gate has unlocked a CRITICAL
+        score. Sub-threshold signals (e.g. a heartbeat's admin-disabled score
+        of 40) must never flip a device to stolen on their own.
         """
+        if score < settings.THEFT_SCORE_THRESHOLD:
+            return
+
         with get_db_context() as conn:
             # Check if already in theft mode
             device = conn.execute("SELECT operating_mode FROM devices WHERE id=?", (device_id,)).fetchone()

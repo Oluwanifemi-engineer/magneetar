@@ -58,6 +58,7 @@ jest.mock('@/lib/utils', () => ({
   relativeTime: (ts: string) => ts ? '2 min ago' : 'never',
   isOnline: (ts: string) => ts === 'recent',
   getSignalLevel: () => 'strong',
+  deviceDisplayName: (device: any) => device?.alias || device?.model || 'Device',
 }));
 
 import { Sidebar } from '@/components/layout/Sidebar';
