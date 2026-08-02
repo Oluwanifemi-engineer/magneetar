@@ -19,7 +19,7 @@ const AFRICA_STATS = [
   {
     value: '1.2s',
     label: 'between phone thefts',
-    detail: 'One phone stolen roughly every second — the most common crime in the country',
+    detail: 'One phone stolen roughly every 1.2 seconds — the most common crime in the country',
     accent: '#06B6D4',
   },
   {
