@@ -41,9 +41,46 @@ export function deviceDisplayName(
 
 // ─── Time Utilities ──────────────────────────────────────────────────────────
 
+/**
+ * Parse a server timestamp robustly. The DB stores two formats:
+ * - ISO-8601 with offset: "2026-08-02T10:00:00.123456+00:00" (server writes)
+ * - SQLite CURRENT_TIMESTAMP: "2026-08-01 20:34:00" (legacy rows, UTC)
+ * `new Date()` fails on the space-separated format in some engines (e.g.
+ * Safari) and `new Date(undefined)` yields Invalid Date — both produced the
+ * "Invalid Date" text seen in Trail Replay. Returns null when unparseable.
+ */
+export function parseTimestamp(ts: string | null | undefined): Date | null {
+  if (!ts) return null;
+  let value = ts;
+  // Normalize SQLite "YYYY-MM-DD HH:MM:SS" (UTC) into ISO with a UTC marker.
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(value)) {
+    value = value.replace(' ', 'T') + 'Z';
+  }
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Best display timestamp for a location row. The server's location rows carry
+ * server_timestamp / device_timestamp but no `timestamp` field — reading
+ * `loc.timestamp` directly was undefined → "Invalid Date".
+ */
+export function locationTimestamp(
+  loc: {
+    timestamp?: string | null;
+    server_timestamp?: string | null;
+    device_timestamp?: string | null;
+  } | null | undefined
+): string | null {
+  if (!loc) return null;
+  return loc.server_timestamp || loc.device_timestamp || loc.timestamp || null;
+}
+
 export function relativeTime(ts: string | null | undefined): string {
   if (!ts) return 'Never';
-  const diff = (Date.now() - new Date(ts).getTime()) / 1000;
+  const d = parseTimestamp(ts);
+  if (!d) return 'Never';
+  const diff = (Date.now() - d.getTime()) / 1000;
   if (diff < 5) return 'Just now';
   if (diff < 60) return `${Math.round(diff)}s ago`;
   if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
@@ -51,8 +88,9 @@ export function relativeTime(ts: string | null | undefined): string {
   return `${Math.round(diff / 86400)}d ago`;
 }
 
-export function formatTimestamp(ts: string): string {
-  const d = new Date(ts);
+export function formatTimestamp(ts: string | null | undefined): string {
+  const d = parseTimestamp(ts);
+  if (!d) return '—';
   return d.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -65,7 +103,9 @@ export function formatTimestamp(ts: string): string {
 
 export function isOnline(lastSeen: string | null, thresholdMs = 60000): boolean {
   if (!lastSeen) return false;
-  return Date.now() - new Date(lastSeen).getTime() < thresholdMs;
+  const d = parseTimestamp(lastSeen);
+  if (!d) return false;
+  return Date.now() - d.getTime() < thresholdMs;
 }
 
 // ─── Distance Utilities ──────────────────────────────────────────────────────
@@ -184,7 +224,9 @@ export type SignalLevel = 'strong' | 'medium' | 'weak' | 'none';
 
 export function getSignalLevel(lastSeen: string | null): SignalLevel {
   if (!lastSeen) return 'none';
-  const diff = Date.now() - new Date(lastSeen).getTime();
+  const d = parseTimestamp(lastSeen);
+  if (!d) return 'none';
+  const diff = Date.now() - d.getTime();
   if (diff < 15000) return 'strong';
   if (diff < 30000) return 'medium';
   if (diff < 60000) return 'weak';

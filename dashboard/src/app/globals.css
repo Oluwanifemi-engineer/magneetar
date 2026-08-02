@@ -524,6 +524,16 @@ input:-webkit-autofill:focus {
   transition: background-color 9999s ease-in-out 0s;
 }
 
+/* Hide scrollbars for horizontal tab strips (keeps the strip usable while
+   letting it scroll when the tab set overflows a narrow panel) */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Respect reduced-motion preferences */
 @media (prefers-reduced-motion: reduce) {
   .animate-aurora,

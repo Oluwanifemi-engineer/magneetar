@@ -4,28 +4,13 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Outer ring -->
+    <!-- Capital M — white, centered inside the 66dp adaptive safe zone.
+         Same M geometry as the web brand mark. -->
     <path
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.06"
-        android:pathData="M54,8C28.6,8 8,28.6 8,54s20.6,46 46,46 46,-20.6 46,-46S79.4,8 54,8z" />
-    <!-- Inner ring -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.03"
-        android:pathData="M54,16C33,16 16,33 16,54s17,38 38,38 38,-17 38,-38S75,16 54,16z" />
-    <!-- M Letter - geometric, angular -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.95"
-        android:pathData="M34,78L34,36L50,58L58,46L66,58L82,36L82,78"
+        android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
+        android:strokeWidth="5"
         android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <!-- Crosshair accent dot -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.4"
-        android:pathData="M54,40m-2,0a2,2 0,1 1,4 0a2,2 0,1 1,-4 0" />
+        android:strokeLineJoin="round"
+        android:pathData="M38,72L38,38L56,58L66,46L76,58L94,38L94,72" />
 </vector>

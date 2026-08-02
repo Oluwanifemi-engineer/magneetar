@@ -3,6 +3,7 @@ Magneetar Dashboard-Facing API Routes
 All endpoints for the web dashboard (devices, locations, commands, evidence, etc.)
 """
 
+import hmac
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -16,7 +17,7 @@ from auth import (
     user_id_from_subject,
 )
 from config import settings
-from database import delete_device_cascade, get_db, log_audit
+from database import delete_device_cascade, get_db, get_db_context, log_audit
 from evidence import evidence_builder
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from logging_config import get_logger
@@ -458,6 +459,66 @@ async def get_media_file(
         "lng": row["lng"],
         "sha256_hash": row["sha256_hash"],
     }
+
+
+@router.post("/api/dashboard/media/{media_id}/delete")
+async def delete_media(
+    media_id: int, body: dict, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+):
+    """Delete a media item, gated by a step-up password.
+
+    Destructive and privacy-sensitive, so the caller must re-authenticate with
+    their account password (user mode) or the master API key (admin mode) — a
+    stolen dashboard session alone is NOT enough to destroy evidence. Attempts
+    are rate-limited per actor and audit-logged.
+    """
+    from auth import check_password_verify_rate_limit, verify_password
+
+    if not check_password_verify_rate_limit(auth):
+        raise HTTPException(status_code=429, detail="Too many verification attempts")
+
+    row = db.execute("SELECT * FROM media WHERE id=?", (media_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Media not found")
+    _assert_device_access(db, row["device_id"], auth)
+
+    raw_password = body.get("password")
+    password = raw_password if isinstance(raw_password, str) else ""
+    if not password:
+        raise HTTPException(status_code=400, detail="Password required")
+
+    user_id = _resolve_user_id(auth)
+    if user_id is not None:
+        # User mode — verify the account password (bcrypt / PBKDF2).
+        with get_db_context() as conn:
+            user = conn.execute("SELECT password_hash FROM users WHERE id=?", (user_id,)).fetchone()
+        if not user or not verify_password(password, user["password_hash"]):
+            raise HTTPException(status_code=401, detail="Invalid password")
+    else:
+        # Admin / API-key mode — re-verify the master API key itself.
+        if not hmac.compare_digest(password, settings.API_KEY):
+            raise HTTPException(status_code=401, detail="Invalid password")
+
+    # Remove the media row, then fix up the evidence-case counters it
+    # contributed (a deleted item must not leave stale counts).
+    if row["evidence_case_id"]:
+        db.execute(
+            """UPDATE evidence_cases
+               SET photo_count = MAX(0, photo_count - ?),
+                   audio_count = MAX(0, audio_count - ?)
+               WHERE id=?""",
+            (1 if row["type"] == "photo" else 0, 1 if row["type"] == "audio" else 0, row["evidence_case_id"]),
+        )
+    db.execute("DELETE FROM media WHERE id=?", (media_id,))
+    db.commit()
+
+    log_audit(
+        "media_deleted",
+        actor=auth,
+        details=f"Media: {media_id}, device: {row['device_id']}, type: {row['type']}",
+    )
+
+    return {"status": "ok", "deleted_id": media_id}
 
 
 # ─── Commands (Dashboard Issue) ──────────────────────────────────────────────

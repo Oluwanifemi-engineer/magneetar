@@ -105,6 +105,15 @@ class MagneetarAPI {
     return this.request(`/api/dashboard/media/file/${mediaId}`);
   }
 
+  /**
+   * Delete a media item. Step-up auth: requires the account password (user
+   * mode) or the master API key (admin mode) — a dashboard session alone is
+   * not enough to destroy evidence.
+   */
+  async deleteMedia(mediaId: number, password: string): Promise<{ status: string; deleted_id: number }> {
+    return this.request(`/api/dashboard/media/${mediaId}/delete`, 'POST', { password });
+  }
+
   // ── Generic Request ────────────────────────────────────────────────────────
 
   async fetch<T>(path: string, method = 'GET', body?: unknown): Promise<T> {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { X, Trash2, ShieldAlert } from 'lucide-react';
@@ -32,7 +33,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     }
   };
 
-  return (
+  // Rendered through a portal into document.body. The modal used to live
+  // inside the <header>, whose backdrop-blur (backdrop-filter) establishes a
+  // containing block for fixed-position descendants — the "fixed" modal was
+  // contained by the 56px header and clipped by its overflow-hidden, so
+  // clicking SETTINGS appeared to do nothing.
+  return createPortal(
     <div
       className="fixed inset-0 z-[2000] flex items-center justify-center p-4"
       role="dialog"
@@ -126,6 +132,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

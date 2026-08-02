@@ -95,6 +95,8 @@ class TrackingService : Service() {
         private const val WAIT_BETWEEN_COMMANDS_MS = 10_000L
         private const val HEARTBEAT_INTERVAL_MS = 60_000L
         private const val LOCATION_INTERVAL_MS = 3_000L
+        private const val CAMERA_CAPTURE_TIMEOUT_MS = 45_000L
+        private const val AUDIO_CAPTURE_MS = 20_000L
 
         /**
          * Runtime flag — set to true when onCreate completes, cleared in onDestroy.
@@ -513,17 +515,58 @@ class TrackingService : Service() {
         }
     }
 
+    /**
+     * Execute one command and ALWAYS acknowledge it (executed or failed).
+     *
+     * Every branch is wrapped: an unhandled exception must never leave a
+     * command stuck PENDING (the dashboard shows it forever, and the poll
+     * would keep re-delivering it). The camera paths are additionally
+     * bounded by CAMERA_CAPTURE_TIMEOUT_MS because a missing permission,
+     * a flaky HAL, or a never-firing onError can otherwise stall the whole
+     * command loop on `deferred.await()` indefinitely.
+     */
     private suspend fun handleCommand(id: Int, command: String) {
-        when (command) {
-            "ping"             -> { ackCommand(id, "executed"); updateNotification("Ping received") }
-            "capture_photo"    -> { capturePhoto(); ackCommand(id, "executed") }
-            "capture_photo_front" -> { capturePhotoFront(); ackCommand(id, "executed") }
-            "capture_audio"    -> { captureAudio(); ackCommand(id, "executed") }
-            "location_burst"   -> { locationBurst(); ackCommand(id, "executed") }
-            "lock"             -> { lockDevice(); ackCommand(id, "executed") }
-            "alarm"            -> { triggerAlarm(); ackCommand(id, "executed") }
-            "wipe"             -> { ackCommand(id, "executed"); wipeDevice() }
-            else               -> { ackCommand(id, "failed") }
+        try {
+            when (command) {
+                "ping" -> {
+                    updateNotification("Ping received")
+                    ackCommand(id, "executed")
+                }
+                "capture_photo" -> {
+                    capturePhoto()
+                    ackCommand(id, "executed")
+                }
+                "capture_photo_front" -> {
+                    capturePhotoFront()
+                    ackCommand(id, "executed")
+                }
+                "capture_audio" -> {
+                    captureAudio()
+                    ackCommand(id, "executed")
+                }
+                "location_burst" -> {
+                    locationBurst()
+                    ackCommand(id, "executed")
+                }
+                "lock" -> {
+                    lockDevice()
+                    ackCommand(id, "executed")
+                }
+                "alarm" -> {
+                    triggerAlarm()
+                    ackCommand(id, "executed")
+                }
+                "wipe" -> {
+                    ackCommand(id, "executed")
+                    wipeDevice()
+                }
+                else -> ackCommand(id, "failed")
+            }
+        } catch (e: CancellationException) {
+            throw e  // never swallow real cancellation — let the loop stop cleanly
+        } catch (e: Exception) {
+            e.printStackTrace()
+            try { ackCommand(id, "failed") } catch (e2: Exception) { e2.printStackTrace() }
         }
     }
 
@@ -537,6 +580,9 @@ class TrackingService : Service() {
     // ── Camera (Rear) ──────────────────────────────────────────────────────────
 
     private suspend fun capturePhoto() {
+        var camera: CameraDevice? = null
+        var reader: android.media.ImageReader? = null
+        var handlerThread: HandlerThread? = null
         try {
             val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
             // Try rear camera first, fall back to any camera
@@ -551,9 +597,9 @@ class TrackingService : Service() {
             }
             if (cameraId == null) cameraId = cameraManager.cameraIdList.firstOrNull() ?: return
 
-            val handlerThread = HandlerThread("CameraThread").also { it.start() }
+            handlerThread = HandlerThread("CameraThread").also { it.start() }
             val handler = Handler(handlerThread.looper)
-            val reader = android.media.ImageReader.newInstance(
+            reader = android.media.ImageReader.newInstance(
                 1280, 720, android.graphics.ImageFormat.JPEG, 2
             )
             val deferred = CompletableDeferred<ByteArray>()
@@ -566,20 +612,23 @@ class TrackingService : Service() {
                     buffer.get(bytes)
                     image.close()
                     deferred.complete(bytes)
+                } else {
+                    deferred.completeExceptionally(Exception("No image captured"))
                 }
             }, handler)
 
             @Suppress("DEPRECATION")
             cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
-                override fun onOpened(camera: CameraDevice) {
+                override fun onOpened(opened: CameraDevice) {
+                    camera = opened
                     @Suppress("DEPRECATION")
-                    camera.createCaptureSession(
-                        listOf(reader.surface),
+                    opened.createCaptureSession(
+                        listOf(reader!!.surface),
                         object : CameraCaptureSession.StateCallback() {
                             override fun onConfigured(session: CameraCaptureSession) {
-                                val request = camera.createCaptureRequest(
+                                val request = opened.createCaptureRequest(
                                     CameraDevice.TEMPLATE_STILL_CAPTURE
-                                ).apply { addTarget(reader.surface) }
+                                ).apply { addTarget(reader!!.surface) }
                                 session.capture(request.build(), object :
                                     CameraCaptureSession.CaptureCallback() {
                                     override fun onCaptureCompleted(
@@ -595,24 +644,46 @@ class TrackingService : Service() {
                         }, handler
                     )
                 }
-                override fun onDisconnected(camera: CameraDevice) { camera.close() }
-                override fun onError(camera: CameraDevice, error: Int) { camera.close() }
+                // A hang on the deferred.await() must be impossible: the
+                // connection closing or erroring completes the deferred so the
+                // caller (handleCommand) can ack 'failed' and move on.
+                override fun onDisconnected(opened: CameraDevice) {
+                    opened.close()
+                    deferred.completeExceptionally(Exception("Camera disconnected"))
+                }
+                override fun onError(opened: CameraDevice, error: Int) {
+                    opened.close()
+                    deferred.completeExceptionally(Exception("Camera error $error"))
+                }
             }, handler)
 
-            val bytes = deferred.await()
+            val bytes = withTimeout(CAMERA_CAPTURE_TIMEOUT_MS) { deferred.await() }
             val lat = getLastKnownLat()
             val lng = getLastKnownLng()
             uploadMedia("photo", bytes, lat, lng)
-            reader.close()
-            handlerThread.quitSafely()
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            // Bounded capture — a hung camera must not stall the command loop.
+            android.util.Log.w("TrackingService", "Camera capture timed out")
+        } catch (e: CancellationException) {
+            throw e  // never swallow real cancellation
         } catch (e: Exception) {
             e.printStackTrace()
+        } finally {
+            // Always release camera + reader + thread — a timeout/error path
+            // that skips this would leak the ImageReader/thread and leave the
+            // camera locked for every subsequent capture.
+            try { reader?.close() } catch (e: Exception) {}
+            try { camera?.close() } catch (e: Exception) {}
+            try { handlerThread?.quitSafely() } catch (e: Exception) {}
         }
     }
 
     // ── Camera (Front) ─────────────────────────────────────────────────────────
 
     private suspend fun capturePhotoFront() {
+        var camera: CameraDevice? = null
+        var reader: android.media.ImageReader? = null
+        var handlerThread: HandlerThread? = null
         try {
             val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
             var cameraId: String? = null
@@ -626,9 +697,9 @@ class TrackingService : Service() {
             }
             if (cameraId == null) { capturePhoto(); return }
 
-            val handlerThread = HandlerThread("CameraFrontThread").also { it.start() }
+            handlerThread = HandlerThread("CameraFrontThread").also { it.start() }
             val handler = Handler(handlerThread.looper)
-            val reader = android.media.ImageReader.newInstance(
+            reader = android.media.ImageReader.newInstance(
                 640, 480, android.graphics.ImageFormat.JPEG, 2
             )
             val deferred = CompletableDeferred<ByteArray>()
@@ -641,21 +712,24 @@ class TrackingService : Service() {
                     buffer.get(bytes)
                     image.close()
                     deferred.complete(bytes)
+                } else {
+                    deferred.completeExceptionally(Exception("No image captured"))
                 }
             }, handler)
 
             @Suppress("DEPRECATION")
             cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
-                override fun onOpened(camera: CameraDevice) {
+                override fun onOpened(opened: CameraDevice) {
+                    camera = opened
                     @Suppress("DEPRECATION")
-                    camera.createCaptureSession(
-                        listOf(reader.surface),
+                    opened.createCaptureSession(
+                        listOf(reader!!.surface),
                         object : CameraCaptureSession.StateCallback() {
                             override fun onConfigured(session: CameraCaptureSession) {
-                                val request = camera.createCaptureRequest(
+                                val request = opened.createCaptureRequest(
                                     CameraDevice.TEMPLATE_STILL_CAPTURE
                                 ).apply {
-                                    addTarget(reader.surface)
+                                    addTarget(reader!!.surface)
                                     // Front camera typically doesn't support auto-focus in template
                                 }
                                 session.capture(request.build(), object :
@@ -673,18 +747,30 @@ class TrackingService : Service() {
                         }, handler
                     )
                 }
-                override fun onDisconnected(camera: CameraDevice) { camera.close() }
-                override fun onError(camera: CameraDevice, error: Int) { camera.close() }
+                override fun onDisconnected(opened: CameraDevice) {
+                    opened.close()
+                    deferred.completeExceptionally(Exception("Front camera disconnected"))
+                }
+                override fun onError(opened: CameraDevice, error: Int) {
+                    opened.close()
+                    deferred.completeExceptionally(Exception("Front camera error $error"))
+                }
             }, handler)
 
-            val bytes = deferred.await()
+            val bytes = withTimeout(CAMERA_CAPTURE_TIMEOUT_MS) { deferred.await() }
             val lat = getLastKnownLat()
             val lng = getLastKnownLng()
             uploadMedia("photo", bytes, lat, lng)
-            reader.close()
-            handlerThread.quitSafely()
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            android.util.Log.w("TrackingService", "Front camera capture timed out")
+        } catch (e: CancellationException) {
+            throw e  // never swallow real cancellation
         } catch (e: Exception) {
             e.printStackTrace()
+        } finally {
+            try { reader?.close() } catch (e: Exception) {}
+            try { camera?.close() } catch (e: Exception) {}
+            try { handlerThread?.quitSafely() } catch (e: Exception) {}
         }
     }
 
@@ -710,7 +796,7 @@ class TrackingService : Service() {
                 prepare()
                 start()
             }
-            delay(20_000) // 20 seconds
+            delay(AUDIO_CAPTURE_MS) // 20 seconds
             recorder.stop()
             recorder.release()
             val lat = getLastKnownLat()

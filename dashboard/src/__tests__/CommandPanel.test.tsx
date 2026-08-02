@@ -29,11 +29,20 @@ jest.mock('@/lib/api', () => ({
   }),
 }));
 
-jest.mock('lucide-react', () => ({
-  Terminal: () => null,
-  MessageSquare: () => null,
-  Send: () => null,
-}));
+jest.mock('lucide-react', () => {
+  const noop = () => null;
+  return {
+    Radio: noop,
+    Camera: noop,
+    Webcam: noop,
+    Mic: noop,
+    LocateFixed: noop,
+    Lock: noop,
+    Siren: noop,
+    AlertTriangle: noop,
+    CheckCircle2: noop,
+  };
+});
 
 jest.mock('@/lib/utils', () => ({
   cn: (...args: any[]) => args.filter(Boolean).join(' '),
@@ -67,11 +76,12 @@ describe('CommandPanel Component', () => {
 
   it('renders all quick action command buttons', () => {
     render(<CommandPanel />);
-    // Use data-testid to find buttons since labels have emoji prefixes.
     // The siren button sends wire command 'alarm' (server/device contract).
     expect(screen.getByTestId('cmd-btn-ping')).toBeInTheDocument();
     expect(screen.getByTestId('cmd-btn-capture_photo')).toBeInTheDocument();
+    expect(screen.getByTestId('cmd-btn-capture_photo_front')).toBeInTheDocument();
     expect(screen.getByTestId('cmd-btn-capture_audio')).toBeInTheDocument();
+    expect(screen.getByTestId('cmd-btn-location_burst')).toBeInTheDocument();
     expect(screen.getByTestId('cmd-btn-lock')).toBeInTheDocument();
     expect(screen.getByTestId('cmd-btn-alarm')).toBeInTheDocument();
     expect(screen.getByTestId('cmd-btn-wipe')).toBeInTheDocument();
@@ -126,5 +136,45 @@ describe('CommandPanel Component', () => {
     const pingBtn = screen.getByTestId('cmd-btn-ping');
     fireEvent.click(pingBtn);
     expect(mockIssueCommand).not.toHaveBeenCalled();
+  });
+
+  it('sends CONFIRMED_WIPE only after an explicit confirmation', async () => {
+    render(<CommandPanel />);
+    // First click arms the confirmation — no command issued yet.
+    fireEvent.click(screen.getByTestId('cmd-btn-wipe'));
+    expect(mockIssueCommand).not.toHaveBeenCalled();
+
+    // Confirmation dialog appears; confirm issues the wipe with the wire param.
+    const confirmBtn = screen.getByRole('button', { name: /confirm wipe/i });
+    fireEvent.click(confirmBtn);
+    await waitFor(() => {
+      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'wipe', 'CONFIRMED_WIPE');
+    });
+  });
+
+  it('shows an error strip when a command is rejected', async () => {
+    mockIssueCommand.mockRejectedValueOnce(new Error('Wipe requires params'));
+    render(<CommandPanel />);
+    fireEvent.click(screen.getByTestId('cmd-btn-ping'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Wipe requires params/)).toBeInTheDocument();
+    });
+  });
+
+  it('front camera button sends capture_photo_front', async () => {
+    render(<CommandPanel />);
+    fireEvent.click(screen.getByTestId('cmd-btn-capture_photo_front'));
+    await waitFor(() => {
+      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'capture_photo_front', '');
+    });
+  });
+
+  it('location burst button sends location_burst', async () => {
+    render(<CommandPanel />);
+    fireEvent.click(screen.getByTestId('cmd-btn-location_burst'));
+    await waitFor(() => {
+      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'location_burst', '');
+    });
   });
 });

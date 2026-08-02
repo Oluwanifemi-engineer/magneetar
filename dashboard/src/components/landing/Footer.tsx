@@ -36,26 +36,14 @@ export function Footer() {
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#E91E8C]/30 to-transparent" />
       <div className="max-w-7xl mx-auto px-5 sm:px-8 py-14">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-          {/* Brand */}
+          {/* Brand — magenta M tile (same mark as dashboard/login + launcher icon) */}
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center overflow-hidden">
-                <svg viewBox="0 0 120 120" className="w-[18px] h-[18px]" fill="none" aria-label="Magneetar logo">
-                  <path
-                    d="M24 88L24 32L48 60L60 44L72 60L96 32L96 88"
-                    stroke="url(#footer-grad)"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <defs>
-                    <linearGradient id="footer-grad" x1="24" y1="32" x2="96" y2="88">
-                      <stop offset="0%" stopColor="#E91E8C" />
-                      <stop offset="100%" stopColor="#06B6D4" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
+              <img
+                src="/m-logo.svg"
+                alt="Magneetar"
+                className="w-8 h-8 rounded-lg drop-shadow-[0_0_12px_rgba(233,30,140,0.3)]"
+              />
               <div className="leading-none">
                 <div className="text-white text-sm font-bold tracking-[0.25em]">MAGNEETAR</div>
                 <div className="text-[8px] font-mono text-white/30 tracking-[0.3em] mt-1">TRACK · PROTECT · RECOVER</div>

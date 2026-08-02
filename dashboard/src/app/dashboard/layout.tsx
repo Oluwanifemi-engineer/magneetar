@@ -48,19 +48,12 @@ export default function DashboardLayout({
         <div className="absolute inset-0 mag-grid-bg opacity-20" />
 
         <div className="text-center animate-fade-in relative z-10">
-          {/* M Logo */}
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl border border-white/[0.08] bg-white/[0.02] mb-5 animate-m-glow shadow-[0_0_30px_rgba(233,30,140,0.15)]">
-            <svg viewBox="0 0 120 120" className="w-8 h-8 drop-shadow-[0_0_6px_rgba(233,30,140,0.6)]" fill="none">
-              <path d="M24 88L24 32L48 60L60 44L72 60L96 32L96 88"
-                    stroke="url(#mg-grad)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
-              <defs>
-                <linearGradient id="mg-grad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#E91E8C" />
-                  <stop offset="100%" stopColor="#06B6D4" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
+          {/* M Logo — magenta tile + white M (same brand mark as the launcher icon) */}
+          <img
+            src="/m-logo.svg"
+            alt="Magneetar"
+            className="w-14 h-14 mb-5 animate-m-glow drop-shadow-[0_0_30px_rgba(233,30,140,0.4)]"
+          />
           <div className="text-xl font-display font-bold tracking-[0.3em] mb-3 text-gradient-primary">
             MAGNEETAR
           </div>

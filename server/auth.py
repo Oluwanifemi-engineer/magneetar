@@ -231,6 +231,13 @@ def check_command_rate_limit(actor: str) -> bool:
     return check_rate_limit(f"command:{actor}", "command", settings.RATE_COMMAND_PER_MINUTE, 1)
 
 
+def check_password_verify_rate_limit(actor: str) -> bool:
+    """Check step-up (password re-verification) rate limit: 10 attempts per
+    minute per actor. Destructive actions (media deletion, account deletion)
+    that re-authenticate with a password must not be brute-forced."""
+    return check_rate_limit(f"stepup:{actor}", "stepup", 10, 1)
+
+
 def check_media_rate_limit(device_id: str) -> bool:
     """Check media upload rate limit: 10 uploads per minute per device."""
     return check_rate_limit(f"media:{device_id}", "media", settings.RATE_MEDIA_PER_MINUTE, 1)
@@ -363,7 +370,7 @@ def user_id_from_subject(subject: str) -> Optional[str]:
     subjects like 'dashboard:<hash>' or 'api_key_user').
     """
     if subject.startswith("user:"):
-        return subject[len("user:"):]
+        return subject[len("user:") :]
     return None
 
 

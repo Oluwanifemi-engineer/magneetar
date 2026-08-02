@@ -14,7 +14,7 @@ Magneetar is a fully functional anti-theft tracking system with:
 - **Dashboard** — Next.js tactical command center with a premium landing + auth experience
 - **Production deployment** — Docker Compose + Cloudflare Tunnel (SQLite on the persisted volume is the live data plane)
 
-All **306 tests pass consistently** (219 backend + 87 dashboard). The system is hardened with reliability improvements (WebSocket connection limits, alert circuit breakers, per-device recipients, CI alert verification), and **Milestone 2 (Multi-User & Device Ownership) P0s are now complete**: devices link to accounts on Android at registration and via a claim endpoint, every dashboard endpoint is scoped by ownership, WebSocket broadcasts are owner-filtered, and per-user device limits are enforced. **Guardian Network (Milestone 3 P0)** is also live: opt-in guardians, blurred nearby scans, sighting reports, and recovery-request lifecycle — all verified end-to-end in production.
+All **339 tests pass consistently** (230 backend + 109 dashboard). The system is hardened with reliability improvements (WebSocket connection limits, alert circuit breakers, per-device recipients, CI alert verification), and **Milestone 2 (Multi-User & Device Ownership) P0s are now complete**: devices link to accounts on Android at registration and via a claim endpoint, every dashboard endpoint is scoped by ownership, WebSocket broadcasts are owner-filtered, and per-user device limits are enforced. **Guardian Network (Milestone 3 P0)** is also live: opt-in guardians, blurred nearby scans, sighting reports, and recovery-request lifecycle — all verified end-to-end in production. The latest round landed **step-up-password media deletion**, **working remote commands** (wipe CONFIRMED_WIPE + hardened Android command loop), the **Trail Replay Invalid-Date fix**, the **Settings modal portal fix**, premium command buttons, and the **magenta-tile white-M brand refresh** (web + Android launcher).
 
 ---
 
@@ -32,9 +32,10 @@ All **306 tests pass consistently** (219 backend + 87 dashboard). The system is 
 | **Guardian Tests** (`test_guardian.py`) | **23** | ✅ **All pass** (opt-in, recovery launch/close, blurred scans, rate-limited sightings, ownership isolation) |
 | **Heartbeat/Theft Tests** (`test_heartbeat_theft.py`) | **3** | ✅ **All pass** (heartbeat w/ admin inactive → 200 + last_seen advances + no stolen-mode; sub-threshold activation is a no-op) |
 | **Alert Settings Tests** (`test_alert_settings.py`) | **13** | ✅ **All pass** (per-device channels, enabled types, quiet hours, emergency always-deliver, dedup-row regression) |
-| **Backend Total** | **219** | **✅ All pass** |
-| **Dashboard Tests** | **87** | **✅ All pass** (14 suites, `tsc --noEmit` clean, incl. `deviceDisplayName` + `DevicePanel.test.tsx` alert-settings tests) |
-| **Grand Total** | **306** | **✅ All pass** |
+| **Media Delete Tests** (`test_media_delete.py`) | **11** | ✅ **All pass** (step-up password gate: user password + admin API key, wrong-password 401, rate limit 429, ownership 403, evidence counter fix-up) |
+| **Backend Total** | **230** | **✅ All pass** |
+| **Dashboard Tests** | **109** | **✅ All pass** (16 suites, `tsc --noEmit` clean, incl. `MediaGallery.test.tsx` password-gated deletion, `SettingsModal.test.tsx` portal regression, `CommandPanel.test.tsx` wipe/front/burst, timestamp regressions) |
+| **Grand Total** | **339** | **✅ All pass** |
 
 ---
 
@@ -72,7 +73,40 @@ All **306 tests pass consistently** (219 backend + 87 dashboard). The system is 
 | CI Alert Credential Check | Read-only Twilio auth check on every push (non-blocking) |
 | CI Alert Smoke Test | Manual `workflow_dispatch` — sends 1 real WhatsApp + SMS |
 
-### ✅ Per-Device Alert Preferences (in-flight → next release)
+### ✅ Step-Up Media Deletion (security)
+
+| Feature | Details |
+|---------|---------|
+| Delete gate | `POST /api/dashboard/media/{id}/delete` — user mode verifies the **account password** (bcrypt/PBKDF2), admin mode verifies the **master API key** (`hmac.compare_digest`); a dashboard session alone is never enough |
+| Brute-force protection | `check_password_verify_rate_limit` — 10 attempts/min/actor, 429 beyond |
+| Evidence integrity | Deleting a linked photo/audio decrements the owning `evidence_cases` photo/audio counters (never goes negative) |
+| Ownership | Non-owners get 403; every deletion is audit-logged |
+| Dashboard UI | Media Gallery manage mode — multi-select, select-all, portaled password prompt with error feedback |
+| Tests | 11 backend + 5 dashboard |
+
+### ✅ Remote Commands & Dashboard Reliability
+
+| Feature | Details |
+|---------|---------|
+| Wipe fixed | Dashboard now sends `params='CONFIRMED_WIPE'` (the old button 400'd silently and never reached the device) |
+| New commands | FRONT-camera + location-BURST buttons in the quick-action grid |
+| Error feedback | Every command send surfaces success/error strips instead of failing silently |
+| Android command loop | `handleCommand` always acks (executed/failed) — nothing sticks PENDING; camera capture bounded by 45s timeout, `onError`/`onDisconnected` complete the deferred so a broken camera can't stall the loop |
+| Settings modal | Portaled into `document.body` — the old `backdrop-blur` header clipped the `fixed` modal to 56px, making SETTINGS look dead |
+| Trail Replay | `parseTimestamp`/`locationTimestamp` normalize ISO + SQLite timestamps — no more "Invalid Date"; stable animation deps |
+| Tabs | Horizontal scroll so all seven tabs are reachable in the narrow panel |
+| Command buttons | Tone-driven glassy gradient tiles (premium), not the flat cartoon look |
+
+### ✅ Brand — Magenta Tile + White M
+
+| Feature | Details |
+|---------|---------|
+| Web | `m-logo.svg` / `favicon.svg` / `logo.svg` — capital M in white on the magenta gradient |
+| Dashboard + landing | Auth screen, landing nav, footer all use the new tile |
+| Android adaptive icon | Magenta gradient `ic_launcher_background` + white M foreground |
+| Legacy PNGs | All five mipmaps regenerated (48→192px) via `scripts/gen-launcher-icons.py` |
+
+### ✅ Per-Device Alert Preferences
 
 | Feature | Details |
 |---------|---------|

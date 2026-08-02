@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useStore } from '@/store/useStore';
-import { cn, openGoogleMapsDirections, formatDistance, formatDuration, isOnline, relativeTime, formatTimestamp } from '@/lib/utils';
+import { cn, openGoogleMapsDirections, formatDistance, formatDuration, isOnline, relativeTime, formatTimestamp, locationTimestamp } from '@/lib/utils';
 import { getOSRMRoute, NavigationRoute } from '@/services/navigation';
 import type { Location } from '@/types';
 
@@ -224,8 +224,10 @@ function DistanceOverlay({ userPos, deviceLat, deviceLng, offline, lastSeen }: {
 
 // ─── Path Animation Tracker ────────────────────────────────────────────────
 
-function PathAnimationTracker({ locations, isPlaying, playbackSpeed, index, onIndexChange }: {
-  locations: Location[];
+function PathAnimationTracker({ trailLocations, isPlaying, playbackSpeed, index, onIndexChange }: {
+  // Pre-reversed (oldest → newest) trail from the parent — already memoized
+  // upstream so the path-rebuild effect never re-fires on every render.
+  trailLocations: Location[];
   isPlaying: boolean;
   playbackSpeed: number;
   index: number;
@@ -234,7 +236,6 @@ function PathAnimationTracker({ locations, isPlaying, playbackSpeed, index, onIn
   const map = useMap();
   const [animatedPath, setAnimatedPath] = useState<[number, number][]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const trailLocations = locations.slice().reverse();
 
   // Playback ticker — advances the SHARED index (the parent owns the state so
   // the timeline slider and the animation stay in sync).
@@ -267,7 +268,7 @@ function PathAnimationTracker({ locations, isPlaying, playbackSpeed, index, onIn
   useEffect(() => {
     onIndexChange(0);
     setAnimatedPath([]);
-  }, [locations, onIndexChange]);
+  }, [trailLocations, onIndexChange]);
 
   if (animatedPath.length < 2) return null;
 
@@ -332,8 +333,9 @@ export function MapView() {
   const device = devices.find(d => d.id === selectedDeviceId);
   const deviceOnline = device ? isOnline(device.last_seen) : true;
 
-  // Replay trail (oldest → newest) for the timeline scrubber
-  const trailLocations = locations.slice().reverse();
+  // Replay trail (oldest → newest) for the timeline scrubber — memoized so
+  // the timeline and the animation tracker share one stable ordering.
+  const trailLocations = useMemo(() => locations.slice().reverse(), [locations]);
 
   // Stop playback when the replay reaches the end of the trail
   useEffect(() => {
@@ -388,10 +390,10 @@ export function MapView() {
   }, [latestLocation, navigationRoute]);
 
   // Trail points (oldest to newest)
-  const trailPoints = locations
-    .slice()
-    .reverse()
-    .map((l) => [l.lat, l.lng] as [number, number]);
+  const trailPoints = useMemo(
+    () => locations.slice().reverse().map((l) => [l.lat, l.lng] as [number, number]),
+    [locations]
+  );
 
   return (
     <div className="relative flex-1 h-full bg-mag-bg">
@@ -427,10 +429,12 @@ export function MapView() {
             />
           )}
 
-          {/* Path Animation Tracker */}
+          {/* Path Animation Tracker — receives the memoized trail (already
+              oldest→newest) so it doesn't reverse the array a second time on
+              every render. */}
           {showPathTracker && (
             <PathAnimationTracker
-              locations={locations}
+              trailLocations={trailLocations}
               isPlaying={pathPlaying}
               playbackSpeed={pathSpeed}
               index={pathIndex}
@@ -545,7 +549,7 @@ export function MapView() {
                     )}
                   </div>
                   <div className="mt-2 pt-2 border-t border-mag-border/50 text-mag-text-dim/50 font-mono text-[10px] font-bold">
-                    {latestLocation.timestamp}
+                    {formatTimestamp(locationTimestamp(latestLocation))}
                   </div>
                 </div>
               </Popup>
@@ -642,9 +646,9 @@ export function MapView() {
           />
 
           <div className="flex items-center justify-between mt-1 text-[8px] font-mono text-mag-text-dim/40 font-bold">
-            <span>{formatTimestamp(trailLocations[0]?.timestamp)}</span>
-            <span className="text-mag-primary">{formatTimestamp(trailLocations[pathIndex]?.timestamp)}</span>
-            <span>{formatTimestamp(trailLocations[trailLocations.length - 1]?.timestamp)}</span>
+            <span>{formatTimestamp(locationTimestamp(trailLocations[0]))}</span>
+            <span className="text-mag-primary">{formatTimestamp(locationTimestamp(trailLocations[pathIndex]))}</span>
+            <span>{formatTimestamp(locationTimestamp(trailLocations[trailLocations.length - 1]))}</span>
           </div>
         </div>
       )}

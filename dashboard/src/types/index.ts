@@ -70,7 +70,9 @@ export interface LocationWithMeta extends Location {
 export type CommandType =
   | 'ping'
   | 'capture_photo'
+  | 'capture_photo_front'
   | 'capture_audio'
+  | 'location_burst'
   | 'lock'
   | 'wipe'
   // Wire command for the siren — the server (models.CommandRequest) and the
