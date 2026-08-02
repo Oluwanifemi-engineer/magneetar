@@ -20,7 +20,6 @@ The sweep runs from the FastAPI lifespan (see main.py) every 60 seconds.
 """
 
 import asyncio
-from datetime import datetime, timezone
 
 from logging_config import get_logger
 
@@ -89,6 +88,7 @@ async def run_offline_sweep() -> int:
     Extracted from the loop so tests can invoke a single sweep directly.
     """
     from alerts import alert_engine  # see note in find_offline_devices()
+    from database import log_audit  # see note in find_offline_devices()
 
     offline = find_offline_devices()
     alerted = 0
@@ -106,8 +106,6 @@ async def run_offline_sweep() -> int:
                     ),
                 },
             )
-            from database import log_audit  # see note in find_offline_devices()
-
             log_audit(
                 "device_offline_alerted",
                 actor=device["id"],
@@ -123,8 +121,3 @@ async def run_offline_sweep() -> int:
     if offline:
         logger.info(f"Offline monitor sweep: {alerted}/{len(offline)} device(s) alerted")
     return alerted
-
-
-def _utcnow_iso() -> str:
-    """Test-friendly helper: current UTC time as ISO-8601."""
-    return datetime.now(timezone.utc).isoformat()

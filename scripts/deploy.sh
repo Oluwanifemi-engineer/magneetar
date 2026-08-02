@@ -84,16 +84,20 @@ echo ""
 # ── 6. Health gate with retries ────────────────────────────────────────────────
 # Wait up to HEALTH_RETRIES × 10s for /health to come back "online". This is
 # the point where a bad image is caught BEFORE it serves traffic.
+# The gate also verifies the SERVING container is the freshly-built one by
+# checking its uptime is small — a stale container from a missed recreate
+# would otherwise pass the gate and keep serving the old image.
 HEALTH_RETRIES=18   # 3 minutes max
 HEALTH_OK=0
 echo "⏳ Waiting for server health (up to ${HEALTH_RETRIES}x10s)..."
 for i in $(seq 1 "$HEALTH_RETRIES"); do
-    if curl -sf http://localhost:8002/health > /dev/null 2>&1; then
+    UPTIME=$(curl -sf http://localhost:8002/health 2>/dev/null | python3 -c "import json,sys; print(int(json.load(sys.stdin).get('uptime', 99999)))" 2>/dev/null || echo 99999)
+    if [ "$UPTIME" -lt 180 ]; then
         HEALTH_OK=1
-        echo "   ✅ Server is healthy (attempt $i)"
+        echo "   ✅ Server is healthy (attempt $i, uptime ${UPTIME}s)"
         break
     fi
-    echo "   ⏳ health check attempt $i/${HEALTH_RETRIES}..."
+    echo "   ⏳ health check attempt $i/${HEALTH_RETRIES} (uptime ${UPTIME}s — waiting for the new container)..."
     sleep 10
 done
 

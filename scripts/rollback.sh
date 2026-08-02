@@ -41,7 +41,10 @@ docker tag "$DASHBOARD_IMAGE:$ROLLBACK_TAG" "$DASHBOARD_IMAGE:latest"
 echo "   ✅ Images restored to :predeploy"
 
 echo "🏗️  Recreating containers from restored images..."
-docker compose up -d --no-deps server dashboard 2>&1
+# --force-recreate is REQUIRED: the container's image REFERENCE is still
+# 'magneetar-server:latest', so compose would otherwise see no config change
+# and silently leave the broken container running.
+docker compose up -d --no-deps --force-recreate server dashboard 2>&1
 
 echo "⏳ Waiting for health after rollback..."
 for i in $(seq 1 18); do
