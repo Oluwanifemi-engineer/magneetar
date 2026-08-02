@@ -53,10 +53,12 @@ BASE_LNG = 8.6753
 # ─── Device Simulator ─────────────────────────────────────────────────────────
 
 class DeviceSimulator:
-    def __init__(self, server_url: str, api_key: str, device_id: str):
+    def __init__(self, server_url: str, api_key: str, device_id: str, user_token: Optional[str] = None, device_key: str = ""):
         self.server = server_url.rstrip("/")
         self.api_key = api_key
         self.device_id = device_id
+        self.user_token = user_token  # Bearer token linking the device to an account
+        self.device_key = device_key
         self.access_token: Optional[str] = None
         self.session = requests.Session()
         self.ping_count = 0
@@ -71,23 +73,38 @@ class DeviceSimulator:
         print(f"📱 Registering device: {self.device_id}")
         print(f"{'='*60}")
 
+        payload = {
+            "device_id": self.device_id,
+            "fingerprint": f"sim-{self.device_id}-fingerprint",
+            "model": "Simulated Phone v1.0",
+            "os_version": "Android 14",
+            "app_version": "1.0.0",
+        }
+        if self.device_key:
+            payload["device_key"] = self.device_key
+
+        headers = {"x-api-key": self.api_key}
+        if self.user_token:
+            # Mirror the Android TrackingService multi-user flow: send the
+            # signed-in user's bearer token so the server links this device
+            # to the account (owner_id) — it then appears in that user's
+            # dashboard and is scoped to them.
+            headers["Authorization"] = f"Bearer {self.user_token}"
+
         resp = self.session.post(
             f"{self.server}/api/device/register",
-            json={
-                "device_id": self.device_id,
-                "fingerprint": f"sim-{self.device_id}-fingerprint",
-                "model": "Simulated Phone v1.0",
-                "os_version": "Android 14",
-                "app_version": "1.0.0",
-            },
-            headers={"x-api-key": self.api_key},
+            json=payload,
+            headers=headers,
         )
 
         if resp.status_code == 200:
             data = resp.json()
             self.access_token = data["token"]
+            linked = "yes" if (self.user_token and data.get("owner_id")) else "no"
             print(f"✅ Registered successfully")
             print(f"   Tokens: access={data['token'][:20]}... refresh={data['refresh_token'][:20]}...")
+            if self.user_token:
+                print(f"   Account-linked: {linked} (owner_id={data.get('owner_id')})")
             return True
         else:
             print(f"❌ Registration failed: {resp.status_code} {resp.text}")
@@ -343,10 +360,19 @@ class DeviceSimulator:
         print(f"📊 Dashboard Status")
         print(f"{'='*60}")
 
-        # Use API key directly for dashboard access
+        # When a user token was used, check the dashboard as THAT user so we
+        # verify ownership scoping (the device should appear). Otherwise fall
+        # back to the shared API key (admin view).
+        if self.user_token:
+            headers = {"Authorization": f"Bearer {self.user_token}"}
+            scope = "user (ownership-scoped)"
+        else:
+            headers = {"x-api-key": self.api_key}
+            scope = "api key (admin)"
+        print(f"   Viewing as: {scope}")
         resp = self.session.get(
             f"{self.server}/api/dashboard/devices",
-            headers={"x-api-key": self.api_key},
+            headers=headers,
         )
 
         if resp.status_code == 200:
@@ -459,6 +485,10 @@ Examples:
     parser.add_argument("--server", default=DEFAULT_SERVER, help="Server URL")
     parser.add_argument("--api-key", default=DEFAULT_API_KEY, help="API key for registration")
     parser.add_argument("--device-id", default=DEFAULT_DEVICE_ID, help="Device identifier")
+    parser.add_argument("--user-token", default=None,
+                        help="User JWT (Bearer) — links the device to that account (multi-user flow)")
+    parser.add_argument("--device-key", default="",
+                        help="Per-device secret key to send at registration (defaults to none; server generates one)")
     parser.add_argument("--mode", choices=["normal", "driving", "theft", "battery"],
                         help="Scenario mode")
     parser.add_argument("--pings", type=int, default=10, help="Number of pings to send")
@@ -474,7 +504,8 @@ Examples:
             print("❌ No API key provided. Use --api-key or set MT_API_KEY environment variable.")
             sys.exit(1)
 
-    sim = DeviceSimulator(args.server, args.api_key, args.device_id)
+    sim = DeviceSimulator(args.server, args.api_key, args.device_id,
+                          user_token=args.user_token, device_key=args.device_key)
 
     if not sim.health_check():
         return

@@ -34,6 +34,13 @@ for mod_name in list(sys.modules.keys()):
         or mod_name == "encryption"
         or mod_name.startswith("routes")
         or mod_name == "websocket_manager"
+        # user_auth/evidence_pdf/database_postgres also bind config+settings;
+        # leaving the stale copies in sys.modules makes later test modules
+        # (test_multi_user, test_reliability) mix config A tokens with config
+        # B decoding → "Invalid token", and write rate limits to the wrong DB.
+        or mod_name == "user_auth"
+        or mod_name == "evidence_pdf"
+        or mod_name == "database_postgres"
     ):
         del sys.modules[mod_name]
 

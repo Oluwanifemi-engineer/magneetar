@@ -29,6 +29,26 @@ class DeviceRegistration(BaseModel):
         return v
 
 
+class DeviceClaimRequest(BaseModel):
+    """Link an existing device to the authenticated user's account.
+
+    The device is identified either by the `x-device-key` header (preferred,
+    since only the device knows its secret key) or by an explicit `device_id`.
+    The user is identified by the JWT in the `Authorization` header.
+    """
+
+    device_id: Optional[str] = Field(None, min_length=3, max_length=64)
+
+    @field_validator("device_id")
+    @classmethod
+    def validate_device_id(cls, v):
+        if v is None:
+            return v
+        if not re.match(r"^[a-zA-Z0-9_-]+$", v):
+            raise ValueError("device_id must be alphanumeric with hyphens/underscores")
+        return v
+
+
 class DeviceResponse(BaseModel):
     id: str
     alias: Optional[str] = None
@@ -339,6 +359,38 @@ class Geofence(BaseModel):
     radius_meters: float
     is_safe_zone: bool = True
     active: bool = True
+
+
+# ─── Guardian Network Models ──────────────────────────────────────────────────
+
+
+class GuardianOptIn(BaseModel):
+    """Opt in (or out) as a community guardian who helps recover stolen devices."""
+
+    opted_in: bool = True
+    radius_km: int = Field(20, ge=1, le=1000)
+    handle: Optional[str] = Field(None, max_length=40)
+
+
+class GuardianProfile(BaseModel):
+    user_id: str
+    opted_in: bool = False
+    radius_km: int = 20
+    handle: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class RecoveryRequestCreate(BaseModel):
+    device_id: str
+    description: Optional[str] = Field(None, max_length=500)
+
+
+class RecoverySightingCreate(BaseModel):
+    request_id: str
+    lat: float = Field(..., ge=-90, le=90)
+    lng: float = Field(..., ge=-180, le=180)
+    note: Optional[str] = Field(None, max_length=300)
 
 
 # ─── Alert Models ────────────────────────────────────────────────────────────

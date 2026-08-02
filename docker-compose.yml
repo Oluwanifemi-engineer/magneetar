@@ -51,9 +51,17 @@ services:
       # If they drift, PostgreSQL auth silently fails and the server falls
       # back to SQLite — keep both files updated together (generate-env.sh).
       - MT_DATABASE_URL=postgresql://magneetar:${MT_DB_PASSWORD:-changeme}@db:5432/magneetar
+      # SQLite must live on the persisted volume (/app/data), NOT the container
+      # layer (/app). A relative path resolves against WORKDIR=/app, so every
+      # rebuild silently wiped accounts + device registrations. /app/data is the
+      # magneetar-data volume, so data now survives rebuilds.
+      - MT_DB_PATH=/app/data/magneetar.db
     volumes:
       - magneetar-data:/app/data
       - ./server/static/apk:/app/static/apk
+      # Firebase service-account JSON for FCM push alerts (MT_FIREBASE_KEY in
+      # server/.env must point to the CONTAINER path /app/firebase-service-account.json).
+      - ./server/firebase-service-account.json:/app/firebase-service-account.json:ro
     depends_on:
       db:
         condition: service_healthy

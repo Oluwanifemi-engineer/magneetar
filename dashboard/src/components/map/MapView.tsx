@@ -3,9 +3,28 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useStore } from '@/store/useStore';
-import { cn, openGoogleMapsDirections, formatDistance, formatDuration } from '@/lib/utils';
+import { cn, openGoogleMapsDirections, formatDistance, formatDuration, isOnline, relativeTime, formatTimestamp } from '@/lib/utils';
 import { getOSRMRoute, NavigationRoute } from '@/services/navigation';
 import type { Location } from '@/types';
+
+// ─── Map tiles ──────────────────────────────────────────────────────────────
+// MapTiler gives noticeably better Africa/Nigeria coverage than pure OSM
+// (Carto's dark_all tiles — Nigerian building polygons show as black blocks).
+// Falls back to Carto Dark Matter when no key is configured so the map never
+// breaks. Set NEXT_PUBLIC_MAPTILER_KEY (or a full NEXT_PUBLIC_MAP_TILE_URL)
+// in the dashboard build env to enable.
+const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY || '';
+const MAP_TILE_URL = process.env.NEXT_PUBLIC_MAP_TILE_URL || '';
+const MAP_TILE_URL_RESOLVED =
+  MAP_TILE_URL ||
+  (MAPTILER_KEY
+    ? `https://api.maptiler.com/maps/dark-matter/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`
+    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
+const MAP_TILE_ATTRIBUTION = MAP_TILE_URL
+  ? ''
+  : MAPTILER_KEY
+    ? '&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>';
 
 // Dynamic imports for SSR safety
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
@@ -84,8 +103,9 @@ async function initIcons() {
 
 function MapController() {
   const map = useMap();
-  const { followDevice, latestLocation } = useStore();
+  const { followDevice, latestLocation, selectedDeviceId } = useStore();
   const prevCenter = useRef<string>('');
+  const prevDevice = useRef<string | null>(null);
   const userInteracted = useRef(false);
   const interactionTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -116,20 +136,36 @@ function MapController() {
     }
   }, [followDevice, latestLocation, map]);
 
+  // When the operator (re)selects a device, jump to street level (z17) so the
+  // exact building is visible — the persisted mapZoom is 6 (whole country) and
+  // follow only pans at the current zoom, so a fresh selection used to land
+  // nowhere near the device.
+  useEffect(() => {
+    if (selectedDeviceId && selectedDeviceId !== prevDevice.current && latestLocation) {
+      prevDevice.current = selectedDeviceId;
+      map.setView([latestLocation.lat, latestLocation.lng], 17, { animate: true, duration: 0.6 });
+    }
+  }, [selectedDeviceId, latestLocation, map]);
+
   return null;
 }
 
 // ─── Distance Overlay Component ─────────────────────────────────────────────
 
-function DistanceOverlay({ userPos, deviceLat, deviceLng }: {
+function DistanceOverlay({ userPos, deviceLat, deviceLng, offline, lastSeen }: {
   userPos: [number, number] | null;
   deviceLat: number;
   deviceLng: number;
+  offline: boolean;
+  lastSeen: string | null;
 }) {
   const [distance, setDistance] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!userPos) return;
+    if (!userPos || offline) {
+      setDistance(null);
+      return;
+    }
     const R = 6371000;
     const dLat = (deviceLat - userPos[0]) * Math.PI / 180;
     const dLng = (deviceLng - userPos[1]) * Math.PI / 180;
@@ -138,7 +174,27 @@ function DistanceOverlay({ userPos, deviceLat, deviceLng }: {
               Math.sin(dLng/2) * Math.sin(dLng/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     setDistance(R * c);
-  }, [userPos, deviceLat, deviceLng]);
+  }, [userPos, deviceLat, deviceLng, offline]);
+
+  // Offline device — show when it was last seen and WHERE (last-known
+  // coordinates) instead of hiding the overlay entirely.
+  if (offline) {
+    return (
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000]">
+        <div className="mag-panel px-4 py-2.5 flex items-center gap-2.5 animate-fade-in">
+          <div className="w-2 h-2 rounded-full bg-mag-warning shadow-[0_0_10px_rgba(245,158,11,0.6)] animate-pulse-slow" />
+          <span className="font-mono text-[10px] text-mag-warning font-bold uppercase tracking-wider">OFFLINE</span>
+          <div className="h-4 w-px bg-mag-border/40" />
+          <span className="font-mono text-[11px] text-mag-text-dim font-bold">
+            Last seen {relativeTime(lastSeen)}
+          </span>
+          <span className="font-mono text-[10px] text-mag-text-dim/60 font-bold hidden sm:inline">
+            · {deviceLat.toFixed(5)}, {deviceLng.toFixed(5)}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   if (!distance) return null;
 
@@ -168,20 +224,20 @@ function DistanceOverlay({ userPos, deviceLat, deviceLng }: {
 
 // ─── Path Animation Tracker ────────────────────────────────────────────────
 
-interface PathTrackerProps {
+function PathAnimationTracker({ locations, isPlaying, playbackSpeed, index, onIndexChange }: {
   locations: Location[];
   isPlaying: boolean;
   playbackSpeed: number;
-  onProgress: (index: number) => void;
-}
-
-function PathAnimationTracker({ locations, isPlaying, playbackSpeed, onProgress }: PathTrackerProps) {
+  index: number;
+  onIndexChange: (index: number) => void;
+}) {
   const map = useMap();
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [animatedPath, setAnimatedPath] = useState<[number, number][]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const trailLocations = locations.slice().reverse();
 
+  // Playback ticker — advances the SHARED index (the parent owns the state so
+  // the timeline slider and the animation stay in sync).
   useEffect(() => {
     if (!isPlaying || trailLocations.length < 2) {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -189,33 +245,29 @@ function PathAnimationTracker({ locations, isPlaying, playbackSpeed, onProgress 
     }
 
     intervalRef.current = setInterval(() => {
-      setCurrentIndex(prev => {
-        const next = prev + 1;
-        if (next >= trailLocations.length) {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          return prev;
-        }
-        const loc = trailLocations[next];
-        setAnimatedPath(p => [...p, [loc.lat, loc.lng]]);
-        onProgress(next);
-
-        // Smooth pan to current position
-        map.panTo([loc.lat, loc.lng], { animate: true, duration: 0.3 });
-
-        return next;
-      });
+      onIndexChange(Math.min(index + 1, trailLocations.length - 1));
     }, 1000 / playbackSpeed);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isPlaying, playbackSpeed, trailLocations.length]);
+  }, [isPlaying, playbackSpeed, trailLocations.length, index, onIndexChange]);
 
-  // Reset when locations change
+  // Rebuild the drawn path whenever the index changes (playback OR scrubbing)
+  // and keep the map panned onto the current point.
   useEffect(() => {
-    setCurrentIndex(0);
+    setAnimatedPath(trailLocations.slice(0, index + 1).map((l) => [l.lat, l.lng] as [number, number]));
+    const loc = trailLocations[index];
+    if (loc) {
+      map.panTo([loc.lat, loc.lng], { animate: true, duration: 0.25 });
+    }
+  }, [index, trailLocations, map]);
+
+  // Reset when the device/selection changes
+  useEffect(() => {
+    onIndexChange(0);
     setAnimatedPath([]);
-  }, [locations]);
+  }, [locations, onIndexChange]);
 
   if (animatedPath.length < 2) return null;
 
@@ -260,6 +312,7 @@ export function MapView() {
   const {
     locations, latestLocation, mapCenter, mapZoom,
     followDevice, setFollowDevice, showTrail, setShowTrail,
+    devices, selectedDeviceId,
   } = useStore();
 
   const [mapReady, setMapReady] = useState(false);
@@ -268,11 +321,26 @@ export function MapView() {
   const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
   const [navigating, setNavigating] = useState(false);
 
-  // Path tracker state
+  // Path tracker state — the index is shared with the timeline slider so
+  // scrubbing and playback stay in sync
   const [pathPlaying, setPathPlaying] = useState(false);
   const [pathSpeed, setPathSpeed] = useState(2);
-  const [pathProgress, setPathProgress] = useState(0);
+  const [pathIndex, setPathIndex] = useState(0);
   const [showPathTracker, setShowPathTracker] = useState(false);
+
+  // Selected device + online state (drives the offline banner + zoom-on-select)
+  const device = devices.find(d => d.id === selectedDeviceId);
+  const deviceOnline = device ? isOnline(device.last_seen) : true;
+
+  // Replay trail (oldest → newest) for the timeline scrubber
+  const trailLocations = locations.slice().reverse();
+
+  // Stop playback when the replay reaches the end of the trail
+  useEffect(() => {
+    if (pathPlaying && trailLocations.length > 0 && pathIndex >= trailLocations.length - 1) {
+      setPathPlaying(false);
+    }
+  }, [pathPlaying, pathIndex, trailLocations.length]);
 
   // Get user position
   useEffect(() => {
@@ -339,21 +407,23 @@ export function MapView() {
           zoomDelta={0.5}
           wheelPxPerZoomLevel={60}
         >
-          {/* Dark map tiles — CartoDB Dark Matter */}
+          {/* Dark map tiles — MapTiler (better Nigeria coverage) or Carto fallback */}
           <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            url={MAP_TILE_URL_RESOLVED}
             maxZoom={19}
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
+            attribution={MAP_TILE_ATTRIBUTION}
           />
 
           <MapController />
 
-          {/* Distance Overlay */}
-          {latestLocation && userPosition && (
+          {/* Distance / offline overlay */}
+          {latestLocation && (userPosition || !deviceOnline) && (
             <DistanceOverlay
               userPos={userPosition}
               deviceLat={latestLocation.lat}
               deviceLng={latestLocation.lng}
+              offline={!deviceOnline}
+              lastSeen={device?.last_seen ?? null}
             />
           )}
 
@@ -363,7 +433,8 @@ export function MapView() {
               locations={locations}
               isPlaying={pathPlaying}
               playbackSpeed={pathSpeed}
-              onProgress={setPathProgress}
+              index={pathIndex}
+              onIndexChange={setPathIndex}
             />
           )}
 
@@ -522,6 +593,62 @@ export function MapView() {
         </MapContainer>
       )}
 
+      {/* ── Trail Replay Timeline (video-scrubber style) ────────────────── */}
+      {showPathTracker && latestLocation && trailLocations.length > 2 && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[1000] w-[min(520px,calc(100%-2rem))] mag-panel px-4 py-3 animate-fade-in">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-mag-text-dim/60">
+              Trail Replay
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setPathPlaying(!pathPlaying)}
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold border transition-all',
+                  pathPlaying
+                    ? 'border-mag-accent/40 text-mag-accent bg-mag-accent/10'
+                    : 'border-mag-border/60 text-mag-text-dim hover:border-mag-border'
+                )}
+              >
+                {pathPlaying ? (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                ) : (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                )}
+                {pathPlaying ? 'PAUSE' : 'PLAY'}
+              </button>
+              <select
+                value={pathSpeed}
+                onChange={(e) => setPathSpeed(Number(e.target.value))}
+                className="bg-mag-surface/40 border border-mag-border/40 rounded-lg px-1.5 py-1 text-[9px] font-mono font-bold text-mag-text-dim focus:outline-none focus:border-mag-primary/40"
+              >
+                <option value={1}>1x</option>
+                <option value={2}>2x</option>
+                <option value={4}>4x</option>
+                <option value={8}>8x</option>
+              </select>
+            </div>
+          </div>
+
+          <input
+            type="range"
+            min={0}
+            max={trailLocations.length - 1}
+            step={1}
+            value={pathIndex}
+            onChange={(e) => { setPathPlaying(false); setPathIndex(Number(e.target.value)); }}
+            aria-label="Trail replay timeline"
+            className="w-full accent-[#E91E8C] cursor-pointer"
+          />
+
+          <div className="flex items-center justify-between mt-1 text-[8px] font-mono text-mag-text-dim/40 font-bold">
+            <span>{formatTimestamp(trailLocations[0]?.timestamp)}</span>
+            <span className="text-mag-primary">{formatTimestamp(trailLocations[pathIndex]?.timestamp)}</span>
+            <span>{formatTimestamp(trailLocations[trailLocations.length - 1]?.timestamp)}</span>
+          </div>
+        </div>
+      )}
+
       {/* ── Bottom Controls ──────────────────────────────────────────────── */}
       <div className="absolute bottom-4 left-4 right-4 z-[1000] flex items-end gap-3 pointer-events-none">
         {/* Left: Follow/Trail/Path controls */}
@@ -555,66 +682,21 @@ export function MapView() {
             </div>
           )}
 
-          {/* Path Animation Controls */}
+          {/* Path Animation toggle */}
           {latestLocation && locations.length > 2 && (
-            <div className="mag-panel px-3 py-2 space-y-2">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setShowPathTracker(!showPathTracker); setPathPlaying(false); setPathProgress(0); }}
-                  className={cn(
-                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-all',
-                    showPathTracker
-                      ? 'border-mag-primary/40 text-mag-primary bg-mag-primary/10'
-                      : 'border-mag-border/60 text-mag-text-dim hover:border-mag-border'
-                  )}
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                  REPLAY
-                </button>
-                {showPathTracker && (
-                  <>
-                    <button
-                      onClick={() => setPathPlaying(!pathPlaying)}
-                      className={cn(
-                        'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold border transition-all',
-                        pathPlaying
-                          ? 'border-mag-accent/40 text-mag-accent bg-mag-accent/10'
-                          : 'border-mag-border/60 text-mag-text-dim hover:border-mag-border'
-                      )}
-                    >
-                      {pathPlaying ? (
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                      ) : (
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                      )}
-                      {pathPlaying ? 'PAUSE' : 'PLAY'}
-                    </button>
-                    <select
-                      value={pathSpeed}
-                      onChange={(e) => setPathSpeed(Number(e.target.value))}
-                      className="bg-mag-surface/40 border border-mag-border/40 rounded-lg px-2 py-1 text-[10px] font-mono font-bold text-mag-text-dim focus:outline-none focus:border-mag-primary/40"
-                    >
-                      <option value={1}>1x</option>
-                      <option value={2}>2x</option>
-                      <option value={4}>4x</option>
-                      <option value={8}>8x</option>
-                    </select>
-                  </>
+            <div className="mag-panel px-3 py-2">
+              <button
+                onClick={() => { setShowPathTracker(!showPathTracker); setPathPlaying(false); setPathIndex(0); }}
+                className={cn(
+                  'flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-all w-full',
+                  showPathTracker
+                    ? 'border-mag-primary/40 text-mag-primary bg-mag-primary/10 shadow-mag-glow'
+                    : 'border-mag-border/60 text-mag-text-dim hover:border-mag-border'
                 )}
-              </div>
-              {showPathTracker && locations.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 bg-mag-bg/50 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-mag-primary rounded-full transition-all duration-300"
-                      style={{ width: `${(pathProgress / (locations.length - 1)) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-[9px] font-mono text-mag-text-dim/50 font-bold tabular-nums">
-                    {pathProgress}/{locations.length - 1}
-                  </span>
-                </div>
-              )}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                REPLAY TRAIL
+              </button>
             </div>
           )}
         </div>

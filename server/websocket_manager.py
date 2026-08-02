@@ -7,6 +7,7 @@ Extracted from main.py to avoid circular imports between main.py and route modul
 import asyncio
 import logging
 import time
+from typing import Optional
 
 from fastapi import WebSocket
 
@@ -33,21 +34,67 @@ _last_pong_times: dict[int, float] = {}
 """Maps id(ws) -> timestamp of last received pong from that client.
 Initialized to the connection time when the client first connects."""
 
+# Per-connection scope: None = admin (sees all devices), str = user id (sees own devices only)
+_connection_owners: dict[int, Optional[str]] = {}
 
-def add_connection(ws: WebSocket):
-    """Register a new WebSocket connection and initialize its pong tracking."""
+# device_id -> owner_id cache, kept in sync by routes on register/claim.
+_device_owners: dict[str, str] = {}
+
+
+def add_connection(ws: WebSocket, owner: Optional[str] = None):
+    """Register a new WebSocket connection and initialize its pong tracking.
+
+    Args:
+        owner: None for admin (sees all devices) or a user id (sees only
+            devices linked to that account).
+    """
     active_dashboard_connections.append(ws)
+    _connection_owners[id(ws)] = owner
     _last_pong_times[id(ws)] = time.time()
 
 
+def update_device_owner(device_id: str, owner_id: Optional[str]):
+    """Keep the in-memory device→owner cache in sync after register/claim."""
+    if owner_id:
+        _device_owners[device_id] = owner_id
+    else:
+        _device_owners.pop(device_id, None)
+
+
+def _message_device_id(message: dict) -> Optional[str]:
+    """Extract the device_id from a broadcast message, if present."""
+    if not isinstance(message, dict):
+        return None
+    data = message.get("data")
+    if isinstance(data, dict) and data.get("device_id"):
+        return data["device_id"]
+    return message.get("device_id")
+
+
+def _connection_can_receive(ws: WebSocket, message: dict) -> bool:
+    """Scoped delivery: admins get everything, users only get their own devices.
+
+    Global messages without a device_id (ping, shutdown) reach everyone.
+    """
+    owner = _connection_owners.get(id(ws))
+    if owner is None:
+        return True  # admin
+    device_id = _message_device_id(message)
+    if device_id is None:
+        return True  # global broadcast
+    return _device_owners.get(device_id) == owner
+
+
 async def broadcast_to_dashboards(message: dict):
-    """Send message to all connected dashboard clients.
+    """Send message to all matching dashboard clients (ownership-scoped).
 
     Iterates over a snapshot to avoid races with concurrent heartbeat pruning.
     Dead connections are silently pruned after the broadcast.
     """
     dead: list[WebSocket] = []
     for ws in list(active_dashboard_connections):  # snapshot to avoid race with prune
+        if not _connection_can_receive(ws, message):
+            continue
         try:
             await ws.send_json(message)
         except Exception:
@@ -71,6 +118,7 @@ def _safe_remove(ws: WebSocket, reason: str = "unknown"):
     if ws in active_dashboard_connections:
         active_dashboard_connections.remove(ws)
         _last_pong_times.pop(id(ws), None)
+        _connection_owners.pop(id(ws), None)
         logger.info(
             "WebSocket removed",
             extra={

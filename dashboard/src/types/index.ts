@@ -69,7 +69,9 @@ export type CommandType =
   | 'capture_audio'
   | 'lock'
   | 'wipe'
-  | 'siren'
+  // Wire command for the siren — the server (models.CommandRequest) and the
+  // Android app (TrackingService.handleCommand) only accept 'alarm'.
+  | 'alarm'
   | 'display_message'
   | 'get_sim_info'
   | 'get_battery'
@@ -80,7 +82,9 @@ export interface Command {
   device_id: string;
   command: string;
   params: string;
-  status: 'pending' | 'executed' | 'failed';
+  // 'expired' = never acknowledged within its expiry window (server marks it
+  // when listing history; the device poll skips it via the same check).
+  status: 'pending' | 'executed' | 'failed' | 'expired';
   issued_at: string;
   executed_at: string | null;
 }
@@ -122,7 +126,7 @@ export interface MapState {
 
 // ─── UI State ────────────────────────────────────────────────────────────────
 
-export type TabId = 'sentinel' | 'commands' | 'location' | 'media' | 'evidence' | 'alerts' | 'errors';
+export type TabId = 'sentinel' | 'commands' | 'location' | 'media' | 'evidence' | 'guardian' | 'alerts' | 'errors';
 
 export interface UIState {
   sidebarOpen: boolean;
@@ -204,4 +208,47 @@ export interface Geofence {
   radius_meters: number;
   is_safe_zone: boolean;
   active: boolean;
+}
+
+// ─── Guardian Network (community recovery) ───────────────────────────────────
+
+export interface GuardianProfile {
+  user_id: string;
+  opted_in: boolean;
+  radius_km: number;
+  handle: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface RecoverySighting {
+  id: number;
+  guardian_handle: string | null;
+  lat: number;
+  lng: number;
+  note: string | null;
+  created_at: string | null;
+}
+
+export interface RecoveryRequest {
+  id: string;
+  device_id: string;
+  status: 'active' | 'closed';
+  description: string | null;
+  created_at: string | null;
+  closed_at: string | null;
+  closed_reason: string | null;
+  sighting_count: number;
+  sightings: RecoverySighting[];
+}
+
+export interface NearbyRecoveryRequest {
+  id: string;
+  device_model: string | null;
+  description: string | null;
+  distance_km: number;
+  blurred_lat: number;
+  blurred_lng: number;
+  sighting_count: number;
+  created_at: string | null;
 }

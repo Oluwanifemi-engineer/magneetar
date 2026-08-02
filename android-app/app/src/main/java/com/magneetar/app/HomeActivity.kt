@@ -100,10 +100,31 @@ class HomeActivity : AppCompatActivity() {
             return
         }
 
+        // The dashboard is a SEPARATE web app from the API server. For the
+        // hosted service it lives at https://app.magneetar.me (login page),
+        // while server_url is the API endpoint (https://api.magneetar.me).
+        // Derive the dashboard URL from the API host:
+        //   https://api.<host>  ->  https://app.<host>/login
+        // Self-hosted servers that don't follow the api.* pattern fall back
+        // to the server URL root so the user still lands somewhere useful.
+        val dashboardUrl = try {
+            val uri = android.net.Uri.parse(serverUrl)
+            val host = uri.host
+            if (host != null && host.startsWith("api.")) {
+                // Preserve the original scheme (https for hosted, http for self-hosted)
+                val scheme = uri.scheme ?: "https"
+                "$scheme://app.${host.removePrefix("api.")}/login"
+            } else {
+                serverUrl
+            }
+        } catch (e: Exception) {
+            serverUrl
+        }
+
         // Open the dashboard in a browser
         try {
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                data = android.net.Uri.parse(serverUrl)
+                data = android.net.Uri.parse(dashboardUrl)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             startActivity(intent)

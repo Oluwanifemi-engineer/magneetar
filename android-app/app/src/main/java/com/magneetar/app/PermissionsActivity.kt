@@ -33,6 +33,7 @@ class PermissionsActivity : AppCompatActivity() {
     private lateinit var permLocationStatus: TextView
     private lateinit var permCameraStatus: TextView
     private lateinit var permMicStatus: TextView
+    private lateinit var permNotificationsStatus: TextView
     private lateinit var permAdminStatus: TextView
     private lateinit var permBatteryStatus: TextView
     private lateinit var btnAction: Button
@@ -48,6 +49,7 @@ class PermissionsActivity : AppCompatActivity() {
         permLocationStatus = findViewById(R.id.perm_location_status)
         permCameraStatus = findViewById(R.id.perm_camera_status)
         permMicStatus = findViewById(R.id.perm_mic_status)
+        permNotificationsStatus = findViewById(R.id.perm_notifications_status)
         permAdminStatus = findViewById(R.id.perm_admin_status)
         permBatteryStatus = findViewById(R.id.perm_battery_status)
         btnAction = findViewById(R.id.btn_grant_permissions)
@@ -75,6 +77,7 @@ class PermissionsActivity : AppCompatActivity() {
         setStatus(permLocationStatus, hasLocation())
         setStatus(permCameraStatus, hasCamera())
         setStatus(permMicStatus, hasMic())
+        setStatus(permNotificationsStatus, hasNotifications())
         setStatus(permAdminStatus, isDeviceAdmin())
         setStatus(permBatteryStatus, isBatteryOk())
     }
@@ -129,6 +132,7 @@ class PermissionsActivity : AppCompatActivity() {
         if (!hasLocation()) count++
         if (!hasCamera()) count++
         if (!hasMic()) count++
+        if (!hasNotifications()) count++
         return count
     }
 
@@ -140,7 +144,7 @@ class PermissionsActivity : AppCompatActivity() {
 
     private fun onActionClick() {
         // Step 1: Request runtime permissions
-        if (!hasLocation() || !hasCamera() || !hasMic()) {
+        if (!hasLocation() || !hasCamera() || !hasMic() || !hasNotifications()) {
             val missing = mutableListOf<String>()
             if (!hasLocation()) {
                 missing.add(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -148,6 +152,8 @@ class PermissionsActivity : AppCompatActivity() {
             }
             if (!hasCamera()) missing.add(Manifest.permission.CAMERA)
             if (!hasMic()) missing.add(Manifest.permission.RECORD_AUDIO)
+            // Android 13+ requires POST_NOTIFICATIONS for FCM alert delivery
+            if (!hasNotifications()) missing.add(Manifest.permission.POST_NOTIFICATIONS)
 
             ActivityCompat.requestPermissions(
                 this, missing.toTypedArray(), PERM_REQUEST_CODE
@@ -202,6 +208,17 @@ class PermissionsActivity : AppCompatActivity() {
     private fun hasCamera(): Boolean = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
     private fun hasMic(): Boolean = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
+    /**
+     * Notifications permission (Android 13+ / API 33). Required for FCM push
+     * alert delivery (theft, SIM change, etc). On older versions it's granted
+     * implicitly at install time, so it always counts as satisfied.
+     */
+    private fun hasNotifications(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+    }
 
     private fun isDeviceAdmin(): Boolean {
         return try { devicePolicyManager.isAdminActive(adminComponent) } catch (e: Exception) { false }

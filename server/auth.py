@@ -356,6 +356,17 @@ def create_user_tokens(user_id: str) -> dict:
     }
 
 
+def user_id_from_subject(subject: str) -> Optional[str]:
+    """Extract the user id from a JWT subject like 'user:usr-xxx'.
+
+    Returns None when the subject is not a user token (e.g. admin/api-key
+    subjects like 'dashboard:<hash>' or 'api_key_user').
+    """
+    if subject.startswith("user:"):
+        return subject[len("user:"):]
+    return None
+
+
 def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security), x_api_key: Optional[str] = Header(None)
 ) -> str:
@@ -366,8 +377,9 @@ def get_current_user(
     if credentials:
         payload = decode_token(credentials.credentials)
         sub = payload.get("sub", "")
-        if sub.startswith("user:"):
-            return sub[5:]  # Strip 'user:' prefix
+        user_id = user_id_from_subject(sub)
+        if user_id:
+            return user_id
         if payload.get("type") in ("dashboard", "access"):
             return sub
 

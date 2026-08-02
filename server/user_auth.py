@@ -15,7 +15,7 @@ from auth import (
     verify_password,
 )
 from config import settings
-from database import check_rate_limit, get_db_context, log_audit
+from database import check_rate_limit, delete_device_cascade, get_db_context, log_audit
 from fastapi import APIRouter, Depends, HTTPException, Request
 from models import RefreshRequest, TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
 
@@ -144,3 +144,42 @@ async def get_me(user_id: str = Depends(get_current_user)):
 async def refresh_user_token(req: RefreshRequest):
     """Refresh user JWT tokens."""
     return refresh_access_token(req.refresh_token)
+
+
+@router.delete("/api/auth/user/account")
+async def delete_user_account(user_id: str = Depends(get_current_user)):
+    """Permanently delete the user account, all owned devices, and all data.
+
+    This is the permanent-deletion path promised in the privacy policy:
+    deleting the account removes the user, their devices, locations, media,
+    evidence, commands, alerts, guardian profiles, and recovery requests.
+    This action cannot be undone.
+    """
+    if user_id == "api_key_user":
+        raise HTTPException(status_code=401, detail="User authentication required")
+
+    with get_db_context() as db:
+        user = db.execute("SELECT id FROM users WHERE id=?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Cascade-delete every device owned by this user (device rows first,
+        # then their child data, then the devices themselves), and clear the
+        # WebSocket owner cache so a deleted user's token can't keep receiving
+        # broadcasts for those devices.
+        device_ids = [r["id"] for r in db.execute("SELECT id FROM devices WHERE owner_id=?", (user_id,)).fetchall()]
+        for device_id in device_ids:
+            delete_device_cascade(db, device_id)
+            from websocket_manager import update_device_owner
+
+            update_device_owner(device_id, None)
+
+        # Guardian profile + sightings reference the user, not the device.
+        db.execute("DELETE FROM recovery_sightings WHERE guardian_id=?", (user_id,))
+        db.execute("DELETE FROM guardian_profiles WHERE user_id=?", (user_id,))
+        db.execute("DELETE FROM users WHERE id=?", (user_id,))
+        db.commit()
+
+        log_audit("user_deleted", actor=user_id, details=f"Account permanently deleted with {len(device_ids)} device(s)")
+
+    return {"status": "ok", "message": "Account permanently deleted", "devices_removed": len(device_ids)}

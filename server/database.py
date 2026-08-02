@@ -88,10 +88,12 @@ def init_db(db_path: str = None):
             alert_phone TEXT,
             alert_email TEXT
         );
-
-        CREATE INDEX IF NOT EXISTS idx_devices_key_hash ON devices(device_key_hash);
     """
     )
+    # NOTE: idx_devices_key_hash is created AFTER the column migrations below —
+    # on an existing DB whose devices table predates device_key_hash, creating
+    # the index here would crash with "no such column" before the ALTER TABLE
+    # migration runs.
 
     # ─── Safe Schema Migrations ───────────────────────────────────────────────
     # Add device_key_hash to existing databases (column may already exist on fresh DBs)
@@ -235,6 +237,50 @@ def init_db(db_path: str = None):
             FOREIGN KEY (device_id) REFERENCES devices(id)
         );
 
+        -- ─── Guardian Network (community recovery) ─────────────────────────
+        -- Users who opted in to help recover other people's stolen devices.
+        CREATE TABLE IF NOT EXISTS guardian_profiles (
+            user_id TEXT PRIMARY KEY,
+            opted_in BOOLEAN DEFAULT TRUE,
+            radius_km INTEGER DEFAULT 20,
+            handle TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP
+        );
+
+        -- Recovery campaigns: an owner launches one for a stolen device.
+        CREATE TABLE IF NOT EXISTS recovery_requests (
+            id TEXT PRIMARY KEY,
+            device_id TEXT NOT NULL,
+            owner_id TEXT NOT NULL,
+            status TEXT DEFAULT 'active',
+            description TEXT,
+            last_lat REAL,
+            last_lng REAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            closed_at TIMESTAMP,
+            closed_reason TEXT,
+            FOREIGN KEY (device_id) REFERENCES devices(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_recovery_requests_status ON recovery_requests(status);
+        CREATE INDEX IF NOT EXISTS idx_recovery_requests_owner ON recovery_requests(owner_id);
+
+        -- Guardian-reported sightings on an active recovery request.
+        CREATE TABLE IF NOT EXISTS recovery_sightings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            request_id TEXT NOT NULL,
+            guardian_id TEXT NOT NULL,
+            guardian_handle TEXT,
+            lat REAL NOT NULL,
+            lng REAL NOT NULL,
+            note TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (request_id) REFERENCES recovery_requests(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_recovery_sightings_request ON recovery_sightings(request_id);
+
         -- ─── Audit Log (never deleted) ──────────────────────────────────────
         CREATE TABLE IF NOT EXISTS audit_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -275,6 +321,7 @@ def init_db(db_path: str = None):
         );
 
         -- ─── Indexes ────────────────────────────────────────────────────────
+        CREATE INDEX IF NOT EXISTS idx_devices_key_hash ON devices(device_key_hash);
         CREATE INDEX IF NOT EXISTS idx_locations_device ON locations(device_id);
         CREATE INDEX IF NOT EXISTS idx_locations_timestamp ON locations(server_timestamp);
         CREATE INDEX IF NOT EXISTS idx_media_device ON media(device_id);
@@ -313,6 +360,38 @@ def init_db(db_path: str = None):
     )
     conn.commit()
     conn.close()
+
+
+def delete_device_cascade(conn, device_id: str):
+    """Permanently delete a device and ALL of its related data.
+
+    Deletes child rows first to satisfy FK constraints (guardian sightings and
+    recovery requests reference devices; locations/media/commands/evidence/
+    alerts/heartbeats/geofences/fcm_tokens all reference devices). This is the
+    "permanent deletion" path promised in the privacy policy.
+    """
+    # Guardian sightings reference recovery_requests, which reference devices.
+    conn.execute(
+        "DELETE FROM recovery_sightings WHERE request_id IN (SELECT id FROM recovery_requests WHERE device_id=?)",
+        (device_id,),
+    )
+    conn.execute("DELETE FROM recovery_requests WHERE device_id=?", (device_id,))
+
+    # Everything else references the device row directly.
+    for table in (
+        "locations",
+        "media",
+        "commands",
+        "evidence_cases",
+        "alerts",
+        "heartbeats",
+        "geofences",
+        "fcm_tokens",
+        "error_log",
+    ):
+        conn.execute(f"DELETE FROM {table} WHERE device_id=?", (device_id,))
+
+    conn.execute("DELETE FROM devices WHERE id=?", (device_id,))
 
 
 def log_audit(action: str, actor: str = None, ip_address: str = None, details: str = None):
@@ -381,28 +460,34 @@ def purge_old_data(retention_days: int = 90):
     with get_db_context() as conn:
         cutoff = f"-{retention_days} days"
 
+        # datetime(...) normalizes both the ISO-8601 (T+offset) and SQLite-space
+        # timestamp formats the DB has accumulated — without it, ISO strings
+        # always sort AFTER the space-separated cutoff ('T' > ' ') and the purge
+        # silently deletes nothing.
         deleted_locations = conn.execute(
-            "DELETE FROM locations WHERE server_timestamp < datetime('now', ?)", (cutoff,)
+            "DELETE FROM locations WHERE datetime(server_timestamp) < datetime('now', ?)", (cutoff,)
         ).rowcount
 
         deleted_heartbeats = conn.execute(
-            "DELETE FROM heartbeats WHERE timestamp < datetime('now', ?)", (cutoff,)
+            "DELETE FROM heartbeats WHERE datetime(timestamp) < datetime('now', ?)", (cutoff,)
         ).rowcount
 
-        deleted_media = conn.execute("DELETE FROM media WHERE timestamp < datetime('now', ?)", (cutoff,)).rowcount
+        deleted_media = conn.execute(
+            "DELETE FROM media WHERE datetime(timestamp) < datetime('now', ?)", (cutoff,)
+        ).rowcount
 
         # Keep audit logs longer
         audit_cutoff = f"-{retention_days * 2} days"
         deleted_audit = conn.execute(
-            "DELETE FROM audit_log WHERE timestamp < datetime('now', ?)", (audit_cutoff,)
+            "DELETE FROM audit_log WHERE datetime(timestamp) < datetime('now', ?)", (audit_cutoff,)
         ).rowcount
 
         # Keep rate limits for only 7 days
-        conn.execute("DELETE FROM rate_limits WHERE timestamp < datetime('now', '-7 days')")
+        conn.execute("DELETE FROM rate_limits WHERE datetime(timestamp) < datetime('now', '-7 days')")
 
         # Purge resolved errors older than retention_days (unresolved errors kept indefinitely)
         deleted_errors = conn.execute(
-            "DELETE FROM error_log WHERE resolved=1 AND timestamp < datetime('now', ?)", (cutoff,)
+            "DELETE FROM error_log WHERE resolved=1 AND datetime(timestamp) < datetime('now', ?)", (cutoff,)
         ).rowcount
 
         conn.commit()
@@ -427,7 +512,7 @@ def purge_old_data(retention_days: int = 90):
 
 def ensure_initialized() -> bool:
     """
-    Ensure the database is initialized.
+    Ensure the database is initialized with the complete, current schema.
     Called once during server startup from the lifespan handler.
     Returns True if initialization was performed, False if already initialized.
     """
@@ -439,11 +524,28 @@ def ensure_initialized() -> bool:
     if not os.path.exists(DB_PATH):
         init_db()
         return True
-    # File exists — verify tables are present (handle empty/corrupt files gracefully)
+    # File exists — verify ALL required tables are present, not just a subset.
+    # init_db() is fully idempotent (CREATE TABLE IF NOT EXISTS + guarded
+    # ALTER TABLE), so re-running it when anything is missing migrates
+    # existing databases forward when a release adds new tables (e.g. the
+    # Guardian Network tables).
+    # ⚠️ Keep this set in sync with the tables created in init_db().
+    required_tables = {
+        "users", "devices", "locations", "media", "commands", "evidence_cases",
+        "alerts", "heartbeats", "geofences", "guardian_profiles",
+        "recovery_requests", "recovery_sightings", "audit_log", "fcm_tokens",
+        "rate_limits", "revoked_tokens", "error_log",
+    }
     try:
         with get_db_context() as conn:
-            conn.execute("SELECT COUNT(*) FROM devices").fetchone()
-        return False
+            present = {
+                row["name"]
+                for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+            }
+        if required_tables.issubset(present):
+            return False
+        init_db()
+        return True
     except Exception:
         init_db()
         return True

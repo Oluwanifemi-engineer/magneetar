@@ -168,6 +168,37 @@
                     android:fontFamily="sans-serif-medium" />
             </LinearLayout>
 
+            <!-- Notifications (Android 13+) -->
+            <LinearLayout
+                android:id="@+id/perm_notifications"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginBottom="4dp"
+                android:background="@drawable/btn_surface"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/perm_notifications"
+                    android:textColor="#C0C0C0"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif" />
+
+                <TextView
+                    android:id="@+id/perm_notifications_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Required"
+                    android:textColor="#FFB800"
+                    android:textSize="11sp"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+
             <!-- Device Admin -->
             <LinearLayout
                 android:id="@+id/perm_device_admin"

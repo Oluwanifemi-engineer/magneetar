@@ -13,9 +13,10 @@ from auth import (
     create_dashboard_tokens,
     refresh_access_token,
     require_dashboard_auth,
+    user_id_from_subject,
 )
 from config import settings
-from database import get_db, log_audit
+from database import delete_device_cascade, get_db, log_audit
 from evidence import evidence_builder
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from logging_config import get_logger
@@ -30,6 +31,23 @@ from models import (
 logger = get_logger("magneetar")
 
 router = APIRouter()
+
+
+def _resolve_user_id(auth: str) -> Optional[str]:
+    """Return the user id if the auth subject is a user token, else None (admin)."""
+    return user_id_from_subject(auth)
+
+
+def _assert_device_access(db, device_id: str, auth: str):
+    """Admins can access any device; users only devices linked to their account."""
+    user_id = _resolve_user_id(auth)
+    if user_id is None:
+        return
+    row = db.execute("SELECT owner_id FROM devices WHERE id=?", (device_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Device not found")
+    if row["owner_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Access denied: device not linked to your account")
 
 
 # ─── Dashboard Auth ──────────────────────────────────────────────────────────
@@ -70,15 +88,28 @@ async def dashboard_refresh(req: RefreshRequest):
 
 @router.get("/api/dashboard/devices")
 async def list_devices(db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)):
-    """List all devices with latest location."""
-    devices = db.execute(
-        """SELECT d.*,
-                  l.lat, l.lng, l.battery_percent, l.sentinel_score, l.threat_level
-           FROM devices d
-           LEFT JOIN locations l ON d.id = l.device_id
-               AND l.id = (SELECT MAX(id) FROM locations WHERE device_id = d.id)
-           ORDER BY d.last_seen DESC"""
-    ).fetchall()
+    """List devices with latest location. Users see only their own devices."""
+    user_id = _resolve_user_id(auth)
+    if user_id:
+        devices = db.execute(
+            """SELECT d.*,
+                      l.lat, l.lng, l.battery_percent, l.sentinel_score, l.threat_level
+               FROM devices d
+               LEFT JOIN locations l ON d.id = l.device_id
+                   AND l.id = (SELECT MAX(id) FROM locations WHERE device_id = d.id)
+               WHERE d.owner_id = ?
+               ORDER BY d.last_seen DESC""",
+            (user_id,),
+        ).fetchall()
+    else:
+        devices = db.execute(
+            """SELECT d.*,
+                      l.lat, l.lng, l.battery_percent, l.sentinel_score, l.threat_level
+               FROM devices d
+               LEFT JOIN locations l ON d.id = l.device_id
+                   AND l.id = (SELECT MAX(id) FROM locations WHERE device_id = d.id)
+               ORDER BY d.last_seen DESC"""
+        ).fetchall()
 
     result = []
     for d in devices:
@@ -119,6 +150,7 @@ async def update_device_alias(
     device_id: str, body: dict, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """Update device alias/name."""
+    _assert_device_access(db, device_id, auth)
     alias = body.get("alias", "").strip()
     if not alias:
         raise HTTPException(status_code=400, detail="Alias is required")
@@ -135,6 +167,7 @@ async def update_device_alert_settings(
     device_id: str, body: dict, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """Set per-device alert recipients (phone/email). Empty string clears the override."""
+    _assert_device_access(db, device_id, auth)
     device = db.execute("SELECT id FROM devices WHERE id=?", (device_id,)).fetchone()
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
@@ -163,11 +196,39 @@ async def update_device_alert_settings(
     return {"status": "ok", "alert_phone": alert_phone, "alert_email": alert_email}
 
 
+@router.delete("/api/dashboard/devices/{device_id}")
+async def delete_device(
+    device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+):
+    """Permanently delete a device and all of its data (locations, media,
+    evidence, commands, alerts, guardian recovery requests, FCM tokens).
+
+    This is the permanent-deletion path promised in the privacy policy:
+    once deleted, the device and its history cannot be recovered.
+    """
+    _assert_device_access(db, device_id, auth)
+    row = db.execute("SELECT id FROM devices WHERE id=?", (device_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    delete_device_cascade(db, device_id)
+    db.commit()
+
+    # Clear the WebSocket owner cache so stale broadcasts don't leak.
+    from websocket_manager import update_device_owner
+
+    update_device_owner(device_id, None)
+
+    log_audit("device_deleted", actor=auth, details=f"Device: {device_id} (permanent)")
+    return {"status": "ok", "message": f"Device {device_id} permanently deleted"}
+
+
 @router.post("/api/dashboard/devices/{device_id}/recover")
 async def mark_device_recovered(
     device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """Mark a stolen device as recovered."""
+    _assert_device_access(db, device_id, auth)
     now = datetime.now(timezone.utc).isoformat()
 
     db.execute("UPDATE devices SET is_stolen=0, operating_mode='normal', sentinel_score=0 WHERE id=?", (device_id,))
@@ -184,6 +245,7 @@ async def get_device_history(
     device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """Get full device information including command and event history."""
+    _assert_device_access(db, device_id, auth)
     device = db.execute("SELECT * FROM devices WHERE id=?", (device_id,)).fetchone()
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
@@ -222,6 +284,7 @@ async def get_locations(
     auth: str = Depends(require_dashboard_auth),
 ):
     """Get location history for a device."""
+    _assert_device_access(db, device_id, auth)
     rows = db.execute(
         "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT ?", (device_id, limit)
     ).fetchall()
@@ -234,6 +297,7 @@ async def get_live_location(
     device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """Get latest location for a device."""
+    _assert_device_access(db, device_id, auth)
     row = db.execute(
         "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT 1", (device_id,)
     ).fetchone()
@@ -250,6 +314,7 @@ async def get_replay_data(
     auth: str = Depends(require_dashboard_auth),
 ):
     """Get location data for trail replay."""
+    _assert_device_access(db, device_id, auth)
     query = "SELECT * FROM locations WHERE device_id=?"
     params = [device_id]
 
@@ -274,6 +339,7 @@ async def get_media_list(
     device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """Get media list (thumbnails) for a device."""
+    _assert_device_access(db, device_id, auth)
     rows = db.execute(
         "SELECT id, device_id, type, timestamp, lat, lng FROM media WHERE device_id=? ORDER BY timestamp DESC",
         (device_id,),
@@ -290,6 +356,7 @@ async def get_media_file(
     row = db.execute("SELECT * FROM media WHERE id=?", (media_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Media not found")
+    _assert_device_access(db, row["device_id"], auth)
 
     return {
         "id": row["id"],
@@ -310,6 +377,7 @@ async def issue_command(
     cmd: CommandRequest, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """Issue a command to a device."""
+    _assert_device_access(db, cmd.device_id, auth)
     if not check_command_rate_limit(auth):
         raise HTTPException(status_code=429, detail="Command rate limit exceeded")
 
@@ -319,7 +387,11 @@ async def issue_command(
         if cmd.params != "CONFIRMED_WIPE":
             raise HTTPException(status_code=400, detail="Wipe requires params='CONFIRMED_WIPE'")
 
-    expires_minutes = 5 if cmd.command in ("wipe", "lock", "alarm") else 60
+    # Unacknowledged commands auto-expire: 5 minutes for sensitive ones
+    # (wipe/lock/alarm), 30 minutes for everything else — a stale PENDING
+    # must never linger on the dashboard or execute long after the operator
+    # gave up on it.
+    expires_minutes = 5 if cmd.command in ("wipe", "lock", "alarm") else 30
     expires_at = (datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)).isoformat()
 
     cur = db.execute(
@@ -339,6 +411,21 @@ async def get_command_history(
     device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """Get command history for a device."""
+    _assert_device_access(db, device_id, auth)
+
+    # Commands never acknowledged within their expiry window are marked
+    # 'expired' so the operator sees EXPIRED (grey) instead of a stale PENDING
+    # that misleads. datetime() normalizes both the ISO-8601 and SQLite-space
+    # formats the DB has accumulated; the device-side poll uses the same
+    # normalization so expired commands are never delivered.
+    db.execute(
+        """UPDATE commands SET status='expired'
+           WHERE device_id=? AND status='pending' AND expires_at IS NOT NULL
+             AND datetime(expires_at) <= datetime('now')""",
+        (device_id,),
+    )
+    db.commit()
+
     rows = db.execute(
         "SELECT * FROM commands WHERE device_id=? ORDER BY issued_at DESC LIMIT 50", (device_id,)
     ).fetchall()
@@ -354,6 +441,7 @@ async def get_evidence(
     device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """Get evidence case for a device."""
+    _assert_device_access(db, device_id, auth)
     case = db.execute(
         "SELECT * FROM evidence_cases WHERE device_id=? ORDER BY created_at DESC LIMIT 1", (device_id,)
     ).fetchone()
@@ -380,6 +468,7 @@ async def generate_evidence_pdf(
     device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """Generate a forensic PDF evidence report for a device."""
+    _assert_device_access(db, device_id, auth)
     from fastapi.responses import Response
 
     case = db.execute(
@@ -422,6 +511,7 @@ async def get_alerts(
     device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """Get alert history for a device."""
+    _assert_device_access(db, device_id, auth)
     rows = db.execute("SELECT * FROM alerts WHERE device_id=? ORDER BY sent_at DESC LIMIT 50", (device_id,)).fetchall()
 
     return {"alerts": [dict(r) for r in rows]}
@@ -435,6 +525,7 @@ async def create_geofence(
     fence: GeofenceRequest, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """Create a geofence for a device."""
+    _assert_device_access(db, fence.device_id, auth)
     cur = db.execute(
         (
             "INSERT INTO geofences (device_id, name, center_lat, center_lng, "
@@ -452,6 +543,9 @@ async def delete_geofence(
     geofence_id: int, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """Delete a geofence."""
+    fence = db.execute("SELECT device_id FROM geofences WHERE id=?", (geofence_id,)).fetchone()
+    if fence:
+        _assert_device_access(db, fence["device_id"], auth)
     db.execute("DELETE FROM geofences WHERE id=?", (geofence_id,))
     db.commit()
     return {"status": "ok"}
@@ -462,6 +556,7 @@ async def list_geofences(
     device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
     """List geofences for a device."""
+    _assert_device_access(db, device_id, auth)
     rows = db.execute("SELECT * FROM geofences WHERE device_id=? AND active=1", (device_id,)).fetchall()
 
     return {"geofences": [dict(r) for r in rows]}
@@ -472,48 +567,45 @@ async def list_geofences(
 
 @router.get("/api/dashboard/stats")
 async def get_stats(db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)):
-    """Get dashboard statistics."""
-    pg_available = False
-    try:
-        from database_postgres import get_postgres_db, is_postgres_configured
+    """Get dashboard statistics. Users see stats scoped to their own devices.
 
-        if is_postgres_configured():
-            pg = await get_postgres_db()
-            if pg.is_connected:
-                pg_available = True
-    except Exception:
-        pass
+    NOTE: this endpoint reads the SAME SQLite data plane as every other
+    endpoint. The previous PostgreSQL branch was removed — in the Docker
+    deployment MT_DATABASE_URL points at a Postgres that sits EMPTY while the
+    live data plane is SQLite (/app/data/magneetar.db), so the counters read
+    0/0/0 even with registered devices.
 
-    if pg_available:
-        from database_postgres import get_postgres_db
+    Timestamps are normalized with datetime() because the DB has accumulated
+    both ISO-8601 ("2026-08-01T20:34:00.123456+00:00") and SQLite-space
+    ("2026-08-01 20:34:00") formats — a raw string comparison is wrong ('T'
+    sorts after ' ', so ISO timestamps always appear newer).
+    """
+    user_id = _resolve_user_id(auth)
 
-        pg = await get_postgres_db()
-
-        rows = await pg.fetch_all(
-            """
-            SELECT
-                (SELECT COUNT(*) FROM devices) AS total_devices,
-                (SELECT COUNT(*) FROM devices WHERE last_seen > NOW() - interval '5 minutes') AS active_devices,
-                (SELECT COUNT(*) FROM devices WHERE is_stolen = TRUE) AS stolen_devices,
-                (SELECT COUNT(*) FROM locations) AS total_locations,
-                (SELECT COUNT(*) FROM media) AS total_media,
-                (SELECT COUNT(*) FROM alerts WHERE sent_at > CURRENT_DATE) AS alerts_today
-        """
-        )
-        row = rows[0] if rows else {}
-        return {
-            "total_devices": row.get("total_devices", 0),
-            "active_devices": row.get("active_devices", 0),
-            "stolen_devices": row.get("stolen_devices", 0),
-            "recovered_devices": 0,
-            "total_locations": row.get("total_locations", 0),
-            "total_media": row.get("total_media", 0),
-            "alerts_today": row.get("alerts_today", 0),
-        }
+    if user_id:
+        total_devices = db.execute("SELECT COUNT(*) FROM devices WHERE owner_id=?", (user_id,)).fetchone()[0]
+        active_devices = db.execute(
+            "SELECT COUNT(*) FROM devices WHERE owner_id=? AND datetime(last_seen) > datetime('now', '-5 minutes')",
+            (user_id,),
+        ).fetchone()[0]
+        stolen_devices = db.execute(
+            "SELECT COUNT(*) FROM devices WHERE is_stolen=1 AND owner_id=?", (user_id,)
+        ).fetchone()[0]
+        total_locations = db.execute(
+            "SELECT COUNT(*) FROM locations l JOIN devices d ON l.device_id=d.id WHERE d.owner_id=?", (user_id,)
+        ).fetchone()[0]
+        total_media = db.execute(
+            "SELECT COUNT(*) FROM media m JOIN devices d ON m.device_id=d.id WHERE d.owner_id=?", (user_id,)
+        ).fetchone()[0]
+        today = datetime.now(timezone.utc).date().isoformat()
+        alerts_today = db.execute(
+            "SELECT COUNT(*) FROM alerts a JOIN devices d ON a.device_id=d.id WHERE d.owner_id=? AND a.sent_at > ?",
+            (user_id, today),
+        ).fetchone()[0]
     else:
         total_devices = db.execute("SELECT COUNT(*) FROM devices").fetchone()[0]
         active_devices = db.execute(
-            "SELECT COUNT(*) FROM devices WHERE last_seen > datetime('now', '-5 minutes')"
+            "SELECT COUNT(*) FROM devices WHERE datetime(last_seen) > datetime('now', '-5 minutes')"
         ).fetchone()[0]
         stolen_devices = db.execute("SELECT COUNT(*) FROM devices WHERE is_stolen=1").fetchone()[0]
         total_locations = db.execute("SELECT COUNT(*) FROM locations").fetchone()[0]
@@ -521,15 +613,15 @@ async def get_stats(db: sqlite3.Connection = Depends(get_db), auth: str = Depend
         today = datetime.now(timezone.utc).date().isoformat()
         alerts_today = db.execute("SELECT COUNT(*) FROM alerts WHERE sent_at > ?", (today,)).fetchone()[0]
 
-        return {
-            "total_devices": total_devices,
-            "active_devices": active_devices,
-            "stolen_devices": stolen_devices,
-            "recovered_devices": 0,
-            "total_locations": total_locations,
-            "total_media": total_media,
-            "alerts_today": alerts_today,
-        }
+    return {
+        "total_devices": total_devices,
+        "active_devices": active_devices,
+        "stolen_devices": stolen_devices,
+        "recovered_devices": 0,
+        "total_locations": total_locations,
+        "total_media": total_media,
+        "alerts_today": alerts_today,
+    }
 
 
 # ─── Error Log ──────────────────────────────────────────────────────────────
@@ -542,7 +634,9 @@ async def list_errors(
     db: sqlite3.Connection = Depends(get_db),
     auth: str = Depends(require_dashboard_auth),
 ):
-    """List server errors with optional filter for unresolved only."""
+    """List server errors with optional filter for unresolved only. Admin-only."""
+    if _resolve_user_id(auth) is not None:
+        raise HTTPException(status_code=403, detail="Admin access required")
     if unresolved_only:
         rows = db.execute(
             "SELECT * FROM error_log WHERE resolved=0 ORDER BY timestamp DESC LIMIT ?", (limit,)
@@ -563,7 +657,9 @@ async def list_errors(
 async def resolve_error(
     error_id: int, body: dict, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
 ):
-    """Mark an error as resolved."""
+    """Mark an error as resolved. Admin-only."""
+    if _resolve_user_id(auth) is not None:
+        raise HTTPException(status_code=403, detail="Admin access required")
     now = datetime.now(timezone.utc).isoformat()
     notes = body.get("notes", "")
 

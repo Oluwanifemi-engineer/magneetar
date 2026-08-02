@@ -1,15 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <!--
-        Magneetar connects to user-defined servers. Since the user controls
-        their own server (self-hosted/local), we allow cleartext HTTP for all
-        hosts so local dev/testing works. In production, set your server URL
-        to https:// (e.g. https://api.magneetar.me) for full TLS encryption.
-        HTTPS traffic is always fully encrypted regardless of this setting.
+        Production: all traffic MUST use HTTPS (the app connects to
+        https://api.magneetar.me by default). Cleartext HTTP is blocked by
+        default — Play Store review and Android 9+ flag apps that allow it
+        globally.
+
+        Exceptions (cleartext allowed, dev/self-host only):
+          - localhost / 127.0.0.1        — on-device dev server
+          - 10.0.2.2                     — Android emulator → host loopback
+        Any other server URL must use https:// (self-hosters on a LAN can
+        add their host to a <domain> entry below if they truly need http).
     -->
-    <base-config cleartextTrafficPermitted="true">
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
 </network-security-config>

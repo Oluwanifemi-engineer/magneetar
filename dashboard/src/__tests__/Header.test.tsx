@@ -35,6 +35,7 @@ jest.mock('lucide-react', () => ({
   LogOut: () => null,
   Bell: () => null,
   Settings: () => null,
+  Trash2: () => null,
 }));
 
 jest.mock('@/lib/api', () => ({

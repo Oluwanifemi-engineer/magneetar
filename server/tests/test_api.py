@@ -280,6 +280,51 @@ class TestCommands:
         )
         assert response.status_code == 422  # Validation error
 
+    def test_stale_pending_command_auto_expires(self):
+        """A pending command past its expiry must show EXPIRED in history and
+        must never be delivered by the device poll (regression: the ISO-8601
+        'T+offset' expires_at format compared lexicographically against SQLite's
+        space-separated datetime('now') always looked 'in the future', so stale
+        commands were delivered and stayed PENDING forever)."""
+        from datetime import datetime, timedelta, timezone
+
+        dash = get_dashboard_headers()
+        resp = client.post(
+            "/api/dashboard/command",
+            json={"device_id": TEST_DEVICE_ID, "command": "ping"},
+            headers=dash,
+        )
+        cmd_id = resp.json()["command_id"]
+
+        # Backdate expires_at beyond the expiry window, ISO format (exactly as
+        # the server writes it).
+        expired = (datetime.now(timezone.utc) - timedelta(minutes=31)).isoformat()
+        with database.get_db_context() as conn:
+            conn.execute("UPDATE commands SET expires_at=? WHERE id=?", (expired, cmd_id))
+            conn.commit()
+
+        # Dashboard history marks it EXPIRED
+        history = client.get(f"/api/dashboard/commands/{TEST_DEVICE_ID}", headers=dash).json()
+        row = next(c for c in history["commands"] if c["id"] == cmd_id)
+        assert row["status"] == "expired"
+
+        # Device poll no longer delivers it
+        poll = client.get(f"/api/device/commands/{TEST_DEVICE_ID}", headers=get_device_headers()).json()
+        assert all(c["id"] != cmd_id for c in poll["commands"])
+
+    def test_pending_command_within_window_stays_pending(self):
+        """A freshly issued command is still pending and pollable."""
+        dash = get_dashboard_headers()
+        resp = client.post(
+            "/api/dashboard/command",
+            json={"device_id": TEST_DEVICE_ID, "command": "ping"},
+            headers=dash,
+        )
+        cmd_id = resp.json()["command_id"]
+        history = client.get(f"/api/dashboard/commands/{TEST_DEVICE_ID}", headers=dash).json()
+        row = next(c for c in history["commands"] if c["id"] == cmd_id)
+        assert row["status"] == "pending"
+
 
 # ─── Media ───────────────────────────────────────────────────────────────────
 
@@ -373,6 +418,42 @@ class TestDashboard:
         data = response.json()
         assert "total_devices" in data
         assert "active_devices" in data
+
+    def test_stats_reflect_registered_devices(self):
+        """Regression: stats must read the same SQLite data plane as every other
+        endpoint. The old PostgreSQL branch returned 0/0/0 because the Docker
+        Postgres sits empty while the live DB is SQLite."""
+        client.post(
+            "/api/device/register",
+            json={"device_id": "stats-device-1", "fingerprint": "fp-stats-1", "model": "Stats Phone"},
+            headers=get_auth_headers(),
+        )
+        data = client.get("/api/dashboard/stats", headers=get_dashboard_headers()).json()
+        assert data["total_devices"] >= 1
+
+    def test_stats_active_devices_respect_last_seen(self):
+        """An offline device (last_seen > 5 min) must NOT count as active.
+        Regression for the ISO-vs-SQLite timestamp comparison ('T' > ' ')."""
+        from datetime import datetime, timedelta, timezone
+
+        client.post(
+            "/api/device/register",
+            json={"device_id": "stats-device-2", "fingerprint": "fp-stats-2", "model": "Stats Phone"},
+            headers=get_auth_headers(),
+        )
+        # Backdate last_seen to 15h ago, in the exact ISO format the server writes.
+        stale = (datetime.now(timezone.utc) - timedelta(hours=15)).isoformat()
+        with database.get_db_context() as conn:
+            conn.execute("UPDATE devices SET last_seen=? WHERE id=?", (stale, "stats-device-2"))
+            conn.commit()
+
+        data = client.get("/api/dashboard/stats", headers=get_dashboard_headers()).json()
+        # Cross-check against the ground truth directly in the DB.
+        with database.get_db_context() as conn:
+            recent = conn.execute(
+                "SELECT COUNT(*) FROM devices WHERE datetime(last_seen) > datetime('now', '-5 minutes')"
+            ).fetchone()[0]
+        assert data["active_devices"] == recent
 
 
 # ─── Geofences ───────────────────────────────────────────────────────────────

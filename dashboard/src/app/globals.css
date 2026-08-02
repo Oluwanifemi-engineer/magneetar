@@ -265,27 +265,6 @@
 
 /* ─── Login Page Effects ──────────────────────────────────────────────────── */
 
-.login-grid {
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 48px 48px;
-}
-
-.login-scanlines {
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(255, 255, 255, 0.008) 2px,
-    rgba(255, 255, 255, 0.008) 4px
-  );
-}
-
-.login-vignette {
-  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.8) 100%);
-}
-
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
@@ -357,4 +336,213 @@
   background-size: 200% 100%;
   background-position: 0% 0;
   animation: data-flow 2s linear infinite;
+}
+
+/* ─── Landing Page — Premium SaaS Effects ─────────────────────────────────── */
+
+/* Gradient text — primary (magenta → cyan) and cyan-only */
+.text-gradient-primary {
+  background: linear-gradient(120deg, #E91E8C 0%, #EC4899 35%, #06B6D4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.text-gradient-cyan {
+  background: linear-gradient(120deg, #06B6D4, #22D3EE);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Animated gradient text sweep */
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradientShift 6s ease infinite;
+}
+
+/* Subtle tactical grid for landing sections */
+.landing-grid {
+  background-image:
+    linear-gradient(rgba(233, 30, 140, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(233, 30, 140, 0.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* Ambient color wash for hero/footer */
+.landing-vignette {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(233, 30, 140, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 100%, rgba(6, 182, 212, 0.06) 0%, transparent 60%);
+}
+
+/* Radar ping for hero mockup */
+@keyframes radarPing {
+  0% { transform: scale(0.5); opacity: 0.9; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.animate-radar-ping {
+  animation: radarPing 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Slow float for decorative orbs */
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-16px); }
+}
+
+.animate-float-slow {
+  animation: floatSlow 7s ease-in-out infinite;
+}
+
+/* Slow spin for security rings */
+@keyframes slowSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-slow-spin {
+  animation: slowSpin 14s linear infinite;
+}
+
+/* Shimmer sweep for CTA buttons */
+@keyframes shimmerSweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-shimmer {
+  animation: shimmerSweep 3.5s ease-in-out infinite;
+}
+
+/* Subtle card border glow on hover */
+.card-glow {
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+/* ═══ Premium Auth Experience (login / signup) ══════════════════════════════ */
+
+/* Aurora drift for ambient background blobs */
+@keyframes auroraDrift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  33%  { transform: translate3d(60px, -40px, 0) scale(1.12); }
+  66%  { transform: translate3d(-50px, 30px, 0) scale(0.94); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+.animate-aurora {
+  animation: auroraDrift 16s ease-in-out infinite alternate;
+}
+
+/* Rising particle specks (uses floatParticle keyframes defined above) */
+.animate-float-particle {
+  animation: floatParticle 10s ease-in-out infinite;
+}
+
+/* Animated route dashes for the telemetry mockup */
+@keyframes dashFlow {
+  to { stroke-dashoffset: -28; }
+}
+
+.dash-flow {
+  stroke-dasharray: 7 5;
+  animation: dashFlow 1.6s linear infinite;
+}
+
+/* Sentinel score bar sweep */
+@keyframes barSweep {
+  0%, 100% { width: 14%; }
+  50% { width: 38%; }
+}
+
+.bar-sweep {
+  animation: barSweep 3.2s ease-in-out infinite;
+}
+
+/* Live telemetry ticker (seamless vertical loop) */
+@keyframes tickerScroll {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+.ticker-scroll {
+  animation: tickerScroll 14s linear infinite;
+}
+
+/* Cursor-tracking spotlight card — driven by --mx / --my custom properties */
+.spotlight-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background: radial-gradient(
+    360px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(233, 30, 140, 0.13),
+    rgba(6, 182, 212, 0.07) 45%,
+    transparent 65%
+  );
+  z-index: 1;
+}
+
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+/* Perspective grid floor for the showcase panel */
+.grid-floor {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 38%;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 42px 42px;
+  transform: perspective(420px) rotateX(58deg);
+  transform-origin: bottom center;
+  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+  pointer-events: none;
+}
+
+/* Dark-theme autofill fix */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.85);
+  -webkit-box-shadow: 0 0 0 1000px #0d0d14 inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-aurora,
+  .animate-float-particle,
+  .animate-radar-ping,
+  .animate-float-slow,
+  .animate-slow-spin,
+  .animate-shimmer,
+  .animate-gradient-x,
+  .animate-scan-line,
+  .dash-flow,
+  .bar-sweep,
+  .ticker-scroll {
+    animation: none !important;
+  }
+}
+
+.card-glow:hover {
+  border-color: rgba(233, 30, 140, 0.3);
+  box-shadow: 0 0 40px rgba(233, 30, 140, 0.08), 0 12px 48px rgba(0, 0, 0, 0.5);
+  transform: translateY(-4px);
 }

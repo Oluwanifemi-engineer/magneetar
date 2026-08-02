@@ -9,9 +9,10 @@ import { DevicePanel } from '@/components/devices/DevicePanel';
 import { SentinelPanel } from '@/components/panels/SentinelPanel';
 import { EvidencePanel } from '@/components/panels/EvidencePanel';
 import { ErrorPanel } from '@/components/panels/ErrorPanel';
+import { GuardianPanel } from '@/components/panels/GuardianPanel';
 import { Tabs } from '@/components/ui/Tabs';
 import { TabId } from '@/types';
-import { Shield, Terminal, MapPin, Camera, ClipboardList, Bug } from 'lucide-react';
+import { Shield, Terminal, MapPin, Camera, ClipboardList, Bug, ShieldCheck } from 'lucide-react';
 
 const PANEL_TABS = [
   { id: 'sentinel' as TabId, label: 'Sentinel', icon: Shield },
@@ -19,6 +20,7 @@ const PANEL_TABS = [
   { id: 'location' as TabId, label: 'Location', icon: MapPin },
   { id: 'media' as TabId, label: 'Media', icon: Camera },
   { id: 'evidence' as TabId, label: 'Evidence', icon: ClipboardList },
+  { id: 'guardian' as TabId, label: 'Guardian', icon: ShieldCheck },
   { id: 'errors' as TabId, label: 'Errors', icon: Bug },
 ];
 
@@ -33,6 +35,11 @@ export default function DashboardPage() {
 
       {/* Right Panel */}
       <div className={`bg-mag-panel/90 backdrop-blur-xl border-l border-mag-border/60 flex flex-col transition-all duration-300 ease-out relative ${rightPanelOpen ? 'w-80' : 'w-0 overflow-hidden'}`}>
+        {/* Left gradient accent rail on the panel */}
+        <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-mag-primary/20 to-transparent pointer-events-none" />
+        {/* Top gradient hairline */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-mag-primary/30 to-transparent pointer-events-none" />
+
         {/* Panel Toggle */}
         <button
           onClick={() => setRightPanelOpen(!rightPanelOpen)}
@@ -63,16 +70,17 @@ export default function DashboardPage() {
               {activeTab === 'location' && <DevicePanel />}
               {activeTab === 'media' && <MediaGallery />}
               {activeTab === 'evidence' && <EvidencePanel />}
+              {activeTab === 'guardian' && <GuardianPanel />}
               {activeTab === 'errors' && <ErrorPanel />}
             </div>
 
             {/* Panel footer */}
-            <div className="px-4 py-2 border-t border-mag-border/30 flex items-center justify-between">
+            <div className="px-4 py-2 border-t border-mag-border/30 flex items-center justify-between relative">
               <div className="flex items-center gap-1.5">
-                <div className="w-1 h-1 rounded-full bg-mag-accent/40" />
-                <span className="text-[8px] font-mono text-mag-text-dim/30 font-bold uppercase tracking-wider">Live</span>
+                <span className="w-1 h-1 rounded-full bg-mag-accent shadow-[0_0_6px_rgba(34,197,94,0.5)] animate-pulse-slow" />
+                <span className="text-[8px] font-mono text-mag-accent/50 font-bold uppercase tracking-wider">Live</span>
               </div>
-              <div className="w-1 h-1 rounded-full bg-mag-primary/30" />
+              <span className="text-[8px] font-mono text-mag-text-dim/25 font-bold uppercase tracking-wider">Magneetar OS</span>
             </div>
           </>
         )}

@@ -1,4 +1,4 @@
-import { Device, Location, Command, MediaItem, MediaDetail, ErrorLogResponse } from '@/types';
+import { Device, Location, Command, MediaItem, MediaDetail, ErrorLogResponse, GuardianProfile, RecoveryRequest, NearbyRecoveryRequest } from '@/types';
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -29,12 +29,21 @@ class MagneetarAPI {
       ? sessionStorage.getItem('mt_auth_mode')
       : null;
 
+    // Fall back to the session's stored token when the shared singleton hasn't
+    // been configured yet — e.g. the Sidebar's stats fetch can fire before
+    // useDevices() sets credentials on the instance, which used to send an
+    // empty Bearer token and 401 on first load after login.
+    const sessionKey = typeof window !== 'undefined'
+      ? sessionStorage.getItem('mt_api_key')
+      : null;
+    const key = this.apiKey || sessionKey || '';
+
     if (authMode === 'user') {
       // User account login — JWT token goes in Authorization header
-      headers['Authorization'] = `Bearer ${this.apiKey}`;
+      headers['Authorization'] = `Bearer ${key}`;
     } else {
       // API key login — goes in x-api-key header
-      headers['x-api-key'] = this.apiKey;
+      headers['x-api-key'] = key;
     }
     return headers;
   }
@@ -182,6 +191,53 @@ class MagneetarAPI {
 
   async markDeviceRecovered(deviceId: string): Promise<{ status: string }> {
     return this.request(`/api/dashboard/devices/${deviceId}/recover`, 'POST');
+  }
+
+  async deleteDevice(deviceId: string): Promise<{ status: string; message: string }> {
+    return this.request(`/api/dashboard/devices/${deviceId}`, 'DELETE');
+  }
+
+  async deleteAccount(): Promise<{ status: string; message: string; devices_removed: number }> {
+    return this.request('/api/auth/user/account', 'DELETE');
+  }
+
+  // ── Guardian Network (community recovery) ────────────────────────────────
+
+  async getGuardianProfile(): Promise<GuardianProfile> {
+    return this.request('/api/guardian/profile');
+  }
+
+  async setGuardianOptIn(data: {
+    opted_in: boolean;
+    radius_km?: number;
+    handle?: string;
+  }): Promise<GuardianProfile> {
+    return this.request('/api/guardian/opt-in', 'POST', data);
+  }
+
+  async launchRecovery(deviceId: string, description?: string): Promise<RecoveryRequest> {
+    return this.request('/api/recovery/requests', 'POST', { device_id: deviceId, description });
+  }
+
+  async getRecoveryRequests(): Promise<{ requests: RecoveryRequest[] }> {
+    return this.request('/api/recovery/requests');
+  }
+
+  async closeRecovery(requestId: string): Promise<{ status: string; message: string; request_id: string }> {
+    return this.request(`/api/recovery/requests/${requestId}/close`, 'POST');
+  }
+
+  async getNearbyRecovery(lat: number, lng: number, radiusKm = 20): Promise<{ requests: NearbyRecoveryRequest[] }> {
+    return this.request(`/api/recovery/nearby?lat=${lat}&lng=${lng}&radius_km=${radiusKm}`);
+  }
+
+  async reportSighting(data: {
+    request_id: string;
+    lat: number;
+    lng: number;
+    note?: string;
+  }): Promise<{ status: string; sighting_id: number; guardian_handle: string }> {
+    return this.request('/api/recovery/sightings', 'POST', data);
   }
 }
 

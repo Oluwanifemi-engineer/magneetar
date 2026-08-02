@@ -17,7 +17,10 @@ object OEMUtils {
     private val CHINESE_OEM_MANUFACTURERS = setOf(
         "xiaomi", "redmi", "poco", "huawei", "honor", "oppo",
         "realme", "vivo", "oneplus", "meizu", "lenovo", "zte",
-        "nubia", "coolpad", "gionee", "letv", "smartisan"
+        "nubia", "coolpad", "gionee", "letv", "smartisan",
+        // Transsion — Tecno / Infinix / Itel are the dominant brands in Nigeria
+        // and much of Africa; their HiOS/XOS battery killers are aggressive.
+        "tecno", "infinix", "itel", "tcl", "transsion"
     )
 
     /** Whether this device is from a Chinese OEM */
@@ -36,6 +39,9 @@ object OEMUtils {
             Build.MANUFACTURER.lowercase().contains("vivo") -> "Vivo Funtouch OS"
             Build.MANUFACTURER.lowercase().contains("oneplus") -> "OnePlus OxygenOS/ColorOS"
             Build.MANUFACTURER.lowercase().contains("meizu") -> "Meizu Flyme"
+            Build.MANUFACTURER.lowercase().contains("tecno") || Build.MANUFACTURER.lowercase().contains("infinix") ||
+                Build.MANUFACTURER.lowercase().contains("itel") || Build.MANUFACTURER.lowercase().contains("transsion") ->
+                "Transsion HiOS/XOS (Tecno/Infinix/Itel)"
             else -> "${Build.MANUFACTURER} ${Build.BRAND}"
         }
     }
@@ -71,6 +77,13 @@ object OEMUtils {
                 "1. Open Settings → Battery → Battery Optimization\n" +
                 "2. Find Magneetar → select \"Don't optimize\"\n" +
                 "3. Also open Recent Apps and lock Magneetar"
+
+            manufacturer.contains("tecno") || manufacturer.contains("infinix") ||
+                manufacturer.contains("itel") || manufacturer.contains("transsion") ->
+                "1. Open the Phone Manager app → Autostart (or Auto-launch)\n" +
+                "2. Find Magneetar → toggle ON\n" +
+                "3. Also open Settings → Battery → App Power Saver → Magneetar → select \"Allow background running\"\n" +
+                "4. Lock Magneetar in Recent Apps (pull the app card down)"
 
             else ->
                 "1. Open Settings → Apps → Magneetar → Battery → Unrestricted\n" +
@@ -114,6 +127,17 @@ object OEMUtils {
                         putExtra("packageName", context.packageName)
                         putExtra("pkg_name", context.packageName)
                         `package` = "com.iqoo.secure"
+                    }
+                }
+                // Transsion devices gate auto-start inside the stock Phone Manager
+                // app; app-details settings is the reliable universal entry point.
+                Build.MANUFACTURER.lowercase().let {
+                    it.contains("tecno") || it.contains("infinix") ||
+                        it.contains("itel") || it.contains("transsion")
+                } -> {
+                    Intent().apply {
+                        action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                        data = Uri.parse("package:${context.packageName}")
                     }
                 }
                 else -> {

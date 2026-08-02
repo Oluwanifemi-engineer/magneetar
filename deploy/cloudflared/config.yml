@@ -25,5 +25,9 @@ ingress:
   - hostname: app.magneetar.me
     service: http://dashboard:80
 
+  # Bare domain — serve the dashboard (login page) at the root too
+  - hostname: magneetar.me
+    service: http://dashboard:80
+
   # Catch-all — reject unmatched hostnames
   - service: http_status:404

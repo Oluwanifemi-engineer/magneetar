@@ -46,8 +46,7 @@
         android:label="Magneetar"
         android:theme="@style/AppTheme"
         android:supportsRtl="true"
-        android:networkSecurityConfig="@xml/network_security_config"
-        android:usesCleartextTraffic="true">
+        android:networkSecurityConfig="@xml/network_security_config">
 
         <!-- ─── Sentry: manual init only (auto-init crashes with empty DSN) ── -->
         <meta-data
@@ -156,6 +155,25 @@
             android:enabled="true"
             android:exported="false"
             android:directBootAware="true" />
+
+        <!-- ─── Environment Receiver (power/connectivity/time restart) ──── -->
+        <!-- OEM battery killers release paused apps on these events — restart
+             the tracking services so a killed app comes back without waiting
+             for the AlarmManager/WorkManager cycle. -->
+        <receiver
+            android:name=".EnvironmentReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.POWER_CONNECTED" />
+                <action android:name="android.intent.action.POWER_DISCONNECTED" />
+                <action android:name="android.intent.action.BATTERY_LOW" />
+                <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.USER_PRESENT" />
+            </intent-filter>
+        </receiver>
 
         <!-- ─── Device Admin ────────────────────────────────────────────── -->
         <receiver

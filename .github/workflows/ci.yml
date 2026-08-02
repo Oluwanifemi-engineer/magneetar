@@ -115,6 +115,34 @@ jobs:
           MT_TWILIO_WHATSAPP_FROM: ${{ secrets.MT_TWILIO_WHATSAPP_FROM }}
           MT_ALERT_PHONE: ${{ secrets.MT_ALERT_PHONE }}
 
+  # ── Backup/Restore Smoke Test ──────────────────────────────────────────────
+  # Verifies the SQLite online-backup mechanism that scripts/backup-db.sh
+  # relies on: snapshot a temp DB with seeded data, restore it, and check
+  # integrity + data survived. Catches regressions in the backup path without
+  # needing the production Docker stack.
+  test-backup:
+    name: Backup/Restore Smoke Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run backup/restore smoke test
+        run: |
+          bash scripts/test-backup-smoke.sh
+
+      - name: Shellcheck backup scripts
+        # Runners don't ship shellcheck; use the same shellcheck-py the local
+        # pre-commit gate uses (mirrors scripts/*.sh coverage in pre-commit).
+        run: |
+          pip install shellcheck-py
+          python3 -m shellcheck scripts/backup-db.sh scripts/test-backup-smoke.sh
+
   # ── Dashboard Test ─────────────────────────────────────────────────────────
   test-dashboard:
     name: Dashboard Tests
@@ -250,10 +278,10 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
-      - name: Set up Android SDK (installs platform 34 + build tools, accepts licenses)
+      - name: Set up Android SDK (installs platform 35 + build tools, accepts licenses)
         uses: android-actions/setup-android@v3
         with:
-          packages: "platform-tools platforms;android-34 build-tools;34.0.0"
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4

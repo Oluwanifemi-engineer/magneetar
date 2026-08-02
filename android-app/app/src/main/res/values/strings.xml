@@ -45,6 +45,7 @@
     <string name="perm_camera">Camera — for intruder photo capture</string>
     <string name="perm_microphone">Microphone — for audio evidence</string>
     <string name="perm_storage">Storage — for evidence storage</string>
+    <string name="perm_notifications">Notifications — for instant security alerts</string>
     <string name="perm_device_admin">Device Admin — for remote lock &amp; wipe</string>
     <string name="perm_battery">Battery Optimization — for persistent background operation</string>
     <string name="perm_autostart">Auto-start — for protection after reboot</string>

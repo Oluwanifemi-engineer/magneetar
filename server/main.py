@@ -11,7 +11,7 @@ import traceback as tb
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from auth import decode_token
+from auth import decode_token, user_id_from_subject
 from config import settings
 from database import ensure_initialized, log_error
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -28,6 +28,7 @@ from websocket_manager import (
     record_pong,
     remove_websocket,
     start_connection_heartbeat,
+    update_device_owner,
 )
 
 logger = get_logger("magneetar")
@@ -279,6 +280,11 @@ from routes.dashboard import router as dashboard_router  # noqa: E402
 
 app.include_router(dashboard_router)
 
+# Guardian Network routes (community recovery)
+from routes.guardian import router as guardian_router  # noqa: E402
+
+app.include_router(guardian_router)
+
 
 # ─── Request Timeout Middleware ───────────────────────────────────────────
 
@@ -428,12 +434,28 @@ async def dashboard_websocket(websocket: WebSocket):
 
     # ── Authentication ─────────────────────────────────────────────────
     token = websocket.query_params.get("token")
+    owner = None  # None = admin (sees all devices)
     if token:
         try:
             payload = decode_token(token)
             if payload.get("type") not in ("dashboard", "access"):
                 await websocket.close(code=4001, reason="Invalid token type")
                 return
+            owner = user_id_from_subject(payload.get("sub", ""))
+            if owner:
+                # Hydrate the in-memory device→owner cache so this user's
+                # dashboards receive broadcasts immediately (survives restarts).
+                try:
+                    from database import get_db_context
+
+                    with get_db_context() as conn:
+                        rows = conn.execute(
+                            "SELECT id FROM devices WHERE owner_id=?", (owner,)
+                        ).fetchall()
+                        for row in rows:
+                            update_device_owner(row["id"], owner)
+                except Exception:
+                    pass
         except Exception:
             await websocket.close(code=4001, reason="Invalid token")
             return
@@ -452,7 +474,7 @@ async def dashboard_websocket(websocket: WebSocket):
         )
         await close_lowest_priority_connection()
 
-    add_connection(websocket)  # register + initialize pong timestamp
+    add_connection(websocket, owner)  # register + initialize pong timestamp
     logger.info(
         "WebSocket connected",
         extra={

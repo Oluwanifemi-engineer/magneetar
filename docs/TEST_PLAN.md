@@ -96,7 +96,7 @@ bash scripts/install-apk.sh -y
 | 4.2 | Verify connection status | Shows "Connected — your@email.com" | ☐ |
 | 4.3 | Verify battery opt status | Shows "Battery optimization disabled ✓" | ☐ |
 | 4.4 | If using Chinese OEM phone | Shows OEM-specific warning + "Enable Auto-Start" button | ☐ |
-| 4.5 | Tap **Open Dashboard** | Opens browser to `https://api.magneetar.me` (or server URL) | ☐ |
+| 4.5 | Tap **Open Dashboard** | Opens browser to the dashboard login page — derived from the API server URL (`https://api.<host>` → `https://app.<host>/login`); self-hosted non-`api.*` servers fall back to the server URL | ☐ |
 | 4.6 | Verify dashboard shows | Device appears in the dashboard device list | ☐ |
 
 ---

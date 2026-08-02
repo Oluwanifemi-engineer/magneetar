@@ -5,23 +5,26 @@ import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { cn, getCommandLabel, isDestructiveCommand, formatTimestamp } from '@/lib/utils';
 import { CommandButton } from '@/components/ui/CommandButton';
-import { Terminal, MessageSquare, Send } from 'lucide-react';
+import { Terminal } from 'lucide-react';
 import { CommandType } from '@/types';
 
+// NOTE: the button sends the WIRE command name, which must match what the
+// server (models.CommandRequest.validate_command) and the Android app
+// (TrackingService.handleCommand) both accept. The siren button maps to
+// 'alarm' — the server/app have no 'siren' command, so sending 'siren'
+// would 422 on the server and never reach the device.
 const COMMANDS: { command: CommandType; label: string; icon: string }[] = [
   { command: 'ping', label: 'PING', icon: '📡' },
   { command: 'capture_photo', label: 'PHOTO', icon: '📷' },
   { command: 'capture_audio', label: 'AUDIO', icon: '🎤' },
   { command: 'lock', label: 'LOCK', icon: '🔒' },
-  { command: 'siren', label: 'SIREN', icon: '🚨' },
+  { command: 'alarm', label: 'SIREN', icon: '🚨' },
   { command: 'wipe', label: 'WIPE', icon: '💣' },
 ];
 
 export function CommandPanel() {
   const { commands, setCommands, selectedDeviceId } = useStore();
   const [sending, setSending] = useState<string | null>(null);
-  const [displayMessage, setDisplayMessage] = useState('');
-  const [messageSent, setMessageSent] = useState(false);
 
   // Fetch commands
   const fetchCommands = useCallback(async () => {
@@ -56,15 +59,6 @@ export function CommandPanel() {
     }
   };
 
-  // Send display message
-  const handleSendMessage = async () => {
-    if (!displayMessage.trim() || !selectedDeviceId) return;
-    await handleSend('display_message', displayMessage);
-    setDisplayMessage('');
-    setMessageSent(true);
-    setTimeout(() => setMessageSent(false), 2000);
-  };
-
   return (
     <div className="p-4 space-y-4">
       {/* Quick Actions */}
@@ -86,34 +80,6 @@ export function CommandPanel() {
         </div>
       </div>
 
-      {/* Display Message */}
-      <div>
-        <div className="flex items-center gap-1.5 text-[11px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold mb-2.5 px-1">
-          <MessageSquare size={12} className="text-mag-secondary" />
-          Display Message
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={displayMessage}
-            onChange={(e) => setDisplayMessage(e.target.value)}
-            placeholder="Type message to display on device..."
-            className="mag-input text-xs flex-1"
-            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={!displayMessage.trim() || sending === 'display_message'}
-            className="mag-btn-primary px-3 py-2 text-[11px]"
-          >
-            {messageSent ? (
-              <span className="text-mag-accent">✓</span>
-            ) : (
-              <Send size={14} />
-            )}
-          </button>
-        </div>
-      </div>
 
       {/* Command History */}
       <div>
@@ -133,6 +99,7 @@ export function CommandPanel() {
               >
                 <div className={cn(
                   'w-2 h-2 rounded-full',
+                  cmd.status === 'expired' ? 'bg-mag-text-dim/30' :
                   cmd.status === 'executed' ? 'bg-mag-accent' :
                   cmd.status === 'failed' ? 'bg-mag-danger' :
                   'bg-mag-warning animate-pulse-slow'
@@ -147,6 +114,7 @@ export function CommandPanel() {
                 </div>
                 <span className={cn(
                   'text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-md',
+                  cmd.status === 'expired' ? 'text-mag-text-dim/45 bg-mag-text-dim/5 line-through decoration-mag-text-dim/30' :
                   cmd.status === 'executed' ? 'text-mag-accent bg-mag-accent/10' :
                   cmd.status === 'failed' ? 'text-mag-danger bg-mag-danger/10' :
                   'text-mag-warning bg-mag-warning/10'

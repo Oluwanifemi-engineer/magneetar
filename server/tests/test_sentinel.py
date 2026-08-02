@@ -169,6 +169,51 @@ class TestFalsePositivePrevention:
         assert level == "CRITICAL"
 
 
+class TestConfirmationGate:
+    """The false-positive gate must not deadlock (regression for the live-found
+    bug where capped scores were stored as 79 but the gate required >= 80,
+    making theft mode unreachable for any device with history)."""
+
+    def _theft_ping(self):
+        return TelemetryPing(
+            device_id="test-device",
+            lat=9.0820,
+            lng=8.6753,
+            sim_changed=True,  # 35
+            is_airplane_mode=True,  # 15
+            speed=45.0,  # 25 (vehicle)
+            is_location_enabled=False,  # 20
+        )
+
+    def _history(self, scores):
+        """Build history rows (newest first) from a list of scores."""
+        return [{"sentinel_score": s} for s in scores]
+
+    def test_sustained_theft_eventually_unlocks(self, engine):
+        """Consecutive theft pings must escalate past the cap."""
+        history = []
+        for _ in range(4):
+            score, level, _ = engine.compute_score(self._theft_ping(), history)
+            history.insert(0, {"sentinel_score": score})
+        # A sustained theft pattern must reach CRITICAL and trip the threshold
+        assert score >= engine.theft_threshold
+        assert level == "CRITICAL"
+
+    def test_single_spike_with_history_stays_capped(self, engine):
+        """One theft ping after normal history should stay capped (no false alarm)."""
+        history = self._history([0, 0, 0])  # device was normal
+        score, level, _ = engine.compute_score(self._theft_ping(), history)
+        assert score < engine.theft_threshold
+        assert level == "HIGH"
+
+    def test_capped_scores_count_toward_confirmation(self, engine):
+        """Capped 79s must count toward the streak so the gate can unlock."""
+        history = self._history([79, 95, 0])  # capped + raw-high recent pings
+        score, level, _ = engine.compute_score(self._theft_ping(), history)
+        assert score >= engine.theft_threshold
+        assert level == "CRITICAL"
+
+
 class TestLocationValidation:
     def test_valid_location_accepted(self, engine, safe_ping):
         is_valid, reason = engine.validate_report(safe_ping, None)

@@ -6,9 +6,8 @@
 #   1. Check / guide Firebase authentication
 #   2. Create a Firebase project named "magneetar"
 #   3. Register Android app with package "com.magneetar.app"
-#   4. Download google-services.json
-#   5. Enable Cloud Messaging API
-#   6. Configure server .env with FCM server key
+#   4. Download google-services.json    #   5. Enable Cloud Messaging API
+    #   6. Download a Firebase service-account JSON and configure server .env
 #
 # Prerequisites:
 #   - Node.js 18+
@@ -174,33 +173,46 @@ else
   https://console.cloud.google.com/apis/library/fcm.googleapis.com"
 fi
 
-# Get the FCM server key from Firebase
-FCM_KEY=$("$FIREBASE_BIN" apps:android:get-config \
-    --project "$PROJECT_ID" \
-    --app "$APP_ID" \
-    "${TOKEN_ARGS[@]+"${TOKEN_ARGS[@]}"}" 2>/dev/null | python3 -c "
-import sys,json
-try:
-    cfg = json.load(sys.stdin)
-    # Extract the current_key from api_key array
-    for client in cfg.get('client', []):
-        for api_key in client.get('api_key', []):
-            key = api_key.get('current_key', '')
-            if key and not key.startswith('AIzaSyPlaceholder'):
-                print(key)
-                sys.exit(0)
-except: pass
-" 2>/dev/null || true)
+# ── Service account key (NOT the legacy server key) ──────────────────────
+# Google deprecated the legacy FCM "server key" (the API key from
+# google-services.json) in June 2024. The server sends pushes with the
+# firebase-admin SDK, which REQUIRES a service-account JSON — the legacy
+# key simply does not work. Download the default Firebase service account
+# (PROJECT_ID@appspot.gserviceaccount.com) key and point MT_FIREBASE_KEY
+# at the JSON file (or paste its contents as a JSON string).
+SA_EMAIL="$PROJECT_ID@appspot.gserviceaccount.com"
+SA_KEY_FILE="$PROJECT_DIR/server/firebase-service-account.json"
 
-if [ -n "$FCM_KEY" ]; then
-    if [ -f "$SERVER_ENV" ]; then
-        if grep -q "^MT_FIREBASE_KEY=" "$SERVER_ENV"; then
-            sed -i "s|^MT_FIREBASE_KEY=.*|MT_FIREBASE_KEY=\"$FCM_KEY\"|" "$SERVER_ENV"
-        else
-            echo "MT_FIREBASE_KEY=\"$FCM_KEY\"" >> "$SERVER_ENV"
-        fi
-        log "Server .env updated with FCM server key"
+SA_DOWNLOADED=0
+if command -v gcloud &>/dev/null; then
+    echo -e "  Downloading service account key for ${CYAN}$SA_EMAIL${NC}..."
+    if gcloud iam service-accounts keys create "$SA_KEY_FILE" \
+        --iam-account="$SA_EMAIL" \
+        --project="$PROJECT_ID" 2>/dev/null; then
+        log "Service account key saved to server/firebase-service-account.json"
+        SA_DOWNLOADED=1
+    else
+        warn "Could not create service account key (the default Firebase SA may not exist yet)."
     fi
+else
+    warn "gcloud CLI not found — service account key must be downloaded manually."
+fi
+
+if [ "$SA_DOWNLOADED" -eq 0 ]; then
+    warn "Manual step required — download the service account key:"
+    echo "  Firebase Console → Project settings → Service accounts"
+    echo "  → Generate new private key → save as:"
+    echo "  ${CYAN}server/firebase-service-account.json${NC}"
+    echo "  Then set MT_FIREBASE_KEY to that file path (or its JSON contents)."
+fi
+
+if [ -f "$SA_KEY_FILE" ] && [ -f "$SERVER_ENV" ]; then
+    if grep -q "^MT_FIREBASE_KEY=" "$SERVER_ENV"; then
+        sed -i "s|^MT_FIREBASE_KEY=.*|MT_FIREBASE_KEY=\"$SA_KEY_FILE\"|" "$SERVER_ENV"
+    else
+        echo "MT_FIREBASE_KEY=\"$SA_KEY_FILE\"" >> "$SERVER_ENV"
+    fi
+    log "Server .env updated with FCM service account path"
 fi
 
 # ── Step 6: Verification ────────────────────────────────────────────────────
@@ -219,10 +231,10 @@ else
     echo -e "  ${GREEN}[ ]${NC} google-services.json: ${YELLOW}still placeholder${NC}"
 fi
 
-if grep -q "MT_FIREBASE_KEY=" "$SERVER_ENV" 2>/dev/null; then
-    echo -e "  ${GREEN}[✓]${NC} Server FCM key: ${CYAN}configured${NC}"
+if grep -q "^MT_FIREBASE_KEY=" "$SERVER_ENV" 2>/dev/null; then
+    echo -e "  ${GREEN}[✓]${NC} FCM service account: ${CYAN}configured${NC}"
 else
-    echo -e "  ${GREEN}[ ]${NC} Server FCM key: ${YELLOW}not configured${NC}"
+    echo -e "  ${GREEN}[ ]${NC} FCM service account: ${YELLOW}not configured${NC}"
 fi
 
 echo ""

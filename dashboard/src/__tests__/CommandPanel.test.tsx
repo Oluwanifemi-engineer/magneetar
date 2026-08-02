@@ -67,19 +67,14 @@ describe('CommandPanel Component', () => {
 
   it('renders all quick action command buttons', () => {
     render(<CommandPanel />);
-    // Use data-testid to find buttons since labels have emoji prefixes
+    // Use data-testid to find buttons since labels have emoji prefixes.
+    // The siren button sends wire command 'alarm' (server/device contract).
     expect(screen.getByTestId('cmd-btn-ping')).toBeInTheDocument();
     expect(screen.getByTestId('cmd-btn-capture_photo')).toBeInTheDocument();
     expect(screen.getByTestId('cmd-btn-capture_audio')).toBeInTheDocument();
     expect(screen.getByTestId('cmd-btn-lock')).toBeInTheDocument();
-    expect(screen.getByTestId('cmd-btn-siren')).toBeInTheDocument();
+    expect(screen.getByTestId('cmd-btn-alarm')).toBeInTheDocument();
     expect(screen.getByTestId('cmd-btn-wipe')).toBeInTheDocument();
-  });
-
-  it('shows "Display Message" section with input and send button', () => {
-    render(<CommandPanel />);
-    expect(screen.getByPlaceholderText('Type message to display on device...')).toBeInTheDocument();
-    expect(screen.getByText('Display Message')).toBeInTheDocument();
   });
 
   it('shows empty state when no commands in history', () => {
@@ -114,14 +109,13 @@ describe('CommandPanel Component', () => {
     });
   });
 
-  it('sends display message when Enter is pressed in message input', async () => {
+  it('issues the siren via wire command "alarm" when SIREN button is clicked', async () => {
     render(<CommandPanel />);
-    const input = screen.getByPlaceholderText('Type message to display on device...');
-    fireEvent.change(input, { target: { value: 'Find my phone!' } });
-    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+    const sirenBtn = screen.getByTestId('cmd-btn-alarm');
+    fireEvent.click(sirenBtn);
 
     await waitFor(() => {
-      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'display_message', 'Find my phone!');
+      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'alarm', '');
     });
   });
 

@@ -120,6 +120,10 @@ class SignInActivity : AppCompatActivity() {
                         apply()
                     }
 
+                    // Best-effort: link this device to the signed-in account so
+                    // it shows up in the dashboard immediately.
+                    scope.launch { DeviceLinker.linkToAccount(this@SignInActivity, serverUrl, token) }
+
                     withContext(Dispatchers.Main) {
                         navigateToPermissions()
                     }

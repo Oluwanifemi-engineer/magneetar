@@ -62,6 +62,10 @@ class Settings:
     # e.g. '{"1": "location", "2": "time", "3": "score"}'. Unset/invalid JSON
     # degrades to a sensible default mapping.
     TWILIO_WHATSAPP_TEMPLATE_VARIABLES: dict = _env_json_dict("MT_TWILIO_WHATSAPP_TEMPLATE_VARIABLES")
+    # Firebase service-account JSON for FCM v1 push alerts. Accepts a path to
+    # a downloaded service-account key file OR the JSON contents as a string.
+    # NOTE: the legacy FCM "server key" (API key) is deprecated since June
+    # 2024 and does NOT work with firebase-admin — see scripts/firebase-setup.sh.
     FIREBASE_CREDENTIALS: str = os.environ.get("MT_FIREBASE_KEY", "")
     # Default country code for normalizing local phone numbers to E.164
     # (e.g. Nigerian "0808..." → "+234808..."). Override per region.
@@ -175,6 +179,24 @@ class Settings:
                 "template SIDs start with 'HX' (current value starts with "
                 f"'{self.TWILIO_WHATSAPP_TEMPLATE_SID[:2]}'). Find it in the "
                 "Twilio Console > Content > Templates."
+            )
+
+        # Firebase: flag legacy API keys ("AIza...") which were deprecated by
+        # Google in June 2024 and silently fail with firebase-admin. MT_FIREBASE_KEY
+        # must be a service-account JSON path or JSON string instead.
+        fcm = self.FIREBASE_CREDENTIALS.strip()
+        if fcm.startswith("AIza"):
+            warnings.append(
+                "MT_FIREBASE_KEY looks like the legacy FCM server key (starts with "
+                "'AIza'). That key type was deprecated by Google in June 2024 and "
+                "does NOT work with firebase-admin — set it to a service-account "
+                "JSON path or JSON string instead (see scripts/firebase-setup.sh)."
+            )
+        elif fcm and not fcm.startswith("{") and not os.path.exists(fcm):
+            warnings.append(
+                f"MT_FIREBASE_KEY points to a file that doesn't exist: {fcm!r}. "
+                "Push alerts will be skipped until a valid service-account JSON "
+                "path (or JSON string) is configured."
             )
 
         # Template variables JSON must be an object if provided.

@@ -5,6 +5,7 @@ import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { LogOut, Bell, Settings } from 'lucide-react';
+import { SettingsModal } from '@/components/layout/SettingsModal';
 
 export function Header() {
   const {
@@ -15,6 +16,7 @@ export function Header() {
   const [inputUrl, setInputUrl] = useState(serverUrl);
   const [inputKey, setInputKey] = useState(apiKey);
   const [connecting, setConnecting] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const handleConnect = async () => {
     if (!inputUrl || !inputKey) return;
@@ -39,15 +41,26 @@ export function Header() {
   };
 
   return (
-    <header className="h-14 bg-mag-panel/95 backdrop-blur-xl border-b border-mag-border/60 flex items-center px-5 gap-4 z-50 shadow-mag-panel">
+    <header className="h-14 bg-mag-panel/95 backdrop-blur-xl border-b border-mag-border/60 flex items-center px-5 gap-4 z-50 shadow-mag-panel relative overflow-hidden">
+      {/* Top gradient hairline */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-mag-primary/40 to-transparent pointer-events-none" />
+
+      {/* Ambient aurora hint (right side) */}
+      <div className="absolute -right-20 top-1/2 -translate-y-1/2 w-64 h-24 rounded-full bg-mag-primary/[0.05] blur-3xl pointer-events-none" />
+
       {/* ─── Brand — M Logo ──────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.08] flex items-center justify-center overflow-hidden">
-          <img src="/m-logo.svg" alt="M" className="w-5 h-5" />
+      <div className="flex items-center gap-3 shrink-0 relative">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mag-primary/15 via-transparent to-cyan-500/10 border border-white/[0.08] flex items-center justify-center overflow-hidden shadow-[0_0_16px_rgba(233,30,140,0.12)]">
+          <img src="/m-logo.svg" alt="M" className="w-5 h-5 drop-shadow-[0_0_6px_rgba(233,30,140,0.5)]" />
         </div>
-        <span className="text-sm font-display font-bold tracking-[0.25em] text-mag-text">
-          MAGNEETAR
-        </span>
+        <div className="flex flex-col leading-none">
+          <span className="text-sm font-display font-bold tracking-[0.25em] text-gradient-primary">
+            MAGNEETAR
+          </span>
+          <span className="mt-1 text-[7px] font-mono tracking-[0.3em] text-mag-text-dim/30 font-bold">
+            COMMAND CENTER
+          </span>
+        </div>
       </div>
 
       {/* ─── Status Indicator ────────────────────────────────────────────── */}
@@ -137,8 +150,22 @@ export function Header() {
             <LogOut size={11} />
             DISCONNECT
           </button>
+
+          {/* Settings — account info + Danger Zone live in the modal, NOT the
+              header, so a stressed operator can't delete the account by accident */}
+          <button
+            onClick={() => setSettingsOpen(true)}
+            title="Settings"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold text-mag-text-dim/50 hover:text-mag-text hover:bg-white/[0.04] border border-transparent hover:border-mag-border/20 transition-all"
+          >
+            <Settings size={11} />
+            SETTINGS
+          </button>
         </div>
       )}
+
+      {/* Settings modal */}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </header>
   );
 }

@@ -189,6 +189,44 @@ class PostgresDatabase:
                         created_at TIMESTAMPTZ DEFAULT NOW()
                     );
 
+                    CREATE TABLE IF NOT EXISTS guardian_profiles (
+                        user_id TEXT PRIMARY KEY,
+                        opted_in BOOLEAN DEFAULT TRUE,
+                        radius_km INTEGER DEFAULT 20,
+                        handle TEXT,
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ
+                    );
+
+                    CREATE TABLE IF NOT EXISTS recovery_requests (
+                        id TEXT PRIMARY KEY,
+                        device_id TEXT NOT NULL REFERENCES devices(id),
+                        owner_id TEXT NOT NULL,
+                        status TEXT DEFAULT 'active',
+                        description TEXT,
+                        last_lat DOUBLE PRECISION,
+                        last_lng DOUBLE PRECISION,
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        closed_at TIMESTAMPTZ,
+                        closed_reason TEXT
+                    );
+
+                    CREATE INDEX IF NOT EXISTS idx_recovery_requests_status ON recovery_requests(status);
+                    CREATE INDEX IF NOT EXISTS idx_recovery_requests_owner ON recovery_requests(owner_id);
+
+                    CREATE TABLE IF NOT EXISTS recovery_sightings (
+                        id BIGSERIAL PRIMARY KEY,
+                        request_id TEXT NOT NULL REFERENCES recovery_requests(id),
+                        guardian_id TEXT NOT NULL,
+                        guardian_handle TEXT,
+                        lat DOUBLE PRECISION NOT NULL,
+                        lng DOUBLE PRECISION NOT NULL,
+                        note TEXT,
+                        created_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+
+                    CREATE INDEX IF NOT EXISTS idx_recovery_sightings_request ON recovery_sightings(request_id);
+
                     CREATE TABLE IF NOT EXISTS audit_log (
                         id BIGSERIAL PRIMARY KEY,
                         timestamp TIMESTAMPTZ DEFAULT NOW(),

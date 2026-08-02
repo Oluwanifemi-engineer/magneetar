@@ -63,7 +63,16 @@ MT_RETENTION_DAYS=90
 # MT_TERMII_KEY=your-termii-api-key
 # MT_TWILIO_SID=your-twilio-sid
 # MT_TWILIO_AUTH_TOKEN=your-twilio-auth-token
-# MT_FIREBASE_KEY=path-to-firebase-credentials.json
+#
+# FCM push alerts — MT_FIREBASE_KEY must be a FIREBASE SERVICE-ACCOUNT JSON
+# (path or inline JSON), NOT the legacy FCM server key (deprecated June 2024;
+# starts with 'AIza' and does NOT work with firebase-admin).
+# Run: bash scripts/firebase-setup.sh   → downloads server/firebase-service-account.json
+# Bare metal:  MT_FIREBASE_KEY=./firebase-service-account.json
+# Docker:      MT_FIREBASE_KEY=/app/firebase-service-account.json  (file auto-mounted)
+# MT_FIREBASE_KEY=
+#
+# Sentry crash reporting (backend):
 # MT_SENTRY_DSN=your-sentry-dsn
 EOF
 
