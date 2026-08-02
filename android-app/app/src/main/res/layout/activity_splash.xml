@@ -11,17 +11,17 @@
         android:gravity="center"
         android:orientation="vertical">
 
-        <!-- M Logo Mark -->
+        <!-- M Logo Mark (branded magenta tile) -->
         <TextView
             android:layout_width="56dp"
             android:layout_height="56dp"
             android:gravity="center"
             android:text="M"
             android:textColor="#FFFFFF"
-            android:textSize="32sp"
+            android:textSize="30sp"
             android:textStyle="bold"
             android:fontFamily="sans-serif-medium"
-            android:background="@drawable/btn_surface" />
+            android:background="@drawable/logo_tile" />
 
         <!-- App Name -->
         <TextView

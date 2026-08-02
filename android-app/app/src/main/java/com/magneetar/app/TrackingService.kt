@@ -1,16 +1,15 @@
 package com.magneetar.app
 
+import android.annotation.SuppressLint
 import android.app.*
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.core.content.ContextCompat
-import android.hardware.camera2.*
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
-import android.media.MediaRecorder
 import android.os.*
 import android.provider.Settings
 import android.telephony.TelephonyManager
@@ -75,8 +74,14 @@ class TrackingService : Service() {
         }
     }
 
-    private val simSerialHash: String by lazy {
-        try {
+    // READ_PHONE_STATE is not granted on Android 10+ (IMEI/SIM are gated to
+    // privileged apps); this is best-effort and fully wrapped in try/catch — a
+    // SecurityException degrades to an empty hash, never a crash.
+    private val simSerialHash: String by lazy { computeSimSerialHash() }
+
+    @SuppressLint("MissingPermission")
+    private fun computeSimSerialHash(): String {
+        return try {
             val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
             val simSerial = tm.simSerialNumber ?: ""
             if (simSerial.isNotEmpty()) {
@@ -95,8 +100,6 @@ class TrackingService : Service() {
         private const val WAIT_BETWEEN_COMMANDS_MS = 10_000L
         private const val HEARTBEAT_INTERVAL_MS = 60_000L
         private const val LOCATION_INTERVAL_MS = 3_000L
-        private const val CAMERA_CAPTURE_TIMEOUT_MS = 45_000L
-        private const val AUDIO_CAPTURE_MS = 20_000L
 
         /**
          * Runtime flag — set to true when onCreate completes, cleared in onDestroy.
@@ -113,6 +116,10 @@ class TrackingService : Service() {
         createNotificationChannel()
         startForeground(NOTIF_ID, buildNotification("Initializing..."))
         isRunning = true
+
+        // Re-assert the hard uninstall block (device-owner mode). Best-effort:
+        // a no-op on normal devices, and never allowed to break tracking.
+        try { UninstallProtection.enforceUninstallBlocked(this) } catch (_: Exception) {}
 
         // Acquire WakeLock — use Huawei-whitelisted tag on Huawei devices
         acquireWakeLock()
@@ -497,6 +504,13 @@ class TrackingService : Service() {
 
     // ── Command loop ──────────────────────────────────────────────────────────
 
+    /**
+     * Command ids currently being handled. A capture command runs in a separate
+     * service and can take up to 45s; without this guard the 10s poll loop
+     * would re-fetch the still-pending command and spawn duplicate captures.
+     */
+    private val inFlightCommands = Collections.synchronizedSet(mutableSetOf<Int>())
+
     private suspend fun commandLoop() {
         while (true) {
             try {
@@ -504,8 +518,19 @@ class TrackingService : Service() {
                 if (response != null) {
                     val commands = JSONObject(response).getJSONArray("commands")
                     for (i in 0 until commands.length()) {
-                        val cmd = commands.getJSONObject(i)
-                        handleCommand(cmd.getInt("id"), cmd.getString("command"))
+                        val id = commands.getJSONObject(i).getInt("id")
+                        // Skip while locally executing, or while MediaCaptureService
+                        // is still capturing it (the poll re-fetches a still-
+                        // pending command every 10s; a capture can run 45s).
+                        if (inFlightCommands.contains(id) ||
+                            MediaCaptureService.activeCaptureIds.contains(id)
+                        ) continue
+                        inFlightCommands.add(id)
+                        try {
+                            handleCommand(id, commands.getJSONObject(i).getString("command"))
+                        } finally {
+                            inFlightCommands.remove(id)
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -520,10 +545,9 @@ class TrackingService : Service() {
      *
      * Every branch is wrapped: an unhandled exception must never leave a
      * command stuck PENDING (the dashboard shows it forever, and the poll
-     * would keep re-delivering it). The camera paths are additionally
-     * bounded by CAMERA_CAPTURE_TIMEOUT_MS because a missing permission,
-     * a flaky HAL, or a never-firing onError can otherwise stall the whole
-     * command loop on `deferred.await()` indefinitely.
+     * would keep re-delivering it). Capture commands are handed to
+     * MediaCaptureService (which acks them itself); everything else acks
+     * here — executed only on genuine success.
      */
     private suspend fun handleCommand(id: Int, command: String) {
         try {
@@ -532,38 +556,63 @@ class TrackingService : Service() {
                     updateNotification("Ping received")
                     ackCommand(id, "executed")
                 }
-                "capture_photo" -> {
-                    capturePhoto()
-                    ackCommand(id, "executed")
-                }
-                "capture_photo_front" -> {
-                    capturePhotoFront()
-                    ackCommand(id, "executed")
-                }
-                "capture_audio" -> {
-                    captureAudio()
-                    ackCommand(id, "executed")
+                // Photo/front/audio MUST run in MediaCaptureService: on Android
+                // 14+ a location-only FGS cannot open the camera/mic while the
+                // app is backgrounded, so inline capture here would silently
+                // fail. The capture service acks the command itself — executed
+                // only when media was actually uploaded.
+                "capture_photo", "capture_photo_front", "capture_audio" -> {
+                    startCaptureService(id, command)
                 }
                 "location_burst" -> {
                     locationBurst()
                     ackCommand(id, "executed")
                 }
                 "lock" -> {
-                    lockDevice()
-                    ackCommand(id, "executed")
+                    if (lockDevice()) ackCommand(id, "executed") else ackCommand(id, "failed")
                 }
                 "alarm" -> {
-                    triggerAlarm()
-                    ackCommand(id, "executed")
+                    if (triggerAlarm()) ackCommand(id, "executed") else ackCommand(id, "failed")
                 }
                 "wipe" -> {
-                    ackCommand(id, "executed")
-                    wipeDevice()
+                    // Wipe is destructive: require active device-admin, ack
+                    // 'executed' BEFORE wiping (the phone will factory-reset and
+                    // may never get a chance to ack after).
+                    if (isDeviceAdminActive()) {
+                        ackCommand(id, "executed")
+                        wipeDevice()
+                    } else {
+                        ackCommand(id, "failed")
+                    }
                 }
                 else -> ackCommand(id, "failed")
             }
         } catch (e: CancellationException) {
             throw e  // never swallow real cancellation — let the loop stop cleanly
+        } catch (e: Exception) {
+            e.printStackTrace()
+            try { ackCommand(id, "failed") } catch (e2: Exception) { e2.printStackTrace() }
+        }
+    }
+
+    /**
+     * Hand a capture command to MediaCaptureService (the camera|microphone
+     * foreground service). If it can't start (e.g. Android 14 background-start
+     * denied), ack 'failed' so the dashboard isn't lied to.
+     */
+    private suspend fun startCaptureService(id: Int, command: String) {
+        try {
+            val intent = Intent(this, MediaCaptureService::class.java).apply {
+                putExtra(MediaCaptureService.EXTRA_COMMAND_ID, id)
+                putExtra(MediaCaptureService.EXTRA_COMMAND, command)
+            }
+            ContextCompat.startForegroundService(this, intent)
+            // Ordering note: this returns BEFORE MediaCaptureService.onStartCommand
+            // adds the id to its activeCaptureIds set. We rely on the 10s poll
+            // interval vs the ~ms service-start gap — by the time the next poll
+            // runs, the capture service has registered the id, so the poll
+            // skips it. Do NOT "simplify" this away: it prevents duplicate
+            // captures of a still-pending command.
         } catch (e: Exception) {
             e.printStackTrace()
             try { ackCommand(id, "failed") } catch (e2: Exception) { e2.printStackTrace() }
@@ -577,239 +626,12 @@ class TrackingService : Service() {
         post("/api/device/commands/$id/ack", body)
     }
 
-    // ── Camera (Rear) ──────────────────────────────────────────────────────────
-
-    private suspend fun capturePhoto() {
-        var camera: CameraDevice? = null
-        var reader: android.media.ImageReader? = null
-        var handlerThread: HandlerThread? = null
-        try {
-            val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
-            // Try rear camera first, fall back to any camera
-            var cameraId: String? = null
-            for (id in cameraManager.cameraIdList) {
-                val chars = cameraManager.getCameraCharacteristics(id)
-                val facing = chars.get(CameraCharacteristics.LENS_FACING)
-                if (facing == CameraCharacteristics.LENS_FACING_BACK) {
-                    cameraId = id
-                    break
-                }
-            }
-            if (cameraId == null) cameraId = cameraManager.cameraIdList.firstOrNull() ?: return
-
-            handlerThread = HandlerThread("CameraThread").also { it.start() }
-            val handler = Handler(handlerThread.looper)
-            reader = android.media.ImageReader.newInstance(
-                1280, 720, android.graphics.ImageFormat.JPEG, 2
-            )
-            val deferred = CompletableDeferred<ByteArray>()
-
-            reader.setOnImageAvailableListener({ r ->
-                val image = r.acquireLatestImage()
-                if (image != null) {
-                    val buffer = image.planes[0].buffer
-                    val bytes = ByteArray(buffer.remaining())
-                    buffer.get(bytes)
-                    image.close()
-                    deferred.complete(bytes)
-                } else {
-                    deferred.completeExceptionally(Exception("No image captured"))
-                }
-            }, handler)
-
-            @Suppress("DEPRECATION")
-            cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
-                override fun onOpened(opened: CameraDevice) {
-                    camera = opened
-                    @Suppress("DEPRECATION")
-                    opened.createCaptureSession(
-                        listOf(reader!!.surface),
-                        object : CameraCaptureSession.StateCallback() {
-                            override fun onConfigured(session: CameraCaptureSession) {
-                                val request = opened.createCaptureRequest(
-                                    CameraDevice.TEMPLATE_STILL_CAPTURE
-                                ).apply { addTarget(reader!!.surface) }
-                                session.capture(request.build(), object :
-                                    CameraCaptureSession.CaptureCallback() {
-                                    override fun onCaptureCompleted(
-                                        session: CameraCaptureSession,
-                                        request: CaptureRequest,
-                                        result: TotalCaptureResult
-                                    ) {}
-                                }, handler)
-                            }
-                            override fun onConfigureFailed(session: CameraCaptureSession) {
-                                deferred.completeExceptionally(Exception("Camera config failed"))
-                            }
-                        }, handler
-                    )
-                }
-                // A hang on the deferred.await() must be impossible: the
-                // connection closing or erroring completes the deferred so the
-                // caller (handleCommand) can ack 'failed' and move on.
-                override fun onDisconnected(opened: CameraDevice) {
-                    opened.close()
-                    deferred.completeExceptionally(Exception("Camera disconnected"))
-                }
-                override fun onError(opened: CameraDevice, error: Int) {
-                    opened.close()
-                    deferred.completeExceptionally(Exception("Camera error $error"))
-                }
-            }, handler)
-
-            val bytes = withTimeout(CAMERA_CAPTURE_TIMEOUT_MS) { deferred.await() }
-            val lat = getLastKnownLat()
-            val lng = getLastKnownLng()
-            uploadMedia("photo", bytes, lat, lng)
-        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-            // Bounded capture — a hung camera must not stall the command loop.
-            android.util.Log.w("TrackingService", "Camera capture timed out")
-        } catch (e: CancellationException) {
-            throw e  // never swallow real cancellation
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            // Always release camera + reader + thread — a timeout/error path
-            // that skips this would leak the ImageReader/thread and leave the
-            // camera locked for every subsequent capture.
-            try { reader?.close() } catch (e: Exception) {}
-            try { camera?.close() } catch (e: Exception) {}
-            try { handlerThread?.quitSafely() } catch (e: Exception) {}
-        }
-    }
-
-    // ── Camera (Front) ─────────────────────────────────────────────────────────
-
-    private suspend fun capturePhotoFront() {
-        var camera: CameraDevice? = null
-        var reader: android.media.ImageReader? = null
-        var handlerThread: HandlerThread? = null
-        try {
-            val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
-            var cameraId: String? = null
-            for (id in cameraManager.cameraIdList) {
-                val chars = cameraManager.getCameraCharacteristics(id)
-                val facing = chars.get(CameraCharacteristics.LENS_FACING)
-                if (facing == CameraCharacteristics.LENS_FACING_FRONT) {
-                    cameraId = id
-                    break
-                }
-            }
-            if (cameraId == null) { capturePhoto(); return }
-
-            handlerThread = HandlerThread("CameraFrontThread").also { it.start() }
-            val handler = Handler(handlerThread.looper)
-            reader = android.media.ImageReader.newInstance(
-                640, 480, android.graphics.ImageFormat.JPEG, 2
-            )
-            val deferred = CompletableDeferred<ByteArray>()
-
-            reader.setOnImageAvailableListener({ r ->
-                val image = r.acquireLatestImage()
-                if (image != null) {
-                    val buffer = image.planes[0].buffer
-                    val bytes = ByteArray(buffer.remaining())
-                    buffer.get(bytes)
-                    image.close()
-                    deferred.complete(bytes)
-                } else {
-                    deferred.completeExceptionally(Exception("No image captured"))
-                }
-            }, handler)
-
-            @Suppress("DEPRECATION")
-            cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
-                override fun onOpened(opened: CameraDevice) {
-                    camera = opened
-                    @Suppress("DEPRECATION")
-                    opened.createCaptureSession(
-                        listOf(reader!!.surface),
-                        object : CameraCaptureSession.StateCallback() {
-                            override fun onConfigured(session: CameraCaptureSession) {
-                                val request = opened.createCaptureRequest(
-                                    CameraDevice.TEMPLATE_STILL_CAPTURE
-                                ).apply {
-                                    addTarget(reader!!.surface)
-                                    // Front camera typically doesn't support auto-focus in template
-                                }
-                                session.capture(request.build(), object :
-                                    CameraCaptureSession.CaptureCallback() {
-                                    override fun onCaptureCompleted(
-                                        session: CameraCaptureSession,
-                                        request: CaptureRequest,
-                                        result: TotalCaptureResult
-                                    ) {}
-                                }, handler)
-                            }
-                            override fun onConfigureFailed(session: CameraCaptureSession) {
-                                deferred.completeExceptionally(Exception("Front camera config failed"))
-                            }
-                        }, handler
-                    )
-                }
-                override fun onDisconnected(opened: CameraDevice) {
-                    opened.close()
-                    deferred.completeExceptionally(Exception("Front camera disconnected"))
-                }
-                override fun onError(opened: CameraDevice, error: Int) {
-                    opened.close()
-                    deferred.completeExceptionally(Exception("Front camera error $error"))
-                }
-            }, handler)
-
-            val bytes = withTimeout(CAMERA_CAPTURE_TIMEOUT_MS) { deferred.await() }
-            val lat = getLastKnownLat()
-            val lng = getLastKnownLng()
-            uploadMedia("photo", bytes, lat, lng)
-        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-            android.util.Log.w("TrackingService", "Front camera capture timed out")
-        } catch (e: CancellationException) {
-            throw e  // never swallow real cancellation
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            try { reader?.close() } catch (e: Exception) {}
-            try { camera?.close() } catch (e: Exception) {}
-            try { handlerThread?.quitSafely() } catch (e: Exception) {}
-        }
-    }
-
-    // ── Audio ─────────────────────────────────────────────────────────────────
-
-    private suspend fun captureAudio() {
-        try {
-            val file = File(cacheDir, "mt_audio_${System.currentTimeMillis()}.mp4")
-            val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(this)
-            } else {
-                @Suppress("DEPRECATION")
-                MediaRecorder()
-            }
-            recorder.apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setAudioSamplingRate(44100)
-                // Audio bitrate set via AudioProfile on newer APIs
-                // Default bitrate is sufficient for evidence capture
-                setOutputFile(file.absolutePath)
-                prepare()
-                start()
-            }
-            delay(AUDIO_CAPTURE_MS) // 20 seconds
-            recorder.stop()
-            recorder.release()
-            val lat = getLastKnownLat()
-            val lng = getLastKnownLng()
-            uploadMedia("audio", file.readBytes(), lat, lng)
-            file.delete()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
     // ── Location Burst ─────────────────────────────────────────────────────────
 
+    // LOCATION is runtime-granted during onboarding (PermissionsActivity);
+    // best-effort last-known-location reads wrapped in try/catch — a revoked
+    // permission degrades to no burst, never a crash.
+    @SuppressLint("MissingPermission")
     private suspend fun locationBurst() {
         // Send 5 rapid location updates
         for (i in 1..5) {
@@ -828,9 +650,11 @@ class TrackingService : Service() {
 
     // ── Siren / Alarm ─────────────────────────────────────────────────────────
 
-    private fun triggerAlarm() {
+    /** Returns true when the alarm was started successfully. */
+    private fun triggerAlarm(): Boolean {
+        var track: android.media.AudioTrack? = null
         // Play max volume alarm through media stream
-        try {
+        return try {
             val audioManager = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
             audioManager.setStreamVolume(
                 android.media.AudioManager.STREAM_MUSIC,
@@ -847,7 +671,7 @@ class TrackingService : Service() {
                 // Square wave at 1000Hz for maximum loudness
                 samples[i] = if ((t * 1000).toInt() % 2 == 0) Short.MAX_VALUE else Short.MIN_VALUE
             }
-            val track = android.media.AudioTrack(
+            track = android.media.AudioTrack(
                 android.media.AudioAttributes.Builder()
                     .setUsage(android.media.AudioAttributes.USAGE_ALARM)
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -861,40 +685,41 @@ class TrackingService : Service() {
                 android.media.AudioTrack.MODE_STATIC,
                 android.media.AudioTrack.WRITE_BLOCKING
             )
-            track.write(samples, 0, numSamples)
-            track.play()
-            // Track will play and then stop naturally after 5 seconds
+            track!!.write(samples, 0, numSamples)
+            track!!.play()
+            true  // Track will play and then stop naturally after 5 seconds
         } catch (e: Exception) {
             e.printStackTrace()
+            false
+        } finally {
+            // Release the track after playback finishes (5s later, non-blocking)
+            val t = track
+            if (t != null) {
+                scope.launch {
+                    delay(6000)
+                    try { t.release() } catch (e: Exception) {}
+                }
+            }
         }
-    }
-
-    // ── Media upload ──────────────────────────────────────────────────────────
-
-    private suspend fun uploadMedia(type: String, bytes: ByteArray, lat: Double? = null, lng: Double? = null) {
-        val body = JSONObject().apply {
-            put("device_id", deviceId)
-            put("type", type)
-            put("data_b64", Base64.encodeToString(bytes, Base64.NO_WRAP))
-            put("timestamp", isoNow())
-            if (lat != null) put("lat", lat)
-            if (lng != null) put("lng", lng)
-        }.toString().toRequestBody(JSON)
-        post("/api/device/media", body)
     }
 
     // ── Device admin ──────────────────────────────────────────────────────────
 
-    private fun lockDevice() {
-        try {
+    /** Returns true when the device was actually locked. */
+    private fun lockDevice(): Boolean {
+        return try {
             val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE)
                     as android.app.admin.DevicePolicyManager
             val adminComponent = ComponentName(this, AdminReceiver::class.java)
             if (dpm.isAdminActive(adminComponent)) {
                 dpm.lockNow()
+                true
+            } else {
+                false  // no device admin — lock is impossible, report honestly
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            false
         }
     }
 
@@ -909,22 +734,6 @@ class TrackingService : Service() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-    }
-
-    // ── Location helpers ──────────────────────────────────────────────────────
-
-    private fun getLastKnownLat(): Double? {
-        return try {
-            locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)?.latitude
-                ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)?.latitude
-        } catch (e: Exception) { null }
-    }
-
-    private fun getLastKnownLng(): Double? {
-        return try {
-            locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)?.longitude
-                ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)?.longitude
-        } catch (e: Exception) { null }
     }
 
     // ── HTTP ──────────────────────────────────────────────────────────────────

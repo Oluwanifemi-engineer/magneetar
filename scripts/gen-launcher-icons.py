@@ -48,36 +48,40 @@ def magenta_gradient(size: int) -> Image.Image:
 
 
 def draw_m(img: Image.Image) -> None:
-    """Draw the capital M centred on the tile (matches the web brand mark)."""
+    """Draw the bold solid M centred on the tile (matches the web brand mark).
+
+    Geometry mirrors the 120x120 brand SVG: M27 88 L27 38 L60 82 L93 38 L93 88
+    — a thick rounded letterform with the middle V dipping DOWN (a real M, not
+    the old bent/W shape whose centre peaked upward).
+    """
     size = img.width
     draw = ImageDraw.Draw(img, "RGBA")
 
-    # M geometry from the 120x120 brand SVG: M24 88 L24 32 L48 60 L60 44
-    # L72 60 L96 32 L96 88. Scale into the safe inner ~72% and centre.
-    pts = [(24, 88), (24, 32), (48, 60), (60, 44), (72, 60), (96, 32), (96, 88)]
+    pts = [(27, 88), (27, 38), (60, 82), (93, 38), (93, 88)]
     x_vals = [p[0] for p in pts]
     y_vals = [p[1] for p in pts]
     min_x, max_x = min(x_vals), max(x_vals)
     min_y, max_y = min(y_vals), max(y_vals)
     w, h = max_x - min_x, max_y - min_y
 
-    scale = (size * 0.68) / max(w, h)
+    scale = (size * 0.66) / max(w, h)
     ox = (size - w * scale) / 2 - min_x * scale
     oy = (size - h * scale) / 2 - min_y * scale
     scaled = [(x * scale + ox, y * scale + oy) for x, y in pts]
 
-    # Slight inner glow under the M
-    glow_radius = max(2, size * 0.045)
-    glow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    for x, y in scaled:
-        gd.ellipse(
-            [x - glow_radius * 3, y - glow_radius * 3, x + glow_radius * 3, y + glow_radius * 3],
-            fill=(255, 255, 255, 26),
-        )
-    img.paste(glow, (0, 0), glow)
+    # Subtle dark shadow below the M for polished depth
+    shadow_stroke = max(3, int(size * 0.14))
+    shadow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+    sd.line(
+        [(x, y + max(2, size * 0.02)) for x, y in scaled],
+        fill=(92, 7, 64, 90),
+        width=shadow_stroke,
+        joint="curve",
+    )
+    img.paste(shadow, (0, 0), shadow)
 
-    stroke = max(2, int(size * 0.062))
+    stroke = max(3, int(size * 0.14))
     # Draw as a single continuous polyline with round joins/caps
     draw.line(scaled, fill=(255, 255, 255, 255), width=stroke, joint="curve")
     for x, y in scaled:

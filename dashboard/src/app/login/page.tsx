@@ -171,16 +171,16 @@ export default function LoginPage() {
               <div className="w-9 h-9 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center overflow-hidden">
                 <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
                   <path
-                    d="M24 88L24 32L48 60L60 44L72 60L96 32L96 88"
+                    d="M27 88L27 38L60 82L93 38L93 88"
                     stroke="url(#login-grad)"
-                    strokeWidth="6"
+                    strokeWidth="17"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                   <defs>
-                    <linearGradient id="login-grad" x1="24" y1="32" x2="96" y2="88">
-                      <stop offset="0%" stopColor="#E91E8C" />
-                      <stop offset="100%" stopColor="#06B6D4" />
+                    <linearGradient id="login-grad" x1="27" y1="38" x2="93" y2="88">
+                      <stop offset="0%" stopColor="#FFFFFF" />
+                      <stop offset="100%" stopColor="#F3D3E6" />
                     </linearGradient>
                   </defs>
                 </svg>
@@ -367,11 +367,11 @@ export default function LoginPage() {
             <Link href="/" className="lg:hidden inline-flex items-center gap-2.5 mb-10">
               <div className="w-9 h-9 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center overflow-hidden">
                 <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
-                  <path d="M24 88L24 32L48 60L60 44L72 60L96 32L96 88" stroke="url(#mob-grad)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M27 88L27 38L60 82L93 38L93 88" stroke="url(#mob-grad)" strokeWidth="17" strokeLinecap="round" strokeLinejoin="round" />
                   <defs>
-                    <linearGradient id="mob-grad" x1="24" y1="32" x2="96" y2="88">
-                      <stop offset="0%" stopColor="#E91E8C" />
-                      <stop offset="100%" stopColor="#06B6D4" />
+                    <linearGradient id="mob-grad" x1="27" y1="38" x2="93" y2="88">
+                      <stop offset="0%" stopColor="#FFFFFF" />
+                      <stop offset="100%" stopColor="#F3D3E6" />
                     </linearGradient>
                   </defs>
                 </svg>

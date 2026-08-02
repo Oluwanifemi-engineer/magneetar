@@ -81,13 +81,44 @@
 
         </LinearLayout>
 
+        <!-- Uninstall protection status -->
+        <TextView
+            android:id="@+id/tv_uninstall_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/protection_card"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/btn_surface"
+            android:gravity="center_vertical"
+            android:padding="16dp"
+            android:textColor="#FFB800"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-mono" />
+
+        <!-- Activate device admin button (hidden when protected) -->
+        <Button
+            android:id="@+id/btn_activate_admin"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_below="@id/tv_uninstall_status"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/btn_secondary"
+            android:text="Activate Device Admin — Uninstall Protection"
+            android:textColor="#C0C0C0"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            android:fontFamily="sans-serif-medium"
+            android:visibility="gone"
+            android:stateListAnimator="@null" />
+
         <!-- Connection status -->
         <TextView
             android:id="@+id/tv_connection_status"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:layout_below="@id/protection_card"
-            android:layout_marginTop="12dp"
+            android:layout_below="@id/btn_activate_admin"
+            android:layout_marginTop="8dp"
             android:background="@drawable/btn_surface"
             android:gravity="center_vertical"
             android:paddingLeft="16dp"

@@ -27,14 +27,24 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
         val onboardingComplete = prefs.getBoolean("onboarding_complete", false)
         val userToken = prefs.getString("user_token", "") ?: ""
+        val adminSkipped = prefs.getBoolean("admin_skip_acknowledged", false)
+
+        // Re-assert the hard uninstall block whenever we're device owner — a
+        // reinstall, data wipe or system restore must not silently drop it.
+        try { UninstallProtection.enforceUninstallBlocked(this) } catch (_: Exception) {}
 
         // Route immediately — no delays, no handlers
         if (!onboardingComplete) {
             // First launch → show onboarding directly
             setContentView(R.layout.activity_onboarding)
             setupOnboardingButtons()
-        } else if (userToken.isEmpty() || !hasAllPermissions()) {
-            // Signed up but needs permissions
+        } else if (userToken.isEmpty() || !hasAllPermissions() ||
+                   (!hasDeviceAdmin() && !adminSkipped)
+        ) {
+            // Signed up but needs permissions — OR the user disabled device
+            // admin (which would let anyone uninstall). Send them back to the
+            // permissions screen so protection is restored unless they
+            // explicitly acknowledged skipping it.
             startActivity(Intent(this, PermissionsActivity::class.java))
             finish()
         } else {
@@ -77,6 +87,16 @@ class MainActivity : AppCompatActivity() {
                 ContextCompat.checkSelfPermission(this, it) ==
                         android.content.pm.PackageManager.PERMISSION_GRANTED
             }
+        } catch (e: Exception) { false }
+    }
+
+    private fun hasDeviceAdmin(): Boolean {
+        return try {
+            val dpm = getSystemService(android.content.Context.DEVICE_POLICY_SERVICE)
+                    as android.app.admin.DevicePolicyManager
+            dpm.isAdminActive(
+                android.content.ComponentName(this, AdminReceiver::class.java)
+            )
         } catch (e: Exception) { false }
     }
 

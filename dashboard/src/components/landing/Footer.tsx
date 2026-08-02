@@ -108,7 +108,7 @@ export function Footer() {
             © {new Date().getFullYear()} Magneetar · BSL 1.1 (source-available)
           </span>
           <span className="text-[11px] font-mono text-white/25 tracking-wider">
-            v1.2.0 · BUILT FOR RECOVERY &amp; CONNECTION
+            v1.3.0 · BUILT FOR RECOVERY &amp; CONNECTION
           </span>
         </div>
       </div>

@@ -17,6 +17,8 @@ import androidx.appcompat.app.AppCompatActivity
  */
 class HomeActivity : AppCompatActivity() {
 
+    private lateinit var tvUninstallStatus: TextView
+    private lateinit var btnActivateAdmin: Button
     private lateinit var tvConnectionStatus: TextView
     private lateinit var tvBatteryStatus: TextView
     private lateinit var tvOemWarning: TextView
@@ -28,6 +30,8 @@ class HomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
 
+        tvUninstallStatus = findViewById(R.id.tv_uninstall_status)
+        btnActivateAdmin = findViewById(R.id.btn_activate_admin)
         tvConnectionStatus = findViewById(R.id.tv_connection_status)
         tvBatteryStatus = findViewById(R.id.tv_battery_opt_status)
         tvOemWarning = findViewById(R.id.tv_oem_warning)
@@ -45,6 +49,10 @@ class HomeActivity : AppCompatActivity() {
 
         btnOptimizeBattery.setOnClickListener {
             requestBatteryOptimization()
+        }
+
+        btnActivateAdmin.setOnClickListener {
+            activateDeviceAdmin()
         }
 
         updateUI()
@@ -66,6 +74,21 @@ class HomeActivity : AppCompatActivity() {
         } else {
             "Connected — $email"
         }
+
+        // Uninstall protection status — the base gate is an active Device Admin
+        // (Android refuses to uninstall the app until it's deactivated).
+        val adminActive = isDeviceAdminActive()
+        val hardBlock = UninstallProtection.isUninstallBlocked(this)
+        tvUninstallStatus.text = when {
+            hardBlock -> "🛡 Uninstall protection: HARD BLOCKED (device owner)"
+            adminActive -> "🛡 Uninstall protection: ACTIVE (device admin)"
+            else -> "⚠ Uninstall protection: OFF — anyone can uninstall Magneetar"
+        }
+        tvUninstallStatus.setTextColor(
+            if (hardBlock || adminActive) android.graphics.Color.parseColor("#00FF88")
+            else android.graphics.Color.parseColor("#FFB800")
+        )
+        btnActivateAdmin.visibility = if (adminActive) android.view.View.GONE else android.view.View.VISIBLE
 
         // Battery optimization status
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -145,6 +168,38 @@ class HomeActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             Toast.makeText(this, "Cannot open battery settings", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun isDeviceAdminActive(): Boolean {
+        return try {
+            val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE)
+                    as android.app.admin.DevicePolicyManager
+            dpm.isAdminActive(
+                android.content.ComponentName(this, AdminReceiver::class.java)
+            )
+        } catch (e: Exception) { false }
+    }
+
+    private fun activateDeviceAdmin() {
+        try {
+            val admin = android.content.ComponentName(this, AdminReceiver::class.java)
+            val intent = Intent(
+                android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN
+            ).apply {
+                putExtra(
+                    android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN,
+                    admin
+                )
+                putExtra(
+                    android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                    "Required to prevent uninstalling Magneetar without first " +
+                    "deactivating it, and for remote lock/wipe."
+                )
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Cannot open device admin settings", Toast.LENGTH_SHORT).show()
         }
     }
 }

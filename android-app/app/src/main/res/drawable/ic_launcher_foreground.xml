@@ -4,13 +4,13 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Capital M — white, centered inside the 66dp adaptive safe zone.
-         Same M geometry as the web brand mark. -->
+    <!-- Bold solid M — white, thick rounded letterform with a down-dipping V,
+         matching the web brand mark. Centered in the adaptive-icon safe zone. -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
+        android:strokeWidth="12"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M38,72L38,38L56,58L66,46L76,58L94,38L94,72" />
+        android:pathData="M40,69L40,37L60,61L80,37L80,69" />
 </vector>

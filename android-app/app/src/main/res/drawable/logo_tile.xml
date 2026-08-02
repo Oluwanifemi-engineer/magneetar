@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Branded logo tile: magenta gradient with a soft outer glow, used behind
+     the white "M" in onboarding. Mirrors the dashboard's magenta brand tile. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Outer glow -->
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="16dp" />
+            <solid android:color="#33E91E8C" />
+        </shape>
+    </item>
+    <!-- Main tile -->
+    <item
+        android:left="2dp"
+        android:top="2dp"
+        android:right="2dp"
+        android:bottom="2dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="14dp" />
+            <gradient
+                android:angle="315"
+                android:startColor="#FF2E9D"
+                android:centerColor="#E91E8C"
+                android:endColor="#C2185B" />
+        </shape>
+    </item>
+</layer-list>

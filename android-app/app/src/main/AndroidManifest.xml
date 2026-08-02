@@ -10,11 +10,22 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
-    <!-- Camera -->
+    <!-- Camera (runtime) + Android 14+ foreground-service camera type.
+         The FOREGROUND_SERVICE_* perms are normal install-time permissions
+         (no runtime prompt); they let a camera|microphone FGS run while the
+         screen is locked for remote evidence capture. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.front"
+        android:required="false" />
 
-    <!-- Microphone -->
+    <!-- Microphone (runtime) + Android 14+ foreground-service microphone type. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
     <!-- Storage -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -36,8 +47,10 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
-    <!-- Device admin (remote lock/wipe) -->
-    <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN" />
+    <!-- Device admin is granted via the AdminReceiver declaration
+         (android:permission="android.permission.BIND_DEVICE_ADMIN" on the
+         receiver) — a top-level uses-permission here is redundant and
+         triggers a lint ProtectedPermissions error. -->
 
     <application
         android:allowBackup="false"
@@ -115,6 +128,21 @@
             android:exported="false"
             android:foregroundServiceType="dataSync"
             android:stopWithTask="false" />
+
+        <!-- ─── Short-lived Evidence Capture Service ────────────────────── -->
+        <!-- Remote photo/front/audio capture MUST run in a foreground service
+             typed camera|microphone: on Android 14+ (targetSdk 35) a location-
+             only FGS cannot open the camera or mic while the app is in the
+             background (screen locked). Android explicitly permits starting a
+             camera/mic FGS from the background when a location-type FGS is
+             already running — which TrackingService guarantees. Started on
+             demand by TrackingService, stops itself after capture+upload. -->
+        <service
+            android:name=".MediaCaptureService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="camera|microphone"
+            android:stopWithTask="true" />
 
         <!-- ─── Firebase Cloud Messaging ───────────────────────────────── -->
         <service

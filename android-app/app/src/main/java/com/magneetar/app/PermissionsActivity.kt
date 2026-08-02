@@ -56,10 +56,41 @@ class PermissionsActivity : AppCompatActivity() {
         btnSkip = findViewById(R.id.btn_continue)
 
         btnAction.setOnClickListener { onActionClick() }
-        btnSkip.setOnClickListener { navigateToHome() }
+        btnSkip.setOnClickListener { onSkipClick() }
 
         // Auto-start on first load
         refreshUI()
+    }
+
+    /**
+     * The skip path is an EXPLICIT, informed decision — never a silent bypass.
+     * Skipping Device Admin leaves the app uninstallable by anyone and kills
+     * remote lock/wipe, so we make the user acknowledge exactly what they are
+     * giving up. The acknowledgement is remembered so MainActivity doesn't
+     * drag them back here on every launch.
+     */
+    private fun onSkipClick() {
+        if (!isDeviceAdmin()) {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Continue without Device Admin?")
+                .setMessage(
+                    "Without Device Admin, ANYONE can uninstall Magneetar and " +
+                    "remote lock / wipe / siren are disabled.\n\n" +
+                    "This significantly weakens your theft protection. " +
+                    "Are you sure you want to continue without it?"
+                )
+                .setPositiveButton("CONTINUE WITHOUT PROTECTION") { _, _ ->
+                    getSharedPreferences("mt", Context.MODE_PRIVATE).edit()
+                        .putBoolean("admin_skip_acknowledged", true)
+                        .apply()
+                    navigateToHome()
+                }
+                .setNegativeButton("ACTIVATE DEVICE ADMIN", null)
+                .setCancelable(true)
+                .show()
+        } else {
+            navigateToHome()
+        }
     }
 
     override fun onResume() {
@@ -161,13 +192,14 @@ class PermissionsActivity : AppCompatActivity() {
             return
         }
 
-        // Step 2: Device Admin (optional)
+        // Step 2: Device Admin (required for uninstall protection + lock/wipe)
         if (!isDeviceAdmin()) {
             val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
                 putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
                 putExtra(
                     DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-                    "Required for remote lock and wipe capabilities."
+                    "Required for remote lock, wipe, siren and to prevent " +
+                    "uninstalling Magneetar without deactivating it first."
                 )
             }
             startActivityForResult(intent, ADMIN_REQUEST_CODE)
@@ -198,6 +230,14 @@ class PermissionsActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == ADMIN_REQUEST_CODE && resultCode == RESULT_OK && isDeviceAdmin()) {
+            // Admin activated — clear any earlier skip acknowledgement and apply
+            // the hard uninstall block if we're running as device owner.
+            getSharedPreferences("mt", Context.MODE_PRIVATE).edit()
+                .putBoolean("admin_skip_acknowledged", false)
+                .apply()
+            UninstallProtection.enforceUninstallBlocked(this)
+        }
         refreshUI()
     }
 

@@ -91,7 +91,14 @@ get_version_code() {
 }
 
 get_version_name() {
-    grep 'versionName' "$ANDROID_DIR/app/build.gradle.kts" | grep -oP '"[^"]*"' | tr -d '"'
+    # versionName is read from the repo-root VERSION file at build time
+    # (build.gradle.kts: `versionName = appVersion`), so the single source
+    # of truth is VERSION, not the gradle file.
+    if [ -f "$PROJECT_DIR/VERSION" ]; then
+        cat "$PROJECT_DIR/VERSION" | tr -d '[:space:]'
+    else
+        grep 'versionName' "$ANDROID_DIR/app/build.gradle.kts" | grep -oP '"[^"]*"' | tr -d '"'
+    fi
 }
 
 # ── Step 1: Validate Environment ─────────────────────────────────────────────
