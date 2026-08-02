@@ -33,7 +33,6 @@ from database import init_db  # noqa: E402
 
 init_db(test_db_path)
 
-from auth import create_dashboard_tokens, create_device_tokens  # noqa: E402
 from main import app  # noqa: E402
 
 client = TestClient(app)

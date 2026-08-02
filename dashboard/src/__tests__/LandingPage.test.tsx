@@ -59,11 +59,11 @@ describe('Landing Page', () => {
     expect(screen.getByText('of reported stolen phones are recovered')).toBeInTheDocument();
     expect(screen.getByText(/National Bureau of Statistics/)).toBeInTheDocument();
 
-    // Built at OAU (provenance / social proof)
+    // Our story (provenance / social proof)
     expect(screen.getByText('OUR STORY')).toBeInTheDocument();
-    expect(screen.getByText('Born at Great Ife')).toBeInTheDocument();
-    expect(screen.getByText('Nigeria’s first Faculty of Technology')).toBeInTheDocument();
-    expect(screen.getByText('Ranked #5 in Nigeria')).toBeInTheDocument();
+    expect(screen.getByText('Started with real problems')).toBeInTheDocument();
+    expect(screen.getByText('Protection + connection')).toBeInTheDocument();
+    expect(screen.getByText('Built to grow beyond any campus')).toBeInTheDocument();
 
     // Download APK + free-plan messaging (nav, hero, CTA)
     const apkLinks = screen.getAllByRole('link', { name: /download apk/i });

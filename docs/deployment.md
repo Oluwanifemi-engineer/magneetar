@@ -297,18 +297,71 @@ docker compose exec dashboard env | grep NEXT_PUBLIC
 
 ---
 
-## 8. Updating
+## 8. Updating (safe, no-breaking-changes policy)
+
+Magneetar is designed so that consumers' devices and dashboards keep working
+across updates — no forced-breakage, no data loss. The three layers of the
+policy:
+
+### 8.1 Schema migrations are additive & idempotent
+
+- `server/database.py` → `init_db()` runs `CREATE TABLE IF NOT EXISTS ...` and
+  additive `ALTER TABLE ... ADD COLUMN` guarded by a column-existence check.
+  It is called on every server start, so **new columns appear automatically**;
+  old columns are **never dropped** and existing rows are **never rewritten**.
+- When adding a column, follow the existing pattern in `init_db()`:
+  ```python
+  # ALTER TABLE devices ADD COLUMN device_key_hash TEXT  (guarded by PRAGMA check)
+  ```
+- **Never** rename/remove a column or table that production data depends on.
+  If a column must change meaning, add a NEW column and keep the old one.
+- No separate migration tool is required; a server restart applies migrations.
+
+### 8.2 API compatibility is additive-only
+
+- New endpoints and new **optional** fields are always safe.
+- Existing endpoints never change field types, remove fields, or tighten
+  validators in a way that rejects old clients.
+- The public `GET /api/config` endpoint tells old clients what the server
+  expects:
+  ```json
+  {"app_version": "1.1.0", "min_android_version": 24, "features_enabled": [...]}
+  ```
+- The Android app reads `/api/config` after registration and, if the device
+  OS is older than `min_android_version` or a newer app exists, shows a
+  **non-blocking** notification. Tracking never stops because of a version
+  mismatch — old clients degrade gracefully.
+
+### 8.3 Deploy & rollback
+
+Use the hardened deploy script — it backs up the DB first, tags the current
+images for rollback, rebuilds only `server` + `dashboard` (never touching
+`db`/`cloudflared`), and blocks on a real health gate:
 
 ```bash
-# Pull latest code
-git pull
+bash scripts/deploy.sh
+```
 
-# Rebuild and restart
+If a deploy is bad:
+
+```bash
+bash scripts/rollback.sh          # restores :predeploy images + recreates containers
+# or manually:
+#   docker tag magneetar-server:predeploy magneetar-server:latest
+#   docker tag magneetar-dashboard:predeploy magneetar-dashboard:latest
+#   docker compose up -d --no-deps server dashboard
+
+# If the DB state itself is suspect:
+bash scripts/backup-db.sh --list
+bash scripts/backup-db.sh --restore <file>
+```
+
+Legacy quick update (not recommended for production):
+
+```bash
+git pull
 docker compose build
 docker compose up -d
-
-# Run database migrations (if any)
-# docker compose exec server python migrate.py
 ```
 
 ---

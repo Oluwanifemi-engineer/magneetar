@@ -180,6 +180,10 @@ async def delete_user_account(user_id: str = Depends(get_current_user)):
         db.execute("DELETE FROM users WHERE id=?", (user_id,))
         db.commit()
 
-        log_audit("user_deleted", actor=user_id, details=f"Account permanently deleted with {len(device_ids)} device(s)")
+        log_audit(
+            "user_deleted",
+            actor=user_id,
+            details=f"Account permanently deleted with {len(device_ids)} device(s)",
+        )
 
     return {"status": "ok", "message": "Account permanently deleted", "devices_removed": len(device_ids)}

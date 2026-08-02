@@ -218,6 +218,9 @@ class TrackingService : Service() {
                         putString("refresh_token", refreshToken)
                         apply()
                     }
+                    // Best-effort: check the server's min Android SDK / latest
+                    // app version. Never blocks tracking — warnings only.
+                    scope.launch { checkServerCompatibility() }
                 }
                 return isRegistered
             }
@@ -225,6 +228,72 @@ class TrackingService : Service() {
         } catch (e: Exception) {
             e.printStackTrace()
             false
+        }
+    }
+
+    /**
+     * Server compatibility check (non-breaking, warnings only).
+     *
+     * Reads /api/config (public, no auth). If the server requires a newer
+     * Android SDK than this device, or a newer app version exists, the user
+     * gets a one-time, non-blocking notification. Any failure is silently
+     * ignored — an unreachable config endpoint must never affect tracking.
+     */
+    private suspend fun checkServerCompatibility() {
+        try {
+            val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+            val (code, response) = withContext(Dispatchers.IO) {
+                try {
+                    val builder = Request.Builder().url("$SERVER/api/config").get()
+                    client.newCall(builder.build()).execute().use { it.code to it.body?.string() }
+                } catch (e: Exception) { -1 to null }
+            }
+            if (code !in 200..299 || response == null) return
+
+            val config = JSONObject(response)
+            val minSdk = config.optInt("min_android_version", -1)
+            val latestVersion = config.optString("app_version", "")
+
+            // 1) Device OS older than the server requires → tell the user to
+            //    update the app (best-effort; tracking continues regardless).
+            if (minSdk > 0 && Build.VERSION.SDK_INT < minSdk) {
+                val lastNotified = prefs.getLong("compat_too_old_notified", 0L)
+                if (System.currentTimeMillis() - lastNotified > 24L * 60 * 60 * 1000) {
+                    prefs.edit().putLong("compat_too_old_notified", System.currentTimeMillis()).apply()
+                    val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    mgr.notify(
+                        NOTIF_ID + 1,
+                        NotificationCompat.Builder(this, CHANNEL_ID)
+                            .setContentTitle("Magneetar needs an update")
+                            .setContentText("This Android version is no longer supported — install the latest app from the Play Store or magneetar.me.")
+                            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                            .setAutoCancel(true)
+                            .build()
+                    )
+                }
+            }
+
+            // 2) Newer app version available → one-time "update available" nudge.
+            if (latestVersion.isNotEmpty() && latestVersion != BuildConfig.VERSION_NAME) {
+                val lastNotified = prefs.getLong("compat_update_notified", 0L)
+                if (System.currentTimeMillis() - lastNotified > 24L * 60 * 60 * 1000) {
+                    prefs.edit().putLong("compat_update_notified", System.currentTimeMillis()).apply()
+                    val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    mgr.notify(
+                        NOTIF_ID + 2,
+                        NotificationCompat.Builder(this, CHANNEL_ID)
+                            .setContentTitle("Magneetar update available")
+                            .setContentText("Version $latestVersion is out — update from the Play Store or magneetar.me.")
+                            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+                            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                            .setAutoCancel(true)
+                            .build()
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            // Non-breaking by design.
         }
     }
 

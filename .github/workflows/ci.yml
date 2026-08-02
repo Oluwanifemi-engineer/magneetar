@@ -139,9 +139,11 @@ jobs:
       - name: Shellcheck backup scripts
         # Runners don't ship shellcheck; use the same shellcheck-py the local
         # pre-commit gate uses (mirrors scripts/*.sh coverage in pre-commit).
+        # NOTE: shellcheck-py installs the `shellcheck` BINARY — `python -m
+        # shellcheck` does not exist (ModuleNotFoundError) and failed this job.
         run: |
           pip install shellcheck-py
-          python3 -m shellcheck scripts/backup-db.sh scripts/test-backup-smoke.sh
+          shellcheck scripts/backup-db.sh scripts/test-backup-smoke.sh
 
   # ── Dashboard Test ─────────────────────────────────────────────────────────
   test-dashboard:

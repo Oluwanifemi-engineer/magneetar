@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useStore } from '@/store/useStore';
 import { cn, relativeTime, formatCoordinate, deviceDisplayName } from '@/lib/utils';
-import { BellRing, MapPin, LocateFixed, Navigation, ExternalLink, Save, Check, Trash2, X } from 'lucide-react';
+import { BellRing, MapPin, LocateFixed, Navigation, ExternalLink, Save, Check, Trash2, X, Pencil } from 'lucide-react';
 import { CoordDisplay } from '@/components/ui/CoordDisplay';
 import { getAPI } from '@/lib/api';
 
@@ -22,6 +22,12 @@ export function DevicePanel() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  // Device rename state (uses the existing PATCH /alias endpoint)
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState('');
+
   // Sync form fields when the selected device changes
   const deviceKey = device?.id;
   const [lastDeviceKey, setLastDeviceKey] = useState<string | undefined>(undefined);
@@ -31,7 +37,33 @@ export function DevicePanel() {
     setAlertEmail(device?.alert_email || '');
     setError('');
     setSaved(false);
+    setEditingName(false);
+    setNameError('');
   }
+
+  const saveDeviceName = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!device) return;
+    const alias = nameDraft.trim();
+    if (!alias) {
+      setNameError('Name cannot be empty');
+      return;
+    }
+    setEditingName(false);
+    setNameSaving(true);
+    setNameError('');
+    try {
+      await getAPI().updateDeviceAlias(device.id, alias);
+      // Refresh the device list so the sidebar + header pick up the new name
+      const { devices: freshDevices } = await getAPI().getDevices();
+      setDevices(freshDevices);
+    } catch (err: any) {
+      setNameError(err.message || 'Failed to rename device');
+      setEditingName(true);
+    } finally {
+      setNameSaving(false);
+    }
+  };
 
   const saveAlertSettings = async () => {
     if (!device) return;
@@ -72,12 +104,58 @@ export function DevicePanel() {
 
   return (
     <div className="p-4 space-y-4">
-      {/* Device Header */}
+      {/* Device Header (with inline rename) */}
       <div className="bg-mag-surface/40 border border-mag-border/40 rounded-xl p-4">
-        <h3 className="text-base font-bold text-mag-text flex items-center gap-2 mb-3">
-          <div className="w-2.5 h-2.5 rounded-full bg-mag-primary shadow-[0_0_10px_rgba(233,30,140,0.5)]" />
-          {deviceDisplayName(device)}
-        </h3>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2.5 h-2.5 rounded-full bg-mag-primary shadow-[0_0_10px_rgba(233,30,140,0.5)] shrink-0" />
+          {editingName ? (
+            <form onSubmit={saveDeviceName} className="flex items-center gap-1.5 flex-1 min-w-0">
+              <input
+                value={nameDraft}
+                onChange={e => setNameDraft(e.target.value)}
+                autoFocus
+                maxLength={60}
+                aria-label="Device name"
+                className="flex-1 min-w-0 bg-mag-bg/60 border border-mag-primary/40 rounded-lg px-2 py-1 text-sm font-bold text-mag-text focus:outline-none focus:border-mag-primary/70 transition-colors"
+              />
+              <button
+                type="submit"
+                disabled={nameSaving}
+                aria-label="Save device name"
+                className="p-1.5 rounded-md bg-mag-accent/90 hover:bg-mag-accent disabled:opacity-50 text-white transition-colors"
+              >
+                <Check size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingName(false)}
+                aria-label="Cancel rename"
+                className="p-1.5 rounded-md border border-mag-border/40 text-mag-text-dim/60 hover:text-mag-text transition-colors"
+              >
+                <X size={13} />
+              </button>
+            </form>
+          ) : (
+            <>
+              <h3 className="text-base font-bold text-mag-text truncate flex-1 min-w-0">
+                {deviceDisplayName(device)}
+              </h3>
+              <button
+                onClick={() => {
+                  setNameDraft(deviceDisplayName(device));
+                  setNameError('');
+                  setEditingName(true);
+                }}
+                aria-label="Rename device"
+                title="Rename device"
+                className="p-1.5 rounded-md border border-mag-border/40 text-mag-text-dim/50 hover:text-mag-accent hover:border-mag-accent/40 transition-colors"
+              >
+                <Pencil size={12} />
+              </button>
+            </>
+          )}
+        </div>
+        {nameError && <div className="text-[10px] font-mono text-red-400 mb-2">{nameError}</div>}
 
         <div className="space-y-2">
           <div className="flex justify-between items-center">

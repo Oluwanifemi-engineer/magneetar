@@ -1,50 +1,40 @@
 'use client';
 
-import { GraduationCap, Cpu, Award } from 'lucide-react';
+import { Compass, Users, Rocket } from 'lucide-react';
 
 /**
- * Built at OAU — Magneetar's origin story as social proof.
+ * Magneetar's origin story.
  *
- * Every claim here is verifiable:
- *  - OAU (est. 1962 as University of Ife, renamed 1987) is one of Nigeria's
- *    premier federal universities, widely known as "Great Ife".
- *  - Its Faculty of Technology (est. 1970) was the FIRST engineering faculty
- *    in Nigeria, and pioneered the SIWES scheme now adopted nationwide.
- *  - It hosts Africa's first MIT-collaboration iLab south of the Sahara.
- *  - CWUR 2026 ranks OAU #5 nationally in Nigeria / #58 in Africa.
- *
- * The origin story frames OAU as the birthplace of the IDEA — not as a
- * uniquely theft-prone place: phone theft is a common campus crime across
- * Nigeria, and staying in touch with family is universal among students.
- *
- * Deliberately NO fabricated user counts — real adoption numbers get added
- * when the campus launch has actual data behind them.
+ * Deliberately NO university history or rankings here — the project is built
+ * to grow well beyond any single campus or country, so the story stays about
+ * the problems, not the place. Every claim is verifiable and nothing is
+ * fabricated; real adoption numbers get added as users arrive.
  */
-const OAU_POINTS = [
+const ORIGIN_POINTS = [
   {
-    icon: GraduationCap,
-    title: 'Born at Great Ife',
+    icon: Compass,
+    title: 'Started with real problems',
     description:
-      'Obafemi Awolowo University, Ile-Ife — founded 1962, one of Nigeria’s premier federal universities, and home to generations of the engineers building Africa’s digital future.',
+      'Built by students who had lived them firsthand — phone theft and staying in touch with the people who matter are everyday realities no boardroom brief can capture.',
   },
   {
-    icon: Cpu,
-    title: 'Nigeria’s first Faculty of Technology',
+    icon: Users,
+    title: 'Protection + connection',
     description:
-      'OAU opened the country’s first engineering faculty in 1970 and pioneered the SIWES work-experience scheme that every Nigerian university now uses.',
+      'Two equal promises from day one: keep what you own safe, and keep the people you love within reach — for families, coworkers, and teams alike.',
   },
   {
-    icon: Award,
-    title: 'Ranked #5 in Nigeria',
+    icon: Rocket,
+    title: 'Built to grow beyond any campus',
     description:
-      'CWUR 2026 places OAU 5th nationally and 58th in Africa — and it runs Africa’s first MIT-collaboration iLab south of the Sahara.',
+      'Magneetar is designed to scale past its first campus and its first country — the platform, not the place, is the story.',
   },
 ];
 
 export function Provenance() {
   return (
     <section
-      id="built-at-oau"
+      id="our-story"
       className="relative py-24 sm:py-32 scroll-mt-20 overflow-hidden"
     >
       <div className="absolute inset-0 landing-vignette pointer-events-none" />
@@ -62,17 +52,16 @@ export function Provenance() {
             <span className="text-gradient-primary">lived these problems.</span>
           </h2>
           <p className="mt-5 text-white/45 leading-relaxed">
-            Magneetar began at Obafemi Awolowo University — but the problems it solves aren’t
-            unique to any one campus. Phone theft is a reality on university campuses across
-            Nigeria, and staying in touch with family back home is how students everywhere hold
-            their lives together. We didn’t start from a boardroom; we started from problems our
-            whole generation recognizes.
+            Magneetar began with students who knew both problems firsthand. Phone theft is a reality
+            on university campuses across Nigeria, and staying in touch with family back home is how
+            students everywhere hold their lives together. We didn’t start from a boardroom; we
+            started from problems our whole generation recognizes.
           </p>
         </div>
 
-        {/* Credibility cards */}
+        {/* Story cards */}
         <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto">
-          {OAU_POINTS.map((point) => (
+          {ORIGIN_POINTS.map((point) => (
             <div
               key={point.title}
               className="relative group card-glow rounded-2xl border border-white/[0.07] bg-[#0d0d14]/80 backdrop-blur-xl p-7 overflow-hidden"
@@ -89,9 +78,9 @@ export function Provenance() {
 
         {/* Honest-signal footnote */}
         <div className="mt-10 flex items-center justify-center gap-2 text-[11px] font-mono text-white/25">
-          <span>OAU · ILE-IFE · EST. 1962</span>
+          <span>STARTED BY STUDENTS</span>
           <span className="w-1 h-1 rounded-full bg-white/20" />
-          <span>REAL ADOPTION NUMBERS COMING AT CAMPUS LAUNCH</span>
+          <span>REAL ADOPTION NUMBERS COMING AS USERS ARRIVE</span>
         </div>
       </div>
     </section>

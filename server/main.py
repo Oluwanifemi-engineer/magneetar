@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from logging_config import get_logger
 from models import ConfigResponse, HealthResponse
+from offline_monitor import check_offline_devices_loop
 from websocket_manager import (
     active_dashboard_connections,
     add_connection,
@@ -158,6 +159,11 @@ async def lifespan(app: FastAPI):
     # ── WebSocket Connection Heartbeat (every 30s) ───────────────────
     heartbeat_task = asyncio.create_task(start_connection_heartbeat(interval=30))
 
+    # ── Offline Monitor (every 60s) ──────────────────────────────────
+    # Alerts owners once per incident when a device stops reporting. Safe on
+    # restarts: dedup is persisted in the alerts table (see offline_monitor.py).
+    offline_task = asyncio.create_task(check_offline_devices_loop(interval_seconds=60))
+
     # ── Scheduled Rate Limit Cleanup (every 6 hours) ────────────────────
     async def periodic_rate_limit_cleanup():
         """Background task to clean up stale rate limit entries."""
@@ -194,6 +200,7 @@ async def lifespan(app: FastAPI):
     yield
     cleanup_task.cancel()
     heartbeat_task.cancel()
+    offline_task.cancel()
 
     logger.info("Magneetar server shutting down")
 

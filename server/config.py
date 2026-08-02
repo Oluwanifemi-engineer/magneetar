@@ -98,6 +98,12 @@ class Settings:
     THEFT_SCORE_THRESHOLD: int = 80  # Auto-activate theft mode
     ANOMALY_CONFIRMATION_COUNT: int = 3  # Consecutive anomalies to escalate
 
+    # ── Offline Monitor ────────────────────────────────────────────────────
+    # A device is considered offline (and its owner alerted) after this many
+    # minutes without any heartbeat/location. Floor of 10 minutes is enforced
+    # in the monitor so a bad config can never spam alerts.
+    OFFLINE_ALERT_MINUTES: int = int(os.environ.get("MT_OFFLINE_ALERT_MINUTES", "30"))
+
     # ── Server ─────────────────────────────────────────────────────────────
     HOST: str = os.environ.get("MT_HOST", "0.0.0.0")
     PORT: int = int(os.environ.get("MT_PORT", "8000"))

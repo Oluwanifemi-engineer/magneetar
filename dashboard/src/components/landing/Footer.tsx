@@ -11,7 +11,7 @@ const FOOTER_LINKS = [
       { label: 'Features', href: '#features' },
       { label: 'How it works', href: '#how-it-works' },
       { label: 'Why Africa', href: '#africa' },
-      { label: 'Our story', href: '#built-at-oau' },
+      { label: 'Our story', href: '#our-story' },
       { label: 'Security', href: '#security' },
     ],
   },

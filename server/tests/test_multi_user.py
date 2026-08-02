@@ -33,7 +33,7 @@ from database import init_db  # noqa: E402
 
 init_db(test_db_path)
 
-from auth import create_dashboard_tokens, create_device_tokens, decode_token, user_id_from_subject  # noqa: E402
+from auth import create_dashboard_tokens, decode_token, user_id_from_subject  # noqa: E402
 from main import app  # noqa: E402
 
 client = TestClient(app)
@@ -42,6 +42,7 @@ client = TestClient(app)
 def user_id_of(token: str) -> str:
     """Extract the user id from a user token's subject (user:<id>)."""
     return user_id_from_subject(decode_token(token).get("sub", ""))
+
 
 # Use the LIVE settings value, not the env var. config.settings is a shared
 # singleton created by whichever test module imported config first — in a
@@ -541,7 +542,8 @@ class TestPermanentDeletion:
                 (device_id,),
             )
             conn.execute(
-                "INSERT INTO evidence_cases (id, device_id, theft_time, status) VALUES (?, ?, datetime('now'), 'active')",
+                "INSERT INTO evidence_cases (id, device_id, theft_time, status) "
+                "VALUES (?, ?, datetime('now'), 'active')",
                 (f"case-{device_id}", device_id),
             )
             conn.execute(
