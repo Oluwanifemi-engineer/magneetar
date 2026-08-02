@@ -4,6 +4,8 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.Uri
+import android.provider.Settings
 import android.hardware.camera2.*
 import android.media.MediaRecorder
 import android.os.*
@@ -124,6 +126,10 @@ class MediaCaptureService : Service() {
                     // Ack 'failed' so the dashboard shows the truth instead of
                     // a fake 'executed' with no evidence ever arriving.
                     Log.e(TAG, "Capture '$command' failed: ${e.message}", e)
+                    // Tell the user WHY and what to do — the #1 cause is Camera/Mic
+                    // granted "Only while using the app", which Android enforces as
+                    // CAMERA_DISABLED / a muted mic while Magneetar is backgrounded.
+                    notifyCaptureBlocked(command, e)
                 }
                 // Honest ack — executed only when the media upload completed.
                 ackCommand(commandId, if (ok) "executed" else "failed")
@@ -352,6 +358,48 @@ class MediaCaptureService : Service() {
             try { recorder?.release() } catch (e: Exception) {}
             try { if (file.exists()) file.delete() } catch (e: Exception) {}
         }
+    }
+
+    /**
+     * Post an actionable notification when a capture fails, so a "failed"
+     * command explains itself instead of the user guessing. The most common
+     * non-obvious cause is Camera/Microphone granted "Only while using the
+     * app": the OS then blocks the camera and mutes the mic whenever the app
+     * is backgrounded or the screen is locked. Best-effort — never crashes.
+     */
+    private fun notifyCaptureBlocked(command: String, e: Exception) {
+        try {
+            val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val msg = when {
+                e is android.hardware.camera2.CameraAccessException ||
+                    (e.message ?: "").contains("CAMERA_DISABLED") ->
+                    "Camera blocked by Android. Set Camera to \"Allow all the time\" " +
+                    "(Settings → Magneetar → Permissions) to capture from a locked screen."
+                command == "capture_audio" ->
+                    "Microphone may be muted. Set Microphone to \"Allow all the time\" " +
+                    "(Settings → Magneetar → Permissions) for background recording."
+                else -> "Capture failed: ${e.message ?: "unknown error"}. Try again."
+            }
+            val openSettings = PendingIntent.getActivity(
+                this, 0,
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:$packageName")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                },
+                PendingIntent.FLAG_IMMUTABLE
+            )
+            mgr.notify(
+                NOTIF_ID + 5,
+                NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setContentTitle("Magneetar capture failed")
+                    .setContentText(msg)
+                    .setStyle(NotificationCompat.BigTextStyle().bigText(msg))
+                    .setSmallIcon(android.R.drawable.ic_menu_camera)
+                    .setContentIntent(openSettings)
+                    .setAutoCancel(true)
+                    .build()
+            )
+        } catch (ex: Exception) { /* notifications are best-effort */ }
     }
 
     // ── Location helpers (best-effort, never fatal) ─────────────────────────

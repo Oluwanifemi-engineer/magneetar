@@ -1,14 +1,17 @@
 package com.magneetar.app
 
 import android.Manifest
+import android.app.AppOpsManager
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.Process
 import android.provider.Settings
 import android.widget.Button
 import android.widget.TextView
@@ -102,6 +105,57 @@ class PermissionsActivity : AppCompatActivity() {
         updateStatusViews()
         updateButtons()
         advanceIfReady()
+        maybePromptCaptureMode()
+    }
+
+    // ── Capture-permission mode (background photo/audio) ────────────────────
+    //
+    // Camera & Microphone granted "Only while using the app" (AppOps
+    // MODE_FOREGROUND) cannot capture from the background: Android blocks the
+    // camera (CAMERA_DISABLED) and mutes the microphone (silent recordings)
+    // whenever Magneetar is not visibly in the foreground — exactly the locked-
+    // screen anti-theft scenario. Remote evidence capture REQUIRES the user to
+    // choose "Allow all the time". We detect the mode and guide them once per
+    // session instead of letting captures silently fail later.
+    private var captureModePrompted = false
+
+    private fun isCaptureOpForegroundOnly(op: String): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        return try {
+            val aom = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+            aom.unsafeCheckOpNoThrow(op, Process.myUid(), packageName) ==
+                AppOpsManager.MODE_FOREGROUND
+        } catch (e: Exception) { false }
+    }
+
+    private fun maybePromptCaptureMode() {
+        if (captureModePrompted) return
+        val cameraBlocked = hasCamera() && isCaptureOpForegroundOnly(AppOpsManager.OPSTR_CAMERA)
+        val micBlocked = hasMic() && isCaptureOpForegroundOnly(AppOpsManager.OPSTR_RECORD_AUDIO)
+        if (!cameraBlocked && !micBlocked) return
+        captureModePrompted = true
+
+        val parts = mutableListOf<String>().apply {
+            if (cameraBlocked) add("Camera")
+            if (micBlocked) add("Microphone")
+        }.joinToString(" & ")
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Allow \"All the time\" for remote capture")
+            .setMessage(
+                "$parts is set to \"Only while using the app\", so Android blocks the " +
+                "camera and mutes the mic whenever Magneetar is in the background — remote " +
+                "photo & audio evidence from a locked screen would fail or record silence.\n\n" +
+                "Open Settings and set $parts to \"Allow all the time\"."
+            )
+            .setPositiveButton("OPEN SETTINGS") { _, _ ->
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:$packageName")
+                })
+            }
+            .setNegativeButton("LATER", null)
+            .setCancelable(true)
+            .show()
     }
 
     private fun updateStatusViews() {
