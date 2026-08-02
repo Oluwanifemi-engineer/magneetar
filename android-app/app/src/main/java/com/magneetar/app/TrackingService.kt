@@ -148,8 +148,24 @@ class TrackingService : Service() {
 
     // ── Registration & Auth ───────────────────────────────────────────────────
 
-    private suspend fun registerDeviceInternal() {
+    private suspend fun registerDevice() {
+        if (isRegistering) return  // one registration attempt at a time
+        isRegistering = true
         try {
+            // Loop instead of recursion: a retry every 15s must never chain
+            // suspend continuations forever on a sustained outage.
+            while (!isRegistered) {
+                if (tryRegisterOnce()) break
+                delay(15_000)
+            }
+        } finally {
+            isRegistering = false
+        }
+    }
+
+    /** One registration attempt. Returns true when a token pair was minted. */
+    private suspend fun tryRegisterOnce(): Boolean {
+        return try {
             val body = JSONObject().apply {
                 put("device_id", deviceId)
                 put("fingerprint", Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "")
@@ -203,33 +219,12 @@ class TrackingService : Service() {
                         apply()
                     }
                 }
-            } else {
-                // Registration failed (network or auth) — retry later.
-                // Release the guard first so the retry can re-enter.
-                isRegistering = false
-                delay(15_000)
-                registerDevice()
-                return
+                return isRegistered
             }
+            false
         } catch (e: Exception) {
             e.printStackTrace()
-            // Retry later
-            isRegistering = false
-            delay(15_000)
-            registerDevice()
-            return
-        } finally {
-            isRegistering = false
-        }
-    }
-
-    private suspend fun registerDevice() {
-        if (isRegistering) return  // one registration attempt at a time
-        isRegistering = true
-        try {
-            registerDeviceInternal()
-        } finally {
-            isRegistering = false
+            false
         }
     }
 
@@ -409,6 +404,10 @@ class TrackingService : Service() {
                     } else {
                         updateNotification("Connected • ${currentBatteryPercent}%")
                     }
+                } else {
+                    // Heartbeat failed (network, or auth-death while re-registering)
+                    // — don't keep showing a stale "Connected".
+                    updateNotification("Reconnecting…")
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

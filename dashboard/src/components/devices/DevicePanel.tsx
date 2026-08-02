@@ -224,7 +224,7 @@ export function DevicePanel() {
         ) : (
           <div className="space-y-2.5">
             <div className="text-[11px] font-mono text-mag-danger/90 leading-relaxed">
-              Permanently delete <span className="font-bold">{device.alias || device.model || device.id}</span>? All
+              Permanently delete <span className="font-bold">{device.alias?.trim() || device.model || device.id}</span>? All
               locations, media, evidence, alerts & recovery requests are erased. This cannot be undone.
             </div>
             {deleteError && <div className="text-[10px] font-mono text-red-400">{deleteError}</div>}
