@@ -151,7 +151,7 @@ The Android application serves as the primary client interface between the user 
 - Backend API
 - Android Location Services
 - Bluetooth (future)
-- Camera (future)
+- Camera & microphone capture (armed watch)
 - Push Notifications
 
 #### Future Evolution
@@ -638,6 +638,88 @@ the server starts:
 - **E2E reliability suite** in `scripts/reliability-test.sh` simulates real
   failure scenarios against a running instance
 
+### 11.8 Armed Watch: Persistent Capture Availability
+
+Remote photo/audio evidence capture is the product's core differentiator, and
+Android 14+ foreground-service (FGS) rules make its *availability* a pure
+persistence problem. This section documents the design that keeps capture
+honest and available on stock devices.
+
+#### The platform constraint (why the pattern exists)
+
+On Android 14+ (targetSdk 34/35), a `camera|microphone` FGS **cannot be
+STARTED from the background**: the while-in-use CAMERA/RECORD_AUDIO
+permissions are only "active" while the app is visible or already holds a
+camera|mic FGS. A running `location` FGS is **not** an exemption. Therefore a
+remote "capture now" that tries `startForegroundService()` from a locked
+screen throws `ForegroundServiceStartNotAllowedException` — the pre-14 design
+silently failed on every modern stock device.
+
+The documented background-start exemptions are: app visible in the
+foreground, a notification-action tap, device-policy-controller (DPC /
+device-owner) mode, VoiceInteractionService, and system components.
+
+#### The pattern (Prey/Cerberus model)
+
+1. **Arm from a foreground context** — the app opens (HomeActivity) or the
+   user taps a notification action. `MediaCaptureService` calls
+   `startForeground()` with `FOREGROUND_SERVICE_TYPE_CAMERA |
+   FOREGROUND_SERVICE_TYPE_MICROPHONE` and posts an honest, ongoing
+   "Theft protection armed" notification. This is the ONE legal start.
+2. **Command the already-running service** — while armed, a remote
+   "capture_photo / capture_photo_front / capture_audio" command is
+   delivered by FCM/poll and routed with a plain `startService(intent)` to
+   the armed service (no background start needed). The service captures via
+   Camera2 ImageReader (still frames) / MediaRecorder (20s ambient audio),
+   uploads media, and acks `executed` **only when the upload completed**.
+3. **OEM kill / reboot / force-stop** — Android 15 bans camera|mic FGS from
+   `BOOT_COMPLETED`, and OEM battery managers kill services. When the armed
+   service dies, `BootReceiver`/`TrackingService` posts a
+   **"Tap to re-arm"** notification. The tap is a documented exemption and
+   legally restarts the camera|mic FGS. Until the tap, capture is honestly
+   unavailable.
+4. **Honest command acks** — when unarmed, capture commands ack `failed`
+   (never a phantom `executed`) and the dashboard shows the truth.
+
+#### The honesty contract (capture_armed state)
+
+The dashboard must show whether capture is actually possible, not just what
+the owner intended. The app reports `MediaCaptureService.isArmed` (the live
+in-memory state) on every location ping and heartbeat:
+
+- `POST /api/device/location` and `POST /api/device/heartbeat` accept
+  `capture_armed: bool`; the server persists it to `devices.capture_armed`
+  via `COALESCE(?, capture_armed)` so an old app build that omits the field
+  never wipes a previously reported state. `POST /api/device/offline-queue`
+  persists the last queued ping's value.
+- `GET /api/dashboard/devices` returns `capture_armed` per device:
+  `true` = armed (remote capture ready), `false` = unarmed, `null` =
+  unknown (device never reported / old app build).
+- The dashboard DevicePanel shows **Capture: Armed / Unarmed / Unknown** with
+  a tooltip explaining what each means and how to re-arm.
+
+Schema migration note: `ensure_initialized()` compares the `devices` COLUMN
+set (not just the table list) against the expected schema, so column
+migrations are applied to databases created before a release. A
+table-only check silently skipped migrations on production and new features
+500'd with "no such column" (capture_armed, alert_channels, quiet_hours_*).
+
+#### Server-side routing unit
+
+`CaptureRouting` (android-app/.../CaptureRouting.kt) is a pure, JVM-testable
+module encoding the honesty contract:
+
+- `route(armed, command)` -> PROMPT_REARM (unarmed: re-arm notification +
+  failed ack), RUN_ARMED_CAPTURE (armed + known command), or REFUSE_UNKNOWN
+  (armed + unknown command: failed ack, never run).
+- `actionFor(command)` maps capture command names to the armed service's
+  action constants (inlined at compile time — no Android classes load under
+  plain JUnit).
+
+Tests: `CaptureRoutingTest` (5 JVM tests) + server regression tests for the
+armed-state round-trip, unknown-state default, old-build no-wipe, and failed
+acks staying visible in command history without re-delivery.
+
 ## 12. Design Principles
 
 Magneetar follows a set of design principles that guide architectural and engineering decisions. These principles are intended to be stable, technology-agnostic, and applicable across all components of the system.
@@ -665,3 +747,4 @@ Significant architectural changes should be documented through Architecture Deci
 | Version | Date | Description |
 |---------|------|-------------|
 | 1.0 | 2026-07-21 | Initial architecture document |
+| 1.1 | 2026-08-03 | Added 11.8 Armed Watch capture architecture + capture_armed contract |
