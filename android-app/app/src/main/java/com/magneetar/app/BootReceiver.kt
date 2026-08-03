@@ -55,6 +55,14 @@ class BootReceiver : BroadcastReceiver() {
             val persistenceIntent = Intent(context, PersistenceService::class.java)
             ContextCompat.startForegroundService(context, persistenceIntent)
 
+            // Re-arm remote capture if it was armed before the reboot.
+            // A camera|microphone FGS cannot be started from BOOT_COMPLETED on
+            // Android 15+, so post the tap-to-re-arm notification — the tap is
+            // a user action that grants the background-start exemption.
+            if (MediaCaptureService.wasArmedBeforeRestart(context)) {
+                MediaCaptureService.postRearmNotification(context)
+            }
+
             Log.i(TAG, "Services started successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start services: ${e.message}")

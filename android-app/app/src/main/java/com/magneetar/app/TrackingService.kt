@@ -596,23 +596,39 @@ class TrackingService : Service() {
     }
 
     /**
-     * Hand a capture command to MediaCaptureService (the camera|microphone
-     * foreground service). If it can't start (e.g. Android 14 background-start
-     * denied), ack 'failed' so the dashboard isn't lied to.
+     * Route a capture command to the ARMED MediaCaptureService.
+     *
+     * Android 14+ forbids STARTING a camera|microphone foreground service
+     * from the background, so a dead capture service cannot be revived
+     * on-demand from a locked screen. The armed-watch design avoids that:
+     * MediaCaptureService runs persistently (armed from a foreground context
+     * or a "Re-arm" notification tap). If it is NOT armed, we cannot capture
+     * — so we post the tap-to-re-arm notification and ack 'failed' honestly
+     * (the dashboard shows the truth instead of a phantom 'executed').
      */
     private suspend fun startCaptureService(id: Int, command: String) {
+        if (!MediaCaptureService.isArmed) {
+            MediaCaptureService.postRearmNotification(this)
+            try { ackCommand(id, "failed") } catch (e2: Exception) { e2.printStackTrace() }
+            return
+        }
         try {
+            val action = when (command) {
+                "capture_photo" -> MediaCaptureService.ACTION_CAPTURE_PHOTO
+                "capture_photo_front" -> MediaCaptureService.ACTION_CAPTURE_PHOTO_FRONT
+                else -> MediaCaptureService.ACTION_CAPTURE_AUDIO
+            }
             val intent = Intent(this, MediaCaptureService::class.java).apply {
+                setAction(action)
                 putExtra(MediaCaptureService.EXTRA_COMMAND_ID, id)
                 putExtra(MediaCaptureService.EXTRA_COMMAND, command)
             }
-            ContextCompat.startForegroundService(this, intent)
-            // Ordering note: this returns BEFORE MediaCaptureService.onStartCommand
-            // adds the id to its activeCaptureIds set. We rely on the 10s poll
-            // interval vs the ~ms service-start gap — by the time the next poll
-            // runs, the capture service has registered the id, so the poll
-            // skips it. Do NOT "simplify" this away: it prevents duplicate
-            // captures of a still-pending command.
+            // The armed service is ALREADY foreground, so a plain startService
+            // is safe (and avoids the 5s startForeground window of a cold
+            // start). Ordering note: this returns BEFORE the capture service
+            // adds the id to its activeCaptureIds set; the 10s poll interval
+            // vs the ~ms service-start gap covers that — do NOT "simplify".
+            startService(intent)
         } catch (e: Exception) {
             e.printStackTrace()
             try { ackCommand(id, "failed") } catch (e2: Exception) { e2.printStackTrace() }

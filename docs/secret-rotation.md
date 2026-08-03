@@ -148,6 +148,55 @@ python scripts/device_simulator.py --server https://api.magneetar.me \
   and scrub history (or use `git filter-repo`).
 - Generate secrets with `scripts/generate-env.sh` (uses `secrets.token_*`).
 
+## 9. Executed rotation — 2026-08-03 (MT_API_KEY + signing keystore)
+
+### What happened
+- The release keystore password was **lost** (created with a throwaway
+  password nobody recorded). With an install base of ~1 device, we generated
+  a **new keystore** and rotated `MT_API_KEY` in the same release — the
+  cheapest moment to absorb the signature change.
+- New keystore: `android-app/release.keystore` (PKCS12), alias `magneetar`,
+  dname `CN=Magneetar, OU=Development, O=Magneetar, L=Lagos, ST=Lagos, C=NG`.
+- **New signing-cert SHA-256: `024cbb34db441f37ed3de001174bb1832e3d7ce52e73b6eb35920f1dc4b20a7f`**
+  (old: `f5202667…`). The `/download` page pins this fingerprint.
+- Old keystore preserved at `android-app/release.keystore.old-password-lost`
+  (only copy of the old private key — if the password is ever found, old-
+  keystore devices could still be updated).
+- New `MT_API_KEY` written to `server/.env` + `android-app/local.properties`
+  (both gitignored). CI secrets `API_KEY`, `KEYSTORE_BASE64`, `KEYSTORE_PASS`,
+  `KEY_ALIAS`, `KEY_ALIAS_PASS` must be updated to match (GitHub → Settings →
+  Secrets).
+
+### Migration consequence for installed devices
+APKs signed with the **old** key can no longer update in place (Android
+rejects signature mismatches). Those devices must **uninstall + reinstall**;
+`device_id`/`device_key` live in SharedPreferences and reset on uninstall, so
+old devices re-appear as new devices in the dashboard. With ~1 device this
+was free; do NOT lose the new keystore password.
+
+### Keystore credential storage (so this never recurs)
+- Credentials live in `android-app/local.properties` (gitignored):
+  `KEYSTORE_PASS`, `KEY_ALIAS`, `KEY_ALIAS_PASS`, `API_KEY`.
+- `build.gradle.kts` and `scripts/build-release.sh` both read from there
+  (env/-P flags still take precedence).
+- **PKCS12 gotcha (the build failure we hit):** PKCS12 keystores ignore a
+  separate `-keypass` — the private-key password IS the store password.
+  `KEY_ALIAS_PASS` must equal `KEYSTORE_PASS` or signing fails with
+  "Given final block not properly padded".
+- **Kotlin DSL gotcha (the other build failure):** in the `signingConfigs`
+  block, `keyAlias = keyAlias` self-assigns (the receiver's `keyAlias`
+  property shadows the outer `val`). The val names are deliberately distinct
+  (`releaseStorePass` / `releaseKeyAlias` / `releaseKeyPass`).
+- Back up BOTH `release.keystore` AND `local.properties` together (e.g. to a
+  password manager or encrypted vault) — one without the other is useless.
+
+### Rotation verification performed (live)
+- Bogus/old API key → `401` on `/api/device/register`.
+- New API key → `200` + valid device JWT (throwaway device registered then
+  permanently deleted).
+- Existing registered device (`mt-14bddfeb`) kept heartbeating (JWT/
+  device-key auth unaffected by the rotation).
+
 ## 8. Incident trigger — when to rotate
 
 - `MT_JWT_SECRET`: any suspicion that a token was forged or a signing key

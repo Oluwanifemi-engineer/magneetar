@@ -220,9 +220,16 @@ header "Step 6/9 — Building Release APK"
 # Export signing credentials for the build.
 # NOTE: Gradle reads System.getenv() at configuration time, which is when
 # build.gradle.kts is evaluated. Exporting before ./gradlew ensures the
-# signing config picks up the correct passwords.
-export MT_KEYSTORE_PASS="${MT_KEYSTORE_PASS:-magneetar123}"
-export MT_KEY_ALIAS_PASS="${MT_KEY_ALIAS_PASS:-magneetar123}"
+# signing config picks up the correct passwords. Credentials are read from
+# android-app/local.properties (gitignored) — NEVER a hardcoded default
+# (a default password that ships with the source would defeat signing).
+export MT_KEYSTORE_PASS="${MT_KEYSTORE_PASS:-$(grep '^KEYSTORE_PASS=' "$ANDROID_DIR/local.properties" 2>/dev/null | head -1 | cut -d= -f2-)}"
+export MT_KEY_ALIAS="${MT_KEY_ALIAS:-$(grep '^KEY_ALIAS=' "$ANDROID_DIR/local.properties" 2>/dev/null | head -1 | cut -d= -f2-)}"
+export MT_KEY_ALIAS_PASS="${MT_KEY_ALIAS_PASS:-$(grep '^KEY_ALIAS_PASS=' "$ANDROID_DIR/local.properties" 2>/dev/null | head -1 | cut -d= -f2-)}"
+
+if [ -z "$MT_KEYSTORE_PASS" ] || [ -z "$MT_KEY_ALIAS" ] || [ -z "$MT_KEY_ALIAS_PASS" ]; then
+    err "Keystore credentials missing — add KEYSTORE_PASS / KEY_ALIAS / KEY_ALIAS_PASS to $ANDROID_DIR/local.properties (gitignored) or export MT_KEYSTORE_PASS etc."
+fi
 
 # Export MT_API_KEY from local.properties (gitignored) when not already set.
 # The release APK's API_KEY must match the server's MT_API_KEY or the server

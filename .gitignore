@@ -31,6 +31,8 @@ android-app/.gradle/
 android-app/app/build/
 android-app/build/
 *.keystore
+# Lost-password keystore backup (private key material — never commit)
+release.keystore.*
 *.jks
 *.idsig
 local.properties

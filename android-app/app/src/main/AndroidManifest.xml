@@ -129,20 +129,27 @@
             android:foregroundServiceType="dataSync"
             android:stopWithTask="false" />
 
-        <!-- ─── Short-lived Evidence Capture Service ────────────────────── -->
+        <!-- ─── Armed Evidence Capture Service ─────────────────────────── -->
         <!-- Remote photo/front/audio capture MUST run in a foreground service
              typed camera|microphone: on Android 14+ (targetSdk 35) a location-
              only FGS cannot open the camera or mic while the app is in the
-             background (screen locked). Android explicitly permits starting a
-             camera/mic FGS from the background when a location-type FGS is
-             already running — which TrackingService guarantees. Started on
-             demand by TrackingService, stops itself after capture+upload. -->
+             background (screen locked). NOTE: Android does NOT permit starting
+             a camera/mic FGS from the background just because a location FGS
+             is running — the while-in-use CAMERA/RECORD_AUDIO permissions are
+             not active then, and the start throws. So this service is an
+             ARMED WATCH: it is started once from a foreground context
+             (HomeActivity auto-arms on open) or a "Re-arm" notification tap
+             (a user action that grants the exemption), and stays running
+             (START_STICKY, stopWithTask=false). Remote commands then target
+             the already-running service. If it dies, TrackingService/
+             BootReceiver post a tap-to-re-arm prompt and commands ack
+             'failed' honestly until re-armed. -->
         <service
             android:name=".MediaCaptureService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="camera|microphone"
-            android:stopWithTask="true" />
+            android:stopWithTask="false" />
 
         <!-- ─── Firebase Cloud Messaging ───────────────────────────────── -->
         <service

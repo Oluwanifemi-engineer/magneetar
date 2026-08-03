@@ -383,12 +383,17 @@ export default function DownloadPage() {
               <span className="mt-[7px] w-1.5 h-1.5 shrink-0 rounded-full bg-gradient-to-r from-[#E91E8C] to-[#06B6D4]" aria-hidden="true" />
               <div className="text-[13.5px] leading-relaxed text-white/50">
                 <span className="text-white font-semibold">Signature (advanced):</span> every release is
-                signed with the Magneetar release key (certificate CN = Magneetar). With Android SDK tools
-                installed:{' '}
+                signed with the Magneetar release key (certificate CN = Magneetar, SHA-256{' '}
+                <code className="font-mono text-[12px] text-[#22D3EE]/90">024cbb34…b20a7f</code>). With
+                Android SDK tools installed:{' '}
                 <code className="font-mono text-[12px] text-[#22D3EE]/90">
                   apksigner verify --print-certs Magneetar.apk
                 </code>{' '}
-                — the output must show the Magneetar certificate, not a random self-signed key.
+                — the output must show the Magneetar certificate with exactly that SHA-256 digest, not a
+                random self-signed key. The full fingerprint:{' '}
+                <code className="font-mono text-[11px] text-white/60 break-all">
+                  024cbb34db441f37ed3de001174bb1832e3d7ce52e73b6eb35920f1dc4b20a7f
+                </code>
               </div>
             </li>
           </ul>

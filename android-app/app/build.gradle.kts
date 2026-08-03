@@ -61,14 +61,22 @@ val sentryDsn = (project.findProperty("SENTRY_DSN") as String?)
 // file + the repo source would otherwise also have the password). Every
 // release build MUST receive the real credentials via env vars or -P flags;
 // a missing value fails the build instead of shipping a weak/unsigned APK.
-val keystorePass = System.getenv("MT_KEYSTORE_PASS")
+// NOTE: these val names deliberately do NOT match the SigningConfig property
+// names (storePassword / keyAlias / keyPassword). Inside the signingConfigs
+// lambda the receiver's members shadow outer scope, so `keyAlias = keyAlias`
+// would self-assign (alias stays null) — the guard passes but packageRelease
+// fails. Distinct names make the assignment unambiguous.
+val releaseStorePass = System.getenv("MT_KEYSTORE_PASS")
     ?: (project.findProperty("KEYSTORE_PASS") as String?)
+    ?: localProperty("KEYSTORE_PASS")
     ?: ""
-val keyAlias = System.getenv("MT_KEY_ALIAS")
+val releaseKeyAlias = System.getenv("MT_KEY_ALIAS")
     ?: (project.findProperty("KEY_ALIAS") as String?)
+    ?: localProperty("KEY_ALIAS")
     ?: ""
-val keyAliasPass = System.getenv("MT_KEY_ALIAS_PASS")
+val releaseKeyPass = System.getenv("MT_KEY_ALIAS_PASS")
     ?: (project.findProperty("KEY_ALIAS_PASS") as String?)
+    ?: localProperty("KEY_ALIAS_PASS")
     ?: ""
 
 fun isReleaseTask(task: String): Boolean {
@@ -100,9 +108,9 @@ val keystoreFile = rootProject.projectDir.resolve("release.keystore")
 if (wantsRelease) {
     val missing = buildList {
         if (!keystoreFile.exists()) add("release.keystore file")
-        if (keystorePass.isBlank()) add("KEYSTORE_PASS (env MT_KEYSTORE_PASS or -PKEYSTORE_PASS)")
-        if (keyAlias.isBlank()) add("KEY_ALIAS (env MT_KEY_ALIAS or -PKEY_ALIAS)")
-        if (keyAliasPass.isBlank()) add("KEY_ALIAS_PASS (env MT_KEY_ALIAS_PASS or -PKEY_ALIAS_PASS)")
+        if (releaseStorePass.isBlank()) add("KEYSTORE_PASS (env MT_KEYSTORE_PASS or -PKEYSTORE_PASS)")
+        if (releaseKeyAlias.isBlank()) add("KEY_ALIAS (env MT_KEY_ALIAS or -PKEY_ALIAS)")
+        if (releaseKeyPass.isBlank()) add("KEY_ALIAS_PASS (env MT_KEY_ALIAS_PASS or -PKEY_ALIAS_PASS)")
     }
     if (missing.isNotEmpty()) {
         throw GradleException(
@@ -142,9 +150,9 @@ android {
     signingConfigs {
         create("release") {
             storeFile = keystoreFile
-            storePassword = keystorePass
-            keyAlias = keyAlias
-            keyPassword = keyAliasPass
+            storePassword = releaseStorePass
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPass
         }
     }
 

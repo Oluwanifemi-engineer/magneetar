@@ -25,36 +25,68 @@ import java.util.*
 import java.util.concurrent.TimeUnit
 
 /**
- * Short-lived evidence capture foreground service (type camera|microphone).
+ * Persistent ARMED evidence-capture foreground service (type camera|microphone).
  *
- * WHY THIS SERVICE EXISTS — Android 14/15 foreground-service type rules:
- * A foreground service declared `location`-only (TrackingService) CANNOT open
- * the camera or microphone while the app is in the background (screen locked
- * — exactly the anti-theft scenario). The system throws SecurityException /
- * CameraAccessException / MediaRecorder RuntimeException. The documented fix is
- * a dedicated `camera|microphone` foreground service, and Android explicitly
- * permits STARTING one from the background when a location-type foreground
- * service is already running (TrackingService guarantees that). This service
- * therefore owns ALL photo/audio capture, uploads the evidence, and ACKS the
- * originating command honestly — "executed" only when media was uploaded.
+ * DESIGN — Android 14/15 foreground-service type rules make this the ONLY
+ * shape that works for remote capture:
  *
- * Started via ContextCompat.startForegroundService from TrackingService's
- * command handler with EXTRA_COMMAND_ID / EXTRA_COMMAND; stops itself.
+ *  1. A camera/microphone FGS cannot be STARTED from the background on
+ *     Android 14+ (targetSdk 34/35) — the CAMERA/RECORD_AUDIO while-in-use
+ *     permissions aren't "active" unless the app is visible or already holds
+ *     a camera|mic FGS. Running a `location` FGS (TrackingService) is NOT an
+ *     exemption (contrary to the old claim in this file). A remote
+ *     "capture now" that tries `startForegroundService()` from a locked
+ *     screen therefore throws ForegroundServiceStartNotAllowedException.
+ *
+ *  2. The working pattern (used by Prey/Cerberus) is an ARM WATCH: the
+ *     camera|microphone FGS is started ONCE from a foreground context (the
+ *     app being open — HomeActivity) or a notification-action tap (which
+ *     grants the background-start exemption). While it is alive, remote
+ *     triggers just command the ALREADY-RUNNING service — no background
+ *     start is ever needed. The "theft protection armed" notification is the
+ *     honest, transparent price of that sensor authority.
+ *
+ *  3. If the armed service dies (OEM killer, reboot, force-stop), a
+ *     "Tap to re-arm" notification is posted (from TrackingService or
+ *     BootReceiver) — the tap grants the exemption and restarts this service.
+ *     Until then, capture stays honestly unavailable and commands ack
+ *     'failed' instead of lying.
+ *
+ * Started via ContextCompat.startForegroundService (foreground contexts) with
+ * ACTION_ARM, or a plain startService with ACTION_CAPTURE_* (service already
+ * foreground). Stays armed; captures on demand.
  */
 class MediaCaptureService : Service() {
 
     companion object {
         private const val TAG = "MagneetarCapture"
         private const val CHANNEL_ID = "mt_capture"
+        private const val CHANNEL_ID_REARM = "mt_rearm"
         private const val NOTIF_ID = 3
+        private const val REARM_NOTIF_ID = 8
         private const val CAMERA_CAPTURE_TIMEOUT_MS = 45_000L
         private const val AUDIO_CAPTURE_MS = 20_000L
         private val JSON = "application/json".toMediaType()
         private val SERVER = BuildConfig.SERVER_URL
         private val API_KEY = BuildConfig.API_KEY
 
+        // Actions — ARM/DISARM from foreground contexts, CAPTURE_* from the
+        // already-running armed service (plain startService is safe then).
+        const val ACTION_ARM = "com.magneetar.app.action.ARM"
+        const val ACTION_DISARM = "com.magneetar.app.action.DISARM"
+        const val ACTION_CAPTURE_PHOTO = "com.magneetar.app.action.CAPTURE_PHOTO"
+        const val ACTION_CAPTURE_PHOTO_FRONT = "com.magneetar.app.action.CAPTURE_PHOTO_FRONT"
+        const val ACTION_CAPTURE_AUDIO = "com.magneetar.app.action.CAPTURE_AUDIO"
+
         const val EXTRA_COMMAND_ID = "command_id"
         const val EXTRA_COMMAND = "command"
+
+        private const val PREF_ARMED = "capture_armed"
+
+        /** True while this service runs in the armed (camera|mic FGS) state. */
+        @Volatile
+        var isArmed: Boolean = false
+            private set
 
         /**
          * Command ids currently being captured, shared with TrackingService.
@@ -68,6 +100,69 @@ class MediaCaptureService : Service() {
          */
         @JvmStatic
         val activeCaptureIds = Collections.synchronizedSet(mutableSetOf<Int>())
+
+        /** True when the owner had armed capture before this process died. */
+        @JvmStatic
+        fun wasArmedBeforeRestart(context: Context): Boolean =
+            context.getSharedPreferences("mt", Context.MODE_PRIVATE).getBoolean(PREF_ARMED, false)
+
+        /**
+         * Post the "Tap to re-arm" notification. The tap is a user action on
+         * a notification, which Android grants as a background-start
+         * exemption — the only stock-Android way to bring the camera|mic FGS
+         * back from a dead state.
+         */
+        @JvmStatic
+        fun postRearmNotification(context: Context) {
+            try {
+                // This is called from BootReceiver / TrackingService, possibly
+                // in a process where this service's onCreate() never ran — so
+                // the channel MUST exist here or the notification is silently
+                // dropped on API 26+ (re-creating an existing channel is a
+                // harmless no-op-ish update).
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val nm0 = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    nm0.createNotificationChannel(
+                        NotificationChannel(
+                            CHANNEL_ID_REARM, "Re-arm protection",
+                            NotificationManager.IMPORTANCE_HIGH
+                        ).apply {
+                            setShowBadge(false)
+                            enableLights(false)
+                            enableVibration(true)
+                            setDescription("Tap to re-arm remote photo & audio capture")
+                        }
+                    )
+                }
+                val rearmPi = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    PendingIntent.getForegroundService(
+                        context, 1,
+                        Intent(context, MediaCaptureService::class.java).setAction(ACTION_ARM),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    PendingIntent.getService(
+                        context, 1,
+                        Intent(context, MediaCaptureService::class.java).setAction(ACTION_ARM),
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                    )
+                }
+                val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                mgr.notify(
+                    REARM_NOTIF_ID,
+                    NotificationCompat.Builder(context, CHANNEL_ID_REARM)
+                        .setSmallIcon(android.R.drawable.ic_menu_compass)
+                        .setContentTitle("🛡 Magneetar — theft protection off")
+                        .setContentText("Tap to re-arm remote photo & audio capture")
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+                        .setAutoCancel(false)
+                        .addAction(0, "Re-arm", rearmPi)
+                        .build()
+                )
+            } catch (_: Exception) { /* notifications are best-effort */ }
+        }
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -78,8 +173,8 @@ class MediaCaptureService : Service() {
         .build()
 
     // Auth state (device tokens are persisted by TrackingService on register;
-    // we read them so a capture can authenticate even if this short-lived
-    // service started after a process restart).
+    // we read them so a capture can authenticate even if this service
+    // started after a process restart).
     @Volatile private var accessToken: String? = null
     @Volatile private var refreshToken: String? = null
 
@@ -88,88 +183,134 @@ class MediaCaptureService : Service() {
         accessToken = prefs().getString("access_token", "")?.takeIf { it.isNotEmpty() }
         refreshToken = prefs().getString("refresh_token", "")?.takeIf { it.isNotEmpty() }
         createNotificationChannel()
-        startForegroundCompat()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val commandId = intent?.getIntExtra(EXTRA_COMMAND_ID, -1) ?: -1
-        val command = intent?.getStringExtra(EXTRA_COMMAND) ?: ""
-        if (commandId <= 0 || command.isEmpty()) {
-            stopSelf(startId)
-            return START_NOT_STICKY
-        }
-
-        activeCaptureIds.add(commandId)
-        scope.launch {
-            try {
-                var ok = false
-                try {
-                    when (command) {
-                        "capture_photo" -> {
-                            capturePhoto()
-                            ok = true
+        val action = intent?.action ?: ACTION_ARM
+        when (action) {
+            ACTION_DISARM -> {
+                disarm()
+                return START_NOT_STICKY
+            }
+            ACTION_CAPTURE_PHOTO, ACTION_CAPTURE_PHOTO_FRONT, ACTION_CAPTURE_AUDIO -> {
+                // Defensive: if a capture arrives while this service is not
+                // foreground (e.g. race with TrackingService's guard), we must
+                // startForeground within 5s. On Android 14+ a background
+                // camera/mic start throws — caught below, ack stays honest.
+                if (!isArmed) {
+                    try {
+                        startForegroundCompat("Capturing evidence…")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Cannot foreground camera/mic FGS from background: ${e.message}")
+                        val commandId = intent?.getIntExtra(EXTRA_COMMAND_ID, -1) ?: -1
+                        if (commandId > 0) {
+                            scope.launch { ackCommand(commandId, "failed") }
                         }
-                        "capture_photo_front" -> {
-                            capturePhotoFront()
-                            ok = true
-                        }
-                        "capture_audio" -> {
-                            captureAudio()
-                            ok = true
-                        }
-                        else -> Log.w(TAG, "Unknown capture command: $command")
+                        postRearmNotification(this)
+                        // This was a plain startService (not foreground) that
+                        // failed to become an FGS — stop it so a background
+                        // service doesn't linger.
+                        stopSelf(startId)
+                        return START_NOT_STICKY
                     }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // Capture failed (camera denied/busy, mic blocked, timeout…).
-                    // Ack 'failed' so the dashboard shows the truth instead of
-                    // a fake 'executed' with no evidence ever arriving.
-                    Log.e(TAG, "Capture '$command' failed: ${e.message}", e)
-                    // Tell the user WHY and what to do — the #1 cause is Camera/Mic
-                    // granted "Only while using the app", which Android enforces as
-                    // CAMERA_DISABLED / a muted mic while Magneetar is backgrounded.
-                    notifyCaptureBlocked(command, e)
                 }
-                // Honest ack — executed only when the media upload completed.
-                ackCommand(commandId, if (ok) "executed" else "failed")
-            } finally {
-                // Release the shared in-flight guard unconditionally — even a
-                // cancelled scope (service destroyed mid-capture) must not
-                // leave the id stuck, or TrackingService would skip a still-
-                // pending command forever (stale-guard hang).
-                try {
-                    activeCaptureIds.remove(commandId)
-                } catch (e: Exception) {}
-                stopSelf(startId)
+                val commandId = intent?.getIntExtra(EXTRA_COMMAND_ID, -1) ?: -1
+                val command = intent?.getStringExtra(EXTRA_COMMAND) ?: ""
+                if (commandId > 0) activeCaptureIds.add(commandId)
+                scope.launch { runCapture(action, command, commandId) }
+                return START_STICKY
+            }
+            else -> { // ACTION_ARM (or anything else) arms the watch
+                arm()
+                return START_STICKY
             }
         }
-        return START_NOT_STICKY
     }
 
     override fun onBind(intent: Intent?) = null
 
     override fun onDestroy() {
         super.onDestroy()
+        // The service was stopped (OEM kill, force-stop, system reclaim).
+        // Keep the armed preference so BootReceiver/TrackingService can post
+        // the re-arm prompt — but only if this was NOT an explicit disarm.
+        if (isArmed) {
+            // Was armed and got killed — remember to prompt to re-arm.
+            prefs().edit().putBoolean(PREF_ARMED, true).apply()
+            isArmed = false
+        }
         scope.cancel()
+    }
+
+    // ── Arming / Disarming ─────────────────────────────────────────────────
+
+    private fun prefs() = getSharedPreferences("mt", Context.MODE_PRIVATE)
+
+    /**
+     * Enter the armed state: startForeground with the camera|microphone type
+     * flags (what makes sensor access legal while the screen is locked).
+     * MUST be called from a foreground context or a notification action —
+     * a background call throws SecurityException on Android 14+.
+     */
+    private fun arm() {
+        if (isArmed) return
+        try {
+            startForegroundCompat("Theft protection armed — remote capture ready")
+            isArmed = true
+            prefs().edit().putBoolean(PREF_ARMED, true).apply()
+            // Dismiss any stale re-arm prompt.
+            try { getSystemService(NotificationManager::class.java).cancel(REARM_NOTIF_ID) } catch (_: Exception) {}
+            Log.i(TAG, "Armed — camera|microphone FGS active")
+        } catch (e: SecurityException) {
+            // Camera/mic permission missing or granted "only while using the
+            // app" — Android refuses the camera|mic FGS type. Tell the user
+            // exactly what to fix instead of failing silently.
+            isArmed = false
+            Log.e(TAG, "Cannot arm: camera/mic permission not fully granted: ${e.message}")
+            notifyArmBlocked()
+        } catch (e: Exception) {
+            isArmed = false
+            Log.e(TAG, "Cannot arm: ${e.message}")
+        }
+    }
+
+    private fun disarm() {
+        isArmed = false
+        prefs().edit().putBoolean(PREF_ARMED, false).apply()
+        try {
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        } catch (_: Exception) {}
+        stopSelf()
+        Log.i(TAG, "Disarmed")
     }
 
     // ── Foreground / Notification ─────────────────────────────────────────
 
-    private fun prefs() = getSharedPreferences("mt", Context.MODE_PRIVATE)
-
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "Evidence Capture",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                setShowBadge(false)
-                enableLights(false)
-                enableVibration(false)
-                setDescription("Remote photo & audio evidence capture")
-            }
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            val nm = getSystemService(NotificationManager::class.java)
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID, "Evidence Capture",
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    setShowBadge(false)
+                    enableLights(false)
+                    enableVibration(false)
+                    setDescription("Remote photo & audio evidence capture")
+                }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID_REARM, "Re-arm protection",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    setShowBadge(false)
+                    enableLights(false)
+                    enableVibration(true)
+                    setDescription("Tap to re-arm remote photo & audio capture")
+                }
+            )
         }
     }
 
@@ -183,13 +324,19 @@ class MediaCaptureService : Service() {
             .setOngoing(true)
             .build()
 
+    private fun updateNotification(text: String) {
+        try {
+            getSystemService(NotificationManager::class.java).notify(NOTIF_ID, buildNotification(text))
+        } catch (_: Exception) {}
+    }
+
     /**
      * Start foreground WITH the camera|microphone type flags. On API 29+ this
      * is what makes camera/mic access legal while backgrounded; on older
      * versions ServiceCompat falls back to the plain two-arg startForeground.
      */
-    private fun startForegroundCompat() {
-        val notif = buildNotification("Capturing evidence…")
+    private fun startForegroundCompat(text: String) {
+        val notif = buildNotification(text)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ServiceCompat.startForeground(
                 this,
@@ -201,6 +348,85 @@ class MediaCaptureService : Service() {
         } else {
             startForeground(NOTIF_ID, notif)
         }
+    }
+
+    private fun openAppSettingsPendingIntent(): PendingIntent {
+        return PendingIntent.getActivity(
+            this, 0,
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:$packageName")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            },
+            PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    /** Posted when arming fails because Camera/Mic aren't fully granted. */
+    private fun notifyArmBlocked() {
+        try {
+            val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val msg = "Set Camera & Microphone to \"Allow all the time\" " +
+                "(Settings → Magneetar → Permissions) to capture from a locked screen."
+            mgr.notify(
+                REARM_NOTIF_ID + 1,
+                NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setContentTitle("Magneetar capture unavailable")
+                    .setContentText(msg)
+                    .setStyle(NotificationCompat.BigTextStyle().bigText(msg))
+                    .setSmallIcon(android.R.drawable.ic_menu_camera)
+                    .setContentIntent(openAppSettingsPendingIntent())
+                    .setAutoCancel(true)
+                    .build()
+            )
+        } catch (_: Exception) {}
+    }
+
+    // ── Capture pipeline (armed service, on demand) ─────────────────────────
+
+    private suspend fun runCapture(action: String, command: String, commandId: Int) {
+        var ok = false
+        try {
+            updateNotification("Capturing evidence…")
+            try {
+                when (action) {
+                    ACTION_CAPTURE_PHOTO -> {
+                        capturePhoto()
+                        ok = true
+                    }
+                    ACTION_CAPTURE_PHOTO_FRONT -> {
+                        capturePhotoFront()
+                        ok = true
+                    }
+                    ACTION_CAPTURE_AUDIO -> {
+                        captureAudio()
+                        ok = true
+                    }
+                    else -> Log.w(TAG, "Unknown capture action: $action")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Capture failed (camera denied/busy, mic blocked, timeout…).
+                // Ack 'failed' so the dashboard shows the truth instead of
+                // a fake 'executed' with no evidence ever arriving.
+                Log.e(TAG, "Capture '$command' failed: ${e.message}", e)
+                // Tell the user WHY and what to do — the #1 cause is Camera/Mic
+                // granted "Only while using the app", which Android enforces as
+                // CAMERA_DISABLED / a muted mic while Magneetar is backgrounded.
+                notifyCaptureBlocked(command, e)
+            }
+            // Honest ack — executed only when the media upload completed.
+            if (commandId > 0) ackCommand(commandId, if (ok) "executed" else "failed")
+        } finally {
+            // Release the shared in-flight guard unconditionally — even a
+            // cancelled scope (service destroyed mid-capture) must not
+            // leave the id stuck, or TrackingService would skip a still-
+            // pending command forever (stale-guard hang).
+            try { activeCaptureIds.remove(commandId) } catch (e: Exception) {}
+            if (isArmed) updateNotification("Theft protection armed — remote capture ready")
+        }
+        // Intentionally NO stopSelf() here — this is the persistent armed
+        // watch, not an on-demand one-shot.
     }
 
     // ── Camera (Rear & Front share one capture path) ───────────────────────
@@ -238,7 +464,7 @@ class MediaCaptureService : Service() {
      * thread; the deferred is completed from camera callbacks.
      *
      * CAMERA permission is requested at runtime in PermissionsActivity before
-     * the service can ever be started (capture commands require an onboarded,
+     * the service can ever be armed (capture commands require an onboarded,
      * permission-granted device), and openCamera is additionally wrapped in
      * try/catch below — a SecurityException surfaces as an honest 'failed'
      * ack, never a crash.
@@ -380,14 +606,6 @@ class MediaCaptureService : Service() {
                     "(Settings → Magneetar → Permissions) for background recording."
                 else -> "Capture failed: ${e.message ?: "unknown error"}. Try again."
             }
-            val openSettings = PendingIntent.getActivity(
-                this, 0,
-                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.parse("package:$packageName")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                },
-                PendingIntent.FLAG_IMMUTABLE
-            )
             mgr.notify(
                 NOTIF_ID + 5,
                 NotificationCompat.Builder(this, CHANNEL_ID)
@@ -395,7 +613,7 @@ class MediaCaptureService : Service() {
                     .setContentText(msg)
                     .setStyle(NotificationCompat.BigTextStyle().bigText(msg))
                     .setSmallIcon(android.R.drawable.ic_menu_camera)
-                    .setContentIntent(openSettings)
+                    .setContentIntent(openAppSettingsPendingIntent())
                     .setAutoCancel(true)
                     .build()
             )

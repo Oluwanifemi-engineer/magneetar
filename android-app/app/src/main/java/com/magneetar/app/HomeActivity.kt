@@ -10,6 +10,7 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 
 /**
  * Home screen shown after successful setup.
@@ -17,10 +18,17 @@ import androidx.appcompat.app.AppCompatActivity
  */
 class HomeActivity : AppCompatActivity() {
 
+    companion object {
+        /** User opt-out for remote capture (set false when they disarm). */
+        private const val PREF_AUTO_ARM = "capture_auto_arm"
+    }
+
     private lateinit var tvUninstallStatus: TextView
     private lateinit var btnActivateAdmin: Button
     private lateinit var tvConnectionStatus: TextView
     private lateinit var tvBatteryStatus: TextView
+    private lateinit var tvCaptureStatus: TextView
+    private lateinit var btnToggleCapture: Button
     private lateinit var tvOemWarning: TextView
     private lateinit var btnOpenDashboard: Button
     private lateinit var btnAutoStart: Button
@@ -34,6 +42,8 @@ class HomeActivity : AppCompatActivity() {
         btnActivateAdmin = findViewById(R.id.btn_activate_admin)
         tvConnectionStatus = findViewById(R.id.tv_connection_status)
         tvBatteryStatus = findViewById(R.id.tv_battery_opt_status)
+        tvCaptureStatus = findViewById(R.id.tv_capture_status)
+        btnToggleCapture = findViewById(R.id.btn_toggle_capture)
         tvOemWarning = findViewById(R.id.tv_oem_warning)
         btnOpenDashboard = findViewById(R.id.btn_open_dashboard)
         btnAutoStart = findViewById(R.id.btn_auto_start)
@@ -55,12 +65,34 @@ class HomeActivity : AppCompatActivity() {
             activateDeviceAdmin()
         }
 
+        btnToggleCapture.setOnClickListener {
+            toggleCapture()
+        }
+
         updateUI()
     }
 
     override fun onResume() {
         super.onResume()
         updateUI()
+        updateCaptureStatus()
+        // Auto-arm remote capture while the app is foreground — unless the
+        // owner explicitly disarmed it (privacy opt-out). Android 14+ only
+        // allows STARTING the camera|microphone foreground service from a
+        // foreground context or a notification-action tap, so this is the
+        // reliable arm point: once armed, remote "capture now" commands work
+        // even from a locked screen. If Camera/Mic aren't fully granted,
+        // MediaCaptureService posts a notification with the exact fix.
+        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+        if (prefs.getBoolean(PREF_AUTO_ARM, true)) {
+            try {
+                val intent = Intent(this, MediaCaptureService::class.java)
+                    .setAction(MediaCaptureService.ACTION_ARM)
+                ContextCompat.startForegroundService(this, intent)
+            } catch (e: Exception) {
+                // Best-effort: arming failure must never break the home screen.
+            }
+        }
     }
 
     private fun updateUI() {
@@ -111,6 +143,41 @@ class HomeActivity : AppCompatActivity() {
         } else {
             tvOemWarning.visibility = android.view.View.GONE
             btnAutoStart.visibility = android.view.View.GONE
+        }
+    }
+
+    /** Arm/disarm remote capture and persist the choice across launches. */
+    private fun toggleCapture() {
+        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+        val currentlyArmed = prefs.getBoolean(PREF_AUTO_ARM, true)
+        try {
+            val intent = Intent(this, MediaCaptureService::class.java).apply {
+                action = if (currentlyArmed) {
+                    MediaCaptureService.ACTION_DISARM
+                } else {
+                    MediaCaptureService.ACTION_ARM
+                }
+            }
+            prefs.edit().putBoolean(PREF_AUTO_ARM, !currentlyArmed).apply()
+            // Foreground context — safe to start either action.
+            ContextCompat.startForegroundService(this, intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not toggle remote capture", Toast.LENGTH_SHORT).show()
+        }
+        updateCaptureStatus()
+    }
+
+    private fun updateCaptureStatus() {
+        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+        val armed = prefs.getBoolean(PREF_AUTO_ARM, true)
+        if (armed) {
+            tvCaptureStatus.text = "📷 Remote capture: ARMED — theft protection active"
+            tvCaptureStatus.setTextColor(android.graphics.Color.parseColor("#00FF88"))
+            btnToggleCapture.text = "Disarm Remote Capture"
+        } else {
+            tvCaptureStatus.text = "📷 Remote capture: OFF — tap to arm"
+            tvCaptureStatus.setTextColor(android.graphics.Color.parseColor("#FFB800"))
+            btnToggleCapture.text = "Arm Remote Capture"
         }
     }
 
