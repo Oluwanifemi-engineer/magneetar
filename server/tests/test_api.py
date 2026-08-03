@@ -742,6 +742,80 @@ class TestApkChecksum:
                 os.remove(path)
 
 
+# ─── Security: device deletion requires step-up password ────────────────────
+
+
+class TestDeviceDeleteStepUp:
+    """Deleting a device is destructive + privacy-sensitive: a stolen dashboard
+    session alone must not destroy a device's history. The DELETE endpoint
+    re-authenticates with the master API key (admin mode) or the account
+    password (user mode) — same contract as media deletion.
+    """
+
+    def _register(self, device_id: str):
+        resp = client.post(
+            "/api/device/register",
+            json={
+                "device_id": device_id,
+                "fingerprint": "fp-del-stepup",
+                "model": "StepUp Test",
+            },
+            headers=get_auth_headers(),
+        )
+        assert resp.status_code == 200
+
+    def _exists(self, device_id: str) -> bool:
+        with database.get_db_context() as conn:
+            return conn.execute("SELECT 1 FROM devices WHERE id=?", (device_id,)).fetchone() is not None
+
+    def test_delete_requires_password(self):
+        device_id = "stepup-device-nopw"
+        self._register(device_id)
+
+        resp = client.request(
+            "DELETE",
+            f"/api/dashboard/devices/{device_id}",
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 400  # password required
+        assert self._exists(device_id), "device must survive a passwordless delete attempt"
+
+    def test_delete_wrong_password_rejected(self):
+        device_id = "stepup-device-wrong"
+        self._register(device_id)
+
+        resp = client.request(
+            "DELETE",
+            f"/api/dashboard/devices/{device_id}",
+            json={"password": "not-the-master-key"},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 401
+        assert self._exists(device_id), "device must survive a wrong-password delete attempt"
+
+    def test_delete_with_master_api_key_succeeds(self):
+        device_id = "stepup-device-ok"
+        self._register(device_id)
+
+        resp = client.request(
+            "DELETE",
+            f"/api/dashboard/devices/{device_id}",
+            json={"password": TEST_API_KEY},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 200
+        assert not self._exists(device_id), "device must be gone after a verified delete"
+
+    def test_delete_unknown_device_404(self):
+        resp = client.request(
+            "DELETE",
+            "/api/dashboard/devices/never-registered-dev",
+            json={"password": TEST_API_KEY},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 404
+
+
 # ─── Geofences ───────────────────────────────────────────────────────────────
 
 

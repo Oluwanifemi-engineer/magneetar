@@ -44,6 +44,10 @@ export function DevicePanel() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  // Step-up password: permanent deletion re-authenticates (account password
+  // for users, master API key for the admin dashboard) — a stolen session
+  // alone must not destroy a device's history.
+  const [deletePassword, setDeletePassword] = useState('');
 
   // Device rename state (uses the existing PATCH /alias endpoint)
   const [editingName, setEditingName] = useState(false);
@@ -66,7 +70,36 @@ export function DevicePanel() {
     setSaved(false);
     setEditingName(false);
     setNameError('');
+    setDeletePassword('');
+    setDeleteError('');
   }
+
+  const confirmDeleteDevice = async () => {
+    if (!device || deleting) return;
+    if (!deletePassword.trim()) {
+      setDeleteError('Enter your password to confirm.');
+      return;
+    }
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await getAPI().deleteDevice(device.id, deletePassword);
+      const { devices: freshDevices } = await getAPI().getDevices();
+      setDevices(freshDevices);
+      // If the deleted device was selected, move to the first remaining
+      // device so the panel doesn't go stale.
+      if (selectedDeviceId === device.id) {
+        selectDevice(freshDevices[0]?.id ?? null);
+      }
+      setConfirmDelete(false);
+      setDeletePassword('');
+    } catch (e: any) {
+      setDeleteError(e.message || 'Failed to delete device');
+      // Keep the confirm card open so the error stays visible.
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const saveDeviceName = async (e: FormEvent) => {
     e.preventDefault();
@@ -476,29 +509,25 @@ export function DevicePanel() {
               Permanently delete <span className="font-bold">{device.alias?.trim() || device.model || device.id}</span>? All
               locations, media, evidence, alerts & recovery requests are erased. This cannot be undone.
             </div>
+            <input
+              type="password"
+              value={deletePassword}
+              onChange={e => setDeletePassword(e.target.value)}
+              placeholder="Account password or master API key"
+              autoFocus
+              aria-label="Confirm deletion password"
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !deleting) {
+                  e.preventDefault();
+                  confirmDeleteDevice();
+                }
+              }}
+              className="w-full bg-mag-bg/60 border border-mag-border/40 rounded-lg px-3 py-2 text-xs font-mono text-mag-text placeholder:text-mag-text-dim/30 focus:outline-none focus:border-mag-danger/60 transition-colors"
+            />
             {deleteError && <div className="text-[10px] font-mono text-red-400">{deleteError}</div>}
             <div className="flex gap-2">
               <button
-                onClick={async () => {
-                  setDeleting(true);
-                  setDeleteError('');
-                  try {
-                    await getAPI().deleteDevice(device.id);
-                    const { devices: freshDevices } = await getAPI().getDevices();
-                    setDevices(freshDevices);
-                    // If the deleted device was selected, move to the first
-                    // remaining device so the panel doesn't go stale.
-                    if (selectedDeviceId === device.id) {
-                      selectDevice(freshDevices[0]?.id ?? null);
-                    }
-                    setConfirmDelete(false);
-                  } catch (e: any) {
-                    setDeleteError(e.message || 'Failed to delete device');
-                    // Keep the confirm card open so the error stays visible.
-                  } finally {
-                    setDeleting(false);
-                  }
-                }}
+                onClick={confirmDeleteDevice}
                 disabled={deleting}
                 className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-mag-danger/90 hover:bg-mag-danger disabled:opacity-50 text-white text-[11px] font-bold transition-all"
               >
@@ -506,7 +535,11 @@ export function DevicePanel() {
                 {deleting ? 'Deleting...' : 'Yes, Delete'}
               </button>
               <button
-                onClick={() => setConfirmDelete(false)}
+                onClick={() => {
+                  setConfirmDelete(false);
+                  setDeletePassword('');
+                  setDeleteError('');
+                }}
                 disabled={deleting}
                 className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-mag-border/40 text-mag-text-dim/70 hover:text-mag-text text-[11px] font-bold transition-all"
               >

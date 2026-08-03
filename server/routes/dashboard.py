@@ -78,6 +78,37 @@ def _assert_device_access(db, device_id: str, auth: str):
         raise HTTPException(status_code=403, detail="Access denied: device not linked to your account")
 
 
+def _verify_stepup_password(db, auth: str, raw_password) -> None:
+    """Re-authenticate a destructive action with a step-up password.
+
+    Destructive, privacy-sensitive actions (media/device deletion) must not
+    succeed on a stolen dashboard session alone — the caller re-authenticates
+    with their account password (user mode) or the master API key itself
+    (admin mode). Attempts are rate-limited per actor; raises HTTPException
+    (400 missing / 401 wrong / 429 throttled).
+    """
+    from auth import check_password_verify_rate_limit, verify_password
+
+    if not check_password_verify_rate_limit(auth):
+        raise HTTPException(status_code=429, detail="Too many verification attempts")
+
+    password = raw_password if isinstance(raw_password, str) else ""
+    if not password:
+        raise HTTPException(status_code=400, detail="Password required")
+
+    user_id = _resolve_user_id(auth)
+    if user_id is not None:
+        # User mode — verify the account password (bcrypt / PBKDF2).
+        with get_db_context() as conn:
+            user = conn.execute("SELECT password_hash FROM users WHERE id=?", (user_id,)).fetchone()
+        if not user or not verify_password(password, user["password_hash"]):
+            raise HTTPException(status_code=401, detail="Invalid password")
+    else:
+        # Admin / API-key mode — re-verify the master API key itself.
+        if not hmac.compare_digest(password, settings.API_KEY):
+            raise HTTPException(status_code=401, detail="Invalid password")
+
+
 # ─── Dashboard Auth ──────────────────────────────────────────────────────────
 
 
@@ -318,19 +349,26 @@ async def update_device_alert_settings(
 @router.delete("/api/dashboard/devices/{device_id}")
 async def delete_device(
     device_id: str,
+    body: dict = None,
     db: sqlite3.Connection = Depends(get_db),
     auth: str = Depends(require_dashboard_auth),
 ):
     """Permanently delete a device and all of its data (locations, media,
-    evidence, commands, alerts, guardian recovery requests, FCM tokens).
+    evidence, commands, alerts, guardian recovery requests, FCM tokens),
+    gated by a STEP-UP PASSWORD (account password for users, master API key
+    for the admin dashboard).
 
     This is the permanent-deletion path promised in the privacy policy:
-    once deleted, the device and its history cannot be recovered.
+    once deleted, the device and its history cannot be recovered. A stolen
+    dashboard session alone must not be able to destroy a device's history,
+    so the caller re-authenticates (see _verify_stepup_password).
     """
     _assert_device_access(db, device_id, auth)
     row = db.execute("SELECT id FROM devices WHERE id=?", (device_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Device not found")
+
+    _verify_stepup_password(db, auth, (body or {}).get("password"))
 
     delete_device_cascade(db, device_id)
     db.commit()
@@ -525,32 +563,12 @@ async def delete_media(
     stolen dashboard session alone is NOT enough to destroy evidence. Attempts
     are rate-limited per actor and audit-logged.
     """
-    from auth import check_password_verify_rate_limit, verify_password
-
-    if not check_password_verify_rate_limit(auth):
-        raise HTTPException(status_code=429, detail="Too many verification attempts")
-
     row = db.execute("SELECT * FROM media WHERE id=?", (media_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Media not found")
     _assert_device_access(db, row["device_id"], auth)
 
-    raw_password = body.get("password")
-    password = raw_password if isinstance(raw_password, str) else ""
-    if not password:
-        raise HTTPException(status_code=400, detail="Password required")
-
-    user_id = _resolve_user_id(auth)
-    if user_id is not None:
-        # User mode — verify the account password (bcrypt / PBKDF2).
-        with get_db_context() as conn:
-            user = conn.execute("SELECT password_hash FROM users WHERE id=?", (user_id,)).fetchone()
-        if not user or not verify_password(password, user["password_hash"]):
-            raise HTTPException(status_code=401, detail="Invalid password")
-    else:
-        # Admin / API-key mode — re-verify the master API key itself.
-        if not hmac.compare_digest(password, settings.API_KEY):
-            raise HTTPException(status_code=401, detail="Invalid password")
+    _verify_stepup_password(db, auth, body.get("password"))
 
     # Remove the media row, then fix up the evidence-case counters it
     # contributed (a deleted item must not leave stale counts).

@@ -219,8 +219,10 @@ class MagneetarAPI {
     return this.request(`/api/dashboard/devices/${deviceId}/recover`, 'POST');
   }
 
-  async deleteDevice(deviceId: string): Promise<{ status: string; message: string }> {
-    return this.request(`/api/dashboard/devices/${deviceId}`, 'DELETE');
+  async deleteDevice(deviceId: string, password: string): Promise<{ status: string; message: string }> {
+    // Step-up password: deletion is destructive, so the server re-authenticates
+    // with the account password (users) or the master API key (admin).
+    return this.request(`/api/dashboard/devices/${deviceId}`, 'DELETE', { password });
   }
 
   async deleteAccount(): Promise<{ status: string; message: string; devices_removed: number }> {

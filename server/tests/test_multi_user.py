@@ -897,7 +897,14 @@ class TestPermanentDeletion:
         self._seed_device_data("del-device")
         assert self._count_related("del-device") > 0
 
-        resp = client.delete("/api/dashboard/devices/del-device", headers=user_headers(user["token"]))
+        # Step-up password: device deletion re-authenticates with the account
+        # password (user mode) — see _verify_stepup_password.
+        resp = client.request(
+            "DELETE",
+            "/api/dashboard/devices/del-device",
+            json={"password": TEST_USER_PASSWORD},
+            headers=user_headers(user["token"]),
+        )
         assert resp.status_code == 200, resp.text
         assert "permanently deleted" in resp.json()["message"]
 
@@ -929,8 +936,11 @@ class TestPermanentDeletion:
         register_device("del-admin-device", user_token=owner["token"])
 
         tokens = create_dashboard_tokens(TEST_API_KEY)
-        resp = client.delete(
+        resp = client.request(
+            "DELETE",
             "/api/dashboard/devices/del-admin-device",
+            # Step-up password: admin mode re-verifies the master API key.
+            json={"password": TEST_API_KEY},
             headers={"Authorization": f"Bearer {tokens['token']}"},
         )
         assert resp.status_code == 200, resp.text
