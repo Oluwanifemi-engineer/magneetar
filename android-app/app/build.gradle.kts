@@ -196,4 +196,8 @@ dependencies {
 
     // Sentry crash reporting
     implementation("io.sentry:sentry-android:7.14.0")
+
+    // JVM unit tests (pure logic only — e.g. CaptureRoutingTest). No
+    // Robolectric: anything touching Android APIs stays out of src/test.
+    testImplementation("junit:junit:4.13.2")
 }

@@ -127,9 +127,21 @@ echo ""
 # ─── Test 4: Command Issuance ────────────────────────────────────────────────
 
 echo -e "${CYAN}4. Commands${NC}"
+# F-02: dashboard routes are JWT-only — the shared x-api-key no longer
+# authenticates them (it ships in every APK, so it must stay a bootstrap-only
+# credential). Log in for a dashboard token before issuing commands.
+CMD_LOGIN=$(curl -s -X POST "$SERVER_URL/api/auth/login" \
+    -H "Content-Type: application/json" \
+    -d "{\"api_key\": \"$API_KEY\"}")
+CMD_TOKEN=$(echo "$CMD_LOGIN" | python3 -c "import sys, json; print(json.load(sys.stdin)['token'])" 2>/dev/null || echo "")
+if [[ -n "$CMD_TOKEN" ]]; then
+    echo -e "  ${GREEN}✓${NC} Got dashboard JWT for command issuance"
+else
+    echo -e "  ${RED}✗${NC} Login failed — cannot issue commands (key wrong?)"
+fi
 CMD_RESP=$(curl -s -w "\n%{http_code}" -X POST "$SERVER_URL/api/dashboard/command" \
     -H "Content-Type: application/json" \
-    -H "x-api-key: $API_KEY" \
+    -H "Authorization: Bearer $CMD_TOKEN" \
     -d "{
         \"device_id\": \"$DEVICE_ID\",
         \"command\": \"ping\"

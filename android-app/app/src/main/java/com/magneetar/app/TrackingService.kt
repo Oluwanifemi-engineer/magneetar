@@ -452,6 +452,10 @@ class TrackingService : Service() {
             put("sim_serial_hash", simSerialHash)
             put("ping_sequence", pingSequence)
             put("device_timestamp", isoNow())
+            // Armed Watch state — lets the dashboard show the honest capture
+            // posture (armed → remote capture possible) instead of a phantom
+            // 'executed' on unarmed devices.
+            put("capture_armed", MediaCaptureService.isArmed)
         }.toString().toRequestBody(JSON)
 
         post("/api/device/location", body)
@@ -471,6 +475,7 @@ class TrackingService : Service() {
                     put("device_admin_active", isDeviceAdminActive())
                     put("sim_hash", simSerialHash)
                     put("pending_evidence_count", 0)
+                    put("capture_armed", MediaCaptureService.isArmed)
                 }.toString().toRequestBody(JSON)
 
                 val response = post("/api/device/heartbeat", body)
@@ -607,32 +612,43 @@ class TrackingService : Service() {
      * (the dashboard shows the truth instead of a phantom 'executed').
      */
     private suspend fun startCaptureService(id: Int, command: String) {
-        if (!MediaCaptureService.isArmed) {
-            MediaCaptureService.postRearmNotification(this)
-            try { ackCommand(id, "failed") } catch (e2: Exception) { e2.printStackTrace() }
-            return
-        }
-        try {
-            val action = when (command) {
-                "capture_photo" -> MediaCaptureService.ACTION_CAPTURE_PHOTO
-                "capture_photo_front" -> MediaCaptureService.ACTION_CAPTURE_PHOTO_FRONT
-                else -> MediaCaptureService.ACTION_CAPTURE_AUDIO
+        when (CaptureRouting.route(MediaCaptureService.isArmed, command)) {
+            CapturePath.PROMPT_REARM -> {
+                // Capture is honestly unavailable: post the tap-to-re-arm
+                // notification and ack 'failed' (the dashboard shows the
+                // truth instead of a phantom 'executed').
+                MediaCaptureService.postRearmNotification(this)
+                ackFailed(id)
             }
-            val intent = Intent(this, MediaCaptureService::class.java).apply {
-                setAction(action)
-                putExtra(MediaCaptureService.EXTRA_COMMAND_ID, id)
-                putExtra(MediaCaptureService.EXTRA_COMMAND, command)
+            CapturePath.REFUSE_UNKNOWN -> {
+                // Defensive: never run an unknown command. Ack failed so the
+                // command doesn't stay PENDING and get re-delivered forever.
+                ackFailed(id)
             }
-            // The armed service is ALREADY foreground, so a plain startService
-            // is safe (and avoids the 5s startForeground window of a cold
-            // start). Ordering note: this returns BEFORE the capture service
-            // adds the id to its activeCaptureIds set; the 10s poll interval
-            // vs the ~ms service-start gap covers that — do NOT "simplify".
-            startService(intent)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            try { ackCommand(id, "failed") } catch (e2: Exception) { e2.printStackTrace() }
+            CapturePath.RUN_ARMED_CAPTURE -> {
+                try {
+                    val intent = Intent(this, MediaCaptureService::class.java).apply {
+                        setAction(CaptureRouting.actionFor(command))
+                        putExtra(MediaCaptureService.EXTRA_COMMAND_ID, id)
+                        putExtra(MediaCaptureService.EXTRA_COMMAND, command)
+                    }
+                    // The armed service is ALREADY foreground, so a plain startService
+                    // is safe (and avoids the 5s startForeground window of a cold
+                    // start). Ordering note: this returns BEFORE the capture service
+                    // adds the id to its activeCaptureIds set; the 10s poll interval
+                    // vs the ~ms service-start gap covers that — do NOT "simplify".
+                    startService(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    ackFailed(id)
+                }
+            }
         }
+    }
+
+    /** Best-effort 'failed' ack — the honesty contract: never leave a command stuck. */
+    private suspend fun ackFailed(id: Int) {
+        try { ackCommand(id, "failed") } catch (e2: Exception) { e2.printStackTrace() }
     }
 
     private suspend fun ackCommand(id: Int, status: String) {

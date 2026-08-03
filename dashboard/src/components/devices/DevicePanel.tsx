@@ -217,6 +217,25 @@ export function DevicePanel() {
             <span className="text-[11px] font-mono text-mag-text-dim/60 font-bold">Last Seen</span>
             <span className="text-[11px] font-mono text-mag-text-dim font-bold">{relativeTime(device.last_seen)}</span>
           </div>
+          {/* Armed Watch state — the honest "capture posture": remote photo &
+              audio capture only works while the device's capture service is
+              armed (Android 14+ can't background-start a camera/mic service). */}
+          <div className="flex justify-between items-center" title={
+            device.capture_armed == null
+              ? 'Capture state not reported yet (update the app).'
+              : device.capture_armed
+                ? 'Armed — remote photo & audio capture ready.'
+                : 'Unarmed — open the app or tap “Re-arm” on the phone to re-enable capture.'
+          }>
+            <span className="text-[11px] font-mono text-mag-text-dim/60 font-bold">Capture</span>
+            {device.capture_armed == null ? (
+              <span className="text-[11px] font-mono text-mag-text-dim/40 font-bold">Unknown</span>
+            ) : device.capture_armed ? (
+              <span className="text-[11px] font-mono text-emerald-400 font-bold">Armed</span>
+            ) : (
+              <span className="text-[11px] font-mono text-amber-400 font-bold">Unarmed</span>
+            )}
+          </div>
         </div>
       </div>
 

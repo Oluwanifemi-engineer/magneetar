@@ -310,7 +310,9 @@ class TestCommands:
         # Ack as device
         device_headers = get_device_headers()
         response = client.post(
-            f"/api/device/commands/{command_id}/ack", json={"status": "executed"}, headers=device_headers
+            f"/api/device/commands/{command_id}/ack",
+            json={"status": "executed"},
+            headers=device_headers,
         )
         assert response.status_code == 200
 
@@ -502,7 +504,10 @@ class TestFcmNoDeviceCreation:
 
         resp = client.post(
             "/api/device/fcm-token",
-            json={"fcm_token": "fcm-pollution-token", "device_id": "never-registered-dev"},
+            json={
+                "fcm_token": "fcm-pollution-token",
+                "device_id": "never-registered-dev",
+            },
             headers={"x-api-key": TEST_API_KEY},
         )
         assert resp.status_code == 401
@@ -543,7 +548,8 @@ class TestFcmNoDeviceCreation:
 
         with database.get_db_context() as conn:
             hijack = conn.execute(
-                "SELECT 1 FROM fcm_tokens WHERE device_id=? AND fcm_token=?", (victim, "attacker-fcm-token")
+                "SELECT 1 FROM fcm_tokens WHERE device_id=? AND fcm_token=?",
+                (victim, "attacker-fcm-token"),
             ).fetchone()
         assert hijack is None
 
@@ -606,7 +612,11 @@ class TestDashboard:
         Postgres sits empty while the live DB is SQLite."""
         client.post(
             "/api/device/register",
-            json={"device_id": "stats-device-1", "fingerprint": "fp-stats-1", "model": "Stats Phone"},
+            json={
+                "device_id": "stats-device-1",
+                "fingerprint": "fp-stats-1",
+                "model": "Stats Phone",
+            },
             headers=get_auth_headers(),
         )
         data = client.get("/api/dashboard/stats", headers=get_dashboard_headers()).json()
@@ -619,7 +629,11 @@ class TestDashboard:
 
         client.post(
             "/api/device/register",
-            json={"device_id": "stats-device-2", "fingerprint": "fp-stats-2", "model": "Stats Phone"},
+            json={
+                "device_id": "stats-device-2",
+                "fingerprint": "fp-stats-2",
+                "model": "Stats Phone",
+            },
             headers=get_auth_headers(),
         )
         # Backdate last_seen to 15h ago, in the exact ISO format the server writes.
@@ -754,3 +768,174 @@ class TestGeofences:
         response = client.get(f"/api/dashboard/geofences/{TEST_DEVICE_ID}", headers=headers)
         assert response.status_code == 200
         assert "geofences" in response.json()
+
+
+# ─── Armed Watch state (capture_armed plumbing) ─────────────────────────────
+
+
+class TestCaptureArmedState:
+    """The Armed Watch "product truth": the dashboard must show whether a
+    device's camera|mic capture service is armed, because remote capture is
+    only possible while it is (Android 14+ can't background-start one).
+    """
+
+    def _register_device(self, device_id: str) -> str:
+        resp = client.post(
+            "/api/device/register",
+            json={
+                "device_id": device_id,
+                "fingerprint": "fp-armed-123",
+                "model": "Armed Test",
+            },
+            headers=get_auth_headers(),
+        )
+        assert resp.status_code == 200
+        return resp.json()["token"]
+
+    def _device_row(self, device_id: str) -> dict:
+        devices = client.get("/api/dashboard/devices", headers=get_dashboard_headers()).json()["devices"]
+        return next(d for d in devices if d["id"] == device_id)
+
+    def test_capture_armed_roundtrip_via_telemetry(self):
+        device_id = "armed-device-telemetry"
+        token = self._register_device(device_id)
+        auth = {"Authorization": f"Bearer {token}"}
+
+        # Device reports armed=True on a location ping
+        resp = client.post(
+            "/api/device/location",
+            json={
+                "device_id": device_id,
+                "lat": 9.08,
+                "lng": 8.67,
+                "capture_armed": True,
+            },
+            headers=auth,
+        )
+        assert resp.status_code == 200
+        assert self._device_row(device_id)["capture_armed"] is True
+
+        # Owner disarms — the dashboard must flip to False
+        resp = client.post(
+            "/api/device/location",
+            json={
+                "device_id": device_id,
+                "lat": 9.08,
+                "lng": 8.67,
+                "capture_armed": False,
+            },
+            headers=auth,
+        )
+        assert resp.status_code == 200
+        assert self._device_row(device_id)["capture_armed"] is False
+
+    def test_capture_armed_roundtrip_via_heartbeat(self):
+        """Idle devices only send heartbeats — the armed state must also flow
+        through /api/device/heartbeat so it never goes stale."""
+        device_id = "armed-device-heartbeat"
+        token = self._register_device(device_id)
+
+        resp = client.post(
+            "/api/device/heartbeat",
+            json={"device_id": device_id, "battery_percent": 50, "capture_armed": True},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert self._device_row(device_id)["capture_armed"] is True
+
+    def test_capture_armed_unknown_until_reported(self):
+        """A device that never reports capture_armed stays null ("Unknown" in
+        the UI) — the dashboard must not fabricate a state."""
+        device_id = "armed-device-silent"
+        self._register_device(device_id)
+        assert self._device_row(device_id)["capture_armed"] is None
+
+    def test_old_app_build_does_not_wipe_armed_state(self):
+        """A telemetry ping WITHOUT the capture_armed field (old APK) must not
+        reset a previously reported armed state to null — COALESCE keeps it."""
+        device_id = "armed-device-legacy"
+        token = self._register_device(device_id)
+        auth = {"Authorization": f"Bearer {token}"}
+
+        client.post(
+            "/api/device/location",
+            json={
+                "device_id": device_id,
+                "lat": 9.08,
+                "lng": 8.67,
+                "capture_armed": True,
+            },
+            headers=auth,
+        )
+        # Old build: no capture_armed key at all
+        resp = client.post(
+            "/api/device/location",
+            json={"device_id": device_id, "lat": 9.09, "lng": 8.68},
+            headers=auth,
+        )
+        assert resp.status_code == 200
+        assert self._device_row(device_id)["capture_armed"] is True
+
+
+class TestCaptureCommandHonestAck:
+    """Regression for the Armed Watch honesty contract: a capture command on
+    an unarmed device must end as 'failed' — never a phantom 'executed'. The
+    app acks failed + posts the re-arm prompt; the server must persist it.
+    """
+
+    def _ensure_device(self):
+        """Create the shared test device if it doesn't exist, so these tests
+        pass in isolation (the file's other classes also register it, but a
+        -k filtered run may skip them)."""
+        resp = client.post(
+            "/api/device/register",
+            json={
+                "device_id": TEST_DEVICE_ID,
+                "fingerprint": "fp-honest-ack",
+                "model": "Honest Ack",
+            },
+            headers=get_auth_headers(),
+        )
+        assert resp.status_code == 200
+
+    def test_capture_command_failed_ack_visible_in_history(self):
+        self._ensure_device()
+        resp = client.post(
+            "/api/dashboard/command",
+            json={"device_id": TEST_DEVICE_ID, "command": "capture_photo"},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 200
+        cmd_id = resp.json()["command_id"]
+
+        # The device (unarmed) acks 'failed' honestly
+        resp = client.post(
+            f"/api/device/commands/{cmd_id}/ack",
+            json={"status": "failed"},
+            headers=get_device_headers(),
+        )
+        assert resp.status_code == 200
+
+        history = client.get(f"/api/dashboard/commands/{TEST_DEVICE_ID}", headers=get_dashboard_headers()).json()
+        row = next(c for c in history["commands"] if c["id"] == cmd_id)
+        assert row["status"] == "failed"
+
+    def test_failed_ack_command_not_redelivered(self):
+        """An acked command (failed or executed) must never be re-delivered by
+        the device poll — otherwise a failed capture would retry forever."""
+        self._ensure_device()
+        resp = client.post(
+            "/api/dashboard/command",
+            json={"device_id": TEST_DEVICE_ID, "command": "capture_audio"},
+            headers=get_dashboard_headers(),
+        )
+        cmd_id = resp.json()["command_id"]
+
+        client.post(
+            f"/api/device/commands/{cmd_id}/ack",
+            json={"status": "failed"},
+            headers=get_device_headers(),
+        )
+
+        poll = client.get(f"/api/device/commands/{TEST_DEVICE_ID}", headers=get_device_headers()).json()
+        assert all(c["id"] != cmd_id for c in poll["commands"])

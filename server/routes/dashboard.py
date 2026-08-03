@@ -115,7 +115,10 @@ async def dashboard_refresh(req: RefreshRequest):
 
 
 @router.get("/api/dashboard/devices")
-async def list_devices(db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)):
+async def list_devices(
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
+):
     """List devices with latest location. Users see only their own devices."""
     user_id = _resolve_user_id(auth)
     if user_id:
@@ -165,14 +168,17 @@ async def list_devices(db: sqlite3.Connection = Depends(get_db), auth: str = Dep
                 "lng": d["lng"],
                 "battery_percent": d["battery_percent"],
                 "is_online": is_online,
+                "capture_armed": (
+                    bool(d["capture_armed"]) if "capture_armed" in d.keys() and d["capture_armed"] is not None else None
+                ),
                 "alert_phone": d["alert_phone"] if "alert_phone" in d.keys() else None,
                 "alert_email": d["alert_email"] if "alert_email" in d.keys() else None,
                 # Per-device prefs stored as JSON TEXT — parse for the client;
                 # NULL (no override) stays None so the UI shows global defaults.
-                "alert_channels": _parse_json_list(d["alert_channels"]) if "alert_channels" in d.keys() else None,
-                "enabled_types": _parse_json_list(d["enabled_types"]) if "enabled_types" in d.keys() else None,
-                "quiet_hours_start": _parse_int(d["quiet_hours_start"]) if "quiet_hours_start" in d.keys() else None,
-                "quiet_hours_end": _parse_int(d["quiet_hours_end"]) if "quiet_hours_end" in d.keys() else None,
+                "alert_channels": (_parse_json_list(d["alert_channels"]) if "alert_channels" in d.keys() else None),
+                "enabled_types": (_parse_json_list(d["enabled_types"]) if "enabled_types" in d.keys() else None),
+                "quiet_hours_start": (_parse_int(d["quiet_hours_start"]) if "quiet_hours_start" in d.keys() else None),
+                "quiet_hours_end": (_parse_int(d["quiet_hours_end"]) if "quiet_hours_end" in d.keys() else None),
             }
         )
 
@@ -181,7 +187,10 @@ async def list_devices(db: sqlite3.Connection = Depends(get_db), auth: str = Dep
 
 @router.patch("/api/dashboard/devices/{device_id}/alias")
 async def update_device_alias(
-    device_id: str, body: dict, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    device_id: str,
+    body: dict,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Update device alias/name."""
     _assert_device_access(db, device_id, auth)
@@ -191,14 +200,21 @@ async def update_device_alias(
 
     db.execute("UPDATE devices SET alias=? WHERE id=?", (alias, device_id))
     db.commit()
-    log_audit("device_alias_updated", actor=auth, details=f"Device: {device_id}, Alias: {alias}")
+    log_audit(
+        "device_alias_updated",
+        actor=auth,
+        details=f"Device: {device_id}, Alias: {alias}",
+    )
 
     return {"status": "ok", "alias": alias}
 
 
 @router.patch("/api/dashboard/devices/{device_id}/alert-settings")
 async def update_device_alert_settings(
-    device_id: str, body: dict, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    device_id: str,
+    body: dict,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Set per-device alert preferences (recipients, channels, enabled types,
     quiet hours). Empty string/None clears the override to global defaults."""
@@ -216,7 +232,10 @@ async def update_device_alert_settings(
 
     # Validate phone if provided — must be E.164-like (start with +) or empty.
     if alert_phone and not alert_phone.startswith("+"):
-        raise HTTPException(status_code=400, detail="Alert phone must be in E.164 format starting with '+'")
+        raise HTTPException(
+            status_code=400,
+            detail="Alert phone must be in E.164 format starting with '+'",
+        )
     if alert_email and "@" not in alert_email:
         raise HTTPException(status_code=400, detail="Invalid alert email address")
 
@@ -262,7 +281,15 @@ async def update_device_alert_settings(
     db.execute(
         """UPDATE devices SET alert_phone=?, alert_email=?, alert_channels=?, enabled_types=?,
            quiet_hours_start=?, quiet_hours_end=? WHERE id=?""",
-        (alert_phone, alert_email, alert_channels, enabled_types, quiet_start, quiet_end, device_id),
+        (
+            alert_phone,
+            alert_email,
+            alert_channels,
+            enabled_types,
+            quiet_start,
+            quiet_end,
+            device_id,
+        ),
     )
     db.commit()
 
@@ -290,7 +317,9 @@ async def update_device_alert_settings(
 
 @router.delete("/api/dashboard/devices/{device_id}")
 async def delete_device(
-    device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    device_id: str,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Permanently delete a device and all of its data (locations, media,
     evidence, commands, alerts, guardian recovery requests, FCM tokens).
@@ -317,14 +346,22 @@ async def delete_device(
 
 @router.post("/api/dashboard/devices/{device_id}/recover")
 async def mark_device_recovered(
-    device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    device_id: str,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Mark a stolen device as recovered."""
     _assert_device_access(db, device_id, auth)
     now = datetime.now(timezone.utc).isoformat()
 
-    db.execute("UPDATE devices SET is_stolen=0, operating_mode='normal', sentinel_score=0 WHERE id=?", (device_id,))
-    db.execute("UPDATE evidence_cases SET status='closed' WHERE device_id=? AND status='active'", (device_id,))
+    db.execute(
+        "UPDATE devices SET is_stolen=0, operating_mode='normal', sentinel_score=0 WHERE id=?",
+        (device_id,),
+    )
+    db.execute(
+        "UPDATE evidence_cases SET status='closed' WHERE device_id=? AND status='active'",
+        (device_id,),
+    )
     db.commit()
 
     log_audit("device_recovered", actor=auth, details=f"Device: {device_id}")
@@ -334,7 +371,9 @@ async def mark_device_recovered(
 
 @router.get("/api/dashboard/devices/{device_id}/history")
 async def get_device_history(
-    device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    device_id: str,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Get full device information including command and event history."""
     _assert_device_access(db, device_id, auth)
@@ -343,17 +382,20 @@ async def get_device_history(
         raise HTTPException(status_code=404, detail="Device not found")
 
     location = db.execute(
-        "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT 1", (device_id,)
+        "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT 1",
+        (device_id,),
     ).fetchone()
 
     cmd_stats = db.execute(
-        "SELECT status, COUNT(*) as count FROM commands WHERE device_id=? GROUP BY status", (device_id,)
+        "SELECT status, COUNT(*) as count FROM commands WHERE device_id=? GROUP BY status",
+        (device_id,),
     ).fetchall()
 
     alert_count = db.execute("SELECT COUNT(*) as count FROM alerts WHERE device_id=?", (device_id,)).fetchone()[0]
 
     evidence = db.execute(
-        "SELECT * FROM evidence_cases WHERE device_id=? ORDER BY created_at DESC LIMIT 1", (device_id,)
+        "SELECT * FROM evidence_cases WHERE device_id=? ORDER BY created_at DESC LIMIT 1",
+        (device_id,),
     ).fetchone()
 
     return {
@@ -378,7 +420,8 @@ async def get_locations(
     """Get location history for a device."""
     _assert_device_access(db, device_id, auth)
     rows = db.execute(
-        "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT ?", (device_id, limit)
+        "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT ?",
+        (device_id, limit),
     ).fetchall()
 
     return {"locations": [dict(r) for r in rows]}
@@ -386,12 +429,15 @@ async def get_locations(
 
 @router.get("/api/dashboard/locations/{device_id}/live")
 async def get_live_location(
-    device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    device_id: str,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Get latest location for a device."""
     _assert_device_access(db, device_id, auth)
     row = db.execute(
-        "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT 1", (device_id,)
+        "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT 1",
+        (device_id,),
     ).fetchone()
 
     return {"location": dict(row) if row else None}
@@ -428,7 +474,9 @@ async def get_replay_data(
 
 @router.get("/api/dashboard/media/{device_id}")
 async def get_media_list(
-    device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    device_id: str,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Get media list (thumbnails) for a device."""
     _assert_device_access(db, device_id, auth)
@@ -442,7 +490,9 @@ async def get_media_list(
 
 @router.get("/api/dashboard/media/file/{media_id}")
 async def get_media_file(
-    media_id: int, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    media_id: int,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Get full media file with data."""
     row = db.execute("SELECT * FROM media WHERE id=?", (media_id,)).fetchone()
@@ -463,7 +513,10 @@ async def get_media_file(
 
 @router.post("/api/dashboard/media/{media_id}/delete")
 async def delete_media(
-    media_id: int, body: dict, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    media_id: int,
+    body: dict,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Delete a media item, gated by a step-up password.
 
@@ -507,7 +560,11 @@ async def delete_media(
                SET photo_count = MAX(0, photo_count - ?),
                    audio_count = MAX(0, audio_count - ?)
                WHERE id=?""",
-            (1 if row["type"] == "photo" else 0, 1 if row["type"] == "audio" else 0, row["evidence_case_id"]),
+            (
+                1 if row["type"] == "photo" else 0,
+                1 if row["type"] == "audio" else 0,
+                row["evidence_case_id"],
+            ),
         )
     db.execute("DELETE FROM media WHERE id=?", (media_id,))
     db.commit()
@@ -526,7 +583,9 @@ async def delete_media(
 
 @router.post("/api/dashboard/command")
 async def issue_command(
-    cmd: CommandRequest, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    cmd: CommandRequest,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Issue a command to a device."""
     _assert_device_access(db, cmd.device_id, auth)
@@ -553,14 +612,20 @@ async def issue_command(
     db.commit()
 
     command_id = cur.lastrowid
-    log_audit("command_issued", actor=auth, details=f"Command: {cmd.command} to {cmd.device_id}")
+    log_audit(
+        "command_issued",
+        actor=auth,
+        details=f"Command: {cmd.command} to {cmd.device_id}",
+    )
 
     return {"status": "queued", "command_id": command_id}
 
 
 @router.get("/api/dashboard/commands/{device_id}")
 async def get_command_history(
-    device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    device_id: str,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Get command history for a device."""
     _assert_device_access(db, device_id, auth)
@@ -579,7 +644,8 @@ async def get_command_history(
     db.commit()
 
     rows = db.execute(
-        "SELECT * FROM commands WHERE device_id=? ORDER BY issued_at DESC LIMIT 50", (device_id,)
+        "SELECT * FROM commands WHERE device_id=? ORDER BY issued_at DESC LIMIT 50",
+        (device_id,),
     ).fetchall()
 
     return {"commands": [dict(r) for r in rows]}
@@ -590,12 +656,15 @@ async def get_command_history(
 
 @router.get("/api/dashboard/evidence/{device_id}")
 async def get_evidence(
-    device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    device_id: str,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Get evidence case for a device."""
     _assert_device_access(db, device_id, auth)
     case = db.execute(
-        "SELECT * FROM evidence_cases WHERE device_id=? ORDER BY created_at DESC LIMIT 1", (device_id,)
+        "SELECT * FROM evidence_cases WHERE device_id=? ORDER BY created_at DESC LIMIT 1",
+        (device_id,),
     ).fetchone()
 
     if not case:
@@ -617,7 +686,9 @@ async def get_evidence(
 
 @router.post("/api/dashboard/evidence/{device_id}/generate-pdf")
 async def generate_evidence_pdf(
-    device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    device_id: str,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Generate a forensic PDF evidence report for a device."""
     _assert_device_access(db, device_id, auth)
@@ -644,7 +715,11 @@ async def generate_evidence_pdf(
     db.execute("UPDATE evidence_cases SET pdf_generated=1 WHERE id=?", (case_id,))
     db.commit()
 
-    log_audit("evidence_pdf_generated", actor=auth, details=f"Case: {case_id}, Device: {device_id}")
+    log_audit(
+        "evidence_pdf_generated",
+        actor=auth,
+        details=f"Case: {case_id}, Device: {device_id}",
+    )
 
     return Response(
         content=pdf_bytes,
@@ -660,11 +735,16 @@ async def generate_evidence_pdf(
 
 @router.get("/api/dashboard/alerts/{device_id}")
 async def get_alerts(
-    device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    device_id: str,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Get alert history for a device."""
     _assert_device_access(db, device_id, auth)
-    rows = db.execute("SELECT * FROM alerts WHERE device_id=? ORDER BY sent_at DESC LIMIT 50", (device_id,)).fetchall()
+    rows = db.execute(
+        "SELECT * FROM alerts WHERE device_id=? ORDER BY sent_at DESC LIMIT 50",
+        (device_id,),
+    ).fetchall()
 
     return {"alerts": [dict(r) for r in rows]}
 
@@ -674,7 +754,9 @@ async def get_alerts(
 
 @router.post("/api/dashboard/geofence")
 async def create_geofence(
-    fence: GeofenceRequest, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    fence: GeofenceRequest,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Create a geofence for a device."""
     _assert_device_access(db, fence.device_id, auth)
@@ -683,7 +765,14 @@ async def create_geofence(
             "INSERT INTO geofences (device_id, name, center_lat, center_lng, "
             "radius_meters, is_safe_zone) VALUES (?, ?, ?, ?, ?, ?)"
         ),
-        (fence.device_id, fence.name, fence.center_lat, fence.center_lng, fence.radius_meters, fence.is_safe_zone),
+        (
+            fence.device_id,
+            fence.name,
+            fence.center_lat,
+            fence.center_lng,
+            fence.radius_meters,
+            fence.is_safe_zone,
+        ),
     )
     db.commit()
 
@@ -692,7 +781,9 @@ async def create_geofence(
 
 @router.delete("/api/dashboard/geofence/{geofence_id}")
 async def delete_geofence(
-    geofence_id: int, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    geofence_id: int,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Delete a geofence."""
     fence = db.execute("SELECT device_id FROM geofences WHERE id=?", (geofence_id,)).fetchone()
@@ -705,7 +796,9 @@ async def delete_geofence(
 
 @router.get("/api/dashboard/geofences/{device_id}")
 async def list_geofences(
-    device_id: str, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    device_id: str,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """List geofences for a device."""
     _assert_device_access(db, device_id, auth)
@@ -718,7 +811,10 @@ async def list_geofences(
 
 
 @router.get("/api/dashboard/stats")
-async def get_stats(db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)):
+async def get_stats(
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
+):
     """Get dashboard statistics. Users see stats scoped to their own devices.
 
     NOTE: this endpoint reads the SAME SQLite data plane as every other
@@ -744,10 +840,12 @@ async def get_stats(db: sqlite3.Connection = Depends(get_db), auth: str = Depend
             "SELECT COUNT(*) FROM devices WHERE is_stolen=1 AND owner_id=?", (user_id,)
         ).fetchone()[0]
         total_locations = db.execute(
-            "SELECT COUNT(*) FROM locations l JOIN devices d ON l.device_id=d.id WHERE d.owner_id=?", (user_id,)
+            "SELECT COUNT(*) FROM locations l JOIN devices d ON l.device_id=d.id WHERE d.owner_id=?",
+            (user_id,),
         ).fetchone()[0]
         total_media = db.execute(
-            "SELECT COUNT(*) FROM media m JOIN devices d ON m.device_id=d.id WHERE d.owner_id=?", (user_id,)
+            "SELECT COUNT(*) FROM media m JOIN devices d ON m.device_id=d.id WHERE d.owner_id=?",
+            (user_id,),
         ).fetchone()[0]
         today = datetime.now(timezone.utc).date().isoformat()
         alerts_today = db.execute(
@@ -791,7 +889,8 @@ async def list_errors(
         raise HTTPException(status_code=403, detail="Admin access required")
     if unresolved_only:
         rows = db.execute(
-            "SELECT * FROM error_log WHERE resolved=0 ORDER BY timestamp DESC LIMIT ?", (limit,)
+            "SELECT * FROM error_log WHERE resolved=0 ORDER BY timestamp DESC LIMIT ?",
+            (limit,),
         ).fetchall()
     else:
         rows = db.execute("SELECT * FROM error_log ORDER BY timestamp DESC LIMIT ?", (limit,)).fetchall()
@@ -807,7 +906,10 @@ async def list_errors(
 
 @router.patch("/api/dashboard/errors/{error_id}/resolve")
 async def resolve_error(
-    error_id: int, body: dict, db: sqlite3.Connection = Depends(get_db), auth: str = Depends(require_dashboard_auth)
+    error_id: int,
+    body: dict,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
 ):
     """Mark an error as resolved. Admin-only."""
     if _resolve_user_id(auth) is not None:

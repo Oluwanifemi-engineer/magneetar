@@ -85,6 +85,7 @@ def init_db(db_path: str = None):
             theft_confirmed_at TIMESTAMP,
             operating_mode TEXT DEFAULT 'normal',
             sentinel_score INTEGER DEFAULT 0,
+            capture_armed BOOLEAN,
             alert_phone TEXT,
             alert_email TEXT,
             -- Per-device alert preferences (NULL = global defaults)
@@ -131,6 +132,14 @@ def init_db(db_path: str = None):
             c.execute(f"ALTER TABLE devices ADD COLUMN {col} INTEGER")
         except sqlite3.OperationalError:
             pass  # Column already exists
+
+    # Armed Watch state — True while the device's camera|mic FGS is armed
+    # (remote capture possible). Reported via telemetry/heartbeat; NULL until
+    # the first report from an updated app (dashboard shows "Unknown").
+    try:
+        c.execute("ALTER TABLE devices ADD COLUMN capture_armed BOOLEAN")
+    except sqlite3.OperationalError:
+        pass  # Column already exists — fresh DB or already migrated
 
     c.executescript(
         """
@@ -445,7 +454,17 @@ def log_error(
                 """INSERT INTO error_log (level, message, source, traceback,
                    request_method, request_path, request_ip, user_agent, device_id)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (level, message, source, traceback, request_method, request_path, request_ip, user_agent, device_id),
+                (
+                    level,
+                    message,
+                    source,
+                    traceback,
+                    request_method,
+                    request_path,
+                    request_ip,
+                    user_agent,
+                    device_id,
+                ),
             )
             conn.commit()
     except Exception:
@@ -459,18 +478,25 @@ def check_rate_limit(identifier: str, action: str, max_requests: int, window_min
     """
     with get_db_context() as conn:
         # Clean old entries
-        conn.execute("DELETE FROM rate_limits WHERE timestamp < datetime('now', ?)", (f"-{window_minutes} minutes",))
+        conn.execute(
+            "DELETE FROM rate_limits WHERE timestamp < datetime('now', ?)",
+            (f"-{window_minutes} minutes",),
+        )
 
         # Count recent requests
         row = conn.execute(
-            "SELECT COUNT(*) as cnt FROM rate_limits WHERE identifier=? AND action=?", (identifier, action)
+            "SELECT COUNT(*) as cnt FROM rate_limits WHERE identifier=? AND action=?",
+            (identifier, action),
         ).fetchone()
 
         if row and row["cnt"] >= max_requests:
             return False
 
         # Record this request
-        conn.execute("INSERT INTO rate_limits (identifier, action) VALUES (?,?)", (identifier, action))
+        conn.execute(
+            "INSERT INTO rate_limits (identifier, action) VALUES (?,?)",
+            (identifier, action),
+        )
         conn.commit()
         return True
 
@@ -488,21 +514,25 @@ def purge_old_data(retention_days: int = 90):
         # always sort AFTER the space-separated cutoff ('T' > ' ') and the purge
         # silently deletes nothing.
         deleted_locations = conn.execute(
-            "DELETE FROM locations WHERE datetime(server_timestamp) < datetime('now', ?)", (cutoff,)
+            "DELETE FROM locations WHERE datetime(server_timestamp) < datetime('now', ?)",
+            (cutoff,),
         ).rowcount
 
         deleted_heartbeats = conn.execute(
-            "DELETE FROM heartbeats WHERE datetime(timestamp) < datetime('now', ?)", (cutoff,)
+            "DELETE FROM heartbeats WHERE datetime(timestamp) < datetime('now', ?)",
+            (cutoff,),
         ).rowcount
 
         deleted_media = conn.execute(
-            "DELETE FROM media WHERE datetime(timestamp) < datetime('now', ?)", (cutoff,)
+            "DELETE FROM media WHERE datetime(timestamp) < datetime('now', ?)",
+            (cutoff,),
         ).rowcount
 
         # Keep audit logs longer
         audit_cutoff = f"-{retention_days * 2} days"
         deleted_audit = conn.execute(
-            "DELETE FROM audit_log WHERE datetime(timestamp) < datetime('now', ?)", (audit_cutoff,)
+            "DELETE FROM audit_log WHERE datetime(timestamp) < datetime('now', ?)",
+            (audit_cutoff,),
         ).rowcount
 
         # Keep rate limits for only 7 days
@@ -510,7 +540,8 @@ def purge_old_data(retention_days: int = 90):
 
         # Purge resolved errors older than retention_days (unresolved errors kept indefinitely)
         deleted_errors = conn.execute(
-            "DELETE FROM error_log WHERE resolved=1 AND datetime(timestamp) < datetime('now', ?)", (cutoff,)
+            "DELETE FROM error_log WHERE resolved=1 AND datetime(timestamp) < datetime('now', ?)",
+            (cutoff,),
         ).rowcount
 
         conn.commit()

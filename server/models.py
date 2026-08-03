@@ -106,6 +106,11 @@ class TelemetryPing(BaseModel):
     is_airplane_mode: Optional[bool] = None
     sim_serial_hash: Optional[str] = None
     sim_changed: bool = False
+    # Armed Watch state — True while the device's camera|mic foreground
+    # service is armed (remote capture possible). Reported by the app on
+    # every location ping and heartbeat so the dashboard can show the
+    # honest capture availability instead of a phantom 'executed'.
+    capture_armed: Optional[bool] = None
 
     # Threat intelligence
     sentinel_score: int = 0
@@ -250,6 +255,9 @@ class HeartbeatPacket(BaseModel):
     sim_hash: Optional[str] = None
     app_version: Optional[str] = None
     pending_evidence_count: int = 0
+    # Armed Watch state (see TelemetryPing.capture_armed) — sent on the
+    # 60s heartbeat so an idle device still reports its capture posture.
+    capture_armed: Optional[bool] = None
 
 
 # ─── Auth Models ─────────────────────────────────────────────────────────────

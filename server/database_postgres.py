@@ -75,7 +75,8 @@ class PostgresDatabase:
                         is_stolen BOOLEAN DEFAULT FALSE,
                         theft_confirmed_at TIMESTAMPTZ,
                         operating_mode TEXT DEFAULT 'normal',
-                        sentinel_score INTEGER DEFAULT 0
+                        sentinel_score INTEGER DEFAULT 0,
+                        capture_armed BOOLEAN
                     );
 
                     CREATE TABLE IF NOT EXISTS locations (

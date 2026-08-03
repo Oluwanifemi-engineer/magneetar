@@ -85,7 +85,9 @@ def _user_exists(db, user_id: str) -> bool:
     return bool(db.execute("SELECT 1 FROM users WHERE id=?", (user_id,)).fetchone())
 
 
-def _user_id_from_credentials(credentials: Optional[HTTPAuthorizationCredentials]) -> Optional[str]:
+def _user_id_from_credentials(
+    credentials: Optional[HTTPAuthorizationCredentials],
+) -> Optional[str]:
     """Resolve a user id from an optional bearer token, if it is a user token.
 
     Returns None when the header is absent, unparseable, or not a user token
@@ -274,7 +276,9 @@ async def claim_device(
 
 @router.post("/api/device/location")
 async def post_location(
-    report: TelemetryPing, db: sqlite3.Connection = Depends(get_db), device_id: str = Depends(get_current_device_or_key)
+    report: TelemetryPing,
+    db: sqlite3.Connection = Depends(get_db),
+    device_id: str = Depends(get_current_device_or_key),
 ):
     """Receive telemetry ping from device."""
     if report.device_id != device_id:
@@ -291,7 +295,8 @@ async def post_location(
     ts = report.device_timestamp or now
 
     history = db.execute(
-        "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT 10", (device_id,)
+        "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT 10",
+        (device_id,),
     ).fetchall()
 
     history_dicts = [dict(h) for h in history]
@@ -344,13 +349,20 @@ async def post_location(
         ),
     )
 
-    db.execute("UPDATE devices SET last_seen=?, sentinel_score=? WHERE id=?", (now, score, device_id))
+    # COALESCE: an old app build that doesn't send capture_armed (None) must
+    # not wipe the stored state — the column keeps its last known value.
+    db.execute(
+        "UPDATE devices SET last_seen=?, sentinel_score=?, capture_armed=COALESCE(?, capture_armed) WHERE id=?",
+        (now, score, report.capture_armed, device_id),
+    )
     db.commit()
 
     if score >= settings.THEFT_SCORE_THRESHOLD:
         sentinel.auto_activate_theft_mode(device_id, score)
         await alert_engine.send_all(
-            device_id, "theft_detected", {"location": f"{report.lat},{report.lng}", "time": now, "score": score}
+            device_id,
+            "theft_detected",
+            {"location": f"{report.lat},{report.lng}", "time": now, "score": score},
         )
 
     geofences = db.execute("SELECT * FROM geofences WHERE device_id=? AND active=1", (device_id,)).fetchall()
@@ -362,7 +374,11 @@ async def post_location(
                 await alert_engine.send_all(
                     device_id,
                     "geofence_exit",
-                    {"zone_name": event["name"], "location": f"{report.lat},{report.lng}", "time": now},
+                    {
+                        "zone_name": event["name"],
+                        "location": f"{report.lat},{report.lng}",
+                        "time": now,
+                    },
                 )
 
     await broadcast_to_dashboards(
@@ -421,7 +437,9 @@ async def post_location_simple(
 
 @router.post("/api/device/media")
 async def post_media(
-    report: MediaReport, db: sqlite3.Connection = Depends(get_db), device_id: str = Depends(get_current_device_or_key)
+    report: MediaReport,
+    db: sqlite3.Connection = Depends(get_db),
+    device_id: str = Depends(get_current_device_or_key),
 ):
     """Upload media (photo/audio) from device."""
     if report.device_id != device_id:
@@ -447,7 +465,16 @@ async def post_media(
         """INSERT INTO media (device_id, type, data_b64, lat, lng, timestamp,
            evidence_case_id, sha256_hash)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (device_id, report.type, report.data_b64, report.lat, report.lng, ts, case_id, sha256_hash),
+        (
+            device_id,
+            report.type,
+            report.data_b64,
+            report.lat,
+            report.lng,
+            ts,
+            case_id,
+            sha256_hash,
+        ),
     )
     db.commit()
 
@@ -480,7 +507,9 @@ async def post_media(
 
 @router.get("/api/device/commands/{device_id}")
 async def get_device_commands(
-    device_id: str, db: sqlite3.Connection = Depends(get_db), token_device_id: str = Depends(get_current_device_or_key)
+    device_id: str,
+    db: sqlite3.Connection = Depends(get_db),
+    token_device_id: str = Depends(get_current_device_or_key),
 ):
     """Poll for pending commands."""
     if device_id != token_device_id:
@@ -536,7 +565,9 @@ async def ack_command(
 
 @router.post("/api/device/heartbeat")
 async def post_heartbeat(
-    hb: HeartbeatPacket, db: sqlite3.Connection = Depends(get_db), device_id: str = Depends(get_current_device_or_key)
+    hb: HeartbeatPacket,
+    db: sqlite3.Connection = Depends(get_db),
+    device_id: str = Depends(get_current_device_or_key),
 ):
     """Receive heartbeat from device."""
     if hb.device_id != device_id:
@@ -564,7 +595,12 @@ async def post_heartbeat(
         ),
     )
 
-    db.execute("UPDATE devices SET last_seen=?, app_version=? WHERE id=?", (now, hb.app_version, device_id))
+    # COALESCE keeps the last known armed state when an old app build omits
+    # the field (None) — a fresh report never wipes it to NULL.
+    db.execute(
+        "UPDATE devices SET last_seen=?, app_version=?, capture_armed=COALESCE(?, capture_armed) WHERE id=?",
+        (now, hb.app_version, hb.capture_armed, device_id),
+    )
 
     # ── Commit BEFORE any nested writes ──────────────────────────────────────
     # auto_activate_theft_mode() and log_audit() open their OWN sqlite
@@ -617,6 +653,7 @@ async def upload_offline_queue(
 ):
     """Batch upload of queued telemetry pings."""
     processed = 0
+    last_armed = None
 
     for ping in queue.pings:
         if ping.device_id != device_id:
@@ -626,7 +663,8 @@ async def upload_offline_queue(
         ts = ping.device_timestamp or now
 
         history = db.execute(
-            "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT 10", (device_id,)
+            "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT 10",
+            (device_id,),
         ).fetchall()
         history_dicts = [dict(h) for h in history]
         score, threat_level, anomalies = sentinel.compute_score(ping, history_dicts)
@@ -663,9 +701,16 @@ async def upload_offline_queue(
                 ping.ping_sequence,
             ),
         )
+        last_armed = ping.capture_armed
         processed += 1
 
-    db.execute("UPDATE devices SET last_seen=? WHERE id=?", (datetime.now(timezone.utc).isoformat(), device_id))
+    # Same COALESCE keep-last-state semantics as the live telemetry path: a
+    # queued ping's capture_armed is persisted when present, and a None (old
+    # build) never wipes a previously reported state.
+    db.execute(
+        "UPDATE devices SET last_seen=?, capture_armed=COALESCE(?, capture_armed) WHERE id=?",
+        (datetime.now(timezone.utc).isoformat(), last_armed, device_id),
+    )
     db.commit()
 
     return {"status": "ok", "processed": processed}
@@ -730,6 +775,9 @@ async def register_fcm_token(
     )
     db.commit()
 
-    logger.info("FCM token registered", extra={"extra_data": {"device_id": device_id, "platform": req.platform}})
+    logger.info(
+        "FCM token registered",
+        extra={"extra_data": {"device_id": device_id, "platform": req.platform}},
+    )
 
     return {"status": "ok", "message": "FCM token registered", "device_id": device_id}

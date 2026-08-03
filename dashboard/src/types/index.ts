@@ -15,6 +15,7 @@ export interface Device {
   lng: number | null;
   battery_percent: number | null;
   is_online: boolean;
+  capture_armed: boolean | null;
   alert_phone: string | null;
   alert_email: string | null;
   alert_channels: string[] | null;
