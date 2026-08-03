@@ -568,22 +568,24 @@ def ensure_initialized() -> bool:
     """
     Ensure the database is initialized with the complete, current schema.
     Called once during server startup from the lifespan handler.
-    Returns True if initialization was performed, False if already initialized.
+    Returns True if initialization was performed, False if already current.
+
+    Migration detection must compare COLUMNS, not just tables. The old
+    short-circuit skipped init_db whenever every TABLE existed — so a DB
+    created before a release kept its old columns and new features 500'd
+    with "no such column" on production (capture_armed, alert_channels,
+    enabled_types, quiet_hours_* were all silently missing). init_db() is
+    fully idempotent (CREATE TABLE IF NOT EXISTS + guarded ALTER TABLE), so
+    running it when anything is stale migrates forward safely.
     """
-    # In-memory databases always need initialization
     if DB_PATH == ":memory:":
         init_db()
         return True
-    # File-based databases: init if file doesn't exist
     if not os.path.exists(DB_PATH):
         init_db()
         return True
-    # File exists — verify ALL required tables are present, not just a subset.
-    # init_db() is fully idempotent (CREATE TABLE IF NOT EXISTS + guarded
-    # ALTER TABLE), so re-running it when anything is missing migrates
-    # existing databases forward when a release adds new tables (e.g. the
-    # Guardian Network tables).
-    # ⚠️ Keep this set in sync with the tables created in init_db().
+    # Existing DB — verify the full table list AND the devices columns are
+    # current before taking the no-op fast path.
     required_tables = {
         "users",
         "devices",
@@ -603,12 +605,42 @@ def ensure_initialized() -> bool:
         "revoked_tokens",
         "error_log",
     }
+    # ⚠️ Keep in sync with the CREATE TABLE devices columns in init_db() +
+    # the guarded ALTER TABLE migrations below it. A stale list here makes
+    # the server no-op on a DB that is actually missing columns.
+    expected_devices_columns = {
+        "id",
+        "alias",
+        "owner_id",
+        "device_fingerprint",
+        "platform",
+        "app_version",
+        "os_version",
+        "model",
+        "imei_hash",
+        "sim_serial_hash",
+        "device_key_hash",
+        "last_seen",
+        "registered",
+        "is_stolen",
+        "theft_confirmed_at",
+        "operating_mode",
+        "sentinel_score",
+        "capture_armed",
+        "alert_phone",
+        "alert_email",
+        "alert_channels",
+        "enabled_types",
+        "quiet_hours_start",
+        "quiet_hours_end",
+    }
     try:
         with get_db_context() as conn:
-            present = {
+            present_tables = {
                 row["name"] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
             }
-        if required_tables.issubset(present):
+            devices_columns = {row["name"] for row in conn.execute("PRAGMA table_info(devices)").fetchall()}
+        if required_tables.issubset(present_tables) and expected_devices_columns.issubset(devices_columns):
             return False
         init_db()
         return True

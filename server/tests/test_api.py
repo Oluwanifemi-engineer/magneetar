@@ -770,6 +770,48 @@ class TestGeofences:
         assert "geofences" in response.json()
 
 
+# ─── Schema migrations on existing databases ────────────────────────────────
+
+
+class TestSchemaMigration:
+    def test_init_db_migrates_existing_database(self):
+        """Regression: init_db must apply column migrations to a DB created
+        before the columns existed. The old ensure_initialized short-circuit
+        skipped init_db entirely when every TABLE was present, so migrations
+        never landed on production databases — new features then 500'd with
+        'no such column' (capture_armed, alert_channels, quiet_hours_*).
+        """
+        import sqlite3
+        import tempfile
+
+        fd, path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        try:
+            # Old schema: devices table WITHOUT the newer columns
+            conn = sqlite3.connect(path)
+            conn.execute("CREATE TABLE devices (id TEXT PRIMARY KEY, alias TEXT, owner_id TEXT, last_seen TIMESTAMP)")
+            conn.commit()
+            conn.close()
+
+            init_db(path)
+
+            conn = sqlite3.connect(path)
+            try:
+                cols = {r[1] for r in conn.execute("PRAGMA table_info(devices)")}
+            finally:
+                conn.close()
+            for expected in (
+                "device_key_hash",
+                "alert_channels",
+                "quiet_hours_start",
+                "capture_armed",
+            ):
+                assert expected in cols, f"migration did not add column: {expected}"
+        finally:
+            if os.path.exists(path):
+                os.remove(path)
+
+
 # ─── Armed Watch state (capture_armed plumbing) ─────────────────────────────
 
 
