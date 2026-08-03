@@ -2,12 +2,11 @@
 
 import Link from 'next/link';
 import { ArrowRight, ShieldCheck, Radar, MapPin, Camera, ChevronRight, Download, Check } from 'lucide-react';
-import { APK_DOWNLOAD_URL } from '@/lib/utils';
 
 const HERO_STATS = [
   { value: '267', label: 'automated tests' },
   { value: '24/7', label: 'stealth tracking' },
-  { value: 'AES-256', label: 'encrypted' },
+  { value: 'AES-256', label: 'encrypted at rest' },
   { value: '3-layer', label: 'background persistence' },
 ];
 
@@ -43,9 +42,9 @@ export function Hero({ authed }: { authed: boolean }) {
           </h1>
 
           <p className="mt-6 text-base sm:text-lg text-white/50 leading-relaxed max-w-xl">
-            Magneetar is one command center for the people and things that matter — military-grade
-            anti-theft protection for your devices, plus live location sharing that keeps family,
-            coworkers, and teams in sync.
+            In Nigeria, only 11.7% of stolen phones are ever recovered. Magneetar is built to change
+            that number — real-time tracking, a route that walks you to your device, and forensic-grade
+            evidence. While it keeps you safe, it keeps the people you love within reach.
           </p>
 
           {/* CTAs */}
@@ -77,20 +76,20 @@ export function Hero({ authed }: { authed: boolean }) {
                 </Link>
               </>
             )}
-            <a
-              href={APK_DOWNLOAD_URL}
+            <Link
+              href="/download"
               className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-[13px] font-bold uppercase tracking-wider border border-emerald-400/25 text-emerald-300 hover:bg-emerald-400/[0.06] hover:border-emerald-400/40 hover:shadow-[0_0_24px_rgba(34,197,94,0.12)] transition-all duration-200 active:scale-[0.97]"
             >
               <Download size={15} />
               Download APK
-            </a>
+            </Link>
           </div>
 
           {/* Free plan note */}
           <div className="mt-5 flex items-center gap-2">
             <Check size={14} className="text-emerald-400" />
             <span className="text-[12px] font-mono font-semibold tracking-wide text-white/45">
-              Free plan available · No credit card required
+              Free for 1 device · No credit card required
             </span>
           </div>
 
@@ -152,8 +151,8 @@ export function Hero({ authed }: { authed: boolean }) {
               </svg>
               {/* HUD chips */}
               <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/50 border border-white/10 backdrop-blur-md">
-                <Radar size={11} className="text-emerald-400" />
-                <span className="text-[9px] font-mono font-bold tracking-wider text-emerald-300">LIVE</span>
+                <Radar size={11} className="text-amber-300" />
+                <span className="text-[9px] font-mono font-bold tracking-wider text-amber-200">DEMO</span>
               </div>
               <div className="absolute top-3 right-3 px-2.5 py-1.5 rounded-lg bg-black/50 border border-white/10 backdrop-blur-md">
                 <span className="text-[9px] font-mono font-bold tracking-wider text-white/50">
@@ -203,7 +202,7 @@ export function Hero({ authed }: { authed: boolean }) {
               <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
               <span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-400" />
             </span>
-            <span className="text-[10px] font-mono font-bold text-white/70">Pixel 8 · Online</span>
+            <span className="text-[10px] font-mono font-bold text-white/70">Pixel 8 · Demo device</span>
           </div>
 
           {/* Floating chip — recovery */}

@@ -119,6 +119,20 @@ export interface AuthState {
   isConnected: boolean;
 }
 
+// User account profile from GET /api/auth/me — carries the plan tier and the
+// device allowance the server enforces (free=1 / personal=3 / guardian=10 /
+// enterprise=unlimited).
+export interface UserProfile {
+  id: string;
+  email: string;
+  display_name: string | null;
+  tier: 'free' | 'personal' | 'guardian' | 'enterprise' | 'admin' | string;
+  is_active: boolean;
+  created_at: string | null;
+  device_count: number;
+  max_devices: number;
+}
+
 // ─── Map ─────────────────────────────────────────────────────────────────────
 
 export interface MapState {

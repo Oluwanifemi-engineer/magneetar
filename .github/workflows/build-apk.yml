@@ -50,15 +50,34 @@ jobs:
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
 
+      - name: Restore release signing keystore from secret
+        # The release keystore NEVER lives in the repo (gitignored). CI
+        # receives it as base64 from the KEYSTORE_BASE64 secret and writes it
+        # where gradle expects it (android-app/release.keystore).
+        shell: bash
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android-app/release.keystore
+            echo "::notice::Restored release keystore ($(stat -c%s android-app/release.keystore) bytes)"
+          else
+            echo "::error::KEYSTORE_BASE64 secret not set — a release build cannot be signed."
+            echo "::error::Generate a keystore, add it as KEYSTORE_BASE64 plus KEYSTORE_PASS / KEY_ALIAS / KEY_ALIAS_PASS secrets."
+            exit 1
+          fi
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
       - name: Make gradlew executable
         working-directory: android-app
         run: chmod +x ./gradlew
 
-      - name: Build debug APK (unsigned, for sideloading)
+      - name: Build signed release APK
         working-directory: android-app
         shell: bash
         run: |
-          ./gradlew assembleDebug --stacktrace --console=plain -PSERVER_URL="$SERVER_URL" -PAPI_KEY="$API_KEY" \
+          ./gradlew assembleRelease --stacktrace --console=plain \
+            -PSERVER_URL="$SERVER_URL" -PAPI_KEY="$API_KEY" \
+            -PKEYSTORE_PASS="$KEYSTORE_PASS" -PKEY_ALIAS="$KEY_ALIAS" -PKEY_ALIAS_PASS="$KEY_ALIAS_PASS" \
             > "$GITHUB_WORKSPACE/gradle-build.log" 2>&1 || {
               echo "::error::Gradle build FAILED (exit $?) — what went wrong:"
               grep -A 20 "What went wrong:" "$GITHUB_WORKSPACE/gradle-build.log" | sed 's/^/::error::  /' || true
@@ -66,11 +85,30 @@ jobs:
               echo "::error::Full log saved to artifact on failure"
               exit 1
             }
-          echo "::notice::Gradle build succeeded"
+          echo "::notice::Gradle release build succeeded"
           tail -20 "$GITHUB_WORKSPACE/gradle-build.log"
         env:
           SERVER_URL: ${{ secrets.SERVER_URL }}
           API_KEY: ${{ secrets.API_KEY }}
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_ALIAS_PASS: ${{ secrets.KEY_ALIAS_PASS }}
+
+      - name: Verify APK signature with apksigner
+        # A release APK that does not verify against the release keystore is
+        # worthless (and dangerous) to ship — fail the build if the signature
+        # does not validate or the certificate is missing.
+        shell: bash
+        run: |
+          APK=$(ls "$GITHUB_WORKSPACE"/android-app/app/build/outputs/apk/release/*.apk 2>/dev/null | head -1)
+          if [ -z "$APK" ]; then
+            echo "::error::No release APK produced — expected one in app/build/outputs/apk/release/"
+            exit 1
+          fi
+          echo "Verifying: $APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK"
+          echo "::notice::APK signature verified — certificate CN must be the Magneetar release key"
+          echo "APK_FILE=$APK" >> "$GITHUB_ENV"
 
       - name: Upload build log (on failure only)
         if: failure()
@@ -80,9 +118,9 @@ jobs:
           path: gradle-build.log
           retention-days: 7
 
-      - name: Upload APK artifact
+      - name: Upload signed release APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Magneetar-debug
-          path: android-app/app/build/outputs/apk/debug/*.apk
+          name: Magneetar-release
+          path: android-app/app/build/outputs/apk/release/*.apk
           retention-days: 30

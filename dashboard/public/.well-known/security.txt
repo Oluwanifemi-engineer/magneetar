@@ -1,0 +1,9 @@
+# Magneetar — Security Disclosure
+# https://magneetar.me/.well-known/security.txt
+
+Contact: mailto:security@magneetar.me
+Expires: 2027-08-01T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://magneetar.me/.well-known/security.txt
+Policy: https://magneetar.me/#security
+Acknowledgments: https://github.com/Oluwanifemi-engineer/magneetar

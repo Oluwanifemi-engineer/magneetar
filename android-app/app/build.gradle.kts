@@ -56,23 +56,61 @@ val sentryDsn = (project.findProperty("SENTRY_DSN") as String?)
     ?: localProperty("SENTRY_DSN")
     ?: ""
 
+// ── Release signing credentials ──────────────────────────────────────────
+// Never default to a hardcoded password (an attacker who gets the keystore
+// file + the repo source would otherwise also have the password). Every
+// release build MUST receive the real credentials via env vars or -P flags;
+// a missing value fails the build instead of shipping a weak/unsigned APK.
+val keystorePass = System.getenv("MT_KEYSTORE_PASS")
+    ?: (project.findProperty("KEYSTORE_PASS") as String?)
+    ?: ""
+val keyAlias = System.getenv("MT_KEY_ALIAS")
+    ?: (project.findProperty("KEY_ALIAS") as String?)
+    ?: ""
+val keyAliasPass = System.getenv("MT_KEY_ALIAS_PASS")
+    ?: (project.findProperty("KEY_ALIAS_PASS") as String?)
+    ?: ""
+
+fun isReleaseTask(task: String): Boolean {
+    val name = task.lowercase()
+    return name.contains("release") ||
+        name in listOf("build", "assemble", "bundle", "publish", "install")
+}
+
+val wantsRelease = gradle.startParameter.taskNames.any(::isReleaseTask)
+
 // Fail fast: a build that assembles a release APK MUST carry the real API
 // key. Shipping the placeholder makes the server 401 every device request
 // (devices stay offline in the dashboard) — catch it at build time, not on a
 // user's phone. Check the explicitly requested task names AND the aggregate
 // tasks (build/assemble/bundle/publish) that transitively build the release
 // variant, so the guard can't be slipped past by an implied task.
-if (apiKey == "changeme-set-in-env" &&
-    gradle.startParameter.taskNames.any { task ->
-        val name = task.lowercase()
-        name.contains("release") ||
-            name in listOf("build", "assemble", "bundle", "publish", "install")
-    }
-) {
+if (apiKey == "changeme-set-in-env" && wantsRelease) {
     throw GradleException(
         "API_KEY is not configured. Add API_KEY to android-app/local.properties " +
         "or pass -PAPI_KEY=<master key> (must match the server's MT_API_KEY)."
     )
+}
+
+// Release signing guard: keystore + all three credentials must be present.
+// The keystore file is gitignored (never in the repo); CI restores it from
+// the KEYSTORE_BASE64 secret. Signing with weak/empty credentials silently
+// produces an APK nobody can trust — refuse to build it.
+val keystoreFile = rootProject.projectDir.resolve("release.keystore")
+if (wantsRelease) {
+    val missing = buildList {
+        if (!keystoreFile.exists()) add("release.keystore file")
+        if (keystorePass.isBlank()) add("KEYSTORE_PASS (env MT_KEYSTORE_PASS or -PKEYSTORE_PASS)")
+        if (keyAlias.isBlank()) add("KEY_ALIAS (env MT_KEY_ALIAS or -PKEY_ALIAS)")
+        if (keyAliasPass.isBlank()) add("KEY_ALIAS_PASS (env MT_KEY_ALIAS_PASS or -PKEY_ALIAS_PASS)")
+    }
+    if (missing.isNotEmpty()) {
+        throw GradleException(
+            "Release signing not configured — missing: ${missing.joinToString(", ")}. " +
+            "Provide the release keystore (gitignored) and its credentials so the APK " +
+            "is genuinely signed. Refusing to produce an unsigned or weakly-signed release."
+        )
+    }
 }
 
 android {
@@ -103,10 +141,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = rootProject.projectDir.resolve("release.keystore")
-            storePassword = System.getenv("MT_KEYSTORE_PASS") ?: project.findProperty("KEYSTORE_PASS") as String? ?: "magneetar123"
-            keyAlias = System.getenv("MT_KEY_ALIAS") ?: project.findProperty("KEY_ALIAS") as String? ?: "magneetar"
-            keyPassword = System.getenv("MT_KEY_ALIAS_PASS") ?: project.findProperty("KEY_ALIAS_PASS") as String? ?: "magneetar123"
+            storeFile = keystoreFile
+            storePassword = keystorePass
+            keyAlias = keyAlias
+            keyPassword = keyAliasPass
         }
     }
 

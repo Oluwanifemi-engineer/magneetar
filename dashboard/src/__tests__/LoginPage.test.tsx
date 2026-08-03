@@ -124,10 +124,13 @@ describe('Login Page', () => {
     expect(mockSetConnected).toHaveBeenCalledWith(true);
   });
 
-  it('logs in with an API key and redirects', async () => {
+  it('logs in with an API key and redirects (stores the dashboard JWT, not the raw key)', async () => {
+    // Security (F-02): the login endpoint exchanges the key for a dashboard
+    // JWT. The client must store THAT token — storing the raw key and sending
+    // it as x-api-key made anyone with an APK a platform admin.
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ status: 'ok' }),
+      json: async () => ({ token: 'dashboard-jwt', refresh_token: 'rt-1', token_type: 'bearer' }),
     });
     await renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'API Key' }));
@@ -145,7 +148,8 @@ describe('Login Page', () => {
       })
     );
     expect(sessionStorage.getItem('mt_auth_mode')).toBe('apikey');
-    expect(sessionStorage.getItem('mt_api_key')).toBe('sk-123');
+    expect(sessionStorage.getItem('mt_api_key')).toBe('dashboard-jwt');
+    expect(mockSetCredentials).toHaveBeenCalledWith('https://api.magneetar.me', 'dashboard-jwt');
   });
 
   it('shows a readable error when login fails', async () => {

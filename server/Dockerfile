@@ -49,4 +49,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 # Run with uvicorn in production mode
 EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info"]
+# --no-access-log: uvicorn's default access log records the full request line
+# including query strings, which would write WebSocket ?token= JWTs to disk.
+# main.py's access_log_middleware logs method+path+status without the query.
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info", "--no-access-log"]

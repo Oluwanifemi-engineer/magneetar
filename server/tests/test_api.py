@@ -88,6 +88,17 @@ class TestConfigEndpoint:
         assert "features_enabled" in data
         assert "sentinel" in data["features_enabled"]
 
+    def test_config_version_matches_health(self):
+        """Regression (F-08): /api/config used to hardcode app_version=1.2.0
+        while /health reported 1.3.0 — the stale value silently killed the
+        Android 'update available' nudge for 1.2.0 users. Both must now read
+        the VERSION file (single source of truth)."""
+        from main import APP_VERSION
+
+        config = client.get("/api/config").json()
+        health = client.get("/health").json()
+        assert config["app_version"] == health["version"] == APP_VERSION
+
 
 # ─── Device Registration ─────────────────────────────────────────────────────
 
@@ -146,6 +157,41 @@ class TestDeviceRegistration:
             },
         )
         assert response.status_code == 422 or response.status_code == 401
+
+    def test_register_rejects_malformed_device_id(self):
+        """Defense-in-depth: SQL-injection / whitespace / control-char device
+        IDs must be rejected at registration (the Android app generates
+        'mt-<8 hex>' and the simulator uses simple alphanumerics — neither
+        ever needs exotic characters)."""
+        headers = get_auth_headers()
+        bad_ids = [
+            "x' OR '1'='1",  # SQL injection
+            "device with spaces",  # whitespace
+            "dev;rm -rf /",  # shell metacharacters
+            "a",  # too short (< 3)
+            "x" * 80,  # too long (> 64)
+            "\n<script>alert(1)</script>",  # log/HTML injection
+        ]
+        for bad in bad_ids:
+            resp = client.post(
+                "/api/device/register",
+                json={"device_id": bad, "fingerprint": "fp-malformed", "model": "X"},
+                headers=headers,
+            )
+            assert resp.status_code == 422, f"device_id {bad!r} → {resp.status_code} (expected 422)"
+
+        # Legit formats still register fine (mt- prefix + simple names).
+        # fingerprint must be >= 8 chars per the model — use a long one so
+        # the 422s above are attributable to the device_id, not the fingerprint.
+        # Note: the Pydantic model itself rejects dots, so "good" uses the
+        # alphanumeric/hyphen/underscore charset the model AND the app allow.
+        for good in ("mt-a1b2c3d4", "test-device-001", "device_with_underscores-1"):
+            resp = client.post(
+                "/api/device/register",
+                json={"device_id": good, "fingerprint": "fp-good-123456", "model": "X"},
+                headers=headers,
+            )
+            assert resp.status_code == 200, f"device_id {good!r} → {resp.status_code}"
 
 
 # ─── Location Reports ────────────────────────────────────────────────────────
@@ -401,6 +447,141 @@ class TestAuthentication:
         assert "token" in response.json()
 
 
+# ─── Security Hardening (F-02: no x-api-key admin backdoor) ──────────────────
+
+
+class TestNoApiKeyBackdoor:
+    """The master API key ships inside every APK, so it must NEVER grant
+    dashboard access. Regression for F-02: an x-api-key header (or a token
+    with an api_key_user subject) must be rejected on user/dashboard routes.
+    """
+
+    def test_x_api_key_header_rejected_on_dashboard_routes(self):
+        """x-api-key alone must not authenticate dashboard routes."""
+        response = client.get("/api/dashboard/devices", headers={"x-api-key": TEST_API_KEY})
+        assert response.status_code == 401
+
+    def test_x_api_key_header_rejected_on_me(self):
+        """x-api-key alone must not authenticate user routes (/api/auth/me)."""
+        response = client.get("/api/auth/me", headers={"x-api-key": TEST_API_KEY})
+        assert response.status_code == 401
+
+    def test_dashboard_jwt_from_login_is_admin(self):
+        """The legitimate path — exchange the key for a dashboard JWT at the
+        rate-limited login endpoint, then use Bearer."""
+        login = client.post("/api/auth/login", json={"api_key": TEST_API_KEY})
+        assert login.status_code == 200
+        token = login.json()["token"]
+
+        response = client.get("/api/dashboard/devices", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+
+    def test_me_resolves_dashboard_subject_as_admin(self):
+        """A dashboard JWT (subject 'dashboard:<hash>') maps to the admin
+        profile so the operator dashboard's plan card keeps working."""
+        login = client.post("/api/auth/login", json={"api_key": TEST_API_KEY})
+        token = login.json()["token"]
+
+        response = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert response.json()["tier"] == "admin"
+
+
+# ─── Security Hardening (F-06: FCM must not create devices) ─────────────────
+
+
+class TestFcmNoDeviceCreation:
+    """Regression for F-06: /api/device/fcm-token used to INSERT a placeholder
+    device row for any arbitrary device_id (fingerprint='fcm_*'), so anyone
+    could pollute the devices table. It must now reject unknown devices.
+    """
+
+    def test_fcm_token_unknown_device_rejected(self):
+        """An unregistered device_id gets 401 and NO device row is created."""
+        before = client.get("/api/dashboard/stats", headers=get_dashboard_headers()).json()["total_devices"]
+
+        resp = client.post(
+            "/api/device/fcm-token",
+            json={"fcm_token": "fcm-pollution-token", "device_id": "never-registered-dev"},
+            headers={"x-api-key": TEST_API_KEY},
+        )
+        assert resp.status_code == 401
+
+        with database.get_db_context() as conn:
+            assert conn.execute("SELECT 1 FROM devices WHERE id='never-registered-dev'").fetchone() is None
+        after = client.get("/api/dashboard/stats", headers=get_dashboard_headers()).json()["total_devices"]
+        assert after == before
+
+    def test_fcm_token_shared_key_cannot_hijack_existing_device(self):
+        """The public shared API key (api_key_user, no principal) must NOT be
+        able to attach a push token to an EXISTING device — that would let an
+        attacker with the embedded APK key receive a victim's theft alerts.
+        Regression for the push-hijack variant of F-06.
+        """
+        victim = "fcm-victim-device"
+        reg = client.post(
+            "/api/device/register",
+            json={
+                "device_id": victim,
+                "fingerprint": "fp-fcm-victim",
+                "model": "FCM Victim",
+                "device_key": "fcm-victim-key",
+            },
+            headers={"x-api-key": TEST_API_KEY},
+        )
+        assert reg.status_code == 200
+
+        # Attacker tries to register THEIR token under the victim's device_id
+        # using only the shared key — must be rejected even though the device
+        # exists (existence is not ownership).
+        resp = client.post(
+            "/api/device/fcm-token",
+            json={"fcm_token": "attacker-fcm-token", "device_id": victim},
+            headers={"x-api-key": TEST_API_KEY},
+        )
+        assert resp.status_code == 401
+
+        with database.get_db_context() as conn:
+            hijack = conn.execute(
+                "SELECT 1 FROM fcm_tokens WHERE device_id=? AND fcm_token=?", (victim, "attacker-fcm-token")
+            ).fetchone()
+        assert hijack is None
+
+    def test_fcm_token_registered_device_ok(self):
+        """A real registered device can register FCM.
+
+        Auth uses the device JWT from the register response (the production
+        flow) rather than x-device-key: get_current_device_or_key resolves
+        x-device-key via a function-local DB lookup, and under full-suite
+        collection every test file rebinds the shared database.DB_PATH module
+        global, so that lookup can read a different temp DB than the one the
+        register wrote to (pre-existing suite isolation quirk). The JWT path
+        performs no DB lookup, so the request lands in the same app-bound DB
+        the register used.
+        """
+        device_id = "fcm-ok-device"
+        reg = client.post(
+            "/api/device/register",
+            json={
+                "device_id": device_id,
+                "fingerprint": "fp-fcm-ok",
+                "model": "FCM Test",
+                "device_key": "fcm-ok-device-key",
+            },
+            headers={"x-api-key": TEST_API_KEY},
+        )
+        assert reg.status_code == 200
+        token = reg.json()["token"]
+
+        resp = client.post(
+            "/api/device/fcm-token",
+            json={"fcm_token": "fcm-ok-token", "device_id": device_id},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["device_id"] == device_id
+
+
 # ─── Dashboard Endpoints ─────────────────────────────────────────────────────
 
 
@@ -454,6 +635,97 @@ class TestDashboard:
                 "SELECT COUNT(*) FROM devices WHERE datetime(last_seen) > datetime('now', '-5 minutes')"
             ).fetchone()[0]
         assert data["active_devices"] == recent
+
+
+# ─── APK Download & Checksum ───────────────────────────────────────────────
+
+
+class TestApkChecksum:
+    def _mint_ticket(self):
+        """Mint a signed download URL via /apk/ticket, or None if no APK staged."""
+        resp = client.get("/apk/ticket")
+        if resp.status_code == 404:
+            return None
+        assert resp.status_code == 200, f"ticket mint failed: {resp.text}"
+        return resp.json()["url"]
+
+    def test_checksum_pairs_with_served_bytes(self):
+        """Whatever APK /apk/download serves, /apk/checksum must describe its
+        exact sha256 + size — the pairing sideloaders rely on. Endpoint-driven
+        so it holds whether or not an APK is staged."""
+        import hashlib
+
+        checksum_resp = client.get("/apk/checksum")
+        if checksum_resp.status_code == 404:
+            # No APK staged: no ticket is mintable, and an anonymous (ticketless)
+            # download is rejected 403 (the gating itself), never served.
+            assert client.get("/apk/download").status_code == 403
+            assert self._mint_ticket() is None
+            return
+
+        data = checksum_resp.json()
+        assert len(data["sha256"]) == 64
+        int(data["sha256"], 16)  # valid lowercase hex
+        assert data["size_bytes"] > 0
+        assert isinstance(data["version"], str) and data["version"]
+
+        url = self._mint_ticket()
+        assert url, "ticket must be mintable when an APK is staged"
+        dl = client.get(url)
+        assert dl.status_code == 200
+        assert hashlib.sha256(dl.content).hexdigest() == data["sha256"]
+        assert len(dl.content) == data["size_bytes"]
+
+    def test_download_requires_valid_ticket(self):
+        """F-05 gating: /apk/download without a valid signed ticket is 403,
+        including forged/expired signatures."""
+        import time
+
+        assert client.get("/apk/download").status_code == 403
+        assert client.get("/apk/download?expires=9999999999&sig=deadbeef").status_code == 403
+
+        # A genuinely signed URL is rejected once its window has lapsed.
+        from main import _sign_apk_ticket
+
+        past = int(time.time()) - 3600
+        assert client.get(f"/apk/download?expires={past}&sig={_sign_apk_ticket(past)}").status_code == 403
+
+    def test_checksum_stable_across_requests(self):
+        """Repeated calls return a stable checksum (cache-consistent), and both
+        endpoints agree nothing is downloadable when no APK is staged."""
+        first = client.get("/apk/checksum")
+        if first.status_code == 404:
+            assert client.get("/apk/download").status_code == 403
+            assert client.get("/apk/ticket").status_code == 404
+            return
+        second = client.get("/apk/checksum")
+        assert second.status_code == 200
+        assert first.json()["sha256"] == second.json()["sha256"]
+
+    def test_checksum_cache_invalidates_on_file_change(self):
+        """The checksum cache is keyed on (mtime, size): a replaced file with
+        the same size but a newer mtime must produce a fresh digest."""
+        import main
+
+        fd, path = tempfile.mkstemp(suffix=".apk")
+        os.close(fd)
+        try:
+            with open(path, "wb") as f:
+                f.write(b"first-bytes")  # 11 bytes
+            first, size = main._get_apk_checksum(path)
+            assert size == 11
+            assert main._get_apk_checksum(path)[0] == first  # cached
+
+            with open(path, "wb") as f:
+                f.write(b"other-bytes")  # still 11 bytes, different content
+            future = os.path.getmtime(path) + 5
+            os.utime(path, (future, future))
+            assert main._get_apk_checksum(path)[0] != first
+        finally:
+            # Don't leave the temp path in the module-level cache.
+            main._apk_checksum_cache.pop(path, None)
+            if os.path.exists(path):
+                os.remove(path)
 
 
 # ─── Geofences ───────────────────────────────────────────────────────────────

@@ -316,6 +316,22 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class PlanUpdateRequest(BaseModel):
+    """Admin-only: set a user's plan tier (manual upgrade path until
+    self-serve payments land)."""
+
+    email: str
+    tier: str = "free"
+
+    @field_validator("tier")
+    @classmethod
+    def validate_tier(cls, v):
+        valid = {"free", "personal", "guardian", "enterprise"}
+        if v not in valid:
+            raise ValueError(f"tier must be one of {sorted(valid)}")
+        return v
+
+
 # ─── Evidence Models ─────────────────────────────────────────────────────────
 
 
@@ -443,7 +459,12 @@ class HealthResponse(BaseModel):
 
 
 class ConfigResponse(BaseModel):
-    app_version: str = "1.2.0"
+    # Must be passed explicitly by the /api/config handler (main.py passes
+    # APP_VERSION from the VERSION file) — a hardcoded default here went stale
+    # (1.2.0 vs the live 1.3.0) and silently broke the Android app's
+    # "update available" nudge for 1.2.0 users (latestVersion == their version
+    # meant no nudge, even though 1.3.0 was out).
+    app_version: str
     min_android_version: int = 24
     features_enabled: List[str] = [
         "sentinel",

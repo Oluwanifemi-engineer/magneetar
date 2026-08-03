@@ -34,8 +34,17 @@ _last_pong_times: dict[int, float] = {}
 """Maps id(ws) -> timestamp of last received pong from that client.
 Initialized to the connection time when the client first connects."""
 
-# Per-connection scope: None = admin (sees all devices), str = user id (sees own devices only)
+# Per-connection scope. NEVER None for a live connection: None means the
+# connection was not authenticated, and unauthenticated connections must not
+# receive any device data (see _connection_can_receive).
+#   ADMIN_OWNER  -> dashboard/operator token: sees all devices
+#   str user id  -> user token: sees only devices linked to that account
 _connection_owners: dict[int, Optional[str]] = {}
+
+# Explicit sentinel for authenticated admin connections. The old design used
+# None as "admin", which made UNauthenticated connections admin too — a live
+# location feed for every device, no token required (F-01).
+ADMIN_OWNER = "__magneetar_admin__"
 
 # device_id -> owner_id cache, kept in sync by routes on register/claim.
 _device_owners: dict[str, str] = {}
@@ -45,8 +54,11 @@ def add_connection(ws: WebSocket, owner: Optional[str] = None):
     """Register a new WebSocket connection and initialize its pong tracking.
 
     Args:
-        owner: None for admin (sees all devices) or a user id (sees only
-            devices linked to that account).
+        owner: ADMIN_OWNER for an authenticated dashboard/operator token
+            (sees all devices), or a user id (sees only devices linked to
+            that account). Callers MUST pass a resolved owner — passing None
+            here registers an anonymous connection that can never receive
+            device broadcasts.
     """
     active_dashboard_connections.append(ws)
     _connection_owners[id(ws)] = owner
@@ -72,13 +84,18 @@ def _message_device_id(message: dict) -> Optional[str]:
 
 
 def _connection_can_receive(ws: WebSocket, message: dict) -> bool:
-    """Scoped delivery: admins get everything, users only get their own devices.
+    """Scoped delivery: authenticated admins get everything, users only get
+    their own devices, and UNauthenticated connections get nothing.
 
-    Global messages without a device_id (ping, shutdown) reach everyone.
+    Global messages without a device_id (ping, shutdown) reach every
+    authenticated connection. Security: an owner of None (never registered
+    with a valid token) is denied — it must never default to admin.
     """
     owner = _connection_owners.get(id(ws))
     if owner is None:
-        return True  # admin
+        return False  # unauthenticated — never receive device data
+    if owner == ADMIN_OWNER:
+        return True  # authenticated admin sees all devices
     device_id = _message_device_id(message)
     if device_id is None:
         return True  # global broadcast

@@ -29,6 +29,16 @@ if env_path.exists():
     load_dotenv(env_path)
 
 
+# Default paid-tier device allowances. MT_PLAN_LIMITS (env) merges over these
+# per-tier, so a partial override never drops a tier's default.
+_PLAN_DEFAULTS: dict = {
+    "personal": 3,
+    "guardian": 10,
+    "enterprise": 999,
+    "admin": 999,
+}
+
+
 class Settings:
     """Central configuration - reads from environment variables."""
 
@@ -78,7 +88,17 @@ class Settings:
     ENVIRONMENT: str = os.environ.get("MT_ENVIRONMENT", "development")
 
     # ── Limits ─────────────────────────────────────────────────────────────
-    MAX_DEVICES_PER_USER: int = int(os.environ.get("MT_MAX_DEVICES", "5"))
+    # Free-tier device allowance (default 1 — "free for one device").
+    MAX_DEVICES_PER_USER: int = int(os.environ.get("MT_MAX_DEVICES", "1"))
+    # Device allowance per PAID tier. Overridable as a JSON object via
+    # MT_PLAN_LIMITS, e.g. '{"personal": 3, "guardian": 10, "enterprise": 999}'.
+    # A partial override MERGES over the defaults (never replaces them), so
+    # omitting a tier keeps its default instead of silently granting unlimited.
+    # plan_device_limit() resolves a user's allowance from their tier.
+    PLAN_DEVICE_LIMITS: dict = {
+        **_PLAN_DEFAULTS,
+        **_env_json_dict("MT_PLAN_LIMITS"),
+    }
     DATA_RETENTION_DAYS: int = int(os.environ.get("MT_RETENTION_DAYS", "90"))
 
     # ── Rate Limiting ─────────────────────────────────────────────────────
@@ -235,3 +255,18 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+
+
+def plan_device_limit(tier: str) -> int:
+    """Max devices a user of the given tier may own.
+
+    free (and unknown/blank tiers) use MAX_DEVICES_PER_USER so the free
+    allowance stays operator-tunable via MT_MAX_DEVICES (default 1 device);
+    paid tiers use PLAN_DEVICE_LIMITS (personal=3, guardian=10, enterprise
+    and admin=unlimited). Unrecognised tiers fall back to the free allowance
+    — never unlimited — so a typo'd tier can't silently grant everything.
+    """
+    tier = (tier or "").strip().lower()
+    if tier in ("", "free"):
+        return settings.MAX_DEVICES_PER_USER
+    return settings.PLAN_DEVICE_LIMITS.get(tier, settings.MAX_DEVICES_PER_USER)

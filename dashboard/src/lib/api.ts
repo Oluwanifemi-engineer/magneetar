@@ -1,4 +1,4 @@
-import { Device, Location, Command, MediaItem, MediaDetail, ErrorLogResponse, GuardianProfile, RecoveryRequest, NearbyRecoveryRequest } from '@/types';
+import { Device, Location, Command, MediaItem, MediaDetail, ErrorLogResponse, GuardianProfile, RecoveryRequest, NearbyRecoveryRequest, UserProfile } from '@/types';
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -24,10 +24,6 @@ class MagneetarAPI {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    // Use auth mode from sessionStorage to determine header format
-    const authMode = typeof window !== 'undefined'
-      ? sessionStorage.getItem('mt_auth_mode')
-      : null;
 
     // Fall back to the session's stored token when the shared singleton hasn't
     // been configured yet — e.g. the Sidebar's stats fetch can fire before
@@ -38,13 +34,12 @@ class MagneetarAPI {
       : null;
     const key = this.apiKey || sessionKey || '';
 
-    if (authMode === 'user') {
-      // User account login — JWT token goes in Authorization header
-      headers['Authorization'] = `Bearer ${key}`;
-    } else {
-      // API key login — goes in x-api-key header
-      headers['x-api-key'] = key;
-    }
+    // Both login modes (account and API-key) store a JWT in mt_api_key — the
+    // API-key login exchanges the key for a dashboard JWT. The raw key is
+    // NEVER sent as a header: the master key ships inside the public APK, so
+    // an x-api-key header fallback made anyone with the APK a platform admin
+    // (removed server-side). Always authenticate with Bearer.
+    headers['Authorization'] = `Bearer ${key}`;
     return headers;
   }
 
@@ -67,6 +62,13 @@ class MagneetarAPI {
 
   async healthCheck(): Promise<{ status: string; time: string }> {
     return this.request('/health');
+  }
+
+  // ── Account / plan ──────────────────────────────────────────────────────
+
+  /** Current user profile — plan tier + enforced device allowance. */
+  async fetchMe(): Promise<UserProfile> {
+    return this.request('/api/auth/me');
   }
 
   // ── Devices ─────────────────────────────────────────────────────────────

@@ -14,10 +14,10 @@ from auth import (
     refresh_access_token,
     verify_password,
 )
-from config import settings
+from config import plan_device_limit
 from database import check_rate_limit, delete_device_cascade, get_db_context, log_audit
 from fastapi import APIRouter, Depends, HTTPException, Request
-from models import RefreshRequest, TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
+from models import PlanUpdateRequest, RefreshRequest, TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
 
 router = APIRouter()
 
@@ -104,10 +104,12 @@ async def login_user(req: UserLoginRequest, request: Request):
 @router.get("/api/auth/me", response_model=UserResponse)
 async def get_me(user_id: str = Depends(get_current_user)):
     """Get current user profile."""
-    if user_id == "api_key_user":
-        # API key users get a default profile
+    if user_id == "api_key_user" or user_id.startswith("dashboard:"):
+        # Operator/dashboard (or legacy API-key) sessions get the admin profile.
+        # The dashboard JWT is minted by /api/auth/login with the master key,
+        # so its subject is 'dashboard:<hash>' — resolve it to the admin view.
         return UserResponse(
-            id="api_key_user",
+            id=user_id,
             email="admin@magneetar.local",
             display_name="Administrator",
             tier="admin",
@@ -126,7 +128,7 @@ async def get_me(user_id: str = Depends(get_current_user)):
 
         device_count = db.execute("SELECT COUNT(*) as cnt FROM devices WHERE owner_id=?", (user_id,)).fetchone()["cnt"]
 
-        max_devices = settings.MAX_DEVICES_PER_USER if user["tier"] == "free" else 999
+        max_devices = plan_device_limit(user["tier"])
 
         return UserResponse(
             id=user["id"],
@@ -144,6 +146,30 @@ async def get_me(user_id: str = Depends(get_current_user)):
 async def refresh_user_token(req: RefreshRequest):
     """Refresh user JWT tokens."""
     return refresh_access_token(req.refresh_token)
+
+
+@router.put("/api/auth/plan")
+async def update_user_plan(req: PlanUpdateRequest, user_id: str = Depends(get_current_user)):
+    """Set a user's plan tier. Admin only (dashboard/API-key auth).
+
+    This is the manual upgrade path until self-serve payments land: an
+    operator upgrades an account after payment, and plan_device_limit()
+    immediately gates how many devices it may own.
+    """
+    is_admin = user_id == "api_key_user" or user_id.startswith("dashboard:")
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    with get_db_context() as db:
+        user = db.execute("SELECT id FROM users WHERE email=?", (req.email,)).fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        db.execute("UPDATE users SET tier=? WHERE id=?", (req.tier, user["id"]))
+        db.commit()
+        log_audit("plan_updated", actor=user_id, details=f"{req.email} → {req.tier}")
+
+    return {"status": "ok", "email": req.email, "tier": req.tier}
 
 
 @router.delete("/api/auth/user/account")

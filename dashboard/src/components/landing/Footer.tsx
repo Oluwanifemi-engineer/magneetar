@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { Github } from 'lucide-react';
-import { APK_DOWNLOAD_URL } from '@/lib/utils';
 
 const FOOTER_LINKS = [
   {
@@ -13,20 +12,25 @@ const FOOTER_LINKS = [
       { label: 'Why Africa', href: '#africa' },
       { label: 'Our story', href: '#our-story' },
       { label: 'Security', href: '#security' },
+      { label: 'Pricing', href: '#pricing' },
     ],
   },
   {
     title: 'Resources',
     links: [
-      { label: 'Download APK', href: APK_DOWNLOAD_URL },
+      { label: 'Download APK', href: '/download' },
       { label: 'API Docs (Swagger)', href: 'https://api.magneetar.me/docs' },
       { label: 'API Docs (ReDoc)', href: 'https://api.magneetar.me/redoc' },
       { label: 'System Status', href: 'https://api.magneetar.me/health' },
+      { label: 'Responsible Disclosure', href: '/.well-known/security.txt' },
     ],
   },
   {
     title: 'Legal',
-    links: [{ label: 'Privacy Policy', href: '/privacy' }],
+    links: [
+      { label: 'Privacy Policy', href: '/privacy' },
+      { label: 'Terms of Service', href: '/terms' },
+    ],
   },
 ];
 

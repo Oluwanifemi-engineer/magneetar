@@ -31,8 +31,15 @@ export function useWebSocket() {
     if (!isConnected || !serverUrl) return;
 
     try {
-      // Convert HTTP URL to WebSocket URL
-      const wsUrl = serverUrl.replace(/^http/, 'ws') + '/ws/dashboard';
+      // Convert HTTP URL to WebSocket URL. The JWT goes in the query string
+      // because the WebSocket API has no headers — the server rejects
+      // connections without a valid ?token= (previously it accepted everyone
+      // and treated anonymous connections as admin, leaking every device's
+      // live location).
+      const baseWsUrl = serverUrl.replace(/^http/, 'ws') + '/ws/dashboard';
+      const wsUrl = apiKey
+        ? `${baseWsUrl}?token=${encodeURIComponent(apiKey)}`
+        : baseWsUrl;
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -41,12 +48,6 @@ export function useWebSocket() {
         console.log('[WebSocket] Connected');
         setWsConnected(true);
         reconnectAttemptsRef.current = 0;
-
-        // Send auth token
-        if (apiKey) {
-          // Note: In production, use a proper JWT token
-          ws.send(JSON.stringify({ type: 'auth', token: apiKey }));
-        }
       };
 
       ws.onmessage = (event) => {

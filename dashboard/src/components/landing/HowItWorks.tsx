@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Smartphone, Map, ShieldCheck, ArrowRight } from 'lucide-react';
 
 const STEPS = [
@@ -7,8 +8,16 @@ const STEPS = [
     icon: Smartphone,
     step: '01',
     title: 'Install & connect in minutes',
-    description:
-      'Download the APK or Play Store build, sign in once, and grant permissions. Link your device to your account, then add family, coworkers, or your team — no configuration, no setup.',
+    description: (
+      <>
+        Download the APK from the{' '}
+        <Link href="/download" className="text-[#06B6D4] hover:text-[#22D3EE] font-semibold underline underline-offset-2 transition-colors">
+          official download page
+        </Link>
+        , sign in once, and grant permissions. Link your device to your account, then add family,
+        coworkers, or your team — no configuration, no setup.
+      </>
+    ),
   },
   {
     icon: Map,

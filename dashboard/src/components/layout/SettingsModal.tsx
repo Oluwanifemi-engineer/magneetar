@@ -1,24 +1,59 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
-import { X, Trash2, ShieldAlert } from 'lucide-react';
+import { UserProfile } from '@/types';
+import { X, Trash2, ShieldAlert, Crown, ArrowUpRight } from 'lucide-react';
+
+const PLAN_LABELS: Record<string, string> = {
+  free: 'FREE',
+  personal: 'PERSONAL',
+  guardian: 'GUARDIAN',
+  enterprise: 'ENTERPRISE',
+  admin: 'ADMIN',
+};
 
 /**
- * Settings modal (opened from the header gear). Account info + the Danger
- * Zone. Account deletion lives HERE — deliberately NOT in the main header,
- * where a stressed user could hit it by accident.
+ * Settings modal (opened from the header gear). Account info + plan status +
+ * the Danger Zone. Account deletion lives HERE — deliberately NOT in the main
+ * header, where a stressed user could hit it by accident.
  */
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const { serverUrl, logout } = useStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileUnavailable, setProfileUnavailable] = useState(false);
 
   const authMode =
     typeof window !== 'undefined' ? sessionStorage.getItem('mt_auth_mode') : null;
+
+  // Plan status is only meaningful for user accounts (API-key admins have no
+  // /api/auth/me row). Load it quietly — a slow/failed fetch must never block
+  // the settings panel.
+  useEffect(() => {
+    if (authMode !== 'user') return;
+    let cancelled = false;
+    getAPI()
+      .fetchMe()
+      .then((me) => {
+        if (!cancelled) setProfile(me);
+      })
+      .catch(() => {
+        if (!cancelled) setProfileUnavailable(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authMode]);
+
+  const usagePct = profile && profile.max_devices > 0
+    ? Math.min(100, Math.round((profile.device_count / profile.max_devices) * 100))
+    : 0;
+  const atLimit = profile ? profile.device_count >= profile.max_devices : false;
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -87,6 +122,72 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             Alert recipients (SMS / WhatsApp / email) are set per device under Location →
             Alert Settings.
           </div>
+        </div>
+
+        {/* Plan */}
+        <div className="bg-mag-surface/30 border border-mag-border/30 rounded-xl p-4">
+          <div className="text-[10px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold mb-2">
+            Plan
+          </div>
+          {authMode === 'user' && profile ? (
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono text-mag-text-dim/60 font-bold">Current plan</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-mag-accent/10 border border-mag-accent/30 text-[10px] font-mono font-bold text-mag-accent uppercase tracking-wider">
+                  <Crown size={10} />
+                  {PLAN_LABELS[profile.tier] || profile.tier.toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-[11px] font-mono">
+                  <span className="text-mag-text-dim/60 font-bold">Devices</span>
+                  <span className={atLimit ? 'text-amber-400 font-bold' : 'text-mag-text font-bold'}>
+                    {profile.device_count} / {profile.max_devices >= 999 ? '∞' : profile.max_devices}
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      atLimit
+                        ? 'bg-amber-400'
+                        : 'bg-gradient-to-r from-[#E91E8C] to-[#06B6D4]'
+                    }`}
+                    style={{ width: `${usagePct}%` }}
+                  />
+                </div>
+              </div>
+              {atLimit ? (
+                <div className="text-[10px] font-mono text-amber-300/80 leading-relaxed">
+                  Device limit reached — upgrade your plan to protect more devices.
+                </div>
+              ) : (
+                <div className="text-[10px] font-mono text-mag-text-dim/50 leading-relaxed">
+                  Free plans protect 1 device. Upgrade for up to 3 (₦500/mo) or 10 (₦1500/mo).
+                </div>
+              )}
+              <a
+                href="/#pricing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-mag-accent hover:text-emerald-300 transition-colors"
+              >
+                See plans &amp; pricing
+                <ArrowUpRight size={11} />
+              </a>
+            </div>
+          ) : authMode === 'user' && profileUnavailable ? (
+            <div className="text-[10px] font-mono text-mag-text-dim/50">
+              Plan info unavailable — check your connection.
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono text-mag-text-dim/60 font-bold">Access</span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-mono font-bold text-emerald-300 uppercase tracking-wider">
+                <Crown size={10} />
+                ADMIN · UNLIMITED
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Danger Zone */}

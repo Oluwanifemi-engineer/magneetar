@@ -35,9 +35,12 @@ describe('MagneetarAPI headers — session fallback', () => {
     );
   });
 
-  it('sends the session API key as x-api-key in apikey mode', async () => {
+  it('sends the session JWT as Bearer in apikey mode too (no x-api-key)', async () => {
+    // Security (F-02): the API-key login exchanges the key for a dashboard
+    // JWT at /api/auth/login and stores THAT — the raw key is never sent as
+    // an x-api-key header because the key ships inside the public APK.
     sessionStorage.setItem('mt_auth_mode', 'apikey');
-    sessionStorage.setItem('mt_api_key', 'sk-session');
+    sessionStorage.setItem('mt_api_key', 'session-dashboard-jwt');
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ devices: [] }) });
 
     const api = new MagneetarAPI('https://api.magneetar.me');
@@ -46,7 +49,7 @@ describe('MagneetarAPI headers — session fallback', () => {
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.magneetar.me/api/dashboard/devices',
       expect.objectContaining({
-        headers: expect.objectContaining({ 'x-api-key': 'sk-session' }),
+        headers: expect.objectContaining({ Authorization: 'Bearer session-dashboard-jwt' }),
       })
     );
   });
@@ -67,16 +70,18 @@ describe('MagneetarAPI headers — session fallback', () => {
     );
   });
 
-  it('still sends an empty Bearer when nothing is configured (logged out)', async () => {
+  it('sends an empty Bearer (never x-api-key) when nothing is configured (logged out)', async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ devices: [] }) });
 
     const api = new MagneetarAPI('https://api.magneetar.me');
     await api.getDevices();
 
+    // No x-api-key is ever sent (F-02: the raw key must not be a credential).
+    // An empty Bearer is harmless — the server 401s unauthenticated requests.
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.magneetar.me/api/dashboard/devices',
       expect.objectContaining({
-        headers: expect.objectContaining({ 'x-api-key': '' }),
+        headers: expect.objectContaining({ Authorization: 'Bearer ' }),
       })
     );
   });

@@ -9,6 +9,7 @@ import '@testing-library/jest-dom/jest-globals';
 let mockServerUrl = 'https://api.magneetar.me';
 const mockLogout = jest.fn();
 const mockDeleteAccount = jest.fn<(...args: any[]) => any>();
+const mockFetchMe = jest.fn<(...args: any[]) => any>();
 
 jest.mock('@/store/useStore', () => ({
   useStore: jest.fn((selector: any) => {
@@ -23,6 +24,7 @@ jest.mock('@/store/useStore', () => ({
 jest.mock('@/lib/api', () => ({
   getAPI: () => ({
     deleteAccount: mockDeleteAccount,
+    fetchMe: mockFetchMe,
   }),
 }));
 
@@ -32,7 +34,13 @@ jest.mock('lucide-react', () => {
     Comp.displayName = name;
     return Comp;
   };
-  return { X: stub('X'), Trash2: stub('Trash2'), ShieldAlert: stub('ShieldAlert') };
+  return {
+    X: stub('X'),
+    Trash2: stub('Trash2'),
+    ShieldAlert: stub('ShieldAlert'),
+    Crown: stub('Crown'),
+    ArrowUpRight: stub('ArrowUpRight'),
+  };
 });
 
 import { SettingsModal } from '@/components/layout/SettingsModal';
@@ -44,6 +52,17 @@ describe('SettingsModal — portal + danger zone', () => {
     jest.clearAllMocks();
     mockServerUrl = 'https://api.magneetar.me';
     mockDeleteAccount.mockResolvedValue({ status: 'ok' });
+    mockFetchMe.mockResolvedValue({
+      id: 'usr-test',
+      email: 'test@example.com',
+      display_name: 'Test User',
+      tier: 'free',
+      is_active: true,
+      created_at: null,
+      device_count: 1,
+      max_devices: 1,
+    });
+    sessionStorage.clear();
   });
 
   it('renders the settings panel through a portal into document.body', () => {
@@ -79,6 +98,24 @@ describe('SettingsModal — portal + danger zone', () => {
 
     await waitFor(() => expect(mockDeleteAccount).toHaveBeenCalled());
     await waitFor(() => expect(mockLogout).toHaveBeenCalled());
+  });
+
+  it('shows admin access in API-key mode without fetching the profile', () => {
+    render(<SettingsModal onClose={onClose} />);
+    expect(screen.getByText('ADMIN · UNLIMITED')).toBeInTheDocument();
+    expect(mockFetchMe).not.toHaveBeenCalled();
+  });
+
+  it('shows plan usage from the profile in user mode', async () => {
+    sessionStorage.setItem('mt_auth_mode', 'user');
+    render(<SettingsModal onClose={onClose} />);
+
+    expect(await screen.findByText('FREE')).toBeInTheDocument();
+    expect(mockFetchMe).toHaveBeenCalledTimes(1);
+    // 1 of 1 device → at the free limit → upgrade prompt + pricing link.
+    expect(screen.getByText('1 / 1')).toBeInTheDocument();
+    expect(screen.getByText(/Device limit reached/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /see plans & pricing/i })).toHaveAttribute('href', '/#pricing');
   });
 
   it('closes when the backdrop is clicked', () => {

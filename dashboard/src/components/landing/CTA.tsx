@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { ArrowRight, ShieldCheck, Download, Check } from 'lucide-react';
-import { APK_DOWNLOAD_URL } from '@/lib/utils';
 
 export function CTA({ authed }: { authed: boolean }) {
   return (
@@ -59,19 +58,19 @@ export function CTA({ authed }: { authed: boolean }) {
               >
                 I have an account
               </Link>
-              <a
-                href={APK_DOWNLOAD_URL}
+              <Link
+                href="/download"
                 className="inline-flex items-center gap-2 px-7 py-4 rounded-xl text-[13px] font-bold uppercase tracking-wider border border-emerald-400/25 text-emerald-300 hover:bg-emerald-400/[0.06] hover:border-emerald-400/40 hover:shadow-[0_0_24px_rgba(34,197,94,0.12)] transition-all duration-200 active:scale-[0.97]"
               >
                 <Download size={15} />
                 Download APK
-              </a>
+              </Link>
             </div>
 
             <div className="mt-6 flex items-center justify-center gap-2">
               <Check size={14} className="text-emerald-400" />
               <span className="text-[12px] font-mono font-semibold tracking-wide text-white/45">
-                Free plan available · No credit card required
+                Free for 1 device · From ₦500/mo to protect more
               </span>
             </div>
           </div>

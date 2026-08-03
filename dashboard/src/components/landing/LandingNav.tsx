@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Menu, X, ArrowRight, ShieldCheck, Download } from 'lucide-react';
-import { cn, APK_DOWNLOAD_URL } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
   { href: '#features', label: 'Features' },
@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: '#africa', label: 'For Africa' },
   { href: '#our-story', label: 'Our story' },
   { href: '#security', label: 'Security' },
+  { href: '#pricing', label: 'Pricing' },
 ];
 
 export function LandingNav({ authed }: { authed: boolean }) {
@@ -62,13 +63,13 @@ export function LandingNav({ authed }: { authed: boolean }) {
 
         {/* Desktop CTAs */}
         <div className="hidden md:flex items-center gap-3">
-          <a
-            href={APK_DOWNLOAD_URL}
+          <Link
+            href="/download"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider border border-emerald-400/25 text-emerald-300 hover:bg-emerald-400/[0.06] hover:border-emerald-400/40 hover:shadow-[0_0_20px_rgba(34,197,94,0.12)] transition-all duration-200 active:scale-[0.97]"
           >
             <Download size={13} />
             Download APK
-          </a>
+          </Link>
           {authed ? (
             <Link
               href="/dashboard"
@@ -128,13 +129,13 @@ export function LandingNav({ authed }: { authed: boolean }) {
             </a>
           ))}
           <div className="pt-3 pb-2 flex flex-col gap-2">
-            <a
-              href={APK_DOWNLOAD_URL}
+            <Link
+              href="/download"
               onClick={() => setOpen(false)}
               className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[12px] font-bold uppercase tracking-wider border border-emerald-400/25 text-emerald-300 hover:bg-emerald-400/[0.06] hover:border-emerald-400/40 transition-colors"
             >
               <Download size={14} /> Download APK
-            </a>
+            </Link>
             {authed ? (
               <Link
                 href="/dashboard"

@@ -448,6 +448,147 @@ class TestDashboardScoping:
         assert resp.status_code == 403
 
 
+# ─── IDOR boundary sweep ────────────────────────────────────────────────────
+# Every dashboard/guardian endpoint that takes a device_id (or an id that
+# resolves to a device) must reject a NON-OWNER with 403. These tests exist
+# to catch future endpoints that forget the _assert_device_access() call.
+
+
+class TestIdorBoundarySweep:
+    """Cross-tenant sweep: user B must be denied on EVERY device-scoped
+    endpoint for user A's device — and, where a write would be destructive,
+    the data must remain intact (proving the 403 happened before any write).
+    """
+
+    def _setup(self):
+        """Two users + A's device with rich data (locations, media, commands,
+        evidence, geofence, recovery request)."""
+        owner = register_user("idor-owner@example.com")
+        intruder = register_user("idor-intruder@example.com")
+        register_device("idor-device", user_token=owner["token"])
+        did = "idor-device"
+
+        with database.get_db_context() as conn:
+            conn.execute(
+                "INSERT INTO locations (device_id, lat, lng, server_timestamp) VALUES (?, 9.0, 8.6, datetime('now'))",
+                (did,),
+            )
+            conn.execute(
+                "INSERT INTO media (device_id, type, data_b64, timestamp) "
+                "VALUES (?, 'photo', 'QUJDRA==', datetime('now'))",
+                (did,),
+            )
+            conn.execute(
+                "INSERT INTO commands (device_id, command, params, status) VALUES (?, 'lock', '', 'pending')",
+                (did,),
+            )
+            conn.execute(
+                "INSERT INTO evidence_cases (id, device_id, status) VALUES (?, ?, 'active')",
+                (f"case-{did}", did),
+            )
+            conn.execute(
+                "INSERT INTO geofences (device_id, name, center_lat, center_lng, radius_meters) "
+                "VALUES (?, 'home', 9.0, 8.6, 500)",
+                (did,),
+            )
+            conn.execute(
+                "INSERT INTO recovery_requests (id, device_id, owner_id, status) VALUES (?, ?, ?, 'active')",
+                (f"rec-{did}", did, user_id_of(owner["token"])),
+            )
+            conn.commit()
+
+        media_id = None
+        geofence_id = None
+        with database.get_db_context() as conn:
+            media_id = conn.execute("SELECT MAX(id) FROM media WHERE device_id=?", (did,)).fetchone()[0]
+            geofence_id = conn.execute("SELECT MAX(id) FROM geofences WHERE device_id=?", (did,)).fetchone()[0]
+        return owner, intruder, media_id, geofence_id
+
+    def _intruder(self, intruder):
+        return user_headers(intruder["token"])
+
+    def test_sweep_reads_denied(self):
+        """Every read endpoint for the other user's device → 403."""
+        _owner, intruder, media_id, _gf = self._setup()
+        h = self._intruder(intruder)
+
+        cases = [
+            ("/api/dashboard/devices/idor-device/history", "GET", None),
+            ("/api/dashboard/locations/idor-device", "GET", None),
+            ("/api/dashboard/locations/idor-device/live", "GET", None),
+            ("/api/dashboard/replay/idor-device", "GET", None),
+            ("/api/dashboard/media/idor-device", "GET", None),
+            (f"/api/dashboard/media/file/{media_id}", "GET", None),
+            ("/api/dashboard/commands/idor-device", "GET", None),
+            ("/api/dashboard/evidence/idor-device", "GET", None),
+            ("/api/dashboard/alerts/idor-device", "GET", None),
+            ("/api/dashboard/geofences/idor-device", "GET", None),
+        ]
+        for path, method, _body in cases:
+            resp = client.request(method, path, headers=h)
+            assert resp.status_code == 403, f"{method} {path} → {resp.status_code} (expected 403)"
+
+        # Scoped LIST endpoint: 200 with the intruder's own (empty) list — the
+        # victim's request must NOT be visible in it.
+        resp = client.get("/api/recovery/requests", headers=h)
+        assert resp.status_code == 200
+        assert resp.json()["requests"] == []
+
+    def test_sweep_writes_denied_and_side_effect_free(self):
+        """Every write endpoint for the other user's device → 403, and the
+        victim's data is untouched afterward."""
+        _owner, intruder, media_id, geofence_id = self._setup()
+        h = self._intruder(intruder)
+        did = "idor-device"
+
+        cases = [
+            ("PATCH", "/api/dashboard/devices/idor-device/alias", {"alias": "hijacked"}),
+            ("PATCH", "/api/dashboard/devices/idor-device/alert-settings", {"alert_phone": "+2348000000000"}),
+            ("DELETE", "/api/dashboard/devices/idor-device", None),
+            ("POST", "/api/dashboard/devices/idor-device/recover", None),
+            ("POST", "/api/dashboard/command", {"device_id": did, "command": "wipe", "params": "CONFIRMED_WIPE"}),
+            ("POST", "/api/dashboard/evidence/idor-device/generate-pdf", None),
+            (
+                "POST",
+                "/api/dashboard/geofence",
+                {"device_id": did, "name": "x", "center_lat": 9.0, "center_lng": 8.6, "radius_meters": 100},
+            ),
+            ("DELETE", f"/api/dashboard/geofence/{geofence_id}", None),
+            ("POST", f"/api/dashboard/media/{media_id}/delete", {"password": "StrongPass1"}),
+            ("POST", "/api/recovery/requests/rec-idor-device/close", None),
+            ("POST", "/api/recovery/requests", {"device_id": did, "description": "x"}),
+        ]
+        for method, path, body in cases:
+            resp = client.request(method, path, json=body, headers=h)
+            assert resp.status_code == 403, f"{method} {path} → {resp.status_code} (expected 403)"
+
+        # Victim's data is untouched: device exists, still owned by user A,
+        # still stolen-mode-able (not marked recovered), media & geofence intact.
+        with database.get_db_context() as conn:
+            dev = conn.execute("SELECT owner_id FROM devices WHERE id=?", (did,)).fetchone()
+            assert dev is not None and dev["owner_id"] == user_id_of(_owner["token"])
+            assert conn.execute("SELECT COUNT(*) FROM media WHERE id=?", (media_id,)).fetchone()[0] == 1
+            assert conn.execute("SELECT COUNT(*) FROM geofences WHERE id=?", (geofence_id,)).fetchone()[0] == 1
+            req = conn.execute("SELECT status FROM recovery_requests WHERE id=?", (f"rec-{did}",)).fetchone()
+            assert req is not None and req["status"] == "active"
+
+    def test_owner_sweep_control(self):
+        """Control: the OWNER is allowed on the same endpoints (proves the 403
+        is about ownership, not a broken route)."""
+        owner, _intruder, media_id, geofence_id = self._setup()
+        h = user_headers(owner["token"])
+
+        assert client.get("/api/dashboard/locations/idor-device", headers=h).status_code == 200
+        assert client.get("/api/dashboard/media/idor-device", headers=h).status_code == 200
+        assert client.get("/api/dashboard/geofences/idor-device", headers=h).status_code == 200
+        assert client.get(f"/api/dashboard/media/file/{media_id}", headers=h).status_code == 200
+        assert client.get("/api/recovery/requests", headers=h).status_code == 200
+        assert (
+            client.patch("/api/dashboard/devices/idor-device/alias", json={"alias": "mine"}, headers=h).status_code
+            == 200
+        )
+
+
 # ─── Per-user device limit ───────────────────────────────────────────────────
 
 
@@ -522,6 +663,159 @@ class TestDeviceLimit:
         assert resp.status_code == 200
 
 
+# ─── Plan-based device limits (free=1 / personal=3 / guardian=10) ───────────
+
+
+def _admin_headers() -> dict:
+    """Dashboard (admin) auth — the manual-upgrade path uses this."""
+    tokens = create_dashboard_tokens(TEST_API_KEY)
+    return {"Authorization": f"Bearer {tokens['token']}"}
+
+
+def _register_raw(device_id: str, user_token: str):
+    """Register a device WITHOUT the helper's assert-200, so limit rejections
+    can be asserted by the caller."""
+    headers = {**api_key_headers(), "Authorization": f"Bearer {user_token}"}
+    return client.post(
+        "/api/device/register",
+        json={
+            "device_id": device_id,
+            "fingerprint": f"fp-{device_id}",
+            "model": "Plan Test Device",
+            "os_version": "Android 14",
+            "app_version": "1.1.0",
+        },
+        headers=headers,
+    )
+
+
+class TestPlanDeviceLimits:
+    def test_free_tier_caps_at_free_allowance(self):
+        """Free tier is limited to MAX_DEVICES_PER_USER (default 1). Parameterized
+        on the ambient setting so the test holds whether or not a deployment's
+        .env overrides MT_MAX_DEVICES (CI has no .env → 1)."""
+        user = register_user("plan-free@example.com")
+        limit = config.settings.MAX_DEVICES_PER_USER
+
+        for i in range(1, limit + 1):
+            assert _register_raw(f"plan-free-{i}", user["token"]).status_code == 200
+
+        resp = _register_raw(f"plan-free-{limit + 1}", user["token"])
+        assert resp.status_code == 403
+        assert "limit" in resp.json()["detail"].lower()
+
+    def test_personal_tier_allows_plan_allowance(self):
+        """Personal allows PLAN_DEVICE_LIMITS['personal'] devices (default 3),
+        parameterized so an MT_PLAN_LIMITS override doesn't break the test."""
+        user = register_user("plan-personal@example.com")
+        resp = client.put(
+            "/api/auth/plan",
+            json={"email": "plan-personal@example.com", "tier": "personal"},
+            headers=_admin_headers(),
+        )
+        assert resp.status_code == 200, resp.text
+
+        limit = config.settings.PLAN_DEVICE_LIMITS.get("personal", 3)
+        for i in range(1, limit + 1):
+            assert _register_raw(f"plan-personal-{i}", user["token"]).status_code == 200
+
+        # One past the allowance → 403.
+        assert _register_raw(f"plan-personal-{limit + 1}", user["token"]).status_code == 403
+
+    def test_guardian_tier_allows_ten_devices(self):
+        user = register_user("plan-guardian@example.com")
+        resp = client.put(
+            "/api/auth/plan",
+            json={"email": "plan-guardian@example.com", "tier": "guardian"},
+            headers=_admin_headers(),
+        )
+        assert resp.status_code == 200, resp.text
+
+        for i in range(1, 11):
+            assert _register_raw(f"plan-guardian-{i}", user["token"]).status_code == 200
+
+        # 11th device exceeds the guardian allowance of 10 — the error names
+        # the upgrade path so the user knows why.
+        resp = _register_raw("plan-guardian-11", user["token"])
+        assert resp.status_code == 403
+        assert "upgrade" in resp.json()["detail"].lower()
+
+    def test_plan_update_requires_admin(self):
+        user = register_user("plan-user@example.com")
+        resp = client.put(
+            "/api/auth/plan",
+            json={"email": "plan-user@example.com", "tier": "personal"},
+            headers=user_headers(user["token"]),
+        )
+        assert resp.status_code == 403
+
+    def test_plan_update_unknown_user_404(self):
+        resp = client.put(
+            "/api/auth/plan",
+            json={"email": "nobody@example.com", "tier": "personal"},
+            headers=_admin_headers(),
+        )
+        assert resp.status_code == 404
+
+    def test_downgrade_keeps_devices_but_blocks_new(self):
+        """The downgrade promise: existing devices stay, only NEW links are
+        capped (enforcement happens at register/claim, never retroactively)."""
+        user = register_user("plan-downgrade@example.com")
+        resp = client.put(
+            "/api/auth/plan",
+            json={"email": "plan-downgrade@example.com", "tier": "guardian"},
+            headers=_admin_headers(),
+        )
+        assert resp.status_code == 200, resp.text
+        for i in range(1, 4):
+            assert _register_raw(f"plan-downgrade-{i}", user["token"]).status_code == 200
+
+        # Downgrade to free — the 3 devices remain owned and visible.
+        resp = client.put(
+            "/api/auth/plan",
+            json={"email": "plan-downgrade@example.com", "tier": "free"},
+            headers=_admin_headers(),
+        )
+        assert resp.status_code == 200, resp.text
+
+        me = client.get("/api/auth/me", headers=user_headers(user["token"])).json()
+        assert me["device_count"] == 3
+        assert me["max_devices"] == config.settings.MAX_DEVICES_PER_USER
+
+        # A NEW device is now blocked by the free allowance.
+        resp = _register_raw("plan-downgrade-4", user["token"])
+        assert resp.status_code == 403
+        assert "limit" in resp.json()["detail"].lower()
+
+    def test_invalid_tier_rejected(self):
+        resp = client.put(
+            "/api/auth/plan",
+            json={"email": "anyone@example.com", "tier": "platinum"},
+            headers=_admin_headers(),
+        )
+        assert resp.status_code == 422
+
+    def test_me_reflects_tier_and_allowance(self):
+        user = register_user("plan-me@example.com")
+        register_device("plan-me-device", user_token=user["token"])
+
+        me = client.get("/api/auth/me", headers=user_headers(user["token"])).json()
+        assert me["tier"] == "free"
+        assert me["max_devices"] == config.settings.MAX_DEVICES_PER_USER
+        assert me["device_count"] == 1
+
+        resp = client.put(
+            "/api/auth/plan",
+            json={"email": "plan-me@example.com", "tier": "guardian"},
+            headers=_admin_headers(),
+        )
+        assert resp.status_code == 200, resp.text
+
+        me = client.get("/api/auth/me", headers=user_headers(user["token"])).json()
+        assert me["tier"] == "guardian"
+        assert me["max_devices"] == 10
+
+
 # ─── Permanent deletion (privacy policy promise) ─────────────────────────────
 
 
@@ -579,12 +873,17 @@ class TestPermanentDeletion:
         with database.get_db_context() as conn:
             total = 0
             for table in (
-                "locations", "media", "commands", "evidence_cases", "alerts",
-                "heartbeats", "geofences", "fcm_tokens", "recovery_requests",
+                "locations",
+                "media",
+                "commands",
+                "evidence_cases",
+                "alerts",
+                "heartbeats",
+                "geofences",
+                "fcm_tokens",
+                "recovery_requests",
             ):
-                total += conn.execute(
-                    f"SELECT COUNT(*) FROM {table} WHERE device_id=?", (device_id,)
-                ).fetchone()[0]
+                total += conn.execute(f"SELECT COUNT(*) FROM {table} WHERE device_id=?", (device_id,)).fetchone()[0]
             total += conn.execute(
                 "SELECT COUNT(*) FROM recovery_sightings WHERE request_id IN "
                 "(SELECT id FROM recovery_requests WHERE device_id=?)",

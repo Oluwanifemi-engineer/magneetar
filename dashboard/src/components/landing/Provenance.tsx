@@ -8,7 +8,7 @@ import { Compass, Users, Rocket } from 'lucide-react';
  * Deliberately NO university history or rankings here — the project is built
  * to grow well beyond any single campus or country, so the story stays about
  * the problems, not the place. Every claim is verifiable and nothing is
- * fabricated; real adoption numbers get added as users arrive.
+ * fabricated — no adoption numbers are shown until there are real ones to show.
  */
 const ORIGIN_POINTS = [
   {
@@ -77,10 +77,10 @@ export function Provenance() {
         </div>
 
         {/* Honest-signal footnote */}
-        <div className="mt-10 flex items-center justify-center gap-2 text-[11px] font-mono text-white/25">
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-2 text-[11px] font-mono text-white/25">
           <span>STARTED BY STUDENTS</span>
           <span className="w-1 h-1 rounded-full bg-white/20" />
-          <span>REAL ADOPTION NUMBERS COMING AS USERS ARRIVE</span>
+          <span>EVERY CLAIM ON THIS PAGE IS VERIFIABLE</span>
         </div>
       </div>
     </section>

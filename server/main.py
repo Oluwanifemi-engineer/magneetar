@@ -5,6 +5,8 @@ All API endpoints have been extracted into route modules under routes/.
 """
 
 import asyncio
+import hashlib
+import hmac
 import os
 import time
 import traceback as tb
@@ -13,7 +15,7 @@ from datetime import datetime, timezone
 
 from auth import decode_token, user_id_from_subject
 from config import settings
-from database import ensure_initialized, log_error
+from database import check_rate_limit, ensure_initialized, log_error
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -21,6 +23,7 @@ from logging_config import get_logger
 from models import ConfigResponse, HealthResponse
 from offline_monitor import check_offline_devices_loop
 from websocket_manager import (
+    ADMIN_OWNER,
     active_dashboard_connections,
     add_connection,
     broadcast_to_dashboards,
@@ -234,14 +237,22 @@ async def lifespan(app: FastAPI):
 
 # ─── App Setup ───────────────────────────────────────────────────────────────
 
+# Docs & OpenAPI schema are an attacker's blueprint (F-04): every endpoint,
+# model, and auth scheme is laid out at /docs and /openapi.json. Enable them
+# only outside production (dev/staging for API testing).
+_prod = settings.ENVIRONMENT == "production"
 app = FastAPI(
     title="Magneetar API",
     version=APP_VERSION,
     description="Anti-theft tracking system API",
     lifespan=lifespan,
+    docs_url=None if _prod else "/docs",
+    redoc_url=None if _prod else "/redoc",
+    openapi_url=None if _prod else "/openapi.json",
 )
 
-# CORS — permissive in dev, strict in production
+# CORS — permissive in dev, strict in production (also serves as the
+# authenticated-browser protection: only the known origins may read responses)
 if settings.ENVIRONMENT == "production":
     app.add_middleware(
         CORSMiddleware,
@@ -294,6 +305,49 @@ app.include_router(guardian_router)
 
 
 # ─── Request Timeout Middleware ───────────────────────────────────────────
+
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    """Set baseline security headers on every response.
+
+    HSTS tells browsers to only ever use HTTPS for this origin (the tunnel
+    terminates TLS in front of us); frame-ancestors/X-Frame-Options stop the
+    API from being embedded anywhere; nosniff blocks MIME-sniffing; and
+    Referrer-Policy keeps tokens out of cross-origin referrers.
+    """
+    response = await call_next(request)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
+@app.middleware("http")
+async def access_log_middleware(request: Request, call_next):
+    """Structured access log WITHOUT query strings.
+
+    Dashboard tokens travel in the WebSocket URL (?token=...) and uvicorn's
+    default access log records the full request line — writing JWTs to disk
+    for anyone with log access to harvest. Uvicorn's access log is therefore
+    disabled (Dockerfile --no-access-log) and this middleware logs method +
+    path + status only, so credentials never land in logs.
+    """
+    response = await call_next(request)
+    if request.url.path != "/health":  # keep health-check polling out of logs
+        logger.info(
+            "access",
+            extra={
+                "extra_data": {
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status": response.status_code,
+                }
+            },
+        )
+    return response
 
 
 @app.middleware("http")
@@ -385,6 +439,175 @@ async def monitor_request_time(request: Request, call_next):
         raise
 
 
+# ─── APK Download Gating (short-lived signed tickets) ───────────────────────
+# /apk/download used to be anonymous: anyone could hotlink the binary and
+# scrape the whole APK/CDN bandwidth. Downloads now require a short-lived
+# HMAC-signed ticket minted by /apk/ticket (rate-limited per IP). The signing
+# key is DERIVED FROM THE JWT SECRET, never MT_API_KEY — that key ships inside
+# every APK, so using it would let anyone mint their own tickets.
+
+APK_TICKET_TTL_SECONDS = 600  # 10 minutes — short enough that a leaked URL dies fast
+
+
+def _apk_ticket_key() -> bytes:
+    """HMAC key for APK download tickets (server-only JWT secret, domain-separated)."""
+    return hmac.new(settings.JWT_SECRET.encode(), b"magneetar:apk-ticket:v1", hashlib.sha256).digest()
+
+
+def _sign_apk_ticket(expires_epoch: int) -> str:
+    """HMAC-SHA256 signature over 'download|<expires>'."""
+    msg = f"download|{expires_epoch}".encode()
+    return hmac.new(_apk_ticket_key(), msg, hashlib.sha256).hexdigest()
+
+
+def _verify_apk_ticket(expires_epoch: int, sig: str) -> bool:
+    """True when the signature matches AND the URL is still inside its TTL.
+
+    The far-future check (expires - now <= TTL) makes a signed URL that was
+    leaked from logs useless once its window closes — a stolen URL cannot be
+    replayed for weeks by bumping nothing.
+    """
+    if not sig:
+        return False
+    now = int(time.time())
+    expected = _sign_apk_ticket(expires_epoch)
+    return hmac.compare_digest(expected, sig) and now <= expires_epoch and expires_epoch - now <= APK_TICKET_TTL_SECONDS
+
+
+@app.get("/apk/ticket")
+async def apk_ticket(request: Request):
+    """Mint a short-lived signed download URL for the current release APK.
+
+    Rate-limited per IP (20 tickets / 10 min) so the binary can't be scraped
+    in bulk, while the landing page's download button just works for humans.
+    """
+    if _resolve_apk() is None:
+        raise HTTPException(status_code=404, detail="APK not found on server")
+
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    cf_ip = request.headers.get("CF-Connecting-IP", "")
+    if cf_ip:
+        client_ip = cf_ip
+    elif forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    else:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if not check_rate_limit(f"apk_ticket:{client_ip}", "apk_ticket", 20, 10):
+        raise HTTPException(status_code=429, detail="Too many download requests — try again shortly")
+
+    expires = int(time.time()) + APK_TICKET_TTL_SECONDS
+    sig = _sign_apk_ticket(expires)
+    return {
+        "url": f"/apk/download?expires={expires}&sig={sig}",
+        "expires_at": datetime.fromtimestamp(expires, tz=timezone.utc).isoformat(),
+    }
+
+
+# ─── APK Resolution (shared by /apk/download + /apk/checksum) ───────────────
+
+
+def _apk_candidates():
+    """APK paths in order of preference — a version bump never breaks a link."""
+    apk_dir = os.path.join(os.path.dirname(__file__), "static", "apk")
+    yield os.path.join(apk_dir, f"magneetar-v{APP_VERSION}-release.apk")
+    yield os.path.join(apk_dir, "magneetar-latest.apk")
+    try:
+        apks = sorted(
+            (f for f in os.listdir(apk_dir) if f.endswith(".apk") and f.startswith("magneetar-")),
+            key=lambda f: os.path.getmtime(os.path.join(apk_dir, f)),
+            reverse=True,
+        )
+    except OSError:
+        apks = []
+    for name in apks:
+        yield os.path.join(apk_dir, name)
+
+
+def _resolve_apk():
+    """Return the path of the APK that /apk/download would serve, or None."""
+    for path in _apk_candidates():
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def _sha256_file(path: str) -> str:
+    """Streaming SHA-256 of a file without loading it into memory."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+# path -> (mtime, size, sha256) — invalidated when the file changes
+_apk_checksum_cache: dict[str, tuple[int, int, str]] = {}
+
+
+def _get_apk_checksum(path: str) -> tuple[str, int]:
+    """(sha256, size_bytes) of an APK file, cached per (mtime, size) so
+    repeated requests don't re-hash multi-MB files. Replaced files yield fresh
+    digests. One stat feeds both the cache key and the reported size, so a
+    checksum response can never pair a size from one version of a file with a
+    hash from another."""
+    stat = os.stat(path)
+    cached = _apk_checksum_cache.get(path)
+    if cached is not None and cached[0] == stat.st_mtime and cached[1] == stat.st_size:
+        return cached[2], stat.st_size
+    digest = _sha256_file(path)
+    _apk_checksum_cache[path] = (stat.st_mtime, stat.st_size, digest)
+    return digest, stat.st_size
+
+
+@app.get("/apk/download")
+async def download_apk(expires: int = 0, sig: str = ""):
+    """Download the latest Magneetar release APK.
+
+    Requires a short-lived signed ticket (?expires=<epoch>&sig=<hmac>) minted
+    by /apk/ticket — anonymous/hotlinked downloads are rejected with 403.
+
+    Resolves in order of preference so a version bump never breaks the link:
+    1. magneetar-v{APP_VERSION}-release.apk  (the release built for this version)
+    2. magneetar-latest.apk                  (the always-current pointer)
+    3. the newest magneetar-*.apk on disk     (last resort)
+    """
+    if not _verify_apk_ticket(expires, sig):
+        raise HTTPException(status_code=403, detail="Missing or expired download ticket — request one from /apk/ticket")
+    path = _resolve_apk()
+    if path is None:
+        raise HTTPException(status_code=404, detail="APK not found on server")
+    return FileResponse(
+        path,
+        media_type="application/vnd.android.package-archive",
+        filename=f"Magneetar-v{APP_VERSION}-release.apk",
+    )
+
+
+@app.get("/apk/checksum")
+async def apk_checksum():
+    """SHA-256 checksum + size for the exact bytes /apk/download serves.
+
+    Lets sideloaders verify a downloaded file byte-for-byte against the
+    official build before installing. The hash is computed once per file
+    change (cache keyed on mtime + size) so repeated hits stay cheap.
+    """
+    path = _resolve_apk()
+    if path is None:
+        raise HTTPException(status_code=404, detail="APK not found on server")
+
+    digest, size_bytes = await asyncio.to_thread(_get_apk_checksum, path)
+
+    return {
+        # Same display name /apk/download hands the browser, so users can
+        # match the file they saved against the checksum page 1:1.
+        "filename": f"Magneetar-v{APP_VERSION}-release.apk",
+        "version": APP_VERSION,
+        "sha256": digest,
+        "size_bytes": size_bytes,
+    }
+
+
 # ─── Health & Config (kept in main.py — core infrastructure) ─────────────────
 
 
@@ -413,42 +636,9 @@ async def health():
 @app.get("/api/config", response_model=ConfigResponse)
 async def get_config():
     """Public config endpoint for mobile apps."""
-    return ConfigResponse()
-
-
-@app.get("/apk/download")
-async def download_apk():
-    """Download the latest Magneetar release APK.
-
-    Resolves in order of preference so a version bump never breaks the link:
-    1. magneetar-v{APP_VERSION}-release.apk  (the release built for this version)
-    2. magneetar-latest.apk                  (the always-current pointer)
-    3. the newest magneetar-*.apk on disk     (last resort)
-    """
-    apk_dir = os.path.join(os.path.dirname(__file__), "static", "apk")
-
-    def _candidates():
-        yield os.path.join(apk_dir, f"magneetar-v{APP_VERSION}-release.apk")
-        yield os.path.join(apk_dir, "magneetar-latest.apk")
-        try:
-            apks = sorted(
-                (f for f in os.listdir(apk_dir) if f.endswith(".apk") and f.startswith("magneetar-")),
-                key=lambda f: os.path.getmtime(os.path.join(apk_dir, f)),
-                reverse=True,
-            )
-        except OSError:
-            apks = []
-        for name in apks:
-            yield os.path.join(apk_dir, name)
-
-    for path in _candidates():
-        if os.path.exists(path):
-            return FileResponse(
-                path,
-                media_type="application/vnd.android.package-archive",
-                filename=f"Magneetar-v{APP_VERSION}-release.apk",
-            )
-    raise HTTPException(status_code=404, detail="APK not found on server")
+    # app_version must match /health (single source: VERSION file). A stale
+    # hardcoded value here broke the Android "update available" nudge.
+    return ConfigResponse(app_version=APP_VERSION)
 
 
 # ─── WebSocket ───────────────────────────────────────────────────────────────
@@ -458,36 +648,55 @@ async def download_apk():
 async def dashboard_websocket(websocket: WebSocket):
     """WebSocket for real-time dashboard updates.
 
+    REQUIRES a valid ?token= (dashboard/access JWT). Anonymous connections
+    are rejected — the old behaviour of accepting everyone and treating
+    tokenless connections as admin leaked every device's live location to
+    the internet (F-01).
+
     Connection limits are enforced per IP to prevent resource exhaustion.
     A max of MAX_DASHBOARD_CONNECTIONS (100) concurrent connections is allowed.
     """
     await websocket.accept()
 
-    # ── Authentication ─────────────────────────────────────────────────
+    # ── Authentication (mandatory) ────────────────────────────────────
     token = websocket.query_params.get("token")
-    owner = None  # None = admin (sees all devices)
-    if token:
-        try:
-            payload = decode_token(token)
-            if payload.get("type") not in ("dashboard", "access"):
-                await websocket.close(code=4001, reason="Invalid token type")
-                return
-            owner = user_id_from_subject(payload.get("sub", ""))
-            if owner:
-                # Hydrate the in-memory device→owner cache so this user's
-                # dashboards receive broadcasts immediately (survives restarts).
-                try:
-                    from database import get_db_context
+    if not token:
+        await websocket.close(code=4408, reason="Authentication required")
+        return
 
-                    with get_db_context() as conn:
-                        rows = conn.execute("SELECT id FROM devices WHERE owner_id=?", (owner,)).fetchall()
-                        for row in rows:
-                            update_device_owner(row["id"], owner)
-                except Exception:
-                    pass
-        except Exception:
-            await websocket.close(code=4001, reason="Invalid token")
+    owner = None  # resolved below; never register unauthenticated
+    try:
+        payload = decode_token(token)
+        if payload.get("type") not in ("dashboard", "access"):
+            await websocket.close(code=4001, reason="Invalid token type")
             return
+        sub = payload.get("sub", "")
+        user_id = user_id_from_subject(sub)
+        if user_id:
+            owner = user_id
+            # Hydrate the in-memory device→owner cache so this user's
+            # dashboards receive broadcasts immediately (survives restarts).
+            try:
+                from database import get_db_context
+
+                with get_db_context() as conn:
+                    rows = conn.execute("SELECT id FROM devices WHERE owner_id=?", (owner,)).fetchall()
+                    for row in rows:
+                        update_device_owner(row["id"], owner)
+            except Exception:
+                pass
+        elif sub.startswith("dashboard:"):
+            # Authenticated operator/dashboard token — explicit admin scope.
+            owner = ADMIN_OWNER
+    except Exception:
+        await websocket.close(code=4001, reason="Invalid token")
+        return
+
+    if owner is None:
+        # Valid signature but unrecognized subject shape — deny rather than
+        # default to admin (defense in depth, same bug class as F-01).
+        await websocket.close(code=4001, reason="Invalid token subject")
+        return
 
     # ── Enforce connection limit ────────────────────────────────────────
     if not can_accept_new_connection():

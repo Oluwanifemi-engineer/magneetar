@@ -1,0 +1,17 @@
+# Magneetar — magneetar.me
+# Marketing site for the Magneetar anti-theft platform.
+#
+# The dashboard lives behind authentication (app.magneetar.me) and the API
+# behind api.magneetar.me — neither should be indexed.
+
+User-agent: *
+Allow: /
+
+# API endpoints and the dashboard are not public marketing content
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /login
+Disallow: /signup
+
+# Never index the download binary — users reach it via the /download page
+Disallow: /apk/

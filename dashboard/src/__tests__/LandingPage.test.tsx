@@ -65,18 +65,34 @@ describe('Landing Page', () => {
     expect(screen.getByText('Protection + connection')).toBeInTheDocument();
     expect(screen.getByText('Built to grow beyond any campus')).toBeInTheDocument();
 
-    // Download APK + free-plan messaging (nav, hero, CTA)
+    // Download APK + free-plan messaging (nav, hero, CTA) — CTAs now route
+    // through the /download guide page, which carries the direct APK link.
     const apkLinks = screen.getAllByRole('link', { name: /download apk/i });
     expect(apkLinks.length).toBeGreaterThan(0);
     apkLinks.forEach((link) => {
-      expect(link).toHaveAttribute('href', 'https://api.magneetar.me/apk/download');
+      expect(link).toHaveAttribute('href', '/download');
     });
-    expect(screen.getAllByText('Free plan available · No credit card required').length).toBeGreaterThan(0);
+
+    // Honest-signal footnote must not leak placeholder copy.
+    expect(screen.queryByText(/real adoption numbers coming as users arrive/i)).not.toBeInTheDocument();
+
+    // Hero mockup is labelled as a demo — no fabricated live-device claims.
+    expect(screen.getByText('Pixel 8 · Demo device')).toBeInTheDocument();
+    expect(screen.getAllByText('Free for 1 device · No credit card required').length).toBeGreaterThan(0);
 
     // Security
     expect(screen.getByText('Unique per-device keys')).toBeInTheDocument();
     expect(screen.getByText('Zero plaintext secrets')).toBeInTheDocument();
     expect(screen.getByText('Token revocation')).toBeInTheDocument();
+
+    // Pricing — real tiers, Naira prices, honest device allowances.
+    expect(screen.getByText('PRICING')).toBeInTheDocument();
+    expect(screen.getByText('₦500')).toBeInTheDocument();
+    expect(screen.getByText('₦1,500')).toBeInTheDocument();
+    expect(screen.getByText('Up to 3 devices')).toBeInTheDocument();
+    expect(screen.getByText('Up to 10 devices')).toBeInTheDocument();
+    expect(screen.getByText('BEST VALUE')).toBeInTheDocument();
+    expect(screen.getByText('Custom')).toBeInTheDocument();
 
     // CTA + Footer
     expect(screen.getByText('I have an account')).toBeInTheDocument();

@@ -8,6 +8,7 @@ import { HowItWorks } from '@/components/landing/HowItWorks';
 import { Africa } from '@/components/landing/Africa';
 import { Provenance } from '@/components/landing/Provenance';
 import { Security } from '@/components/landing/Security';
+import { Pricing } from '@/components/landing/Pricing';
 import { CTA } from '@/components/landing/CTA';
 import { Footer } from '@/components/landing/Footer';
 
@@ -30,6 +31,7 @@ export default function HomePage() {
         <Africa />
         <Provenance />
         <Security />
+        <Pricing authed={authed} />
         <CTA authed={authed} />
       </main>
       <Footer />

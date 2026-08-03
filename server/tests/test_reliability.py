@@ -275,13 +275,18 @@ class TestWebSocketConnectionLimits:
         original_max = websocket_manager.MAX_DASHBOARD_CONNECTIONS
         websocket_manager.MAX_DASHBOARD_CONNECTIONS = 2
 
+        # Every connection must carry a valid token (F-01: anonymous
+        # connections are rejected outright).
+        token = create_token("dashboard:capacity", "dashboard")
+        url = f"{live_ws_server}?token={token}"
+
         ws2 = ws3 = None
         try:
-            ws1 = await websockets.connect(live_ws_server)
-            ws2 = await websockets.connect(live_ws_server)
+            ws1 = await websockets.connect(url)
+            ws2 = await websockets.connect(url)
             assert await _wait_until(lambda: len(active_dashboard_connections) == 2)
 
-            ws3 = await websockets.connect(live_ws_server)
+            ws3 = await websockets.connect(url)
 
             # ws1 (oldest) must be evicted with close code 1013
             assert await _wait_until(lambda: len(active_dashboard_connections) == 2)
@@ -302,14 +307,27 @@ class TestWebSocketConnectionLimits:
 
     @pytest.mark.slow
     @pytest.mark.asyncio
+    async def test_websocket_rejects_anonymous(self, live_ws_server):
+        """F-01 regression: a connection WITHOUT a token is rejected with 4408
+        and must never be registered as an admin that sees all devices."""
+        active_dashboard_connections.clear()
+
+        await _assert_closed_with_code(live_ws_server, 4408)
+        assert len(active_dashboard_connections) == 0
+
+    @pytest.mark.slow
+    @pytest.mark.asyncio
     async def test_websocket_accepts_valid_connection(self, live_ws_server):
-        """A single WebSocket connection should be accepted, registered, and answer pings.
+        """A single authenticated WebSocket connection should be accepted,
+        registered, and answer pings.
 
         Live integration test — real uvicorn server + websockets client.
         """
+        token = create_token("dashboard:valid-conn", "dashboard")
+        url = f"{live_ws_server}?token={token}"
         active_dashboard_connections.clear()
 
-        async with websockets.connect(live_ws_server) as ws:
+        async with websockets.connect(url) as ws:
             assert await _wait_until(lambda: len(active_dashboard_connections) == 1)
             await ws.send("ping")
             pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=2.0))

@@ -30,6 +30,9 @@ FROM nginx:alpine
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Copy security-headers snippet (included by nginx.conf in every location)
+COPY security-headers.conf /etc/nginx/conf.d/security-headers.conf
+
 # Copy built assets from builder
 COPY --from=builder /app/out /usr/share/nginx/html
 

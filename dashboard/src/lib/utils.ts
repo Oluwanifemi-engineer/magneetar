@@ -6,6 +6,11 @@ import { clsx, type ClassValue } from 'clsx';
 // server/main.py (same host the footer's API docs link to).
 export const APK_DOWNLOAD_URL = 'https://api.magneetar.me/apk/download';
 
+// SHA-256 checksum metadata for the exact APK /apk/download serves — see
+// /apk/checksum in server/main.py. Used by the /download page so users can
+// verify a sideloaded file byte-for-byte before installing.
+export const APK_CHECKSUM_URL = 'https://api.magneetar.me/apk/checksum';
+
 // ─── Math Helpers ───────────────────────────────────────────────────────────
 function toRad(deg: number): number {
   return deg * (Math.PI / 180);

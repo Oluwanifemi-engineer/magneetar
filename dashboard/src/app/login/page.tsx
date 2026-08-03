@@ -111,7 +111,11 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
-        // API key validation — the login endpoint is the authoritative check
+        // API key validation — the login endpoint is the authoritative check.
+        // Security: store the JWT the server returns, NOT the raw key. The
+        // master key is embedded in the public APK, so sending it raw on every
+        // request made anyone with an APK a platform admin (x-api-key fallback
+        // has been removed server-side).
         const res = await fetch(`${baseUrl}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -120,10 +124,13 @@ export default function LoginPage() {
         if (!res.ok) {
           throw new Error(extractErrorMessage(await res.json().catch(() => null), 'Server unreachable or invalid API key'));
         }
+        const data = await res.json();
+        const dashboardToken = data.token || '';
         sessionStorage.setItem('mt_server_url', baseUrl);
-        sessionStorage.setItem('mt_api_key', apiKey);
+        sessionStorage.setItem('mt_api_key', dashboardToken);
+        sessionStorage.setItem('mt_refresh_token', data.refresh_token || '');
         sessionStorage.setItem('mt_auth_mode', 'apikey');
-        setCredentials(baseUrl, apiKey);
+        setCredentials(baseUrl, dashboardToken);
         setConnected(true);
       }
 

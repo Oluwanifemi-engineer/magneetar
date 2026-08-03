@@ -124,7 +124,15 @@ def refresh_access_token(refresh_token: str) -> dict:
             conn.commit()
 
     subject = payload["sub"]
-    token_type = "device" if not subject.startswith("dashboard:") else "dashboard"
+    # Preserve the actor's token type so refreshed credentials still pass the
+    # type checks: user: and dashboard: subjects get "dashboard" (dashboard +
+    # WebSocket routes), anything else (device ids) gets "device". The old
+    # one-liner minted "device" tokens for user subjects, which would be
+    # rejected by /ws/dashboard's mandatory type check.
+    if subject.startswith("user:") or subject.startswith("dashboard:"):
+        token_type = "dashboard"
+    else:
+        token_type = "device"
 
     # Issue new pair
     access = create_token(subject, token_type, timedelta(hours=24))
@@ -185,41 +193,36 @@ def get_current_dashboard(credentials: Optional[HTTPAuthorizationCredentials] = 
 
 
 def verify_device_or_key(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security), x_api_key: Optional[str] = Header(None)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> str:
+    """Verify a device JWT token. Returns the device id.
+
+    Note: this helper is currently unused by routes (devices use
+    get_current_device_or_key), but it must not carry the old x-api-key
+    -> api_key_user admin fallback (F-02), so it is JWT-only.
     """
-    Verify either a device JWT token or the master API key.
-    Returns the device_id or "api_key_user" as the actor.
-    """
-    # Try JWT first
     if credentials:
         payload = decode_token(credentials.credentials)
         if payload.get("type") in ("device", "access"):
             return payload["sub"]
 
-    # Fall back to API key
-    if x_api_key and x_api_key == settings.API_KEY:
-        log_audit("api_key_auth", actor="api_key_user")
-        return "api_key_user"
-
     raise HTTPException(status_code=401, detail="Valid authorization required")
 
 
 def require_dashboard_auth(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security), x_api_key: Optional[str] = Header(None)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> str:
-    """
-    Dashboard endpoints accept either:
-    1. JWT token from dashboard login
-    2. Master API key (for API testing)
+    """Dashboard endpoints require a valid dashboard/access JWT.
+
+    Security (F-02): the master API key is embedded in every sideloaded APK,
+    so it is NOT a secret and must never grant dashboard access. Accepting it
+    via an x-api-key header made anyone with an APK the platform admin. Only
+    JWTs minted by /api/auth/login or a user login are accepted here.
     """
     if credentials:
         payload = decode_token(credentials.credentials)
         if payload.get("type") in ("dashboard", "access"):
             return payload["sub"]
-
-    if x_api_key and x_api_key == settings.API_KEY:
-        return "api_key_user"
 
     raise HTTPException(status_code=401, detail="Dashboard authorization required")
 
@@ -387,11 +390,15 @@ def user_id_from_subject(subject: str) -> Optional[str]:
 
 
 def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security), x_api_key: Optional[str] = Header(None)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> str:
     """
-    Extract user_id from JWT token or fall back to API key auth.
-    Returns user_id string (or 'api_key_user' for backward compat).
+    Extract user_id from a JWT token. Dashboard/operator JWTs (subject
+    'dashboard:<hash>') pass through so admin-only endpoints can detect them.
+
+    Security (F-02): the master API key is embedded in every APK and must not
+    grant user-route access. The x-api-key -> 'api_key_user' fallback has been
+    removed; only real JWTs are accepted.
     """
     if credentials:
         payload = decode_token(credentials.credentials)
@@ -401,8 +408,5 @@ def get_current_user(
             return user_id
         if payload.get("type") in ("dashboard", "access"):
             return sub
-
-    if x_api_key and x_api_key == settings.API_KEY:
-        return "api_key_user"
 
     raise HTTPException(status_code=401, detail="Authorization required")

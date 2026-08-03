@@ -143,12 +143,13 @@ describe('useWebSocket Hook', () => {
 
     // The hook has two useEffects that both call connect() on mount
     expect(mockWebSocket).toHaveBeenCalledTimes(2);
-    // Server URL gets converted from https → wss
-    const expectedWsUrl = 'wss://api.magneetar.me/ws/dashboard';
+    // Server URL gets converted from https → wss, and the JWT is passed as a
+    // ?token= query param (the server rejects anonymous connections).
+    const expectedWsUrl = `wss://api.magneetar.me/ws/dashboard?token=${encodeURIComponent(mockApiKey)}`;
     expect(mockWebSocket).toHaveBeenCalledWith(expectedWsUrl);
   });
 
-  it('sends auth message on open', () => {
+  it('sends no auth frame on open — auth is carried in the URL token', () => {
     mockIsConnected = true;
     renderHook(() => useWebSocket());
 
@@ -156,9 +157,9 @@ describe('useWebSocket Hook', () => {
       mockWsOnopen?.(new Event('open'));
     });
 
-    expect(mockWsSend).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'auth', token: mockApiKey })
-    );
+    // The old client sent an 'auth' message the server ignored. Now the JWT
+    // lives in the ?token= query param, so nothing must be sent on open.
+    expect(mockWsSend).not.toHaveBeenCalled();
   });
 
   it('handles location messages from WebSocket', () => {
@@ -297,22 +298,20 @@ describe('useWebSocket Hook', () => {
     jest.useRealTimers();
   });
 
-  it('send method is exposed and queues auth on open', () => {
+  it('send method is exposed and works after open', () => {
     mockIsConnected = true;
     const { result } = renderHook(() => useWebSocket());
 
     // send should be a function
     expect(typeof result.current.send).toBe('function');
 
-    // Trigger onopen to send auth
+    // Trigger onopen
     act(() => {
       mockWsOnopen?.(new Event('open'));
     });
 
-    // Auth message should have been sent
-    expect(mockWsSend).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'auth', token: mockApiKey })
-    );
+    // No auth frame is sent (auth is in the URL token)
+    expect(mockWsSend).not.toHaveBeenCalled();
 
     // Call send — it should not throw (wsRef state handled internally)
     expect(() => {
