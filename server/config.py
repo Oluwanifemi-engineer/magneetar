@@ -124,6 +124,11 @@ class Settings:
     # in the monitor so a bad config can never spam alerts.
     OFFLINE_ALERT_MINUTES: int = int(os.environ.get("MT_OFFLINE_ALERT_MINUTES", "30"))
 
+    # Stale-device archive threshold — a device silent longer than this many
+    # days is soft-archived (archived_at set). It stays in the DB with its
+    # history; any fresh telemetry clears the flag. Default 30 days.
+    ARCHIVE_AFTER_DAYS: int = int(os.environ.get("MT_ARCHIVE_AFTER_DAYS", "30"))
+
     # ── Server ─────────────────────────────────────────────────────────────
     HOST: str = os.environ.get("MT_HOST", "0.0.0.0")
     PORT: int = int(os.environ.get("MT_PORT", "8000"))

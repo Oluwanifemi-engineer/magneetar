@@ -231,6 +231,88 @@ else
 fi
 echo ""
 
+# ─── Test 9.5: Account Claim (multi-user re-link) ──────────────────────────────
+
+echo -e "${CYAN}9.5 Account Claim (device re-link on sign-in)${NC}"
+# The "sign in on the phone" path: a user registers an account, then claims
+# an unowned device (by its per-device key). The device must become visible
+# in THAT user's scoped dashboard view — the fix for "my phone is online but
+# my dashboard doesn't show it" (device was registered while unlinked).
+CLAIM_EMAIL="e2e-claim-$(date +%s)@test.local"
+CLAIM_USER=$(curl -s -w "\n%{http_code}" -X POST "$SERVER_URL/api/auth/register" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\": \"$CLAIM_EMAIL\", \"password\": \"Test-Pass-12345\"}")
+STATUS=$(echo "$CLAIM_USER" | tail -1)
+BODY=$(echo "$CLAIM_USER" | head -n -1)
+assert_status "POST /api/auth/register (claim user)" "200" "$STATUS"
+
+CLAIM_USER_TOKEN=$(echo "$BODY" | python3 -c "import sys, json; print(json.load(sys.stdin)['token'])" 2>/dev/null || echo "")
+CLAIM_DEVICE_ID="claim-$(date +%s)"
+CLAIM_DEVICE_KEY=$(python3 -c "import uuid; print(uuid.uuid4().hex)")
+# Register the device WITHOUT a user token (unlinked, as after a fresh install).
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$SERVER_URL/api/device/register" \
+    -H "Content-Type: application/json" \
+    -H "x-api-key: $API_KEY" \
+    -d "{\"device_id\": \"$CLAIM_DEVICE_ID\", \"fingerprint\": \"fp-claim-$(date +%s)\", \"model\": \"Claim Test\", \"device_key\": \"$CLAIM_DEVICE_KEY\"}")
+assert_status "POST /api/device/register (unlinked)" "200" "$STATUS"
+# Claim it with the user token + per-device key (what DeviceLinker does).
+CLAIM_RESP=$(curl -s -w "\n%{http_code}" -X POST "$SERVER_URL/api/device/claim" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $CLAIM_USER_TOKEN" \
+    -H "x-device-key: $CLAIM_DEVICE_KEY" \
+    -d "{\"device_id\": \"$CLAIM_DEVICE_ID\"}")
+STATUS=$(echo "$CLAIM_RESP" | tail -1)
+assert_status "POST /api/device/claim" "200" "$STATUS"
+# The claimed device must appear in the USER's scoped device list.
+USER_DEVICES=$(curl -s "$SERVER_URL/api/dashboard/devices" \
+    -H "Authorization: Bearer $CLAIM_USER_TOKEN")
+if echo "$USER_DEVICES" | python3 -c "import sys, json; sys.exit(0 if any(d['id']=='$CLAIM_DEVICE_ID' for d in json.load(sys.stdin)['devices']) else 1)" 2>/dev/null; then
+    echo -e "  ${GREEN}✓${NC} Claimed device visible to owning user's dashboard"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${NC} Claimed device NOT visible to owning user"
+    FAIL=$((FAIL + 1))
+fi
+TOTAL=$((TOTAL + 1))
+# A SECOND user must NOT see the claimed device (ownership boundary).
+OTHER_EMAIL="e2e-other-$(date +%s)@test.local"
+OTHER_TOKEN=$(curl -s -X POST "$SERVER_URL/api/auth/register" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\": \"$OTHER_EMAIL\", \"password\": \"Test-Pass-12345\"}" | python3 -c "import sys, json; print(json.load(sys.stdin)['token'])" 2>/dev/null || echo "")
+OTHER_DEVICES=$(curl -s "$SERVER_URL/api/dashboard/devices" \
+    -H "Authorization: Bearer $OTHER_TOKEN")
+if echo "$OTHER_DEVICES" | python3 -c "import sys, json; sys.exit(0 if not any(d['id']=='$CLAIM_DEVICE_ID' for d in json.load(sys.stdin)['devices']) else 1)" 2>/dev/null; then
+    echo -e "  ${GREEN}✓${NC} Claimed device hidden from other users"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${NC} Claimed device leaked to another account"
+    FAIL=$((FAIL + 1))
+fi
+TOTAL=$((TOTAL + 1))
+echo ""
+
+# ─── Test 9.6: Password-Gated Device Deletion (step-up) ───────────────────────
+
+echo -e "${CYAN}9.6 Password-Gated Device Deletion (step-up)${NC}"
+# Destructive delete must NOT work with a missing or wrong step-up password.
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$SERVER_URL/api/dashboard/devices/$CLAIM_DEVICE_ID" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $DASH_TOKEN" \
+    -d "{}")
+assert_status "DELETE without step-up password" "400" "$STATUS"
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$SERVER_URL/api/dashboard/devices/$CLAIM_DEVICE_ID" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $DASH_TOKEN" \
+    -d "{\"password\": \"wrong-password\"}")
+assert_status "DELETE with wrong step-up password" "401" "$STATUS"
+# Correct password (admin mode = master API key) → 200 and gone.
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$SERVER_URL/api/dashboard/devices/$CLAIM_DEVICE_ID" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $DASH_TOKEN" \
+    -d "{\"password\": \"$API_KEY\"}")
+assert_status "DELETE with correct step-up password" "200" "$STATUS"
+echo ""
+
 # ─── Test 10: Invalid Auth ───────────────────────────────────────────────────
 
 echo -e "${CYAN}10. Security${NC}"
@@ -241,6 +323,27 @@ assert_status "Reject invalid API key" "401" "$STATUS"
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SERVER_URL/api/dashboard/devices" \
     -H "Authorization: Bearer invalid-token")
 assert_status "Reject invalid JWT" "401" "$STATUS"
+echo ""
+
+# ─── Test 11: Self-Cleanup (no table pollution) ─────────────────────────────
+
+echo -e "${CYAN}11. Self-Cleanup${NC}"
+# Every row this suite created (main test device + claim device) is deleted
+# with the step-up password so repeated runs never pollute the devices table
+# (the old suite leaked a fresh test-device-* row on every run).
+for CLEANUP_DID in "$DEVICE_ID" "$CLAIM_DEVICE_ID"; do
+    if [[ -n "${CLEANUP_DID:-}" ]]; then
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$SERVER_URL/api/dashboard/devices/$CLEANUP_DID" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $DASH_TOKEN" \
+            -d "{\"password\": \"$API_KEY\"}")
+        if [[ "$STATUS" == "200" ]]; then
+            echo -e "  ${GREEN}✓${NC} Cleaned up $CLEANUP_DID"
+        else
+            echo -e "  ${YELLOW}⊘${NC} Cleanup of $CLEANUP_DID returned HTTP $STATUS (already gone?)"
+        fi
+    fi
+done
 echo ""
 
 # ─── Summary ──────────────────────────────────────────────────────────────────

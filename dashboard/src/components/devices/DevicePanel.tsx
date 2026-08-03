@@ -188,6 +188,14 @@ export function DevicePanel() {
       <div className="bg-mag-surface/40 border border-mag-border/40 rounded-xl p-4">
         <div className="flex items-center gap-2 mb-3">
           <div className="w-2.5 h-2.5 rounded-full bg-mag-primary shadow-[0_0_10px_rgba(233,30,140,0.5)] shrink-0" />
+          {device.archived_at && (
+            <span
+              className="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-amber-500/30 text-amber-400 bg-amber-500/10 shrink-0"
+              title={`Archived ${relativeTime(device.archived_at)} — the device has been silent for a long time. Delete it here (password-gated) or wait for it to report again.`}
+            >
+              Archived
+            </span>
+          )}
           {editingName ? (
             <form onSubmit={saveDeviceName} className="flex items-center gap-1.5 flex-1 min-w-0">
               <input

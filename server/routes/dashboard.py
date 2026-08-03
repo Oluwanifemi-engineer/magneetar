@@ -202,6 +202,7 @@ async def list_devices(
                 "capture_armed": (
                     bool(d["capture_armed"]) if "capture_armed" in d.keys() and d["capture_armed"] is not None else None
                 ),
+                "archived_at": d["archived_at"] if "archived_at" in d.keys() else None,
                 "alert_phone": d["alert_phone"] if "alert_phone" in d.keys() else None,
                 "alert_email": d["alert_email"] if "alert_email" in d.keys() else None,
                 # Per-device prefs stored as JSON TEXT — parse for the client;

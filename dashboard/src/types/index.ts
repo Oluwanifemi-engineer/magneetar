@@ -22,6 +22,11 @@ export interface Device {
   enabled_types: string[] | null;
   quiet_hours_start: number | null;
   quiet_hours_end: number | null;
+  // Set when a device has been silent beyond the archive threshold (30 days
+  // by default) — the server soft-archives it and any fresh telemetry clears
+  // the flag. Archived devices are dimmed in the sidebar with a review &
+  // purge flow (password-gated permanent deletion).
+  archived_at: string | null;
 }
 
 export interface DeviceWithStatus extends Device {

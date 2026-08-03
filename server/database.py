@@ -94,7 +94,12 @@ def init_db(db_path: str = None):
             alert_channels TEXT,
             enabled_types TEXT,
             quiet_hours_start INTEGER,
-            quiet_hours_end INTEGER
+            quiet_hours_end INTEGER,
+            -- Set when a device has been silent beyond the archive threshold
+            -- (MT_ARCHIVE_AFTER_DAYS, default 30). Soft flag only: the row and
+            -- its history are kept so an archived device can come back. Any
+            -- fresh telemetry/heartbeat clears it automatically.
+            archived_at TIMESTAMP
         );
     """
     )
@@ -138,6 +143,13 @@ def init_db(db_path: str = None):
     # the first report from an updated app (dashboard shows "Unknown").
     try:
         c.execute("ALTER TABLE devices ADD COLUMN capture_armed BOOLEAN")
+    except sqlite3.OperationalError:
+        pass  # Column already exists — fresh DB or already migrated
+
+    # Stale-device archive flag — set by the archive sweep when a device is
+    # silent beyond MT_ARCHIVE_AFTER_DAYS; cleared by any fresh telemetry.
+    try:
+        c.execute("ALTER TABLE devices ADD COLUMN archived_at TIMESTAMP")
     except sqlite3.OperationalError:
         pass  # Column already exists — fresh DB or already migrated
 
@@ -633,6 +645,7 @@ def ensure_initialized() -> bool:
         "enabled_types",
         "quiet_hours_start",
         "quiet_hours_end",
+        "archived_at",
     }
     try:
         with get_db_context() as conn:

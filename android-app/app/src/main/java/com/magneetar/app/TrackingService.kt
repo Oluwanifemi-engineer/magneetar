@@ -47,12 +47,57 @@ class TrackingService : Service() {
     @Volatile private var isRegistering = false
     private var pingSequence = 0
 
-    private val deviceId: String by lazy {
-        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
-        prefs.getString("device_id", null) ?: run {
-            val id = "mt-" + UUID.randomUUID().toString().take(8)
-            prefs.edit().putString("device_id", id).apply()
-            id
+    /**
+     * Stable per-physical-device id, read from prefs on EVERY access (so the
+     * server can hand back a canonical id that we then adopt — see
+     * tryRegisterOnce). Generated once from the ANDROID_ID fingerprint:
+     *
+     *   "mt-" + first 8 hex chars of SHA-256(ANDROID_ID)
+     *
+     * HONESTY NOTE (verified against developer.android.com, 2026): since
+     * Android 8.0 (API 26) ANDROID_ID is scoped per (app-signing key, user,
+     * device) — it is STABLE across app UPDATES but Google classifies it as
+     * an install-reset identifier, i.e. it MAY change on uninstall/reinstall
+     * (and changes on factory reset or signing-key change). It is therefore a
+     * strong first-choice ID, NOT a guarantee.
+     *
+     * The design does not depend on that guarantee:
+     *   1. Within an install/update lifetime the id is stable, so telemetry
+     *      never splits across rows.
+     *   2. On reinstall the app sends the raw ANDROID_ID as `fingerprint`;
+     *      the server runs fingerprint-based dedup for rows created by older
+     *      builds and returns the canonical device_id, which we persist here.
+     *   3. The durable fix for reinstall duplicates is ACCOUNT LINKING: the
+     *      signed-in user claims the live device (DeviceLinker + register
+     *      with the user token), and stale duplicate rows are pruned via the
+     *      dashboard's password-gated delete. Those rows are also soft-
+     *      archived by the server after MT_ARCHIVE_AFTER_DAYS of silence.
+     */
+    private val deviceId: String
+        get() {
+            val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+            return prefs.getString("device_id", null) ?: run {
+                val id = "mt-" + stableDeviceIdSuffix()
+                prefs.edit().putString("device_id", id).apply()
+                id
+            }
+        }
+
+    private fun stableDeviceIdSuffix(): String {
+        return try {
+            val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: ""
+            if (androidId.isNotEmpty()) {
+                val digest = java.security.MessageDigest.getInstance("SHA-256")
+                val hex = digest.digest(androidId.toByteArray())
+                    .joinToString("") { "%02x".format(it) }
+                hex.take(8)
+            } else {
+                // ANDROID_ID unavailable (very unusual) — fall back to a random
+                // suffix rather than crashing or colliding with other devices.
+                UUID.randomUUID().toString().take(8)
+            }
+        } catch (e: Exception) {
+            UUID.randomUUID().toString().take(8)
         }
     }
 
@@ -227,6 +272,23 @@ class TrackingService : Service() {
                         putString("refresh_token", refreshToken)
                         apply()
                     }
+
+                    // Adopt the canonical device_id when the server re-pointed
+                    // us at a pre-existing row (fingerprint dedup for rows
+                    // created by older random-UUID builds). deviceId re-reads
+                    // prefs on every access, so all subsequent telemetry,
+                    // heartbeats and command polls automatically use the
+                    // canonical id — no stale duplicate keeps reporting.
+                    val canonicalId = json.optString("device_id").takeIf { it.isNotEmpty() }
+                    if (canonicalId != null && canonicalId != deviceId) {
+                        getSharedPreferences("mt", Context.MODE_PRIVATE).edit()
+                            .putString("device_id", canonicalId).apply()
+                        android.util.Log.d(
+                            "TrackingService",
+                            "Adopted canonical device_id $canonicalId (was $deviceId)"
+                        )
+                    }
+
                     // Best-effort: check the server's min Android SDK / latest
                     // app version. Never blocks tracking — warnings only.
                     scope.launch { checkServerCompatibility() }

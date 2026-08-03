@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from alerts import alert_engine
+from archive_monitor import unarchive_device
 from auth import (
     check_command_poll_rate_limit,
     check_heartbeat_rate_limit,
@@ -127,7 +128,47 @@ async def register_device(
     if owner_id and not _user_exists(db, owner_id):
         owner_id = None
 
-    existing = db.execute("SELECT id, owner_id FROM devices WHERE id=?", (reg.device_id,)).fetchone()
+    existing = db.execute(
+        "SELECT id, owner_id FROM devices WHERE id=?", (reg.device_id,)
+    ).fetchone()  # ── Fingerprint dedup (reinstall recovery) ────────────────────────────
+    # A reinstall wipes the app's SharedPreferences, so the new install
+    # generates a FRESH device_id even though it is the SAME physical phone
+    # (its ANDROID_ID fingerprint is stable across reinstalls). Without this
+    # step, every reinstall leaves a stale duplicate row behind. When the
+    # requested id is new but a device with the same fingerprint already
+    # exists and is unowned (or its owner account is gone), we adopt the
+    # existing row as canonical instead of creating a duplicate — the
+    # register response returns the canonical id and the app persists it.
+    #
+    # Staleness guard: adoption ONLY happens when the existing row's last
+    # report is older than 7 days (or it never reported). That is the real
+    # signature of an uninstalled app (the old install went silent when it
+    # was removed). A CONCURRENTLY-registered device that shares a
+    # fingerprint must never be hijacked — the Android app has a stable
+    # device id of its own, but emulators, test fixtures, and dual-app
+    # scenarios can legitimately share a fingerprint, and those rows report
+    # recently.
+    #
+    # Security: adoption is only for UNOWNED/orphaned rows. A row actively
+    # owned by a real account is never re-pointed by an anonymous reinstall
+    # (that would let a thief who reinstalled the app claim the victim's
+    # device by guessing the fingerprint) — those duplicates are resolved by
+    # the owner via the dashboard's password-gated delete.
+    canonical_id = reg.device_id
+    if existing is None and reg.fingerprint:
+        canonical = db.execute(
+            """SELECT id, owner_id FROM devices
+               WHERE device_fingerprint=? AND id != ?
+                 AND (last_seen IS NULL
+                      OR datetime(last_seen) < datetime('now', '-7 days'))
+               ORDER BY datetime(COALESCE(last_seen, registered)) DESC LIMIT 1""",
+            (reg.fingerprint, reg.device_id),
+        ).fetchone()
+        if canonical:
+            canonical_owner = canonical["owner_id"]
+            if canonical_owner is None or not _user_exists(db, canonical_owner):
+                existing = canonical
+                canonical_id = canonical["id"]
 
     # Enforce the per-user device limit when this registration links the device
     # to an account (new links only — re-registering an already-owned device is fine).
@@ -142,33 +183,59 @@ async def register_device(
             _enforce_device_limit(db, owner_id)
 
     if existing:
-        db.execute(
-            """UPDATE devices
-               SET device_fingerprint=?, model=?, os_version=?,
-                   app_version=?, imei_hash=?, sim_serial_hash=?,
-                   device_key_hash=COALESCE(?, device_key_hash),
-                   owner_id=COALESCE(?, owner_id), last_seen=?
-               WHERE id=?""",
-            (
-                reg.fingerprint,
-                reg.model,
-                reg.os_version,
-                reg.app_version,
-                reg.imei_hash,
-                reg.sim_serial_hash,
-                device_key_hash,
-                owner_id,
-                now,
-                reg.device_id,
-            ),
-        )
+        # On the ADOPTION path (fresh reinstall re-pointed at the pre-existing
+        # row) the app generated a brand-new device_key, so the key hash MUST
+        # be replaced — keeping the old one would lock the reinstalled app out
+        # of its own device. On a plain re-register of the same id, COALESCE
+        # keeps an existing key when the payload omits one.
+        if canonical_id != reg.device_id and device_key_hash is not None:
+            db.execute(
+                """UPDATE devices
+                   SET device_fingerprint=?, model=?, os_version=?,
+                       app_version=?, imei_hash=?, sim_serial_hash=?,
+                       device_key_hash=?, owner_id=COALESCE(?, owner_id), last_seen=?
+                   WHERE id=?""",
+                (
+                    reg.fingerprint,
+                    reg.model,
+                    reg.os_version,
+                    reg.app_version,
+                    reg.imei_hash,
+                    reg.sim_serial_hash,
+                    device_key_hash,
+                    owner_id,
+                    now,
+                    canonical_id,
+                ),
+            )
+        else:
+            db.execute(
+                """UPDATE devices
+                   SET device_fingerprint=?, model=?, os_version=?,
+                       app_version=?, imei_hash=?, sim_serial_hash=?,
+                       device_key_hash=COALESCE(?, device_key_hash),
+                       owner_id=COALESCE(?, owner_id), last_seen=?
+                   WHERE id=?""",
+                (
+                    reg.fingerprint,
+                    reg.model,
+                    reg.os_version,
+                    reg.app_version,
+                    reg.imei_hash,
+                    reg.sim_serial_hash,
+                    device_key_hash,
+                    owner_id,
+                    now,
+                    canonical_id,
+                ),
+            )
     else:
         db.execute(
             """INSERT INTO devices (id, device_fingerprint, model, os_version,
                app_version, imei_hash, sim_serial_hash, device_key_hash, owner_id, last_seen, registered)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                reg.device_id,
+                canonical_id,
                 reg.fingerprint,
                 reg.model,
                 reg.os_version,
@@ -182,20 +249,23 @@ async def register_device(
             ),
         )
 
+    # Fresh registration un-archives the device (it is alive and reporting).
+    unarchive_device(db, canonical_id)
     db.commit()
 
     # Sync the WebSocket owner cache with the ACTUAL owner after the write.
     # COALESCE keeps an existing owner on re-register, so re-read the row to
     # avoid flipping the cache to the registering user when ownership didn't
     # change (which would leak another user's broadcasts to the wrong client).
-    final_owner = db.execute("SELECT owner_id FROM devices WHERE id=?", (reg.device_id,)).fetchone()
-    update_device_owner(reg.device_id, final_owner["owner_id"] if final_owner else None)
+    final_owner = db.execute("SELECT owner_id FROM devices WHERE id=?", (canonical_id,)).fetchone()
+    update_device_owner(canonical_id, final_owner["owner_id"] if final_owner else None)
 
-    tokens = create_device_tokens(reg.device_id)
-    log_audit("device_registered", actor=reg.device_id, details=reg.model)
+    tokens = create_device_tokens(canonical_id)
+    log_audit("device_registered", actor=canonical_id, details=reg.model)
 
     return {
         **tokens,
+        "device_id": canonical_id,
         "has_device_key": device_key_hash is not None,
         "owner_id": final_owner["owner_id"] if final_owner else None,
         "server_time": now,
@@ -355,6 +425,8 @@ async def post_location(
         "UPDATE devices SET last_seen=?, sentinel_score=?, capture_armed=COALESCE(?, capture_armed) WHERE id=?",
         (now, score, report.capture_armed, device_id),
     )
+    # Fresh telemetry un-archives a device that came back online.
+    unarchive_device(db, device_id)
     db.commit()
 
     if score >= settings.THEFT_SCORE_THRESHOLD:
@@ -602,6 +674,9 @@ async def post_heartbeat(
         (now, hb.app_version, hb.capture_armed, device_id),
     )
 
+    # Fresh heartbeat un-archives a device that came back online.
+    unarchive_device(db, device_id)
+
     # ── Commit BEFORE any nested writes ──────────────────────────────────────
     # auto_activate_theft_mode() and log_audit() open their OWN sqlite
     # connection. Calling them while this request's write transaction is still
@@ -711,6 +786,7 @@ async def upload_offline_queue(
         "UPDATE devices SET last_seen=?, capture_armed=COALESCE(?, capture_armed) WHERE id=?",
         (datetime.now(timezone.utc).isoformat(), last_armed, device_id),
     )
+    unarchive_device(db, device_id)
     db.commit()
 
     return {"status": "ok", "processed": processed}

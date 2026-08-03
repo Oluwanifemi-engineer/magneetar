@@ -13,6 +13,7 @@ import traceback as tb
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
+from archive_monitor import archive_stale_devices_loop
 from auth import decode_token, user_id_from_subject
 from config import settings
 from database import check_rate_limit, ensure_initialized, log_error
@@ -72,7 +73,8 @@ try:
             release=f"magneetar@{APP_VERSION}",
         )
         logger.info(
-            "Sentry initialized for error tracking", extra={"extra_data": {"environment": settings.ENVIRONMENT}}
+            "Sentry initialized for error tracking",
+            extra={"extra_data": {"environment": settings.ENVIRONMENT}},
         )
 except ImportError:
     pass
@@ -153,7 +155,10 @@ async def lifespan(app: FastAPI):
                 result = await asyncio.to_thread(purge_old_data, settings.DATA_RETENTION_DAYS)
                 if result:
                     total_purged = sum(result.values())
-                    logger.info(f"Data retention cleanup: {total_purged} records purged", extra={"extra_data": result})
+                    logger.info(
+                        f"Data retention cleanup: {total_purged} records purged",
+                        extra={"extra_data": result},
+                    )
         except Exception as e:
             logger.warning(f"Data retention cleanup skipped: {e}")
 
@@ -167,6 +172,12 @@ async def lifespan(app: FastAPI):
     # restarts: dedup is persisted in the alerts table (see offline_monitor.py).
     offline_task = asyncio.create_task(check_offline_devices_loop(interval_seconds=60))
 
+    # ── Stale-Device Archive (every 6h) ───────────────────────────────
+    # Soft-archives devices silent beyond MT_ARCHIVE_AFTER_DAYS (default 30)
+    # so long-dead rows stop cluttering the dashboard. Any fresh telemetry
+    # clears the flag automatically (see archive_monitor.py).
+    archive_task = asyncio.create_task(archive_stale_devices_loop(interval_seconds=6 * 3600))
+
     # ── Scheduled Rate Limit Cleanup (every 6 hours) ────────────────────
     async def periodic_rate_limit_cleanup():
         """Background task to clean up stale rate limit entries."""
@@ -175,7 +186,10 @@ async def lifespan(app: FastAPI):
                 await asyncio.sleep(6 * 3600)  # 6 hours
                 use_pg = False
                 try:
-                    from database_postgres import get_postgres_db, is_postgres_configured
+                    from database_postgres import (
+                        get_postgres_db,
+                        is_postgres_configured,
+                    )
 
                     if is_postgres_configured():
                         pg = await get_postgres_db()
@@ -204,6 +218,7 @@ async def lifespan(app: FastAPI):
     cleanup_task.cancel()
     heartbeat_task.cancel()
     offline_task.cancel()
+    archive_task.cancel()
 
     logger.info("Magneetar server shutting down")
 
@@ -265,7 +280,13 @@ if settings.ENVIRONMENT == "production":
         ],
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Device-Key", "X-Request-ID"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-API-Key",
+            "X-Device-Key",
+            "X-Request-ID",
+        ],
         expose_headers=["X-Request-ID"],
         max_age=3600,
     )
@@ -368,7 +389,10 @@ async def timeout_middleware(request: Request, call_next):
         )
         return JSONResponse(
             status_code=504,
-            content={"detail": "Request timed out", "timeout_seconds": settings.REQUEST_TIMEOUT_SECONDS},
+            content={
+                "detail": "Request timed out",
+                "timeout_seconds": settings.REQUEST_TIMEOUT_SECONDS,
+            },
         )
 
 
@@ -573,7 +597,10 @@ async def download_apk(expires: int = 0, sig: str = ""):
     3. the newest magneetar-*.apk on disk     (last resort)
     """
     if not _verify_apk_ticket(expires, sig):
-        raise HTTPException(status_code=403, detail="Missing or expired download ticket — request one from /apk/ticket")
+        raise HTTPException(
+            status_code=403,
+            detail="Missing or expired download ticket — request one from /apk/ticket",
+        )
     path = _resolve_apk()
     if path is None:
         raise HTTPException(status_code=404, detail="APK not found on server")

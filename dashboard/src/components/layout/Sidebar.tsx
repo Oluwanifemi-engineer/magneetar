@@ -28,6 +28,11 @@ export function Sidebar() {
 
   const onlineCount = devices.filter(d => isOnline(d.last_seen)).length;
   const offlineCount = devices.filter(d => !isOnline(d.last_seen)).length;
+  // Archived = soft-flagged by the server after ~30 days of silence. Kept at
+  // the bottom of the list and dimmed so long-dead rows stop dominating the
+  // sidebar, while remaining visible for review & purge (password-gated).
+  const archivedDevices = devices.filter(d => !!d.archived_at);
+  const activeDevices = devices.filter(d => !d.archived_at);
 
   const fetchStats = useCallback(async () => {
     if (!isConnected) return;
@@ -122,8 +127,11 @@ export function Sidebar() {
               <span className="text-[10px] font-mono text-mag-text-dim/60 uppercase tracking-[0.2em] font-bold">
                 Devices
               </span>
-              <span className="ml-auto text-[10px] font-mono text-mag-text-dim/40 font-bold tabular-nums">
-                {devices.length}
+              <span className="ml-auto flex items-center gap-2 text-[10px] font-mono font-bold tabular-nums">
+                {archivedDevices.length > 0 && (
+                  <span className="text-amber-400/70">{archivedDevices.length} archived</span>
+                )}
+                <span className="text-mag-text-dim/40">{activeDevices.length}</span>
               </span>
             </div>
           </div>
@@ -141,7 +149,8 @@ export function Sidebar() {
                 </div>
               </div>
             ) : (
-              devices.map((device, idx) => {
+              [...activeDevices, ...archivedDevices].map((device, idx) => {
+                const archived = !!device.archived_at;
                 const online = isOnline(device.last_seen);
                 const signal = getSignalLevel(device.last_seen);
                 const scoreColor =
@@ -161,7 +170,8 @@ export function Sidebar() {
                     className={cn(
                       'w-full text-left px-4 py-2.5 border-b border-mag-border/15 transition-all duration-150',
                       'hover:bg-mag-surface/15 group',
-                      selectedDeviceId === device.id && 'bg-mag-primary/[0.02] border-l-[2px] border-l-mag-primary/40'
+                      selectedDeviceId === device.id && 'bg-mag-primary/[0.02] border-l-[2px] border-l-mag-primary/40',
+                      archived && 'opacity-45 hover:opacity-70'
                     )}
                     style={{ animationDelay: `${idx * 30}ms` }}
                   >
@@ -169,6 +179,11 @@ export function Sidebar() {
                       <span className="text-sm font-bold text-mag-text truncate group-hover:text-mag-text-bright transition-colors max-w-[65%]">
                         {deviceDisplayName(device)}
                       </span>
+                      {archived && (
+                        <span className="text-[8px] font-mono font-bold uppercase tracking-wider px-1 py-0.5 rounded border border-amber-500/25 text-amber-400 bg-amber-500/10 shrink-0">
+                          Archived
+                        </span>
+                      )}
                       <StatusIndicator
                         isOnline={online}
                         signal={signal}
