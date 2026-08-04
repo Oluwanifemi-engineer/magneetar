@@ -103,8 +103,18 @@ class Settings:
 
     # ── Rate Limiting ─────────────────────────────────────────────────────
     RATE_LOCATION_INTERVAL_MS: int = 2000  # 2 seconds between location reports
-    RATE_LOGIN_ATTEMPTS: int = 5
-    RATE_LOGIN_WINDOW_MINUTES: int = 10
+    # Login throttling is per-IP, but many Nigerian ISPs use CGNAT where a
+    # whole neighborhood shares one public IP. A tight per-IP limit therefore
+    # locks out legitimate users (a typo + a shared office/compound IP = 10
+    # minutes of total lockout). 10 attempts / 15 min still stops credential
+    # stuffing while tolerating shared addresses; the per-account timing-safe
+    # verify is the real brute-force defense.
+    RATE_LOGIN_ATTEMPTS: int = int(os.environ.get("MT_RATE_LOGIN_ATTEMPTS", "10"))
+    RATE_LOGIN_WINDOW_MINUTES: int = int(os.environ.get("MT_RATE_LOGIN_WINDOW_MINUTES", "15"))
+    # Account registration per IP — same CGNAT reasoning: a family/business
+    # onboarding several phones behind one address must not be blocked.
+    RATE_REGISTER_ATTEMPTS: int = int(os.environ.get("MT_RATE_REGISTER_ATTEMPTS", "10"))
+    RATE_REGISTER_WINDOW_MINUTES: int = int(os.environ.get("MT_RATE_REGISTER_WINDOW_MINUTES", "10"))
     RATE_COMMAND_PER_MINUTE: int = 20  # Max commands per minute per dashboard user
     RATE_MEDIA_PER_MINUTE: int = 10  # Max media uploads per minute per device
     RATE_HEARTBEAT_PER_MINUTE: int = 10  # Max heartbeats per minute per device

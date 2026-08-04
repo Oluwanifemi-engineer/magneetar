@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { LandingNav } from '@/components/landing/LandingNav';
 import { Footer } from '@/components/landing/Footer';
@@ -105,6 +105,7 @@ export default function DownloadPage() {
   const [copied, setCopied] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [ticketError, setTicketError] = useState(false);
+  const [minting, setMinting] = useState(false);
 
   useEffect(() => {
     const serverUrl = sessionStorage.getItem('mt_server_url');
@@ -114,27 +115,37 @@ export default function DownloadPage() {
 
   // The download endpoint is gated behind a short-lived signed ticket
   // (rate-limited per IP) so the APK can't be hotlinked or scraped in bulk.
-  // Mint the ticket on mount, then hand the signed URL to the download button.
-  useEffect(() => {
-    let cancelled = false;
+  // Mint a fresh signed ticket; used on mount (pre-warm the button) and on
+  // every click (a ticket only lives 10 minutes — a user who waits on the
+  // page past the TTL must get a working link, never a 403).
+  //
+  // The fetch aborts after 8s so a hung network can never leave the button
+  // stuck on "Preparing download…" — a stalled mint fails fast and surfaces
+  // the retry hint instead (regression: the old click path had no timeout).
+  const mintTicket = useCallback(async (): Promise<string | null> => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await fetch(APK_TICKET_URL, { signal: controller.signal });
+      if (!res.ok) return null;
+      const data: TicketInfo = await res.json();
+      return new URL(data.url, APK_DOWNLOAD_URL).toString();
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }, []);
 
-    fetch(APK_TICKET_URL, { signal: controller.signal })
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
-      .then((data: TicketInfo) => {
-        if (!cancelled) setDownloadUrl(new URL(data.url, APK_DOWNLOAD_URL).toString());
-      })
-      .catch(() => {
-        if (!cancelled) setTicketError(true);
-      })
-      .finally(() => clearTimeout(timer));
+  useEffect(() => {
+    let cancelled = false;
+    mintTicket().then((url) => {
+      if (!cancelled && url) setDownloadUrl(url);
+    });
     return () => {
       cancelled = true;
-      controller.abort();
-      clearTimeout(timer);
     };
-  }, []);
+  }, [mintTicket]);
 
   useEffect(() => {
     let cancelled = false;
@@ -219,27 +230,31 @@ export default function DownloadPage() {
           </div>
 
           <a
-            href={downloadUrl ?? APK_DOWNLOAD_URL}
+            href={downloadUrl ?? '#'}
+            aria-disabled={minting || !downloadUrl}
             onClick={(e) => {
-              // Fresh ticket on every click: a 10-minute URL is fine, but a
-              // user who waits on the page past its TTL should still get a
-              // working link rather than a 403.
-              if (downloadUrl) {
-                e.preventDefault();
-                fetch(APK_TICKET_URL)
-                  .then((res) => (res.ok ? res.json() : null))
-                  .then((data: TicketInfo | null) => {
-                    if (data) window.location.href = new URL(data.url, APK_DOWNLOAD_URL).toString();
-                  })
-                  .catch(() => {
-                    window.location.href = downloadUrl;
-                  });
-              }
+              // NEVER fall back to the bare /apk/download URL: that endpoint
+              // requires a signed ticket and returns 403 without one (the bug
+              // that made this button error for users). Every click mints a
+              // FRESH ticket (TTL is 10 minutes) and navigates only on
+              // success; a failure shows a retry hint instead of a dead end.
+              e.preventDefault();
+              if (minting) return;
+              setMinting(true);
+              setTicketError(false);
+              mintTicket().then((url) => {
+                if (url) {
+                  setDownloadUrl(url);
+                  window.location.href = url;
+                } else {
+                  setTicketError(true);
+                }
+              }).finally(() => setMinting(false));
             }}
-            className="group mt-7 inline-flex items-center justify-center gap-3 w-full sm:w-auto px-8 py-4 rounded-xl text-[13px] font-bold uppercase tracking-wider bg-gradient-to-r from-[#E91E8C] to-[#06B6D4] text-white shadow-xl shadow-[#E91E8C]/25 hover:shadow-[#E91E8C]/40 hover:brightness-110 transition-all duration-200 active:scale-[0.98]"
+            className={"group mt-7 inline-flex items-center justify-center gap-3 w-full sm:w-auto px-8 py-4 rounded-xl text-[13px] font-bold uppercase tracking-wider bg-gradient-to-r from-[#E91E8C] to-[#06B6D4] text-white shadow-xl shadow-[#E91E8C]/25 hover:shadow-[#E91E8C]/40 hover:brightness-110 transition-all duration-200 active:scale-[0.98] " + (minting ? 'opacity-70 cursor-wait' : '')}
           >
-            <Download size={17} className="transition-transform group-hover:translate-y-0.5" />
-            Download the APK (direct)
+            <Download size={17} className={"transition-transform group-hover:translate-y-0.5 " + (minting ? 'animate-bounce' : '')} />
+            {minting ? 'Preparing download…' : 'Download the APK (direct)'}
             <ExternalLink size={14} className="text-white/60" />
           </a>
 
@@ -247,9 +262,8 @@ export default function DownloadPage() {
             <div className="mt-4 flex items-start gap-2">
               <AlertTriangle size={15} className="text-amber-400 mt-0.5 shrink-0" />
               <p className="text-[12.5px] text-white/45 leading-relaxed">
-                Couldn&apos;t fetch a fresh download ticket — the server may be mid-deploy or rate-limiting
-                this network. The link above may still work if a cached ticket is valid; otherwise try again
-                in a few minutes.
+                Couldn&apos;t fetch a download ticket just now — the server may be mid-deploy or rate-limiting
+                this network. Tap the button again in a moment to retry.
               </p>
             </div>
           )}

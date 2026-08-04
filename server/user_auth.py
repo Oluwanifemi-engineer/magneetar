@@ -14,10 +14,17 @@ from auth import (
     refresh_access_token,
     verify_password,
 )
-from config import plan_device_limit
+from config import plan_device_limit, settings
 from database import check_rate_limit, delete_device_cascade, get_db_context, log_audit
 from fastapi import APIRouter, Depends, HTTPException, Request
-from models import PlanUpdateRequest, RefreshRequest, TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
+from models import (
+    PlanUpdateRequest,
+    RefreshRequest,
+    TokenResponse,
+    UserLoginRequest,
+    UserRegisterRequest,
+    UserResponse,
+)
 
 router = APIRouter()
 
@@ -25,14 +32,23 @@ router = APIRouter()
 @router.post("/api/auth/register", response_model=TokenResponse)
 async def register_user(req: UserRegisterRequest, request: Request):
     """Register a new user account."""
-    # Rate limit: 3 registrations per 10 minutes per IP
+    # Rate limit per IP (default 10 / 10 min, MT_RATE_REGISTER_* overrides).
+    # Generous on purpose: Nigerian ISPs run CGNAT, so a family or small
+    # business onboarding several phones behind ONE public IP must not be
+    # blocked. Credential-stuffing on registration is already throttled by
+    # the per-account email-uniqueness check + password hashing cost.
     forwarded = request.headers.get("X-Forwarded-For", "")
     cf_ip = request.headers.get("CF-Connecting-IP", "")
     client_ip = cf_ip or (
         forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown")
     )
 
-    if not check_rate_limit(f"register:{client_ip}", "register", 3, 10):
+    if not check_rate_limit(
+        f"register:{client_ip}",
+        "register",
+        settings.RATE_REGISTER_ATTEMPTS,
+        settings.RATE_REGISTER_WINDOW_MINUTES,
+    ):
         raise HTTPException(status_code=429, detail="Too many registration attempts")
 
     # Check if email already exists
@@ -75,11 +91,12 @@ async def login_user(req: UserLoginRequest, request: Request):
     with get_db_context() as db:
         user = db.execute("SELECT id, password_hash, is_active FROM users WHERE email=?", (req.email,)).fetchone()
 
-        # Always run verify_password to prevent timing attacks
+        # Always run verify_password to prevent timing attacks (a fixed
+        # well-formed pbkdf2 hash burns the same CPU as a real one, so
+        # unknown emails are indistinguishable from wrong passwords by
+        # response time).
         if not user:
-            dummy_hash = (
-                "00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000"
-            )
+            dummy_hash = "pbkdf2:" + "0" * 32 + ":" + "0" * 64
             verify_password(req.password, dummy_hash)
             log_audit("login_failed", ip_address=client_ip, details=req.email)
             raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -92,7 +109,10 @@ async def login_user(req: UserLoginRequest, request: Request):
             raise HTTPException(status_code=403, detail="Account is deactivated")
 
         # Update last login
-        db.execute("UPDATE users SET last_login=? WHERE id=?", (datetime.now(timezone.utc).isoformat(), user["id"]))
+        db.execute(
+            "UPDATE users SET last_login=? WHERE id=?",
+            (datetime.now(timezone.utc).isoformat(), user["id"]),
+        )
         db.commit()
 
         log_audit("user_login", actor=user["id"], ip_address=client_ip)
@@ -120,7 +140,8 @@ async def get_me(user_id: str = Depends(get_current_user)):
 
     with get_db_context() as db:
         user = db.execute(
-            "SELECT id, email, display_name, tier, is_active, created_at FROM users WHERE id=?", (user_id,)
+            "SELECT id, email, display_name, tier, is_active, created_at FROM users WHERE id=?",
+            (user_id,),
         ).fetchone()
 
         if not user:
@@ -212,4 +233,8 @@ async def delete_user_account(user_id: str = Depends(get_current_user)):
             details=f"Account permanently deleted with {len(device_ids)} device(s)",
         )
 
-    return {"status": "ok", "message": "Account permanently deleted", "devices_removed": len(device_ids)}
+    return {
+        "status": "ok",
+        "message": "Account permanently deleted",
+        "devices_removed": len(device_ids),
+    }

@@ -3,6 +3,10 @@ name: Build Magneetar APK
 on:
   push:
     branches: [ main ]
+  # Release events also build the signed APK (the old ci.yml build-android
+  # job that did this with an UNSIGNED debug APK was removed — F-05).
+  release:
+    types: [ published ]
   workflow_dispatch:
 
 env:

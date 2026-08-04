@@ -14,7 +14,6 @@ jest.mock('next/link', () => {
 });
 
 import DownloadPage from '@/app/download/page';
-import { APK_DOWNLOAD_URL } from '@/lib/utils';
 
 const CHECKSUM = {
   filename: 'magneetar-v1.3.0-release.apk',
@@ -45,7 +44,7 @@ describe('Download Page', () => {
     global.fetch = fetchMock();
   });
 
-  it('renders the install guide and the direct APK link', () => {
+  it('renders the install guide and the direct APK link', async () => {
     render(<DownloadPage />);
 
     expect(screen.getByText(/Put Magneetar/i)).toBeInTheDocument();
@@ -57,10 +56,13 @@ describe('Download Page', () => {
     expect(screen.getByText('OPPO / Realme')).toBeInTheDocument();
     expect(screen.getByText('Vivo / iQOO')).toBeInTheDocument();
 
-    // The primary CTA points at the hosted APK (absolute URL) — either the
-    // pre-ticket fallback or the ticket-signed URL.
+    // The primary CTA must never be the bare /apk/download URL (it 403s
+    // without a signed ticket — the bug this page used to ship). It resolves
+    // to the ticket-signed URL once minted, or stays '#' while pending.
     const downloadLink = screen.getByRole('link', { name: /download the apk \(direct\)/i });
-    expect(downloadLink).toHaveAttribute('href', expect.stringContaining('api.magneetar.me/apk'));
+    await waitFor(() => {
+      expect(downloadLink).toHaveAttribute('href', expect.stringContaining('api.magneetar.me/apk/download?expires='));
+    });
   });
 
   it('mints a download ticket and shows the live checksum', async () => {
@@ -73,8 +75,8 @@ describe('Download Page', () => {
     expect(screen.getByText(`v${CHECKSUM.version}`)).toBeInTheDocument();
     expect(screen.getByText('20.0 MB')).toBeInTheDocument();
 
-    // Two API calls: the download ticket (rate-limited) and the checksum,
-    // both with an abort signal (8s timeout).
+    // Two API calls: the download ticket (pre-warm) and the checksum — both
+    // carry an 8s abort signal so a hung network can't freeze the button.
     expect(global.fetch).toHaveBeenCalledTimes(2);
     expect(global.fetch).toHaveBeenCalledWith(
       'https://api.magneetar.me/apk/ticket',
@@ -86,17 +88,22 @@ describe('Download Page', () => {
     );
   });
 
-  it('falls back gracefully when the APIs are unreachable', async () => {
+  it('shows a retry hint instead of a dead 403 link when the APIs are unreachable', async () => {
     global.fetch = jest.fn(() => Promise.reject(new Error('offline'))) as unknown as typeof fetch;
 
     render(<DownloadPage />);
 
+    // Checksum error surfaces on mount (its own fetch failed).
     expect(await screen.findByText(/checksum unavailable right now/i)).toBeInTheDocument();
-    expect(await screen.findByText(/couldn.t fetch a fresh download ticket/i)).toBeInTheDocument();
-    // The direct download must still be offered even without ticket/checksum.
-    expect(screen.getByRole('link', { name: /download the apk \(direct\)/i })).toHaveAttribute(
-      'href',
-      APK_DOWNLOAD_URL
-    );
+    // Regression (the download-button bug): with no ticket, the button must
+    // NOT point at the bare /apk/download URL (403) — it stays inert at '#'.
+    const link = screen.getByRole('link', { name: /download the apk \(direct\)/i });
+    expect(link).toHaveAttribute('href', '#');
+
+    // Clicking it attempts a fresh ticket, fails, and shows the retry hint
+    // (never a dead navigation).
+    link.click();
+    expect(await screen.findByText(/couldn.t fetch a download ticket just now/i)).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '#');
   });
 });
