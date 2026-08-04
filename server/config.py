@@ -139,6 +139,15 @@ class Settings:
     # history; any fresh telemetry clears the flag. Default 30 days.
     ARCHIVE_AFTER_DAYS: int = int(os.environ.get("MT_ARCHIVE_AFTER_DAYS", "30"))
 
+    # Fingerprint-dedup adoption window — when a reinstall registers a fresh
+    # device_id with a fingerprint that matches an UNOWNED existing row, the
+    # server adopts the old row as canonical only if it has been silent this
+    # long (a reinstall goes silent the moment the app is removed; a
+    # concurrently-reporting emulator/dual-app row reports recently and is
+    # never hijacked). Rows owned by the SAME user are adopted regardless of
+    # staleness. Default 24 hours.
+    DEVICE_ADOPT_AFTER_HOURS: int = int(os.environ.get("MT_DEVICE_ADOPT_AFTER_HOURS", "24"))
+
     # ── Server ─────────────────────────────────────────────────────────────
     HOST: str = os.environ.get("MT_HOST", "0.0.0.0")
     PORT: int = int(os.environ.get("MT_PORT", "8000"))

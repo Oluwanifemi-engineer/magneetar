@@ -140,35 +140,55 @@ async def register_device(
     # existing row as canonical instead of creating a duplicate — the
     # register response returns the canonical id and the app persists it.
     #
-    # Staleness guard: adoption ONLY happens when the existing row's last
-    # report is older than 7 days (or it never reported). That is the real
-    # signature of an uninstalled app (the old install went silent when it
-    # was removed). A CONCURRENTLY-registered device that shares a
-    # fingerprint must never be hijacked — the Android app has a stable
-    # device id of its own, but emulators, test fixtures, and dual-app
+    # Staleness guard: adoption of an UNOWNED/orphaned row ONLY happens when
+    # the existing row's last report is older than MT_DEVICE_ADOPT_AFTER_HOURS
+    # (default 24h; a reinstall goes silent the moment the old app is
+    # removed). A CONCURRENTLY-registered device that shares a fingerprint
+    # must never be hijacked — emulators, test fixtures, and dual-app
     # scenarios can legitimately share a fingerprint, and those rows report
     # recently.
     #
-    # Security: adoption is only for UNOWNED/orphaned rows. A row actively
-    # owned by a real account is never re-pointed by an anonymous reinstall
-    # (that would let a thief who reinstalled the app claim the victim's
-    # device by guessing the fingerprint) — those duplicates are resolved by
-    # the owner via the dashboard's password-gated delete.
+    # SAME-OWNER exception: a row the REGISTERING USER already owns (they
+    # reinstalled the app on their own phone and are linking with their
+    # token) is adopted REGARDLESS of staleness — it is provably their own
+    # device (owner_id matches their token), so no theft vector exists and
+    # the per-user device limit is not re-charged for a reinstall.
+    #
+    # Security: adoption is only for UNOWNED/orphaned rows OR rows owned by
+    # the SAME authenticated user. A row owned by a DIFFERENT real account is
+    # never re-pointed by an anonymous reinstall (that would let a thief who
+    # reinstalled the app claim the victim's device by guessing the
+    # fingerprint) — those duplicates are resolved by the owner via the
+    # dashboard's password-gated delete.
     canonical_id = reg.device_id
     if existing is None and reg.fingerprint:
-        canonical = db.execute(
+        candidates = db.execute(
             """SELECT id, owner_id FROM devices
                WHERE device_fingerprint=? AND id != ?
-                 AND (last_seen IS NULL
-                      OR datetime(last_seen) < datetime('now', '-7 days'))
-               ORDER BY datetime(COALESCE(last_seen, registered)) DESC LIMIT 1""",
+               ORDER BY datetime(COALESCE(last_seen, registered)) DESC""",
             (reg.fingerprint, reg.device_id),
-        ).fetchone()
-        if canonical:
+        ).fetchall()
+        for canonical in candidates:
             canonical_owner = canonical["owner_id"]
-            if canonical_owner is None or not _user_exists(db, canonical_owner):
+            if owner_id and canonical_owner == owner_id:
+                # Same user reinstalling their own device — adopt regardless
+                # of staleness; the token already proves ownership.
                 existing = canonical
                 canonical_id = canonical["id"]
+                break
+            if canonical_owner is None or not _user_exists(db, canonical_owner):
+                # Unowned/orphaned — require the silence window so a
+                # concurrently-reporting device is never hijacked.
+                stale = db.execute(
+                    """SELECT (last_seen IS NULL OR
+                               datetime(last_seen) < datetime('now', ?)) AS is_stale
+                       FROM devices WHERE id=?""",
+                    (f"-{settings.DEVICE_ADOPT_AFTER_HOURS} hours", canonical["id"]),
+                ).fetchone()
+                if stale and stale["is_stale"]:
+                    existing = canonical
+                    canonical_id = canonical["id"]
+                    break
 
     # Enforce the per-user device limit when this registration links the device
     # to an account (new links only — re-registering an already-owned device is fine).

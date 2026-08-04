@@ -271,6 +271,68 @@ def test_reinstall_does_not_adopt_actively_owned_row():
     assert owner is None
 
 
+def test_reinstall_adopts_own_row_even_when_fresh():
+    """Same-owner reinstall: a user reinstalling their OWN phone (new random
+    id, same fingerprint) links with their token and adopts the existing row
+    REGARDLESS of staleness — it is provably their device (owner matches), so
+    the silence guard (which exists to stop fingerprint hijacking of unowned
+    rows) does not apply. This is the fix for "phone disappeared from the
+    dashboard after reinstall" — the canonical row keeps its history."""
+    cleanup_test_devices()
+    # Register a user account and link the original install to it.
+    user_resp = client.post(
+        "/api/auth/register",
+        json={
+            "email": "adopt-own@example.com",
+            "password": "StrongPass1",
+            "display_name": "Owner",
+        },
+    )
+    assert user_resp.status_code == 200, user_resp.text
+    user_token = user_resp.json()["token"]
+    user_id = user_resp.json().get("id")
+
+    resp = client.post(
+        "/api/device/register",
+        headers={**api_key_headers(), "Authorization": f"Bearer {user_token}"},
+        json={
+            "device_id": "adopt-own-device",
+            "fingerprint": "fingerprint-own-001",
+            "model": "Owner Phone",
+            "app_version": "1.3.0",
+            "device_key": "key-own-original",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["owner_id"] == user_id or resp.json()["owner_id"] is not None
+
+    # Reinstall: FRESH random id, SAME fingerprint, SAME user token, and the
+    # original row is only minutes old (not silent) — a plain re-register of
+    # the same physical phone. Must adopt the original row (canonical id).
+    resp = client.post(
+        "/api/device/register",
+        headers={**api_key_headers(), "Authorization": f"Bearer {user_token}"},
+        json={
+            "device_id": "adopt-own-device-reinstall",
+            "fingerprint": "fingerprint-own-001",
+            "model": "Owner Phone",
+            "app_version": "1.3.0",
+            "device_key": "key-own-new",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["device_id"] == "adopt-own-device"
+
+    # No duplicate row for the fresh id, and the canonical row keeps its owner.
+    with database.get_db_context() as conn:
+        dup = conn.execute("SELECT COUNT(*) FROM devices WHERE id='adopt-own-device-reinstall'").fetchone()[0]
+    assert dup == 0
+    row = device_row("adopt-own-device")
+    assert row["owner_id"] is not None
+    assert row["device_key_hash"] != ""  # new key adopted
+
+
 def test_same_id_reregister_stays_idempotent():
     """Re-registering the SAME id (the common case after this fix: the app's
     deterministic device id is stable across reinstalls) updates in place."""

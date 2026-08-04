@@ -177,6 +177,11 @@ class TrackingService : Service() {
                 launch { commandLoop() }
                 launch { heartbeatLoop() }
             }
+            // Self-healing account link: every few hours, refresh the user
+            // token (24h expiry) and re-claim the device so it can never
+            // silently fall back to an ownerless row (which hides it from the
+            // account dashboard). Idempotent — a no-op when already linked.
+            launch { accountLinkLoop() }
         }
 
         // Schedule watchdog alarm
@@ -217,6 +222,84 @@ class TrackingService : Service() {
         }
     }
 
+    /**
+     * Keep the device linked to the signed-in account forever.
+     *
+     * The user token stored at sign-in expires after 24h and is NEVER
+     * otherwise refreshed — so a re-registration (reinstall, auth-death,
+     * service restart) silently degraded to an ownerless row and the phone
+     * vanished from the dashboard. This loop refreshes the token via its
+     * refresh token (90-day rotation) and re-claims the device every 6h.
+     * /api/device/claim is idempotent for the same owner, so a healthy
+     * device sees a harmless no-op.
+     */
+    private suspend fun accountLinkLoop() {
+        while (true) {
+            try {
+                delay(6 * 60 * 60 * 1000L) // first pass after 6h, then every 6h
+                if (ensureFreshUserToken()) {
+                    val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+                    val token = prefs.getString("user_token", "") ?: ""
+                    if (token.isNotEmpty()) {
+                        DeviceLinker.linkToAccount(this, SERVER, token)
+                    }
+                }
+            } catch (e: Exception) {
+                // Non-fatal: never let the link loop kill the service. The
+                // next cycle retries.
+            }
+        }
+    }
+
+    /**
+     * Returns true when a fresh user token is in prefs. Refreshes via
+     * /api/auth/user/refresh when the stored token is missing or within
+     * 15 minutes of expiry. Silently returns false when no refresh token
+     * exists (no user signed in) or the refresh fails — callers degrade
+     * to unlinked operation exactly as before.
+     */
+    private suspend fun ensureFreshUserToken(): Boolean {
+        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+        val userToken = prefs.getString("user_token", "") ?: ""
+        if (userToken.isNotEmpty() && jwtExpiryMs(userToken) - System.currentTimeMillis() > 15 * 60 * 1000L) {
+            return true
+        }
+        val refreshToken = prefs.getString("user_refresh_token", "") ?: ""
+        if (refreshToken.isEmpty()) return false
+        return try {
+            val body = JSONObject().apply { put("refresh_token", refreshToken) }.toString().toRequestBody(JSON)
+            val (code, response) = postRaw("/api/auth/user/refresh", body, useApiKey = false)
+            if (code in 200..299 && response != null) {
+                val json = JSONObject(response)
+                val newToken = json.optString("token").takeIf { it.isNotEmpty() } ?: return false
+                val newRefresh = json.optString("refresh_token").takeIf { it.isNotEmpty() } ?: refreshToken
+                prefs.edit()
+                    .putString("user_token", newToken)
+                    .putString("user_refresh_token", newRefresh)
+                    .apply()
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Decode the JWT exp claim (epoch millis), or Long.MAX_VALUE on failure. */
+    private fun jwtExpiryMs(token: String): Long {
+        return try {
+            val parts = token.split(".")
+            if (parts.size < 2) return Long.MAX_VALUE
+            val pad = parts[1].replace('-', '+').replace('_', '/')
+            val padded = pad + "=".repeat((4 - pad.length % 4) % 4)
+            val json = String(android.util.Base64.decode(padded, android.util.Base64.DEFAULT))
+            JSONObject(json).optLong("exp", Long.MAX_VALUE) * 1000L
+        } catch (e: Exception) {
+            Long.MAX_VALUE
+        }
+    }
+
     /** One registration attempt. Returns true when a token pair was minted. */
     private suspend fun tryRegisterOnce(): Boolean {
         return try {
@@ -238,6 +321,9 @@ class TrackingService : Service() {
             // Multi-user support: when a user is signed in, send their bearer
             // token along with the API key so the server links this device to
             // the account (owner_id). It then shows up in that user's dashboard.
+            // The token expires after 24h — refresh it first so an expired
+            // token can never silently degrade this registration to ownerless.
+            ensureFreshUserToken()
             val userToken = getSharedPreferences("mt", Context.MODE_PRIVATE).getString("user_token", "") ?: ""
             val extraHeaders = if (userToken.isNotEmpty()) {
                 mapOf("Authorization" to "Bearer $userToken")
@@ -271,6 +357,15 @@ class TrackingService : Service() {
                         putString("access_token", accessToken)
                         putString("refresh_token", refreshToken)
                         apply()
+                    }
+
+                    // If the user is signed in but the server still did not
+                    // link us (e.g. device limit hit at the time, or a
+                    // transient token hiccup), fire a best-effort claim now.
+                    // Idempotent; harmless when already linked.
+                    val linked = json.optString("owner_id").isNotEmpty()
+                    if (!linked && userToken.isNotEmpty()) {
+                        scope.launch { DeviceLinker.linkToAccount(this@TrackingService, SERVER, userToken) }
                     }
 
                     // Adopt the canonical device_id when the server re-pointed
