@@ -66,7 +66,7 @@ async def _wait_until(predicate, timeout: float = 3.0) -> bool:
     return False
 
 
-async def _assert_closed_with_code(url: str, code: int) -> None:
+async def _assert_closed_with_code(url: str, code: int, timeout: float = 10.0) -> None:
     """Assert that connecting to `url` is closed by the server with `code`.
 
     Assumes the endpoint accepts first and only closes afterward (e.g. 4001 on
@@ -74,13 +74,21 @@ async def _assert_closed_with_code(url: str, code: int) -> None:
     ever rejected during the HTTP handshake instead, websockets.connect() would
     raise InvalidStatus (not ConnectionClosed) and this helper would surface it
     as a raw error rather than an assertion.
+
+    The recv timeout is deliberately generous (10s): these are LIVE tests
+    against a real uvicorn server, and under full-suite / CI load a slow
+    scheduler can delay the close frame by more than the old 2s budget — the
+    resulting raw TimeoutError was a recurring CI flake. A timeout now raises a
+    clear assertion naming the expected code instead.
     """
     try:
         async with websockets.connect(url) as ws:
-            await asyncio.wait_for(ws.recv(), timeout=2.0)
+            await asyncio.wait_for(ws.recv(), timeout=timeout)
         raise AssertionError("connection should have been closed")
     except websockets.exceptions.ConnectionClosed as exc:
         assert getattr(exc.rcvd, "code", None) == code
+    except asyncio.TimeoutError:
+        raise AssertionError(f"server did not close the connection within {timeout}s (expected close code {code})")
 
 
 @pytest.fixture

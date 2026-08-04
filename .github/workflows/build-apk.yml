@@ -58,15 +58,27 @@ jobs:
         # The release keystore NEVER lives in the repo (gitignored). CI
         # receives it as base64 from the KEYSTORE_BASE64 secret and writes it
         # where gradle expects it (android-app/release.keystore).
+        #
+        # Resilience: on a plain PUSH the keystore secrets may not be
+        # configured yet — instead of hard-failing every push, build a DEBUG
+        # APK (still a full compile + unit-test gate; never published). On a
+        # RELEASE event or manual workflow_dispatch a signed APK is the whole
+        # point, so those still hard-fail if the secrets are missing.
         shell: bash
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > android-app/release.keystore
             echo "::notice::Restored release keystore ($(stat -c%s android-app/release.keystore) bytes)"
+            echo "RELEASE_SIGNING_AVAILABLE=true" >> "$GITHUB_ENV"
           else
-            echo "::error::KEYSTORE_BASE64 secret not set — a release build cannot be signed."
-            echo "::error::Generate a keystore, add it as KEYSTORE_BASE64 plus KEYSTORE_PASS / KEY_ALIAS / KEY_ALIAS_PASS secrets."
-            exit 1
+            echo "::warning::KEYSTORE_BASE64 secret not set — release signing unavailable."
+            if [ "${{ github.event_name }}" != "push" ]; then
+              echo "::error::KEYSTORE_BASE64 secret not set — a release build cannot be signed."
+              echo "::error::Generate a keystore, add it as KEYSTORE_BASE64 plus KEYSTORE_PASS / KEY_ALIAS / KEY_ALIAS_PASS secrets."
+              exit 1
+            fi
+            echo "::warning::Push event — building a DEBUG APK instead (compile + unit-test gate only; not published)."
+            echo "RELEASE_SIGNING_AVAILABLE=false" >> "$GITHUB_ENV"
           fi
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -75,22 +87,37 @@ jobs:
         working-directory: android-app
         run: chmod +x ./gradlew
 
-      - name: Build signed release APK
+      - name: Build APK (signed release when keystore configured, else debug)
         working-directory: android-app
         shell: bash
         run: |
-          ./gradlew assembleRelease --stacktrace --console=plain \
-            -PSERVER_URL="$SERVER_URL" -PAPI_KEY="$API_KEY" \
-            -PKEYSTORE_PASS="$KEYSTORE_PASS" -PKEY_ALIAS="$KEY_ALIAS" -PKEY_ALIAS_PASS="$KEY_ALIAS_PASS" \
-            > "$GITHUB_WORKSPACE/gradle-build.log" 2>&1 || {
-              echo "::error::Gradle build FAILED (exit $?) — what went wrong:"
-              grep -A 20 "What went wrong:" "$GITHUB_WORKSPACE/gradle-build.log" | sed 's/^/::error::  /' || true
-              grep -B2 -A 10 -E "Caused by:|Execution failed for task|FAILURE:" "$GITHUB_WORKSPACE/gradle-build.log" | sed 's/^/::error::  /' || true
-              echo "::error::Full log saved to artifact on failure"
-              exit 1
-            }
-          echo "::notice::Gradle release build succeeded"
-          tail -20 "$GITHUB_WORKSPACE/gradle-build.log"
+          if [ "${RELEASE_SIGNING_AVAILABLE:-true}" = "true" ]; then
+            ./gradlew assembleRelease --stacktrace --console=plain \
+              -PSERVER_URL="$SERVER_URL" -PAPI_KEY="$API_KEY" \
+              -PKEYSTORE_PASS="$KEYSTORE_PASS" -PKEY_ALIAS="$KEY_ALIAS" -PKEY_ALIAS_PASS="$KEY_ALIAS_PASS" \
+              > "$GITHUB_WORKSPACE/gradle-build.log" 2>&1 || {
+                echo "::error::Gradle release build FAILED (exit $?) — what went wrong:"
+                grep -A 20 "What went wrong:" "$GITHUB_WORKSPACE/gradle-build.log" | sed 's/^/::error::  /' || true
+                grep -B2 -A 10 -E "Caused by:|Execution failed for task|FAILURE:" "$GITHUB_WORKSPACE/gradle-build.log" | sed 's/^/::error::  /' || true
+                echo "::error::Full log saved to artifact on failure"
+                exit 1
+              }
+            echo "::notice::Gradle release build succeeded"
+          else
+            # No keystore secrets on a push: build the DEBUG variant — still a
+            # full Kotlin compile + unit-test gate, artifact for testing only.
+            ./gradlew assembleDebug --stacktrace --console=plain \
+              -PSERVER_URL="$SERVER_URL" -PAPI_KEY="$API_KEY" \
+              > "$GITHUB_WORKSPACE/gradle-build.log" 2>&1 || {
+                echo "::error::Gradle debug build FAILED (exit $?) — what went wrong:"
+                grep -A 20 "What went wrong:" "$GITHUB_WORKSPACE/gradle-build.log" | sed 's/^/::error::  /' || true
+                grep -B2 -A 10 -E "Caused by:|Execution failed for task|FAILURE:" "$GITHUB_WORKSPACE/gradle-build.log" | sed 's/^/::error::  /' || true
+                echo "::error::Full log saved to artifact on failure"
+                exit 1
+              }
+            echo "::notice::Gradle DEBUG build succeeded (keystore secrets not configured on push)"
+          fi
+          tail -5 "$GITHUB_WORKSPACE/gradle-build.log"
         env:
           SERVER_URL: ${{ secrets.SERVER_URL }}
           API_KEY: ${{ secrets.API_KEY }}
@@ -101,17 +128,18 @@ jobs:
       - name: Verify APK signature with apksigner
         # A release APK that does not verify against the release keystore is
         # worthless (and dangerous) to ship — fail the build if the signature
-        # does not validate or the certificate is missing.
+        # does not validate or the certificate is missing. Debug APKs verify
+        # against the Android debug key (fine — they are test artifacts only).
         shell: bash
         run: |
-          APK=$(ls "$GITHUB_WORKSPACE"/android-app/app/build/outputs/apk/release/*.apk 2>/dev/null | head -1)
+          APK=$(ls "$GITHUB_WORKSPACE"/android-app/app/build/outputs/apk/{release,debug}/*.apk 2>/dev/null | head -1)
           if [ -z "$APK" ]; then
-            echo "::error::No release APK produced — expected one in app/build/outputs/apk/release/"
+            echo "::error::No APK produced — expected one in app/build/outputs/apk/release/ or .../debug/"
             exit 1
           fi
           echo "Verifying: $APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK"
-          echo "::notice::APK signature verified — certificate CN must be the Magneetar release key"
+          echo "::notice::APK signature verified"
           echo "APK_FILE=$APK" >> "$GITHUB_ENV"
 
       - name: Upload build log (on failure only)
@@ -122,9 +150,11 @@ jobs:
           path: gradle-build.log
           retention-days: 7
 
-      - name: Upload signed release APK artifact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Magneetar-release
-          path: android-app/app/build/outputs/apk/release/*.apk
+          name: Magneetar-apk
+          path: |
+            android-app/app/build/outputs/apk/release/*.apk
+            android-app/app/build/outputs/apk/debug/*.apk
           retention-days: 30
