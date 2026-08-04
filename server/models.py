@@ -252,6 +252,10 @@ class CommandRequest(BaseModel):
 
 class CommandAck(BaseModel):
     status: str = "executed"  # executed or failed
+    # Human-readable reason for a FAILED ack (e.g. "Microphone muted — set
+    # Microphone to Allow all the time"). The Android app sends it so the
+    # dashboard shows WHY a capture failed instead of a bare red FAILED.
+    failure_reason: Optional[str] = Field(None, max_length=300)
 
     @field_validator("status")
     @classmethod

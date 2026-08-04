@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
-import { cn, formatTimestamp, locationTimestamp } from '@/lib/utils';
+import { cn, formatTimestamp, locationTimestamp, stepUpPasswordHint } from '@/lib/utils';
 import { Camera, Music, Play, Pause, X, ChevronLeft, Trash2, ShieldCheck, Lock } from 'lucide-react';
 
 /**
@@ -346,8 +346,8 @@ export function MediaGallery() {
               <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-mag-warning/[0.05] border border-mag-warning/20">
                 <Lock size={12} className="text-mag-warning shrink-0 mt-0.5" />
                 <div className="text-[10px] font-mono text-mag-text-dim/70 leading-relaxed">
-                  For security, deletions require your password. In user-account mode
-                  this is your account password; in API-key mode it is the master API key.
+                  For security, deletions require a step-up password. This session
+                  verifies with <span className="font-bold text-mag-text-dim/90">{stepUpPasswordHint()}</span>.
                   Deleting evidence cannot be undone.
                 </div>
               </div>

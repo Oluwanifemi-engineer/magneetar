@@ -146,6 +146,14 @@ def init_db(db_path: str = None):
     except sqlite3.OperationalError:
         pass  # Column already exists — fresh DB or already migrated
 
+    # Failure reason for a failed command ack — the Android app sends WHY a
+    # capture failed (muted mic / blocked camera) so the dashboard isn't a
+    # bare red FAILED. Migrated for existing DBs.
+    try:
+        c.execute("ALTER TABLE commands ADD COLUMN failure_reason TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists — fresh DB or already migrated
+
     # Stale-device archive flag — set by the archive sweep when a device is
     # silent beyond MT_ARCHIVE_AFTER_DAYS; cleared by any fresh telemetry.
     try:
@@ -221,6 +229,7 @@ def init_db(db_path: str = None):
             issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             executed_at TIMESTAMP,
             expires_at TIMESTAMP,
+            failure_reason TEXT,
             FOREIGN KEY (device_id) REFERENCES devices(id)
         );
 

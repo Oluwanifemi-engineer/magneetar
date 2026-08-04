@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
-import { cn, getCommandLabel, isDestructiveCommand, formatTimestamp } from '@/lib/utils';
+import { cn, getCommandLabel, isDestructiveCommand, formatTimestamp, stepUpPasswordHint } from '@/lib/utils';
 import { CommandButton, type CommandTone } from '@/components/ui/CommandButton';
 import { Radio, Camera, Webcam, Mic, LocateFixed, Lock, Siren, AlertTriangle, CheckCircle2, Trash2, X } from 'lucide-react';
 import type { CommandType } from '@/types';
@@ -235,7 +235,7 @@ export function CommandPanel() {
               type="password"
               value={deletePassword}
               onChange={e => setDeletePassword(e.target.value)}
-              placeholder="Account password or master API key"
+              placeholder={stepUpPasswordHint()}
               autoFocus
               aria-label="Confirm deletion password"
               onKeyDown={e => {
@@ -247,6 +247,9 @@ export function CommandPanel() {
               className="w-full bg-mag-bg/60 border border-mag-border/40 rounded-lg px-3 py-2 text-xs font-mono text-mag-text placeholder:text-mag-text-dim/30 focus:outline-none focus:border-mag-danger/60 transition-colors"
             />
             {deleteError && <div className="text-[10px] font-mono text-red-400">{deleteError}</div>}
+            <div className="text-[10px] font-mono text-mag-text-dim/50 leading-relaxed">
+              This session verifies with <span className="font-bold text-mag-text-dim/70">{stepUpPasswordHint()}</span>.
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={confirmDelete}
@@ -293,6 +296,14 @@ export function CommandPanel() {
                   <div className="font-mono text-[10px] text-mag-text-dim/50">
                     {formatTimestamp(cmd.issued_at)}
                   </div>
+                  {cmd.status === 'failed' && cmd.failure_reason && (
+                    <div
+                      className="mt-1 font-mono text-[9px] text-mag-danger/90 leading-snug"
+                      title="Why this capture failed — fix the cause and retry."
+                    >
+                      {cmd.failure_reason}
+                    </div>
+                  )}
                 </div>
                 <span className={cn(
                   'text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-md',
@@ -303,6 +314,7 @@ export function CommandPanel() {
                 )}>
                   {cmd.status}
                 </span>
+
                 <button
                   onClick={() => { setDeleteTarget(cmd.id); setDeleteError(''); }}
                   className="text-mag-text-dim/35 hover:text-mag-danger/80 transition-colors p-0.5"

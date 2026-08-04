@@ -629,12 +629,23 @@ async def ack_command(
     db: sqlite3.Connection = Depends(get_db),
     device_id: str = Depends(get_current_device_or_key),
 ):
-    """Acknowledge command execution."""
+    """Acknowledge command execution.
+
+    A failed ack may carry a failure_reason (e.g. "Microphone muted — set
+    Microphone to Allow all the time") so the dashboard explains WHY a
+    capture failed instead of showing a bare red FAILED.
+    """
     now = datetime.now(timezone.utc).isoformat()
 
+    # A failure_reason is only meaningful for a FAILED ack — persist it for
+    # those, and always clear it on an 'executed' ack (a stale reason from an
+    # earlier failed attempt must never linger on a row that succeeded, or the
+    # dashboard would show a contradiction).
+    reason = ack.failure_reason if ack.status == "failed" else None
+
     db.execute(
-        "UPDATE commands SET status=?, executed_at=? WHERE id=? AND device_id=?",
-        (ack.status, now, command_id, device_id),
+        "UPDATE commands SET status=?, executed_at=?, failure_reason=? WHERE id=? AND device_id=?",
+        (ack.status, now, reason, command_id, device_id),
     )
     db.commit()
 
@@ -645,6 +656,7 @@ async def ack_command(
                 "command_id": command_id,
                 "device_id": device_id,
                 "status": ack.status,
+                "failure_reason": ack.failure_reason,
             },
         }
     )

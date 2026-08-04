@@ -66,6 +66,8 @@ class MediaCaptureService : Service() {
         private const val REARM_NOTIF_ID = 8
         private const val CAMERA_CAPTURE_TIMEOUT_MS = 45_000L
         private const val AUDIO_CAPTURE_MS = 20_000L
+        /** Below this peak amplitude the capture is digital silence (muted mic). */
+        private const val SILENCE_PEAK_THRESHOLD = 60
         private val JSON = "application/json".toMediaType()
         private val SERVER = BuildConfig.SERVER_URL
         private val API_KEY = BuildConfig.API_KEY
@@ -385,6 +387,7 @@ class MediaCaptureService : Service() {
 
     private suspend fun runCapture(action: String, command: String, commandId: Int) {
         var ok = false
+        var captureFailureReason: String? = null
         try {
             updateNotification("Capturing evidence…")
             try {
@@ -406,17 +409,25 @@ class MediaCaptureService : Service() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // Capture failed (camera denied/busy, mic blocked, timeout…).
+                // Capture failed (camera denied/busy, mic muted, timeout…).
                 // Ack 'failed' so the dashboard shows the truth instead of
-                // a fake 'executed' with no evidence ever arriving.
+                // a fake 'executed' with no evidence ever arriving — and
+                // carry the reason (muted mic / blocked camera / permission)
+                // so the dashboard isn't a bare red FAILED.
                 Log.e(TAG, "Capture '$command' failed: ${e.message}", e)
+                captureFailureReason = e.message?.take(240)
                 // Tell the user WHY and what to do — the #1 cause is Camera/Mic
                 // granted "Only while using the app", which Android enforces as
                 // CAMERA_DISABLED / a muted mic while Magneetar is backgrounded.
                 notifyCaptureBlocked(command, e)
             }
-            // Honest ack — executed only when the media upload completed.
-            if (commandId > 0) ackCommand(commandId, if (ok) "executed" else "failed")
+            // Honest ack — executed only when the media upload completed. A
+            // failed capture carries its failure reason so the dashboard shows
+            // WHY (e.g. "Microphone muted — set to Allow all the time")
+            // instead of a bare red FAILED with no explanation.
+            if (commandId > 0) {
+                ackCommand(commandId, if (ok) "executed" else "failed", captureFailureReason)
+            }
         } finally {
             // Release the shared in-flight guard unconditionally — even a
             // cancelled scope (service destroyed mid-capture) must not
@@ -551,7 +562,7 @@ class MediaCaptureService : Service() {
     // ── Audio ───────────────────────────────────────────────────────────────
 
     private suspend fun captureAudio() {
-        val file = File(cacheDir, "mt_audio_${System.currentTimeMillis()}.mp4")
+        val file = File(cacheDir, "mt_audio_${System.currentTimeMillis()}.m4a")
         var recorder: MediaRecorder? = null
         try {
             recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -564,12 +575,54 @@ class MediaCaptureService : Service() {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                // Explicit, OEM-independent encoder parameters. The old code
+                // only set the sampling rate; on several devices (Samsung in
+                // particular) MediaRecorder then defaulted to a degenerate
+                // bitrate that produced a valid-but-essentially-silent file
+                // (~14kbps for a 20s capture = the "saves something I can't
+                // hear" bug). Mono + 96kbps AAC is the safe, well-supported
+                // configuration for ambient speech capture.
                 setAudioSamplingRate(44100)
+                setAudioEncodingBitRate(96_000)
+                setAudioChannels(1)
+                setMaxDuration(AUDIO_CAPTURE_MS.toInt())
                 setOutputFile(file.absolutePath)
                 prepare()
                 start()
             }
-            delay(AUDIO_CAPTURE_MS)
+
+            // ── Silence detection ─────────────────────────────────────────
+            // Poll getMaxAmplitude() during the capture window. If the mic is
+            // muted at the OS level (RECORD_AUDIO granted "only while using
+            // the app", or a backgrounded app on a strict OEM), the recorder
+            // happily produces a file full of digital silence. Uploading that
+            // and acking 'executed' is the exact "I can't hear anything"
+            // failure the user hit. Instead, detect it here and fail honestly
+            // with a message that tells the owner what to fix.
+            var peak = 0
+            val sampleCount = (AUDIO_CAPTURE_MS / 500L).toInt().coerceAtLeast(1)
+            for (i in 0 until sampleCount) {
+                delay(500)
+                try {
+                    val amp = recorder.getMaxAmplitude() // resets after each call
+                    if (amp > peak) peak = amp
+                } catch (e: Exception) {
+                    // Best-effort metering; never fatal.
+                }
+            }
+            // getMaxAmplitude() scales to the RECORD_AUDIO appop state: a
+            // muted mic stays at ~0; even faint room noise reaches hundreds.
+            // The measured peak is included in the failure reason so the
+            // operator can see (peak=12/32767) whether it was digital
+            // silence vs a borderline reading — self-diagnosing data.
+            if (peak < SILENCE_PEAK_THRESHOLD) {
+                throw IllegalStateException(
+                    "Microphone muted (peak $peak/32767) — set Microphone to " +
+                        "\"Allow all the time\" (Settings → Magneetar → Permissions) " +
+                        "to capture from a locked screen"
+                )
+            }
+
             try {
                 recorder.stop()
             } catch (e: RuntimeException) {
@@ -671,8 +724,11 @@ class MediaCaptureService : Service() {
         if (!ok) throw IllegalStateException("Media upload rejected by server")
     }
 
-    private suspend fun ackCommand(id: Int, status: String) {
-        val body = JSONObject().apply { put("status", status) }.toString().toRequestBody(JSON)
+    private suspend fun ackCommand(id: Int, status: String, failureReason: String? = null) {
+        val body = JSONObject().apply {
+            put("status", status)
+            if (failureReason != null) put("failure_reason", failureReason)
+        }.toString().toRequestBody(JSON)
         post("/api/device/commands/$id/ack", body)
     }
 

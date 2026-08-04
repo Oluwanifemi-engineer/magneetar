@@ -51,6 +51,7 @@ jest.mock('@/lib/utils', () => ({
   relativeTime: (v: any) => v || 'now',
   formatCoordinate: (v: any) => String(v),
   deviceDisplayName: (d: any) => d?.alias?.trim() || d?.model || d?.id || 'Device',
+  stepUpPasswordHint: () => 'the master API key (API-key mode)',
 }));
 
 jest.mock('@/components/ui/CoordDisplay', () => ({

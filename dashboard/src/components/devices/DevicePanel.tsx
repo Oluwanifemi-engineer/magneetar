@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useStore } from '@/store/useStore';
-import { cn, relativeTime, formatCoordinate, deviceDisplayName } from '@/lib/utils';
+import { cn, relativeTime, formatCoordinate, deviceDisplayName, stepUpPasswordHint } from '@/lib/utils';
 import { BellRing, MapPin, LocateFixed, Navigation, ExternalLink, Save, Check, Trash2, X, Pencil } from 'lucide-react';
 import { CoordDisplay } from '@/components/ui/CoordDisplay';
 import { getAPI } from '@/lib/api';
@@ -521,7 +521,7 @@ export function DevicePanel() {
               type="password"
               value={deletePassword}
               onChange={e => setDeletePassword(e.target.value)}
-              placeholder="Account password or master API key"
+              placeholder={stepUpPasswordHint()}
               autoFocus
               aria-label="Confirm deletion password"
               onKeyDown={e => {
@@ -533,6 +533,10 @@ export function DevicePanel() {
               className="w-full bg-mag-bg/60 border border-mag-border/40 rounded-lg px-3 py-2 text-xs font-mono text-mag-text placeholder:text-mag-text-dim/30 focus:outline-none focus:border-mag-danger/60 transition-colors"
             />
             {deleteError && <div className="text-[10px] font-mono text-red-400">{deleteError}</div>}
+            <div className="text-[10px] font-mono text-mag-text-dim/50 leading-relaxed">
+              This session verifies with <span className="font-bold text-mag-text-dim/70">{stepUpPasswordHint()}</span> —
+              the server re-checks it before anything is deleted.
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={confirmDeleteDevice}

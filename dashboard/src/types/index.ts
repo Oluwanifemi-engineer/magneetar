@@ -99,6 +99,10 @@ export interface Command {
   status: 'pending' | 'executed' | 'failed' | 'expired';
   issued_at: string;
   executed_at: string | null;
+  // Human-readable reason a FAILED ack failed (e.g. "Microphone muted — set
+  // Microphone to Allow all the time"). Sent by the Android app, shown on
+  // the command row so a red FAILED explains itself.
+  failure_reason?: string | null;
 }
 
 // ─── Media ───────────────────────────────────────────────────────────────────

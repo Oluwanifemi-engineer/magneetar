@@ -55,6 +55,7 @@ jest.mock('@/lib/utils', () => ({
   isDestructiveCommand: (cmd: string) => ['wipe', 'reboot'].includes(cmd),
   getCommandLabel: (cmd: string) => cmd.toUpperCase(),
   formatTimestamp: () => '2024-01-01 12:00:00',
+  stepUpPasswordHint: () => 'the master API key (API-key mode)',
 }));
 
 jest.mock('@/components/ui/CommandButton', () => ({

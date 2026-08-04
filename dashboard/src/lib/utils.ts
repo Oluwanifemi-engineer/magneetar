@@ -1,5 +1,23 @@
 import { clsx, type ClassValue } from 'clsx';
 
+// ─── Step-up Auth Helper ─────────────────────────────────────────────────────
+
+/**
+ * The dashboard's destructive actions (device/media/command deletion) require
+ * a STEP-UP password that the server re-verifies. WHICH password depends on
+ * how the session authenticated: user accounts verify their account password,
+ * API-key sessions verify the master API key itself. The old placeholder
+ * ("Account password or master API key") told the user neither, so an
+ * API-key operator who typed their account password got "Invalid password"
+ * and concluded the feature was broken. Resolve the correct hint up front.
+ */
+export function stepUpPasswordHint(): string {
+  if (typeof window !== 'undefined' && sessionStorage.getItem('mt_auth_mode') === 'user') {
+    return 'your account password';
+  }
+  return 'the master API key (API-key mode)';
+}
+
 // ─── External URLs ───────────────────────────────────────────────────────────
 
 // The release APK is served from the API host — see /apk/download in

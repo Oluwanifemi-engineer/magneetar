@@ -559,6 +559,17 @@ class TrackingService : Service() {
     private var currentNetworkType = "unknown"
     private var isCharging = false
 
+    /**
+     * Fused GPS+NETWORK position estimator (constant-velocity Kalman). Every
+     * raw fix from either provider goes through it: the accuracy field each
+     * provider reports becomes the measurement noise, so a precise GPS fix
+     * dominates a 300m-accurate network fix automatically, outliers (500m
+     * teleports, multipath jumps) are gated against physics, and the reported
+     * position is the SMOOTHED estimate — no more dashboard "walking" while
+     * the phone sits still. Pure-JVM math locked by LocationFilterTest.kt.
+     */
+    private val locationFilter = LocationFilter()
+
     private fun startLocationUpdates() {
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
@@ -568,7 +579,18 @@ class TrackingService : Service() {
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 updateDeviceState()
-                scope.launch { reportLocation(location) }
+                val filtered = locationFilter.update(
+                    LocationFilter.Fix(
+                        lat = location.latitude,
+                        lng = location.longitude,
+                        accuracyMeters = location.accuracy,
+                        timestampMs = location.time,
+                        provider = location.provider ?: "gps",
+                    )
+                )
+                if (filtered != null) {
+                    scope.launch { reportLocation(location, filtered) }
+                }
             }
             @Deprecated("Deprecated in Java")
             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
@@ -624,21 +646,34 @@ class TrackingService : Service() {
         }
     }
 
-    private suspend fun reportLocation(loc: Location) {
+    private suspend fun reportLocation(loc: Location, filtered: LocationFilter.Estimate) {
         if (!isRegistered) return
 
         pingSequence++
 
-        // Use TelemetryPing format matching the server's schema
+        // Use TelemetryPing format matching the server's schema. Position and
+        // accuracy come from the KALMAN-FILTERED estimate (the fused GPS+
+        // network track); speed/bearing from the filter's velocity state when
+        // they're cleaner, falling back to the raw fix when it has them and
+        // the filter is still warming up.
+        val speed: Double? = when {
+            loc.hasSpeed() && !filtered.stationary -> loc.speed.toDouble()
+            filtered.speedMps > 0.01 -> filtered.speedMps
+            loc.hasSpeed() -> loc.speed.toDouble()
+            else -> null
+        }
+        val bearing: Double? = if (loc.hasBearing()) loc.bearing.toDouble() else filtered.bearingDeg
         val body = JSONObject().apply {
             put("device_id", deviceId)
-            put("lat", loc.latitude)
-            put("lng", loc.longitude)
+            put("lat", filtered.lat)
+            put("lng", filtered.lng)
             put("altitude", if (loc.hasAltitude()) loc.altitude else JSONObject.NULL)
-            put("accuracy_horizontal", loc.accuracy.toDouble())
-            put("confidence_level", if (loc.accuracy < 20) "HIGH" else if (loc.accuracy < 100) "MEDIUM" else "LOW")
-            put("speed", if (loc.hasSpeed()) loc.speed.toDouble() else JSONObject.NULL)
-            put("bearing", if (loc.hasBearing()) loc.bearing.toDouble() else JSONObject.NULL)
+            put("accuracy_horizontal", filtered.accuracyMeters)
+            put("confidence_level",
+                if (filtered.accuracyMeters < 20) "HIGH"
+                else if (filtered.accuracyMeters < 100) "MEDIUM" else "LOW")
+            put("speed", speed ?: JSONObject.NULL)
+            put("bearing", bearing ?: JSONObject.NULL)
             put("provider", loc.provider ?: "gps")
             put("battery_percent", currentBatteryPercent)
             put("is_charging", isCharging)
@@ -859,15 +894,35 @@ class TrackingService : Service() {
     // permission degrades to no burst, never a crash.
     @SuppressLint("MissingPermission")
     private suspend fun locationBurst() {
-        // Send 5 rapid location updates
+        // Send 5 rapid location updates. Each one is fed through the same
+        // Kalman filter as the live stream so a burst can't inject a raw
+        // 500m network teleport — the fused position is what gets reported.
         for (i in 1..5) {
             try {
                 locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
                 val gpsLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
                 val networkLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                val best = gpsLocation ?: networkLocation
+                // Prefer the more accurate provider (smaller accuracy number),
+                // then fall back to whatever exists.
+                val best = when {
+                    gpsLocation != null && networkLocation != null ->
+                        if (gpsLocation.accuracy < networkLocation.accuracy) gpsLocation else networkLocation
+                    gpsLocation != null -> gpsLocation
+                    else -> networkLocation
+                }
                 if (best != null) {
-                    reportLocation(best)
+                    val filtered = locationFilter.update(
+                        LocationFilter.Fix(
+                            lat = best.latitude,
+                            lng = best.longitude,
+                            accuracyMeters = best.accuracy,
+                            timestampMs = best.time,
+                            provider = best.provider ?: "gps",
+                        )
+                    )
+                    if (filtered != null) {
+                        reportLocation(best, filtered)
+                    }
                 }
             } catch (e: Exception) {}
             delay(1_000)

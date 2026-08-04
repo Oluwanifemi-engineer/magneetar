@@ -55,6 +55,7 @@ jest.mock('@/lib/utils', () => ({
   cn: (...args: any[]) => args.filter(Boolean).join(' '),
   formatTimestamp: (v: any) => v || '—',
   locationTimestamp: (loc: any) => loc?.server_timestamp || loc?.timestamp || null,
+  stepUpPasswordHint: () => 'the master API key (API-key mode)',
 }));
 
 import { MediaGallery } from '@/components/media/MediaGallery';
