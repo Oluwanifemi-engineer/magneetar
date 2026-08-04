@@ -37,6 +37,7 @@ class PermissionsActivity : AppCompatActivity() {
     private lateinit var permCameraStatus: TextView
     private lateinit var permMicStatus: TextView
     private lateinit var permNotificationsStatus: TextView
+    private lateinit var permSmsStatus: TextView
     private lateinit var permAdminStatus: TextView
     private lateinit var permBatteryStatus: TextView
     private lateinit var btnAction: Button
@@ -53,6 +54,7 @@ class PermissionsActivity : AppCompatActivity() {
         permCameraStatus = findViewById(R.id.perm_camera_status)
         permMicStatus = findViewById(R.id.perm_mic_status)
         permNotificationsStatus = findViewById(R.id.perm_notifications_status)
+        permSmsStatus = findViewById(R.id.perm_sms_status)
         permAdminStatus = findViewById(R.id.perm_admin_status)
         permBatteryStatus = findViewById(R.id.perm_battery_status)
         btnAction = findViewById(R.id.btn_grant_permissions)
@@ -165,6 +167,13 @@ class PermissionsActivity : AppCompatActivity() {
         setStatus(permNotificationsStatus, hasNotifications())
         setStatus(permAdminStatus, isDeviceAdmin())
         setStatus(permBatteryStatus, isBatteryOk())
+        // SMS is OPTIONAL (powers the Offline Command Relay when enabled) —
+        // it never blocks onboarding, but the status shows the real state.
+        permSmsStatus.text = if (hasSmsPermissions()) "Granted ✓" else "Optional"
+        permSmsStatus.setTextColor(
+            if (hasSmsPermissions()) android.graphics.Color.parseColor("#00FF88")
+            else android.graphics.Color.parseColor("#606060")
+        )
     }
 
     private fun setStatus(view: TextView, granted: Boolean) {
@@ -189,9 +198,20 @@ class PermissionsActivity : AppCompatActivity() {
             return
         }
 
-        // Not all done yet
-        if (!runtimeOk) {
+        // Not all done yet. Notifications is a REQUIRED runtime permission
+        // (Android 13+ FCM alerts) but is not in runtimeOk (pre-existing
+        // quirk) — give it priority over the optional SMS step so the button
+        // label matches what the request batch actually asks for.
+        if (!runtimeOk || !hasNotifications()) {
             btnAction.text = "GRANT PERMISSIONS (${countMissingRuntime()} remaining)"
+            btnAction.isEnabled = true
+            btnAction.alpha = 1f
+        } else if (!hasSmsPermissions()) {
+            // Required perms granted but SMS (the Offline Command Relay) is
+            // still missing — offer a dedicated request step so a user who
+            // denied it during onboarding can re-request it here instead of
+            // the prompt silently becoming unreachable behind admin/battery.
+            btnAction.text = "GRANT SMS COMMANDS ACCESS (optional)"
             btnAction.isEnabled = true
             btnAction.alpha = 1f
         } else if (!isDeviceAdmin()) {
@@ -228,8 +248,13 @@ class PermissionsActivity : AppCompatActivity() {
     }
 
     private fun onActionClick() {
-        // Step 1: Request runtime permissions
-        if (!hasLocation() || !hasCamera() || !hasMic() || !hasNotifications()) {
+        // Step 1: Request runtime permissions. The SMS permissions are bundled
+        // into the same batch — RECEIVE_SMS is what makes the Offline Command
+        // Relay work at all on Android 6+ (without a runtime grant the
+        // receiver never sees SMS broadcasts). They are OPTIONAL (the relay
+        // is an opt-in feature), so they're requested alongside the required
+        // ones but never block completion if denied.
+        if (!hasLocation() || !hasCamera() || !hasMic() || !hasNotifications() || !hasSmsPermissions()) {
             val missing = mutableListOf<String>()
             if (!hasLocation()) {
                 missing.add(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -239,6 +264,15 @@ class PermissionsActivity : AppCompatActivity() {
             if (!hasMic()) missing.add(Manifest.permission.RECORD_AUDIO)
             // Android 13+ requires POST_NOTIFICATIONS for FCM alert delivery
             if (!hasNotifications()) missing.add(Manifest.permission.POST_NOTIFICATIONS)
+            // Offline Command Relay (optional): RECEIVE_SMS intercepts command
+            // SMS, SEND_SMS enables best-effort ack replies, READ_PHONE_STATE
+            // reads the SIM number for the relay's target. Safe to request in
+            // the same dialog; the user can deny without blocking setup.
+            if (!hasSmsPermissions()) {
+                missing.add(Manifest.permission.RECEIVE_SMS)
+                missing.add(Manifest.permission.SEND_SMS)
+                missing.add(Manifest.permission.READ_PHONE_STATE)
+            }
 
             ActivityCompat.requestPermissions(
                 this, missing.toTypedArray(), PERM_REQUEST_CODE
@@ -312,6 +346,23 @@ class PermissionsActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
         return ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
                 PackageManager.PERMISSION_GRANTED
+    }
+
+    /**
+     * SMS permissions for the Offline Command Relay (all OPTIONAL — the relay
+     * is an opt-in feature, so denial never blocks onboarding). RECEIVE_SMS is
+     * the load-bearing one: without it the receiver can't see command SMS on
+     * Android 6+ (runtime-gated). SEND_SMS enables best-effort ack replies;
+     * READ_PHONE_STATE reads the SIM number to prefill the relay target.
+     */
+    private fun hasSmsPermissions(): Boolean {
+        val sms = ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) ==
+                PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) ==
+                PackageManager.PERMISSION_GRANTED
+        // READ_PHONE_STATE is only used for best-effort SIM prefill — its
+        // denial (Android 10+ gating) must not count as "SMS missing".
+        return sms
     }
 
     private fun isDeviceAdmin(): Boolean {

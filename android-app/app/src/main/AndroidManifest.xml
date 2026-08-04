@@ -47,6 +47,18 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
+    <!-- Offline Command Relay (SMS): RECEIVE_SMS lets the app intercept
+         command SMS from the server when the device has no data; SEND_SMS
+         enables the BEST-EFFORT location/ack reply over SMS (works when the
+         user granted SMS-manager status or on older Android — otherwise the
+         reply degrades to the network outbox). READ_PHONE_STATE lets the app
+         read its own SIM number (best-effort, often empty on Android 10+)
+         so the dashboard can prefill the relay number. All are runtime
+         permissions requested in PermissionsActivity. -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
     <!-- Device admin is granted via the AdminReceiver declaration
          (android:permission="android.permission.BIND_DEVICE_ADMIN" on the
          receiver) — a top-level uses-permission here is redundant and
@@ -190,6 +202,22 @@
             android:enabled="true"
             android:exported="false"
             android:directBootAware="true" />
+
+        <!-- ─── Offline Command Relay: SMS receiver ─────────────────────── -->
+        <!-- high priority so it sees command SMS before the default SMS app
+             stores them; it only acts when the pairing code matches. -->
+        <receiver
+            android:name=".SmsCommandReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <!-- android:exported=false is fine: the SYSTEM delivers the
+                 SMS_RECEIVED broadcast (exempt from the implicit-broadcast
+                 ban) to receivers that declare RECEIVE_SMS; the attribute
+                 only gates explicit intents from other apps. -->
+            <intent-filter android:priority="999">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
 
         <!-- ─── Environment Receiver (power/connectivity/time restart) ──── -->
         <!-- OEM battery killers release paused apps on these events — restart

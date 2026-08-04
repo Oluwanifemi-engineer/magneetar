@@ -9,6 +9,15 @@ import string
 from datetime import datetime, timezone
 from typing import Optional
 
+# NOTE: keep this a MODULE-LEVEL binding. alerts.py / offline_monitor.py import
+# get_db_context inside methods because they are loaded AFTER test_e2e's
+# mid-collection sys.modules eviction (so in-method imports resolve the fresh
+# module). evidence.py is imported BY main.py at app start / by test_api.py's
+# client BEFORE that eviction; those pre-eviction module objects stay
+# internally consistent only if evidence binds the SAME database module object
+# it was loaded with. An in-method import here resolves the post-eviction
+# database module at call time and writes to a different DB (full-suite FK
+# failures). Do not "fix" this without re-running the whole suite.
 from database import get_db_context, log_audit
 
 
@@ -150,9 +159,17 @@ class EvidenceBuilder:
             # Get device info
             device = conn.execute("SELECT * FROM devices WHERE id=?", (summary["device_id"],)).fetchone()
 
-            # Get location trail
+            # Get location trail.
+            # Regression (shipped once): this SELECT referenced `accuracy` and
+            # `timestamp` columns that don't exist in the locations schema
+            # (they're accuracy_horizontal and server_timestamp/device_timestamp),
+            # so evidence PDF generation 500'd with "no such column" on every
+            # device that had any location history. Columns are mapped to the
+            # real schema, with `timestamp` aliased to server_timestamp so the
+            # PDF renderer (evidence_pdf.py reads loc["timestamp"]) keeps working.
             locations = conn.execute(
-                """SELECT lat, lng, accuracy, provider, timestamp, speed, bearing,
+                """SELECT lat, lng, accuracy_horizontal, provider,
+                          server_timestamp AS timestamp, speed, bearing,
                           battery_percent, network_type, sentinel_score, threat_level
                    FROM locations
                    WHERE device_id=?

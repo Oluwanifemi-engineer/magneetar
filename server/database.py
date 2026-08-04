@@ -99,7 +99,31 @@ def init_db(db_path: str = None):
             -- (MT_ARCHIVE_AFTER_DAYS, default 30). Soft flag only: the row and
             -- its history are kept so an archived device can come back. Any
             -- fresh telemetry/heartbeat clears it automatically.
-            archived_at TIMESTAMP
+            archived_at TIMESTAMP,
+            -- Offline Command Relay (SMS): the phone's SIM number to which the
+            -- server SMSes commands when the device is offline, plus the opt-in
+            -- toggle (owner must enable + confirm the number before any SMS is
+            -- sent — Twilio costs real money and an SMS command is a security
+            -- surface). The Android app reports its SIM number best-effort and
+            -- the server prefills sms_phone only when it is still NULL.
+            sms_phone TEXT,
+            sms_commands_enabled BOOLEAN DEFAULT 0
+        );
+
+        -- ─── Cell Location Cache (offline command relay) ───────────────────
+        -- Maps a cell-tower fingerprint (MCC/MNC/TAC/CID list, as reported by
+        -- an offline device) to approximate coordinates, resolved lazily by a
+        -- pluggable provider (Unwired Labs etc.) and cached so a fingerprint is
+        -- never looked up twice. Graceful degradation: an unconfigured
+        -- provider simply means "unresolved" — the raw fingerprint is still
+        -- stored on the location row for a future lookup.
+        CREATE TABLE IF NOT EXISTS cell_location_cache (
+            fingerprint TEXT PRIMARY KEY,
+            lat REAL NOT NULL,
+            lng REAL NOT NULL,
+            accuracy_meters REAL,
+            provider TEXT,
+            resolved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """
     )
@@ -160,6 +184,27 @@ def init_db(db_path: str = None):
         c.execute("ALTER TABLE devices ADD COLUMN archived_at TIMESTAMP")
     except sqlite3.OperationalError:
         pass  # Column already exists — fresh DB or already migrated
+
+    # Offline Command Relay (SMS): phone number + opt-in toggle. Migrated for
+    # existing DBs — an ALTERed column defaults to NULL/0 (not enabled), so a
+    # pre-existing deployment is never auto-enrolled for paid SMS commands.
+    try:
+        c.execute("ALTER TABLE devices ADD COLUMN sms_phone TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    try:
+        c.execute("ALTER TABLE devices ADD COLUMN sms_commands_enabled BOOLEAN DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
+    # Delivery channel for a command: NULL/'poll' (the normal device poll) or
+    # 'sms' (delivered to the phone over the cellular SMS channel because the
+    # device was offline). Surfaced in command history so the dashboard can
+    # show how a command was routed.
+    try:
+        c.execute("ALTER TABLE commands ADD COLUMN delivery_channel TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
 
     c.executescript(
         """
@@ -230,6 +275,12 @@ def init_db(db_path: str = None):
             executed_at TIMESTAMP,
             expires_at TIMESTAMP,
             failure_reason TEXT,
+            -- Delivery channel: NULL/'poll' (normal device poll) or 'sms'
+            -- (offline command relay — delivered over the cellular SMS
+            -- channel because the device had no data). SMS-delivered commands
+            -- are excluded from the device poll so an offline phone that
+            -- executes from SMS then comes online does not double-run them.
+            delivery_channel TEXT,
             FOREIGN KEY (device_id) REFERENCES devices(id)
         );
 
@@ -625,6 +676,7 @@ def ensure_initialized() -> bool:
         "rate_limits",
         "revoked_tokens",
         "error_log",
+        "cell_location_cache",
     }
     # ⚠️ Keep in sync with the CREATE TABLE devices columns in init_db() +
     # the guarded ALTER TABLE migrations below it. A stale list here makes
@@ -655,6 +707,28 @@ def ensure_initialized() -> bool:
         "quiet_hours_start",
         "quiet_hours_end",
         "archived_at",
+        "sms_phone",
+        "sms_commands_enabled",
+    }
+    # ⚠️ Keep in sync with the CREATE TABLE commands columns in init_db() +
+    # the guarded ALTER TABLE migrations below it. A stale list here makes
+    # the server no-op on a DB that is actually missing columns — and every
+    # subsequent ack (which now writes failure_reason) 500s with
+    # "no such column" in production. This exact bug shipped once: the
+    # live DB was missing failure_reason while the running code already
+    # wrote it, because the check only validated devices columns.
+    expected_commands_columns = {
+        "id",
+        "device_id",
+        "command",
+        "params",
+        "status",
+        "priority",
+        "issued_at",
+        "executed_at",
+        "expires_at",
+        "failure_reason",
+        "delivery_channel",
     }
     try:
         with get_db_context() as conn:
@@ -662,7 +736,12 @@ def ensure_initialized() -> bool:
                 row["name"] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
             }
             devices_columns = {row["name"] for row in conn.execute("PRAGMA table_info(devices)").fetchall()}
-        if required_tables.issubset(present_tables) and expected_devices_columns.issubset(devices_columns):
+            commands_columns = {row["name"] for row in conn.execute("PRAGMA table_info(commands)").fetchall()}
+        if (
+            required_tables.issubset(present_tables)
+            and expected_devices_columns.issubset(devices_columns)
+            and expected_commands_columns.issubset(commands_columns)
+        ):
             return False
         init_db()
         return True

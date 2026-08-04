@@ -59,6 +59,7 @@ const mockAddAlert = jest.fn();
 const mockSetDevices = jest.fn();
 const mockSetLocations = jest.fn();
 const mockSetCommands = jest.fn();
+const mockApplyCommandAck = jest.fn();
 const mockSetConnected = jest.fn();
 
 // useStore.getState() and useStore.setState() must be static properties
@@ -83,6 +84,7 @@ jest.mock('@/store/useStore', () => {
       setDevices: mockSetDevices,
       setLocations: mockSetLocations,
       setCommands: mockSetCommands,
+      applyCommandAck: mockApplyCommandAck,
       setConnected: mockSetConnected,
     };
     return selector ? selector(state) : state;
@@ -208,6 +210,71 @@ describe('useWebSocket Hook', () => {
     expect(mockAddAlert).not.toHaveBeenCalled();
   });
 
+  it('applies command_ack messages to the store immediately', () => {
+    // Regression (shipped once): the command_ack handler was EMPTY, so a
+    // successfully executed command kept showing PENDING on the dashboard
+    // until the next 10s history poll. The ack must now flip the row's
+    // status the moment it arrives over the socket.
+    mockIsConnected = true;
+    renderHook(() => useWebSocket());
+
+    act(() => {
+      mockWsOnopen?.(new Event('open'));
+    });
+
+    const ackData = {
+      type: 'command_ack',
+      data: {
+        command_id: 123,
+        device_id: 'device-001',
+        status: 'executed',
+        failure_reason: null,
+      },
+    };
+
+    act(() => {
+      mockWsOnmessage?.({ data: JSON.stringify(ackData) });
+    });
+
+    expect(mockApplyCommandAck).toHaveBeenCalledWith(123, 'executed', null);
+  });
+
+  it('applies failed command_ack with the failure reason', () => {
+    mockIsConnected = true;
+    renderHook(() => useWebSocket());
+
+    act(() => {
+      mockWsOnopen?.(new Event('open'));
+    });
+
+    act(() => {
+      mockWsOnmessage?.({
+        data: JSON.stringify({
+          type: 'command_ack',
+          data: { command_id: 7, status: 'failed', failure_reason: 'Microphone muted' },
+        }),
+      });
+    });
+
+    expect(mockApplyCommandAck).toHaveBeenCalledWith(7, 'failed', 'Microphone muted');
+  });
+
+  it('ignores malformed command_ack messages', () => {
+    mockIsConnected = true;
+    renderHook(() => useWebSocket());
+
+    act(() => {
+      mockWsOnopen?.(new Event('open'));
+    });
+
+    expect(() => {
+      act(() => {
+        mockWsOnmessage?.({ data: JSON.stringify({ type: 'command_ack', data: { status: 'executed' } }) });
+      });
+    }).not.toThrow();
+    expect(mockApplyCommandAck).not.toHaveBeenCalled();
+  });
+
   it('handles alert messages from WebSocket', () => {
     mockIsConnected = true;
     renderHook(() => useWebSocket());
@@ -253,6 +320,44 @@ describe('useWebSocket Hook', () => {
         mockWsOnmessage?.({ data: JSON.stringify({ type: 'pong' }) });
       });
     }).not.toThrow();
+  });
+
+  it('responds to server ping with a pong keepalive', () => {
+    // Regression (shipped once): the server sends {type:'ping'} every 30s and
+    // prunes connections that don't pong within 90s. The client never
+    // responded, so every dashboard connection was dropped and reconnect-
+    // looped forever. It must now answer the server keepalive.
+    mockIsConnected = true;
+    renderHook(() => useWebSocket());
+
+    act(() => {
+      mockWsOnopen?.(new Event('open'));
+    });
+    mockWsSend.mockClear();
+
+    act(() => {
+      mockWsOnmessage?.({ data: JSON.stringify({ type: 'ping' }) });
+    });
+
+    expect(mockWsSend).toHaveBeenCalledTimes(1);
+    expect(mockWsSend).toHaveBeenCalledWith('{"type":"pong"}');
+  });
+
+  it('does not reply to pong (only to ping) — no message loop', () => {
+    mockIsConnected = true;
+    renderHook(() => useWebSocket());
+
+    act(() => {
+      mockWsOnopen?.(new Event('open'));
+    });
+    mockWsSend.mockClear();
+
+    act(() => {
+      mockWsOnmessage?.({ data: JSON.stringify({ type: 'pong' }) });
+    });
+
+    // A server pong must not trigger a client response (would echo forever).
+    expect(mockWsSend).not.toHaveBeenCalled();
   });
 
   it('disconnect closes WebSocket and clears state', () => {

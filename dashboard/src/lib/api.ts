@@ -89,11 +89,18 @@ class MagneetarAPI {
     return this.request(`/api/dashboard/commands/${deviceId}`);
   }
 
-  async issueCommand(deviceId: string, command: string, params = ''): Promise<{ status: string; command_id: number }> {
+  /**
+   * Issue a remote command. `password` is required for destructive commands
+   * (wipe) — the server step-up verifies it (account password for users,
+   * master API key for admins) before queueing, so a stolen dashboard
+   * session alone can never factory-reset a device.
+   */
+  async issueCommand(deviceId: string, command: string, params = '', password?: string): Promise<{ status: string; command_id: number }> {
     return this.request('/api/dashboard/command', 'POST', {
       device_id: deviceId,
       command,
       params,
+      ...(password ? { password } : {}),
     });
   }
 
@@ -147,8 +154,34 @@ class MagneetarAPI {
     return this.request(`/api/dashboard/evidence/${deviceId}`);
   }
 
-  async generateEvidencePDF(deviceId: string): Promise<any> {
-    return this.request(`/api/dashboard/evidence/${deviceId}/generate-pdf`, 'POST');
+  /**
+   * Generate a forensic PDF evidence report and trigger a browser download.
+   *
+   * The server returns the PDF as binary (application/pdf) — the generic
+   * `request()` helper does `res.json()` and would throw on the PDF bytes,
+   * silently killing the "Generate Evidence Report" button. This method
+   * fetches the blob, creates an object URL, and clicks an anchor to save it
+   * with a sensible filename. Returns the blob so callers can also preview.
+   */
+  async generateEvidencePDF(deviceId: string): Promise<Blob> {
+    const res = await fetch(`${this.serverUrl}/api/dashboard/evidence/${deviceId}/generate-pdf`, {
+      method: 'POST',
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(extractErrorMessage(error) || `HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Magneetar-Evidence-${deviceId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    return blob;
   }
 
   // ── Alerts ──────────────────────────────────────────────────────────────
@@ -239,6 +272,40 @@ class MagneetarAPI {
   }
 
   /**
+   * Configure the Offline Command Relay (SMS) for a device: the recipient
+   * number (E.164) and the opt-in toggle. When enabled and the device is
+   * offline, commands are SMSed to the phone and executed locally — no data
+   * connection needed. Owner opt-in only (SMS costs money + is an attack
+   * surface), so the toggle defaults to OFF.
+   */
+  async updateSmsSettings(
+    deviceId: string,
+    smsPhone: string,
+    smsCommandsEnabled: boolean,
+  ): Promise<{ status: string; sms_phone: string | null; sms_commands_enabled: boolean }> {
+    return this.request(`/api/dashboard/devices/${deviceId}/sms-settings`, 'PATCH', {
+      sms_phone: smsPhone,
+      sms_commands_enabled: smsCommandsEnabled,
+    });
+  }
+
+  /**
+   * Resolve a cell-tower fingerprint (captured by an offline device with zero
+   * internet) to approximate coordinates. Returns resolved=false when no
+   * provider is configured or the fingerprint can't be fixed.
+   */
+  async resolveCellLocation(cellTowerIds: string[]): Promise<{
+    resolved: boolean;
+    lat?: number;
+    lng?: number;
+    accuracy_meters?: number | null;
+    provider?: string;
+    reason?: string;
+  }> {
+    return this.request('/api/dashboard/cell-locate', 'POST', { cell_tower_ids: cellTowerIds });
+  }
+
+  /**
    * Link an ownerless device to this account using the pairing code shown in
    * the Magneetar app on the phone (first 8 hex chars of SHA-256 of the
    * device key). Rate-limited per user server-side.
@@ -254,6 +321,15 @@ class MagneetarAPI {
     // Step-up password: deletion is destructive, so the server re-authenticates
     // with the account password (users) or the master API key (admin).
     return this.request(`/api/dashboard/devices/${deviceId}`, 'DELETE', { password });
+  }
+
+  /**
+   * Bulk-delete every ARCHIVED (stale) device — the soft-flagged rows the
+   * server dims after ~30 days of silence. One password covers all of them
+   * (step-up: account password for users, master API key for admins).
+   */
+  async deleteArchivedDevices(password: string): Promise<{ status: string; deleted: string[]; count: number }> {
+    return this.request('/api/dashboard/devices/archived', 'DELETE', { password });
   }
 
   async deleteAccount(): Promise<{ status: string; message: string; devices_removed: number }> {

@@ -11,10 +11,12 @@ from typing import Optional
 from auth import (
     check_command_rate_limit,
     check_login_rate_limit,
+    check_password_verify_rate_limit,
     create_dashboard_tokens,
     refresh_access_token,
     require_dashboard_auth,
     user_id_from_subject,
+    verify_password,
 )
 from config import settings
 from database import (
@@ -25,6 +27,14 @@ from database import (
     log_audit,
 )
 from evidence import evidence_builder
+
+# Imported at MODULE level (not inside the route): under full-suite collection
+# test_e2e evicts modules from sys.modules; a function-local `from evidence_pdf
+# import ...` would resolve the post-eviction module at request time, whose
+# evidence_builder binds a different database module than this router's — the
+# PDF then compiles from a different DB than create_case wrote to (404
+# 'No evidence data found' / FK failures). Same pattern as the FCM tests.
+from evidence_pdf import generate_evidence_pdf as _generate_evidence_pdf_doc
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from logging_config import get_logger
 from models import (
@@ -97,9 +107,14 @@ def _verify_stepup_password(db, auth: str, raw_password) -> None:
     with their account password (user mode) or the master API key itself
     (admin mode). Attempts are rate-limited per actor; raises HTTPException
     (400 missing / 401 wrong / 429 throttled).
-    """
-    from auth import check_password_verify_rate_limit, verify_password
 
+    NOTE: check_password_verify_rate_limit / verify_password are imported at
+    MODULE level, never inside this function — under full-suite collection
+    test_e2e evicts auth/database from sys.modules, so a function-local
+    import would resolve the post-eviction chain (different DB_PATH) and the
+    step-up bucket would be written to a different DB than the one the test
+    fixtures clear (sporadic 429s under full-suite runs only).
+    """
     if not check_password_verify_rate_limit(auth):
         raise HTTPException(status_code=429, detail="Too many verification attempts")
 
@@ -222,6 +237,12 @@ async def list_devices(
                 "enabled_types": (_parse_json_list(d["enabled_types"]) if "enabled_types" in d.keys() else None),
                 "quiet_hours_start": (_parse_int(d["quiet_hours_start"]) if "quiet_hours_start" in d.keys() else None),
                 "quiet_hours_end": (_parse_int(d["quiet_hours_end"]) if "quiet_hours_end" in d.keys() else None),
+                # Offline Command Relay (SMS) — the number commands are SMSed to
+                # when the device is offline, and the opt-in toggle.
+                "sms_phone": d["sms_phone"] if "sms_phone" in d.keys() else None,
+                "sms_commands_enabled": (
+                    bool(d["sms_commands_enabled"]) if "sms_commands_enabled" in d.keys() else False
+                ),
             }
         )
 
@@ -432,6 +453,213 @@ async def update_device_alert_settings(
         "quiet_hours_start": quiet_start,
         "quiet_hours_end": quiet_end,
     }
+
+
+@router.patch("/api/dashboard/devices/{device_id}/sms-settings")
+async def update_device_sms_settings(
+    device_id: str,
+    body: dict,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
+):
+    """Configure the Offline Command Relay for a device.
+
+    When a device is OFFLINE (no data), the dashboard can still reach it by
+    SMS: the server texts the command to the phone's SIM number and the app
+    executes it locally. This endpoint sets the recipient number (E.164) and
+    the opt-in toggle.
+
+    Security & cost:
+    - The owner must EXPLICITLY enable SMS commands (Twilio costs money per
+      message, and an SMS command is a real attack surface). The toggle
+      defaults to OFF.
+    - The phone number must be E.164 (starts with '+') so Twilio/Termii can
+      route it; empty string clears the number (disables the relay).
+    - The Android app reports its SIM number best-effort; the server prefills
+      sms_phone on registration only when it is still NULL so an owner-set
+      value is never overwritten.
+    """
+    _assert_device_access(db, device_id, auth)
+    row = db.execute("SELECT id FROM devices WHERE id=?", (device_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    sms_phone = (body.get("sms_phone") or "").strip()
+    enabled = bool(body.get("sms_commands_enabled", False))
+
+    if sms_phone and not sms_phone.startswith("+"):
+        raise HTTPException(
+            status_code=400,
+            detail="SMS phone must be in E.164 format starting with '+'",
+        )
+    if enabled and not sms_phone:
+        raise HTTPException(
+            status_code=400,
+            detail="Enable Offline SMS commands requires a phone number (E.164, e.g. +2348081234567)",
+        )
+
+    db.execute(
+        "UPDATE devices SET sms_phone=?, sms_commands_enabled=? WHERE id=?",
+        (sms_phone or None, 1 if enabled else 0, device_id),
+    )
+    db.commit()
+    log_audit(
+        "device_sms_settings_updated",
+        actor=auth,
+        details=f"Device: {device_id}, sms_commands_enabled={enabled}, sms_phone={'set' if sms_phone else 'cleared'}",
+    )
+    return {
+        "status": "ok",
+        "sms_phone": sms_phone or None,
+        "sms_commands_enabled": enabled,
+    }
+
+
+@router.post("/api/dashboard/cell-locate")
+async def resolve_cell_location(
+    body: dict,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
+):
+    """Resolve a cell-tower fingerprint to approximate coordinates.
+
+    The offline command relay captures the device's surrounding cell towers
+    (MCC/MNC/TAC/CID) — which works with ZERO internet — and this endpoint
+    turns that fingerprint into a coarse position (~50-200m in cities) using
+    a pluggable provider (Unwired Labs when MT_CELL_LOOKUP_API_KEY is set).
+    Results are cached in cell_location_cache so a fingerprint is looked up
+    at most once.
+
+    Graceful degradation: an unconfigured provider (or a fingerprint the
+    provider can't resolve) returns {"resolved": false} with the fingerprint
+    echoed — the caller still stores the raw fingerprint for a future lookup.
+
+    Body: {"cell_tower_ids": ["lte:621:20:30544:123456", ...]}
+    """
+    tower_ids = body.get("cell_tower_ids") or []
+    if not isinstance(tower_ids, list) or not tower_ids:
+        raise HTTPException(status_code=400, detail="cell_tower_ids must be a non-empty list")
+    if not all(isinstance(t, str) and ":" in t for t in tower_ids):
+        raise HTTPException(status_code=400, detail="Each tower id must be 'type:mcc:mnc:tac:cid'")
+
+    fingerprint = ",".join(sorted(set(tower_ids)))
+
+    # 1) Cache hit — a fingerprint resolves to the same place every time.
+    cached = db.execute(
+        "SELECT lat, lng, accuracy_meters, provider FROM cell_location_cache WHERE fingerprint=?",
+        (fingerprint,),
+    ).fetchone()
+    if cached:
+        return {
+            "resolved": True,
+            "lat": cached["lat"],
+            "lng": cached["lng"],
+            "accuracy_meters": cached["accuracy_meters"],
+            "provider": cached["provider"],
+            "cached": True,
+        }
+
+    # 2) Provider not configured — degrade gracefully, never fail the caller.
+    if not settings.CELL_LOOKUP_API_KEY:
+        return {
+            "resolved": False,
+            "reason": "no_provider_configured",
+            "cell_tower_ids": tower_ids,
+        }
+
+    # 3) Ask the provider (Unwired Labs format).
+    import httpx
+
+    parsed = []
+    for t in tower_ids:
+        parts = t.split(":")
+        if len(parts) < 5:
+            continue
+        tower_type, mcc, mnc, tac, cid = parts[0], int(parts[1]), int(parts[2]), int(parts[3]), int(parts[4])
+        key = {"lte": "lte", "gsm": "gsm", "wcdma": "wcdma", "nr": "nr"}.get(tower_type, "lte")
+        entry = {"radio": key, "mcc": mcc, "mnc": mnc, "lac": tac, "cid": cid}
+        if tower_type in ("lte", "nr"):
+            entry["tac"] = tac
+        parsed.append(entry)
+    if not parsed:
+        return {"resolved": False, "reason": "unparseable_fingerprint", "cell_tower_ids": tower_ids}
+
+    try:
+        with httpx.Client(timeout=8) as client:
+            resp = client.post(
+                settings.CELL_LOOKUP_URL,
+                json={"token": settings.CELL_LOOKUP_API_KEY, "cells": parsed},
+            )
+            data = resp.json()
+        if data.get("status") == "ok" and data.get("lat") is not None and data.get("lon") is not None:
+            lat, lng = float(data["lat"]), float(data["lon"])
+            accuracy = data.get("accuracy")
+            db.execute(
+                "INSERT OR REPLACE INTO cell_location_cache (fingerprint, lat, lng, accuracy_meters, provider) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (fingerprint, lat, lng, accuracy, "unwiredlabs"),
+            )
+            db.commit()
+            return {
+                "resolved": True,
+                "lat": lat,
+                "lng": lng,
+                "accuracy_meters": accuracy,
+                "provider": "unwiredlabs",
+                "cached": False,
+            }
+        return {"resolved": False, "reason": "provider_no_fix", "cell_tower_ids": tower_ids}
+    except Exception as e:
+        logger.warning(f"Cell lookup failed: {e}")
+        return {"resolved": False, "reason": "provider_error", "cell_tower_ids": tower_ids}
+
+
+# NOTE: /archived is a STATIC path and MUST be registered before
+# /{device_id} — FastAPI matches routes in registration order, so the
+# parameterized route below would otherwise capture "archived" as a
+# device_id and 404 instead of bulk-deleting.
+@router.delete("/api/dashboard/devices/archived")
+async def delete_archived_devices(
+    body: dict = None,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
+):
+    """Bulk-delete all ARCHIVED (stale) devices, gated by a step-up password.
+
+    Devices silent beyond the archive threshold (MT_ARCHIVE_AFTER_DAYS,
+    default 30) are soft-flagged with archived_at and dimmed in the sidebar.
+    This endpoint permanently removes every archived device the caller can
+    access — users get their own archived devices, admins get all — and
+    re-authenticates with the step-up password (account password for users,
+    master API key for admins), the same contract as single-device deletion.
+    Rate-limited per actor via _verify_stepup_password.
+    """
+    _verify_stepup_password(db, auth, (body or {}).get("password"))
+
+    user_id = _resolve_user_id(auth)
+    if user_id:
+        rows = db.execute("SELECT id FROM devices WHERE archived_at IS NOT NULL AND owner_id=?", (user_id,)).fetchall()
+    else:
+        rows = db.execute("SELECT id FROM devices WHERE archived_at IS NOT NULL").fetchall()
+
+    deleted = []
+    for row in rows:
+        device_id = row["id"]
+        delete_device_cascade(db, device_id)
+        deleted.append(device_id)
+        # Clear the WebSocket owner cache so stale broadcasts don't leak.
+        from websocket_manager import update_device_owner
+
+        update_device_owner(device_id, None)
+
+    db.commit()
+    log_audit(
+        "archived_devices_bulk_deleted",
+        actor=auth,
+        details=f"{len(deleted)} archived device(s): {', '.join(deleted) or 'none'}",
+    )
+
+    return {"status": "ok", "deleted": deleted, "count": len(deleted)}
 
 
 @router.delete("/api/dashboard/devices/{device_id}")
@@ -703,28 +931,133 @@ async def issue_command(
     if cmd.command == "wipe":
         if cmd.params != "CONFIRMED_WIPE":
             raise HTTPException(status_code=400, detail="Wipe requires params='CONFIRMED_WIPE'")
+        # Wipe is a factory reset — the most destructive command on the
+        # platform. Like device/media deletion, it re-authenticates with the
+        # step-up password (account password for users, master API key for the
+        # admin dashboard) so a stolen dashboard session alone can never wipe
+        # a device. Ownership is checked above via _assert_device_access.
+        _verify_stepup_password(db, auth, cmd.password)
+
+    # ── Offline Command Relay (SMS) ──────────────────────────────────────
+    # When the device is offline (no data) but the owner enabled SMS commands
+    # with a confirmed SIM number, deliver the command over the cellular SMS
+    # channel as well — the app executes it locally on receipt. The normal
+    # poll is skipped for SMS-delivered commands (delivery_channel='sms'), so
+    # an offline phone that comes back online later does NOT double-execute a
+    # command it already ran from the SMS. The SMS path only fires when the
+    # device's last_seen is stale (it is offline) — an online device uses the
+    # free, fast poll channel.
+    device = db.execute(
+        "SELECT sms_phone, sms_commands_enabled, device_key_hash, last_seen FROM devices WHERE id=?",
+        (cmd.device_id,),
+    ).fetchone()
+
+    delivery_channel = "poll"
+    sms_phone = (device["sms_phone"] or "") if device else ""
+    sms_enabled = bool(device and device["sms_commands_enabled"])
+    device_offline = True
+    if device and device["last_seen"]:
+        try:
+            last_seen = datetime.fromisoformat(device["last_seen"])
+            device_offline = (datetime.now(timezone.utc) - last_seen).total_seconds() > 300
+        except Exception:
+            device_offline = True
+
+    # Only route via SMS when the device has a device_key_hash — the MAGNET
+    # SMS carries the pairing code derived from it, so a keyless device (e.g.
+    # an API-key-only legacy registration) could never verify the command
+    # on-device. A relay to a keyless device would be silently ignored and the
+    # command stranded (SMS channel excludes it from the poll), so guard it.
+    has_device_key = bool(device and device["device_key_hash"])
+    if sms_enabled and sms_phone and device_offline and has_device_key:
+        # Per-device SMS cap: each relay costs real money (Twilio) and each
+        # message is a real attack surface, so a single device can only relay
+        # 5 SMS commands per minute. The shared command-issuance rate limit
+        # (20/min per dashboard user) is NOT enough — one user could otherwise
+        # fire 20 SMS/min to one number (~28k/day) through the relay.
+        if not check_rate_limit(f"sms:{cmd.device_id}", "sms_command", 5, 1):
+            raise HTTPException(
+                status_code=429,
+                detail="SMS command relay rate limit exceeded — try again in a minute",
+            )
+        delivery_channel = "sms"
 
     # Unacknowledged commands auto-expire: 5 minutes for sensitive ones
     # (wipe/lock/alarm), 30 minutes for everything else — a stale PENDING
     # must never linger on the dashboard or execute long after the operator
-    # gave up on it.
-    expires_minutes = 5 if cmd.command in ("wipe", "lock", "alarm") else 30
-    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)).isoformat()
+    # gave up on it. SMS-delivered commands get a LONGER window (24h): the
+    # phone executes on SMS receipt but its ack can only travel over the
+    # network when connectivity returns, so a short expiry would mark a
+    # successfully-executed command 'expired' before the ack lands.
+    # (Computed for BOTH channels up-front: a failed SMS send falls back to
+    # the poll channel and must re-stamp the poll expiry, not keep 24h.)
+    sms_expires_at = (datetime.now(timezone.utc) + timedelta(minutes=24 * 60)).isoformat()
+    poll_expires_minutes = 5 if cmd.command in ("wipe", "lock", "alarm") else 30
+    poll_expires_at = (datetime.now(timezone.utc) + timedelta(minutes=poll_expires_minutes)).isoformat()
+    expires_at = sms_expires_at if delivery_channel == "sms" else poll_expires_at
+
+    # Urgent commands jump the queue: the device poll orders by priority ASC,
+    # so wipe/lock/alarm/capture get priority 1 (executed first) while
+    # ping/burst stay at the default 5. An explicit caller priority is honored
+    # only when it is already more urgent than the forced value.
+    priority = cmd.priority
+    if (
+        cmd.command in ("wipe", "lock", "alarm", "capture_photo", "capture_photo_front", "capture_audio")
+        and priority > 1
+    ):
+        priority = 1
 
     cur = db.execute(
-        "INSERT INTO commands (device_id, command, params, priority, issued_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
-        (cmd.device_id, cmd.command, cmd.params, cmd.priority, now, expires_at),
+        "INSERT INTO commands (device_id, command, params, priority, issued_at, expires_at, delivery_channel) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (cmd.device_id, cmd.command, cmd.params, priority, now, expires_at, delivery_channel),
     )
     db.commit()
 
     command_id = cur.lastrowid
+
+    # Now that the command id exists, actually send the SMS (best-effort).
+    sms_delivered = False
+    if delivery_channel == "sms":
+        from sms_relay import command_sms_body, send_command_sms
+
+        sms_body = command_sms_body(device["device_key_hash"], command_id, cmd.command, cmd.params or "")
+        sms_delivered = send_command_sms(sms_phone, sms_body)
+        log_audit(
+            "command_sms_relay",
+            actor=auth,
+            details=(
+                f"Command: {cmd.command} #{command_id} to {cmd.device_id} via SMS "
+                f"to {sms_phone} → {'delivered' if sms_delivered else 'SEND FAILED'}"
+            ),
+        )
+
+        # SMS SEND FAILURE → fall back to the poll channel. A command stamped
+        # delivery_channel='sms' is excluded from the device poll forever, so
+        # a failed SMS would strand it — never executable, never retryable by
+        # the normal channel. Re-stamp it as poll (with the poll expiry) so it
+        # stays deliverable the moment the device returns; the response's
+        # sms_delivered=false already tells the operator the SMS failed.
+        if not sms_delivered:
+            db.execute(
+                "UPDATE commands SET delivery_channel='poll', expires_at=? WHERE id=?",
+                (poll_expires_at, command_id),
+            )
+            db.commit()
+            delivery_channel = "poll"
+
     log_audit(
         "command_issued",
         actor=auth,
         details=f"Command: {cmd.command} to {cmd.device_id}",
     )
 
-    return {"status": "queued", "command_id": command_id}
+    return {
+        "status": "queued",
+        "command_id": command_id,
+        "delivery": delivery_channel,
+        "sms_delivered": sms_delivered,
+    }
 
 
 @router.get("/api/dashboard/commands/{device_id}")
@@ -880,10 +1213,9 @@ async def generate_evidence_pdf(
     else:
         case_id = case["id"]
 
-    # Generate actual PDF using ReportLab
-    from evidence_pdf import generate_evidence_pdf as generate_pdf
-
-    pdf_bytes = generate_pdf(case_id)
+    # Generate actual PDF using ReportLab (module-level binding, see import
+    # note above — never import evidence_pdf inside the request path).
+    pdf_bytes = _generate_evidence_pdf_doc(case_id)
     if not pdf_bytes:
         raise HTTPException(status_code=404, detail="No evidence data found")
 

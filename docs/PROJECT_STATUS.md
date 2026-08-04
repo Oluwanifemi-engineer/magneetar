@@ -1,7 +1,7 @@
 # Magneetar — Project Status Report
 
-**Generated:** August 2, 2026  
-**Version:** 1.2.0  
+**Generated:** August 4, 2026  
+**Version:** 1.3.1  
 **Status:** 🟢 Production Ready
 
 ---
@@ -14,7 +14,7 @@ Magneetar is a fully functional anti-theft tracking system with:
 - **Dashboard** — Next.js tactical command center with a premium landing + auth experience
 - **Production deployment** — Docker Compose + Cloudflare Tunnel (SQLite on the persisted volume is the live data plane)
 
-All **339 tests pass consistently** (230 backend + 109 dashboard). The system is hardened with reliability improvements (WebSocket connection limits, alert circuit breakers, per-device recipients, CI alert verification), and **Milestone 2 (Multi-User & Device Ownership) P0s are now complete**: devices link to accounts on Android at registration and via a claim endpoint, every dashboard endpoint is scoped by ownership, WebSocket broadcasts are owner-filtered, and per-user device limits are enforced. **Guardian Network (Milestone 3 P0)** is also live: opt-in guardians, blurred nearby scans, sighting reports, and recovery-request lifecycle — all verified end-to-end in production. The latest round landed **step-up-password media deletion**, **working remote commands** (wipe CONFIRMED_WIPE + hardened Android command loop), the **Trail Replay Invalid-Date fix**, the **Settings modal portal fix**, premium command buttons, and the **magenta-tile white-M brand refresh** (web + Android launcher). **v1.3.0** adds **uninstall protection** (active Device Admin blocks uninstall until deactivated — warning + instant server theft-signal on disable; device/profile-owner mode adds the hard `setUninstallBlocked(true)`; onboarding now routes through Device Admin by default with an explicit, informed skip; `scripts/enable-uninstall-protection.sh` provisions device-owner via adb; `docs/security.md`), **background camera/audio capture fixed** (new `MediaCaptureService` camera|microphone FGS — photo/front/audio now work from a locked screen on Android 14/15 and ack honestly), and the **bold solid white-M logo** (Moniepoint-style) across web + Android.
+All **495 tests pass consistently** (342 backend + 153 dashboard). The latest round fixed the **command re-execution loop / stuck-PENDING bug** end-to-end: new Android `RecentCommandTracker` enforces at-most-once execution (a lost ack now converges via an idempotent re-ack instead of re-running the siren/capture every 10s), the command loop flushes the ack outbox before each poll, and the dashboard's `command_ack` WebSocket handler updates the row instantly (the empty handler is why successful commands looked PENDING for up to 10s). The system is hardened with reliability improvements (WebSocket connection limits, alert circuit breakers, per-device recipients, CI alert verification), and **Milestone 2 (Multi-User & Device Ownership) P0s are now complete**: devices link to accounts on Android at registration and via a claim endpoint, every dashboard endpoint is scoped by ownership, WebSocket broadcasts are owner-filtered, and per-user device limits are enforced. **Guardian Network (Milestone 3 P0)** is also live: opt-in guardians, blurred nearby scans, sighting reports, and recovery-request lifecycle — all verified end-to-end in production. The latest round landed **step-up-password media deletion**, **working remote commands** (wipe CONFIRMED_WIPE + hardened Android command loop), the **Trail Replay Invalid-Date fix**, the **Settings modal portal fix**, premium command buttons, and the **magenta-tile white-M brand refresh** (web + Android launcher). **v1.3.0** adds **uninstall protection** (active Device Admin blocks uninstall until deactivated — warning + instant server theft-signal on disable; device/profile-owner mode adds the hard `setUninstallBlocked(true)`; onboarding now routes through Device Admin by default with an explicit, informed skip; `scripts/enable-uninstall-protection.sh` provisions device-owner via adb; `docs/security.md`), **background camera/audio capture fixed** (new `MediaCaptureService` camera|microphone FGS — photo/front/audio now work from a locked screen on Android 14/15 and ack honestly), and the **bold solid white-M logo** (Moniepoint-style) across web + Android.
 
 ---
 
@@ -22,7 +22,7 @@ All **339 tests pass consistently** (230 backend + 109 dashboard). The system is
 
 | Test Suite | Count | Status |
 |------------|-------|--------|
-| API Tests (`test_api.py`) | 26 | ✅ All pass |
+| API Tests (`test_api.py`) | 60 | ✅ All pass |
 | Auth Tests (`test_auth.py`) | 15 | ✅ All pass |
 | Sentinel Tests (`test_sentinel.py`) | 17 | ✅ All pass (incl. confirmation-gate regressions for the theft-unlock fix) |
 | E2E Tests (`test_e2e.py`) | 11 | ✅ All pass |
@@ -33,9 +33,9 @@ All **339 tests pass consistently** (230 backend + 109 dashboard). The system is
 | **Heartbeat/Theft Tests** (`test_heartbeat_theft.py`) | **3** | ✅ **All pass** (heartbeat w/ admin inactive → 200 + last_seen advances + no stolen-mode; sub-threshold activation is a no-op) |
 | **Alert Settings Tests** (`test_alert_settings.py`) | **13** | ✅ **All pass** (per-device channels, enabled types, quiet hours, emergency always-deliver, dedup-row regression) |
 | **Media Delete Tests** (`test_media_delete.py`) | **11** | ✅ **All pass** (step-up password gate: user password + admin API key, wrong-password 401, rate limit 429, ownership 403, evidence counter fix-up) |
-| **Backend Total** | **230** | **✅ All pass** |
-| **Dashboard Tests** | **109** | **✅ All pass** (16 suites, `tsc --noEmit` clean, incl. `MediaGallery.test.tsx` password-gated deletion, `SettingsModal.test.tsx` portal regression, `CommandPanel.test.tsx` wipe/front/burst, timestamp regressions) |
-| **Grand Total** | **339** | **✅ All pass** |
+| **Backend Total** | **342** | **✅ All pass** |
+| **Dashboard Tests** | **153** | **✅ All pass** (18 suites, `tsc --noEmit` clean, incl. `MediaGallery.test.tsx` password-gated deletion, `SettingsModal.test.tsx` portal regression, `CommandPanel.test.tsx` wipe/front/burst, timestamp regressions, `useWebSocket.test.tsx` command_ack instant-update) |
+| **Grand Total** | **495** | **✅ All pass** |
 
 ---
 
@@ -92,6 +92,8 @@ All **339 tests pass consistently** (230 backend + 109 dashboard). The system is
 | New commands | FRONT-camera + location-BURST buttons in the quick-action grid |
 | Error feedback | Every command send surfaces success/error strips instead of failing silently |
 | Android command loop | `handleCommand` always acks (executed/failed) — nothing sticks PENDING; camera capture bounded by 45s timeout, `onError`/`onDisconnected` complete the deferred so a broken camera can't stall the loop |
+| At-most-once execution | New `RecentCommandTracker` (Android, persisted, 60-min retention) — a command the poll re-delivers after a lost ack is **re-acked (idempotent) instead of re-executed**, ending the siren/capture/burst replay loop; the command loop flushes the ack outbox before each poll so a queued ack lands before the next re-delivery |
+| Instant command status | The dashboard `command_ack` WebSocket handler now flips the row's status/failure_reason immediately (was empty → successful commands looked PENDING for up to 10s); new `applyCommandAck` store action merges in place without clobbering `executed_at` |
 | Settings modal | Portaled into `document.body` — the old `backdrop-blur` header clipped the `fixed` modal to 56px, making SETTINGS look dead |
 | Trail Replay | `parseTimestamp`/`locationTimestamp` normalize ISO + SQLite timestamps — no more "Invalid Date"; stable animation deps |
 | Tabs | Horizontal scroll so all seven tabs are reachable in the narrow panel |
@@ -191,7 +193,7 @@ All **339 tests pass consistently** (230 backend + 109 dashboard). The system is
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| Docker Compose | ✅ Running | server + dashboard + optional Postgres (SQLite on persisted volume is the live data plane) |
+| Docker Compose | ✅ Running | server + dashboard, **SQLite-only** (v1.3.1: empty Postgres container removed — SQLite on the persisted volume is the single data plane; optional Postgres adapter logs a startup warning if opted in) |
 | Cloudflare Tunnel | ✅ Running | api.magneetar.me → server / app.magneetar.me → dashboard |
 | Health Checks | ✅ All pass | All 3 services: DB, server, dashboard |
 | DB Backup Script | ✅ Fixed + verified | `bash scripts/backup-db.sh` snapshots the **live SQLite DB** (was dumping empty Postgres); backup → restore round-trip verified, integrity-checked; daily cron installed (3 AM); CI smoke test (`scripts/test-backup-smoke.sh`) in pipeline |

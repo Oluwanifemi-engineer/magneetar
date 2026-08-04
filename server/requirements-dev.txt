@@ -18,5 +18,10 @@ black==25.1.0
 # Dead-code detection (CI advisory step)
 vulture==2.16
 
+# Test runner (runtime requirements.txt deliberately excludes these — the
+# production image should never ship pytest).
+pytest==9.1.1
+pytest-asyncio==1.4.0
+
 # Local pre-commit gate runner
 pre-commit==4.6.1

@@ -173,6 +173,49 @@ class TestHealthEndpointReliability:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# 2a. WebSocket keepalive — server pong-message detection
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestWebSocketPongDetection:
+    """The server must recognize a dashboard client's keepalive pong in every
+    form the client can send, so the 90s stale-prune heartbeat never drops a
+    live connection. Regression: the dashboard client sends a JSON pong
+    (JSON.stringify({type:'pong'})) but the receive loop only matched the
+    bare string "pong" and a differently-spaced JSON literal — every
+    dashboard connection was pruned and reconnect-looped forever."""
+
+    def test_bare_pong_recognized(self):
+        from main import _is_pong_message
+
+        assert _is_pong_message("pong") is True
+
+    def test_compact_json_pong_recognized(self):
+        """What the dashboard client actually sends: JSON.stringify({type:'pong'})."""
+        from main import _is_pong_message
+
+        assert _is_pong_message('{"type":"pong"}') is True
+
+    def test_spaced_json_pong_recognized(self):
+        """A differently-spaced serialization must also count as a pong."""
+        from main import _is_pong_message
+
+        assert _is_pong_message('{"type": "pong"}') is True
+
+    def test_ping_is_not_a_pong(self):
+        from main import _is_pong_message
+
+        assert _is_pong_message("ping") is False
+        assert _is_pong_message('{"type":"ping"}') is False
+
+    def test_arbitrary_json_is_not_a_pong(self):
+        from main import _is_pong_message
+
+        assert _is_pong_message('{"type":"location","data":{}}') is False
+        assert _is_pong_message("") is False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # 2. WebSocket Connection Limits
 # ═══════════════════════════════════════════════════════════════════════════
 

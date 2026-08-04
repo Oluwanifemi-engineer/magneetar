@@ -43,6 +43,7 @@ jest.mock('lucide-react', () => {
     Trash2: stub('Trash2'),
     X: stub('X'),
     Pencil: stub('Pencil'),
+    MessageSquareText: stub('MessageSquareText'),
   };
 });
 
@@ -60,6 +61,7 @@ jest.mock('@/components/ui/CoordDisplay', () => ({
 
 // ─── Mock API ─────────────────────────────────────────────────────────────
 let mockUpdateCalls: any[] = [];
+let mockSmsUpdateCalls: any[] = [];
 let mockDevicesResponse: any[] = [];
 let mockDeleteDeviceImpl: any = null;
 
@@ -74,6 +76,10 @@ jest.mock('@/lib/api', () => ({
     deleteDevice: jest.fn(async (deviceId: string, password: string) => {
       if (mockDeleteDeviceImpl) return mockDeleteDeviceImpl(deviceId, password);
       return { status: 'ok' };
+    }),
+    updateSmsSettings: jest.fn(async (deviceId: string, smsPhone: string, smsEnabled: boolean) => {
+      mockSmsUpdateCalls.push({ deviceId, smsPhone, smsEnabled });
+      return { status: 'ok', sms_phone: smsPhone || null, sms_commands_enabled: smsEnabled };
     }),
   }),
 }));
@@ -99,12 +105,15 @@ const baseDevice = (overrides: any = {}) => ({
   enabled_types: null,
   quiet_hours_start: null,
   quiet_hours_end: null,
+  sms_phone: null,
+  sms_commands_enabled: false,
   ...overrides,
 });
 
 describe('DevicePanel — alert settings', () => {
   beforeEach(() => {
     mockUpdateCalls = [];
+    mockSmsUpdateCalls = [];
     mockDevicesResponse = [];
     mockDevices = [baseDevice()];
     mockSelectedDeviceId = 'dev-1';
@@ -203,6 +212,50 @@ describe('DevicePanel — alert settings', () => {
     await waitFor(() => expect(mockUpdateCalls.length).toBe(1));
     expect(mockUpdateCalls[0].opts.alert_channels).toBeNull();
     expect(mockUpdateCalls[0].opts.enabled_types).toBeNull();
+  });
+});
+
+describe('DevicePanel — Offline SMS commands (command relay)', () => {
+  beforeEach(() => {
+    mockUpdateCalls = [];
+    mockSmsUpdateCalls = [];
+    mockDevices = [baseDevice({ sms_phone: '+2348012345678', sms_commands_enabled: true })];
+    mockSelectedDeviceId = 'dev-1';
+    mockLatestLocation = null;
+  });
+
+  it('shows the SMS commands card with the stored number + On badge', () => {
+    render(<DevicePanel />);
+    expect(screen.getByText('Offline SMS Commands')).toBeInTheDocument();
+    expect(screen.getByText('On')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Offline SMS Commands'));
+    expect(screen.getByLabelText('Offline SMS phone number')).toHaveValue('+2348012345678');
+    expect(screen.getByLabelText('Enable offline SMS commands')).toBeChecked();
+  });
+
+  it('saves the phone number + enable toggle to the API', async () => {
+    render(<DevicePanel />);
+    fireEvent.click(screen.getByText('Offline SMS Commands'));
+
+    fireEvent.change(screen.getByLabelText('Offline SMS phone number'), {
+      target: { value: '+2348099999999' },
+    });
+    fireEvent.click(screen.getByText('Save SMS Settings'));
+
+    await waitFor(() => expect(mockSmsUpdateCalls.length).toBe(1));
+    expect(mockSmsUpdateCalls[0]).toEqual({
+      deviceId: 'dev-1',
+      smsPhone: '+2348099999999',
+      smsEnabled: true,
+    });
+  });
+
+  it('does not show the On badge when SMS is disabled', () => {
+    mockDevices = [baseDevice({ sms_phone: '+2348012345678', sms_commands_enabled: false })];
+    render(<DevicePanel />);
+    expect(screen.getByText('Offline SMS Commands')).toBeInTheDocument();
+    expect(screen.queryByText('On')).not.toBeInTheDocument();
   });
 });
 

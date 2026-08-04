@@ -31,6 +31,11 @@ interface MagneetarState {
   // Commands
   commands: Command[];
   setCommands: (commands: Command[]) => void;
+  // Live command-ack merge (from the WebSocket feed): updates a single command
+  // row's status/executed_at/failure_reason in place instead of waiting for
+  // the next 10s history poll — the status flips to executed/failed the moment
+  // the device acks.
+  applyCommandAck: (commandId: number, status: string, failureReason?: string | null) => void;
 
   // Media
   media: MediaItem[];
@@ -152,6 +157,23 @@ export const useStore = create<MagneetarState>()(
       // Commands
       commands: [],
       setCommands: (commands) => set({ commands }),
+
+      applyCommandAck: (commandId, status, failureReason) =>
+        set((state) => ({
+          commands: state.commands.map((c) =>
+            c.id === commandId
+              ? {
+                  ...c,
+                  status: status as Command['status'],
+                  // NOTE: the broadcast carries no executed_at, so we leave the
+                  // server's value (or null) untouched — the next history poll
+                  // fills the real server timestamp. Never fabricate a
+                  // client-clock time that could disagree with the server.
+                  failure_reason: failureReason ?? c.failure_reason,
+                }
+              : c
+          ),
+        })),
 
       // Media
       media: [],

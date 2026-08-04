@@ -21,6 +21,8 @@ class HomeActivity : AppCompatActivity() {
     companion object {
         /** User opt-out for remote capture (set false when they disarm). */
         private const val PREF_AUTO_ARM = "capture_auto_arm"
+        /** Offline SMS Commands opt-in (shared with SmsCommandReceiver). */
+        private const val PREF_SMS_ENABLED = "sms_commands_enabled"
     }
 
     private lateinit var tvUninstallStatus: TextView
@@ -29,6 +31,8 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var tvBatteryStatus: TextView
     private lateinit var tvCaptureStatus: TextView
     private lateinit var btnToggleCapture: Button
+    private lateinit var tvSmsStatus: TextView
+    private lateinit var btnToggleSms: Button
     private lateinit var tvOemWarning: TextView
     private lateinit var btnOpenDashboard: Button
     private lateinit var btnAutoStart: Button
@@ -46,6 +50,8 @@ class HomeActivity : AppCompatActivity() {
         tvBatteryStatus = findViewById(R.id.tv_battery_opt_status)
         tvCaptureStatus = findViewById(R.id.tv_capture_status)
         btnToggleCapture = findViewById(R.id.btn_toggle_capture)
+        tvSmsStatus = findViewById(R.id.tv_sms_status)
+        btnToggleSms = findViewById(R.id.btn_toggle_sms)
         tvOemWarning = findViewById(R.id.tv_oem_warning)
         btnOpenDashboard = findViewById(R.id.btn_open_dashboard)
         btnAutoStart = findViewById(R.id.btn_auto_start)
@@ -95,6 +101,10 @@ class HomeActivity : AppCompatActivity() {
             toggleCapture()
         }
 
+        btnToggleSms.setOnClickListener {
+            toggleSmsCommands()
+        }
+
         updateUI()
     }
 
@@ -102,6 +112,7 @@ class HomeActivity : AppCompatActivity() {
         super.onResume()
         updateUI()
         updateCaptureStatus()
+        updateSmsStatus()
         // Auto-arm remote capture while the app is foreground — unless the
         // owner explicitly disarmed it (privacy opt-out). Android 14+ only
         // allows STARTING the camera|microphone foreground service from a
@@ -217,6 +228,65 @@ class HomeActivity : AppCompatActivity() {
             tvCaptureStatus.text = "📷 Remote capture: OFF — tap to arm"
             tvCaptureStatus.setTextColor(android.graphics.Color.parseColor("#FFB800"))
             btnToggleCapture.text = "Arm Remote Capture"
+        }
+    }
+
+    /**
+     * Offline SMS Commands (the no-internet control channel): opt-in toggle.
+     * Default OFF — SMS interception is sensitive, and the dashboard-side
+     * relay toggle also defaults off. The receiver reads the same pref, so
+     * flipping it here genuinely gates whether command SMS are accepted.
+     */
+    private fun toggleSmsCommands() {
+        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+        val currentlyEnabled = prefs.getBoolean(PREF_SMS_ENABLED, false)
+        val target = !currentlyEnabled
+
+        if (target && !hasSmsPermission()) {
+            Toast.makeText(
+                this,
+                "Offline SMS needs the SMS permission — grant it in Permissions to enable",
+                Toast.LENGTH_LONG
+            ).show()
+            updateSmsStatus()
+            return
+        }
+
+        prefs.edit().putBoolean(PREF_SMS_ENABLED, target).apply()
+        Toast.makeText(
+            this,
+            if (target) "Offline SMS commands ON — the dashboard can reach this phone without internet"
+            else "Offline SMS commands OFF",
+            Toast.LENGTH_SHORT
+        ).show()
+        updateSmsStatus()
+    }
+
+    private fun hasSmsPermission(): Boolean =
+        androidx.core.content.ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.RECEIVE_SMS
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    private fun updateSmsStatus() {
+        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+        val enabled = prefs.getBoolean(PREF_SMS_ENABLED, false)
+        val hasPerm = hasSmsPermission()
+        when {
+            enabled && hasPerm -> {
+                tvSmsStatus.text = "📡 Offline SMS commands: ON — control without internet"
+                tvSmsStatus.setTextColor(android.graphics.Color.parseColor("#00FF88"))
+                btnToggleSms.text = "Disable Offline SMS Commands"
+            }
+            enabled && !hasPerm -> {
+                tvSmsStatus.text = "⚠ Offline SMS: enabled but SMS permission missing"
+                tvSmsStatus.setTextColor(android.graphics.Color.parseColor("#FFB800"))
+                btnToggleSms.text = "Disable Offline SMS Commands"
+            }
+            else -> {
+                tvSmsStatus.text = "📡 Offline SMS commands: OFF (opt-in)"
+                tvSmsStatus.setTextColor(android.graphics.Color.parseColor("#606060"))
+                btnToggleSms.text = "Enable Offline SMS Commands"
+            }
         }
     }
 

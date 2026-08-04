@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — 2026-08-04
+
+### Added
+
+- **Offline Command Relay (SMS) — commands that work with ZERO internet**: the game-changer for stolen phones with no data plan. When a device is offline, the dashboard can still command it over the cellular SMS channel — every phone receives SMS even with no data. The server texts the command to the phone's SIM number in the `MAGNET <pairing-code> CMD <id> <command>` wire format; the app intercepts it (`RECEIVE_SMS`), verifies the per-device pairing code **and** the sender, and executes it through the exact same `handleCommand` path as a polled command — siren, lock, wipe, location burst all work offline. Location comes back as a coarse **cell-tower fingerprint** (MCC/MNC/TAC/CID, captured with zero internet, resolved server-side by the pluggable cell-locate endpoint with graceful degradation) plus the exact GPS fix uploaded the moment any connectivity returns (OfflineOutbox store-and-forward). Commands are **opt-in per device** (`sms_phone` + `sms_commands_enabled`, E.164 validated), cost-controlled (per-device 5 SMS/min cap + only relayed when actually offline), sender-allowlisted (only the server's Twilio number or the Termii alphanumeric may issue — a leaked pairing code can't be replayed from a random number), and the app-side receiver is **default OFF** with an in-app toggle + optional SMS permissions in onboarding. The SMS reply return channel (`MT-ACK`) is ingested by a Twilio-signature-verified `/api/sms/inbound` webhook that matches the sender to the device's number before acking.
+- **SMS relay reliability fixes from code review**: a failed SMS send no longer strands the command — it falls back to `delivery_channel='poll'` (with the poll expiry) so the command stays deliverable when the device returns; keyless devices (no `device_key_hash`) are never SMS-routed; the Android ack only queues the offline outbox on genuine network failure / auth death (not server rejections); and `/api/config` now exposes `sms_relay_number` for the app's sender allowlist.
+
+### Fixed
+
+- **Command re-execution loop + stuck PENDING (production bug)**: the protocol is poll-until-ack — the server re-delivers any still-`pending` command every 10s and only stops when the device acks. A **lost ack** (network blip, auth death, service restart mid-ack) left the command pending, and the device **re-executed it on every poll** — a siren replaying, a fresh photo/burst every 10s — until expiry (5-30 min), while the dashboard kept showing PENDING (its `command_ack` WebSocket handler was empty, so even successes looked stale for up to 10s). Fixes, all locked by tests:
+  - **At-most-once execution (Android)**: new `RecentCommandTracker` (pure-JVM, SharedPreferences-persisted, 60-min retention > the 30-min max poll expiry) records every command outcome. The command loop consults it before executing: a re-delivered command is **re-acked with its recorded status (idempotent server-side) instead of re-executed** — the loop converges the moment connectivity returns, with zero second executions. Restart-safe, so the aggressive watchdog restarts on Chinese OEMs can't reintroduce the loop. 8 new JVM unit tests.
+  - **Outbox flush before poll**: the command loop now flushes the offline ack outbox before each poll, so a queued ack lands before the next poll could re-deliver the command (OfflineOutbox.take is synchronized — concurrent heartbeat flush is safe; enqueueAck dedupes by command id).
+  - **Instant dashboard status**: `command_ack` WebSocket messages now flip the row's status/failure_reason in place via the new `applyCommandAck` store action (no fabricated client-clock `executed_at` — the next poll fills the server's real timestamp). 2 new `useWebSocket.test.ts` regressions.
+  - **Server regression**: `test_reack_is_idempotent_and_never_redelivered` locks the contract — a duplicate ack is accepted (200), the command stays executed, and the poll never re-delivers it.
+
 ## [1.3.0] — 2026-08-02
 
 ### Added

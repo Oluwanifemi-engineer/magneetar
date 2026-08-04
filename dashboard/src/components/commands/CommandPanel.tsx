@@ -5,7 +5,7 @@ import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { cn, getCommandLabel, isDestructiveCommand, formatTimestamp, stepUpPasswordHint } from '@/lib/utils';
 import { CommandButton, type CommandTone } from '@/components/ui/CommandButton';
-import { Radio, Camera, Webcam, Mic, LocateFixed, Lock, Siren, AlertTriangle, CheckCircle2, Trash2, X } from 'lucide-react';
+import { Radio, Camera, Webcam, Mic, LocateFixed, Lock, Siren, AlertTriangle, CheckCircle2, Trash2, X, MessageSquareText } from 'lucide-react';
 import type { CommandType } from '@/types';
 
 // NOTE: buttons send the WIRE command name, which must match what the server
@@ -32,11 +32,26 @@ const COMMANDS: {
 ];
 
 export function CommandPanel() {
-  const { commands, setCommands, selectedDeviceId } = useStore();
+  const { commands, setCommands, selectedDeviceId, devices } = useStore();
+  const selectedDevice = devices.find(d => d.id === selectedDeviceId);
+  // Offline Command Relay: when the device is offline (no data) but the owner
+  // enabled SMS commands, every issued command is ALSO texted to the phone and
+  // executed locally. Show an honest notice so the operator knows the delivery
+  // path before tapping a command.
+  const smsRelayActive = !!selectedDevice &&
+    !selectedDevice.is_online &&
+    selectedDevice.sms_commands_enabled &&
+    !!selectedDevice.sms_phone;
   const [sending, setSending] = useState<string | null>(null);
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [commandError, setCommandError] = useState('');
   const [lastSent, setLastSent] = useState('');
+  // Wipe is a factory reset — the server requires the step-up password
+  // (account password for users, master API key for admin) before queuing,
+  // so this prompt collects it (the server re-verifies; this is not the
+  // security boundary).
+  const [wipePassword, setWipePassword] = useState('');
+  const [wipeError, setWipeError] = useState('');
   // History cleanup (step-up password, mirroring the device/media delete
   // contract): deleting one command or clearing finished history re-
   // authenticates with the account password (users) or master API key (admin).
@@ -103,14 +118,22 @@ export function CommandPanel() {
   // Send command. `params` is the wire param — wipe MUST be 'CONFIRMED_WIPE'
   // or the server rejects it with 400 (which is why the old WIPE button
   // silently did nothing).
-  const handleSend = async (command: string, params = '') => {
+  const handleSend = async (command: string, params = '', password?: string) => {
     if (!selectedDeviceId) return;
+    // Wipe is a factory reset: the step-up password is mandatory. Validating
+    // here (not just in the button's onClick) means the Enter-key path can't
+    // bypass it either.
+    if (command === 'wipe' && !(password || '').trim()) {
+      setWipeError('Enter your password to confirm the wipe.');
+      return;
+    }
     setSending(command);
     setCommandError('');
     setLastSent('');
+    setWipeError('');
     try {
       const api = getAPI();
-      await api.issueCommand(selectedDeviceId, command, params);
+      await api.issueCommand(selectedDeviceId, command, params, password);
       setLastSent(command);
       setTimeout(() => setLastSent(''), 3000);
       await fetchCommands();
@@ -120,6 +143,7 @@ export function CommandPanel() {
     } finally {
       setSending(null);
       setConfirmWipe(false);
+      setWipePassword('');
     }
   };
 
@@ -136,6 +160,18 @@ export function CommandPanel() {
 
   return (
     <div className="p-4 space-y-4">
+      {/* Offline SMS relay notice — commands reach the phone even with no data */}
+      {smsRelayActive && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-mag-accent/[0.06] border border-mag-accent/25 text-mag-accent animate-fade-in">
+          <MessageSquareText size={13} className="shrink-0 mt-0.5" />
+          <div className="text-[10px] font-mono leading-relaxed">
+            <span className="font-bold">Device offline — commands will be delivered via SMS</span>
+            <span className="opacity-80"> to {selectedDevice?.sms_phone}. The phone executes them locally even
+            without internet, and the ack returns when it next connects.</span>
+          </div>
+        </div>
+      )}
+
       {/* Quick Actions */}
       <div>
         <div className="text-[11px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold mb-2.5 px-1">
@@ -166,7 +202,10 @@ export function CommandPanel() {
         {!commandError && lastSent && (
           <div className="mt-2.5 flex items-center gap-2 px-3 py-2 rounded-lg bg-mag-accent/[0.06] border border-mag-accent/25 text-mag-accent text-[10px] font-mono font-bold animate-fade-in">
             <CheckCircle2 size={11} className="shrink-0" />
-            {getCommandLabel(lastSent)} command sent — the device will pick it up on its next poll.
+            {getCommandLabel(lastSent)} command sent —{' '}
+            {smsRelayActive
+              ? 'the phone will execute it from the SMS (no internet needed).'
+              : 'the device will pick it up on its next poll.'}
           </div>
         )}
 
@@ -185,16 +224,42 @@ export function CommandPanel() {
                 </div>
               </div>
             </div>
+            {/* Step-up password: the server re-verifies before queueing the
+                wipe (account password for users, master API key for admin) —
+                a stolen dashboard session alone can never factory-reset a
+                device. */}
+            <input
+              type="password"
+              value={wipePassword}
+              onChange={e => setWipePassword(e.target.value)}
+              placeholder={stepUpPasswordHint()}
+              aria-label="Confirm wipe password"
+              autoFocus
+              onKeyDown={e => {
+                if (e.key === 'Enter' && sending !== 'wipe') {
+                  e.preventDefault();
+                  handleSend('wipe', 'CONFIRMED_WIPE', wipePassword);
+                }
+              }}
+              className="w-full bg-mag-bg/60 border border-mag-danger/40 rounded-lg px-3 py-2 text-xs font-mono text-mag-text placeholder:text-mag-text-dim/30 focus:outline-none focus:border-mag-danger/70 transition-colors"
+            />
+            {wipeError && <div className="text-[10px] font-mono text-red-400">{wipeError}</div>}
             <div className="flex gap-2">
               <button
-                onClick={() => handleSend('wipe', 'CONFIRMED_WIPE')}
+                onClick={() => {
+                  if (!wipePassword.trim()) {
+                    setWipeError('Enter your password to confirm the wipe.');
+                    return;
+                  }
+                  handleSend('wipe', 'CONFIRMED_WIPE', wipePassword);
+                }}
                 disabled={sending === 'wipe'}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-mag-danger/90 hover:bg-mag-danger disabled:opacity-50 text-white text-[10px] font-mono font-bold uppercase tracking-wider transition-all"
               >
                 {sending === 'wipe' ? 'SENDING...' : 'Confirm wipe'}
               </button>
               <button
-                onClick={() => setConfirmWipe(false)}
+                onClick={() => { setConfirmWipe(false); setWipePassword(''); setWipeError(''); }}
                 disabled={sending === 'wipe'}
                 className="px-3 py-2 rounded-lg border border-mag-border/40 text-mag-text-dim/70 hover:text-mag-text text-[10px] font-mono font-bold transition-all"
               >

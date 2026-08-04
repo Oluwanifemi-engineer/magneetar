@@ -8,7 +8,34 @@ import os
 import secrets
 import tempfile
 
+import pytest
 from fastapi.testclient import TestClient
+
+
+@pytest.fixture(autouse=True)
+def _clear_rate_buckets():
+    """Rate-limits are keyed per actor with a fixed window (step-up password
+    verify 10/min, command issuance 20/min), and this file's tests — which
+    share one dashboard actor and one DB — collectively consume far more than
+    either budget across classes (destructive-action step-ups, the wipe
+    gate, urgent-priority checks, and ack/redelivery flows). Clearing the
+    buckets before each test keeps the suite deterministic without weakening
+    enforcement: no test in THIS file asserts on rate limiting (that lives in
+    test_media_delete.py / test_multi_user.py), so clearing here cannot mask
+    a real regression. Same pattern as test_media_delete.py's table-clear
+    fixture.
+
+    NOTE: this deliberately uses the module-level `database` binding (the
+    pre-eviction instance the app's routers imported at collection time), NOT
+    `import database as _db` — under full-suite runs test_e2e evicts
+    database/routes from sys.modules mid-collection, so a function-local
+    import would resolve a fresh module whose DB_PATH points elsewhere and
+    the clear would silently hit the wrong DB file."""
+    with database.get_db_context() as conn:
+        conn.execute("DELETE FROM rate_limits")
+        conn.commit()
+    yield
+
 
 # Create a temporary database file for tests
 _test_db_fd, test_db_path = tempfile.mkstemp(suffix=".db")
@@ -35,7 +62,22 @@ from database import init_db  # noqa: E402
 init_db(test_db_path)
 
 from auth import create_dashboard_tokens, create_device_tokens  # noqa: E402
+
+# Bind evidence_builder at MODULE level (pre-eviction). test_e2e evicts
+# evidence/database/routes from sys.modules mid-collection; a function-local
+# `from evidence import evidence_builder` at test-run time would resolve the
+# post-eviction module, which binds a different database module than the
+# client's router — create_case then hits a different DB than the device
+# registration wrote to (FK failures under full-suite runs). Binding here
+# captures the same pre-eviction instance the app's dashboard router holds.
+from evidence import evidence_builder  # noqa: E402
 from main import app  # noqa: E402
+
+# Same pre-eviction binding for the devices router, so a monkeypatched
+# broadcast_to_dashboards actually patches what the app's route calls (a
+# function-local `import routes.devices` resolves the post-eviction module
+# whose broadcast the app never invokes).
+from routes import devices as devices_routes  # noqa: E402
 
 client = TestClient(app)
 
@@ -98,6 +140,26 @@ class TestConfigEndpoint:
         config = client.get("/api/config").json()
         health = client.get("/health").json()
         assert config["app_version"] == health["version"] == APP_VERSION
+
+    def test_config_exposes_sms_relay_number(self):
+        """The Android app allowlists the server's SMS sender as the only
+        number allowed to issue commands — it must learn that number from the
+        public config endpoint (which it already fetches for the version
+        nudge). Must mirror the configured TWILIO_SMS_FROM exactly (empty when
+        unset, so the app falls back to code-only verification)."""
+        # Patch the MODULE-LEVEL `config` binding (imported at the top of this
+        # file, pre-eviction) — a function-local re-import under full-suite
+        # runs resolves the post-eviction config module whose settings object
+        # the app's routes do NOT hold (same eviction pattern as database).
+        saved = config.settings.TWILIO_SMS_FROM
+        try:
+            config.settings.TWILIO_SMS_FROM = "+15551234567"
+            assert client.get("/api/config").json()["sms_relay_number"] == "+15551234567"
+
+            config.settings.TWILIO_SMS_FROM = ""
+            assert client.get("/api/config").json()["sms_relay_number"] == ""
+        finally:
+            config.settings.TWILIO_SMS_FROM = saved
 
 
 # ─── Device Registration ─────────────────────────────────────────────────────
@@ -255,6 +317,169 @@ class TestLocationReport:
         )
         assert response.status_code == 403 or response.status_code == 401
 
+    def test_ws_broadcast_carries_fused_accuracy(self):
+        """Regression (accuracy gap): the live WebSocket location broadcast
+        used to omit accuracy_horizontal/provider/bearing/confidence, so the
+        dashboard's real-time map + panel always rendered "±?m" even though
+        the device reports its Kalman-fused accuracy on every ping. The
+        broadcast payload must carry them so the live view shows the truth."""
+        from unittest.mock import AsyncMock
+
+        self._ensure_device()
+        captured = {}
+        # Keep the ORIGINAL reference to restore exactly what was bound before
+        # (see the pre-eviction import note at the top of this file).
+        original_broadcast = devices_routes.broadcast_to_dashboards
+
+        async def fake_broadcast(message):
+            captured.update(message)
+
+        # Patch the module-level binding the app's route actually calls (see
+        # the pre-eviction import note at the top of this file).
+        devices_routes.broadcast_to_dashboards = AsyncMock(side_effect=fake_broadcast)
+        try:
+            resp = client.post(
+                "/api/device/location",
+                json={
+                    "device_id": TEST_DEVICE_ID,
+                    "lat": 9.0820,
+                    "lng": 8.6753,
+                    "accuracy_horizontal": 7.5,
+                    "provider": "gps",
+                    "bearing": 42.0,
+                    "confidence_level": "HIGH",
+                },
+                headers=get_device_headers(),
+            )
+            assert resp.status_code == 200
+        finally:
+            # Restore so other tests keep broadcasting to real dashboards.
+            devices_routes.broadcast_to_dashboards = original_broadcast
+
+        assert captured, "broadcast must have fired"
+        data = captured["data"]
+        assert data["accuracy_horizontal"] == 7.5
+        assert data["provider"] == "gps"
+        assert data["bearing"] == 42.0
+        assert data["confidence_level"] == "HIGH"
+
+
+# ─── Simplified Location Reports ─────────────────────────────────────────────
+
+
+class TestLocationReportSimple:
+    """Regression (shipped once): /api/device/location/simple INSERTed into a
+    non-existent `accuracy` column and 500'd on every call. It must persist a
+    location and update last_seen."""
+
+    def _ensure_device(self):
+        headers = get_auth_headers()
+        client.post(
+            "/api/device/register",
+            json={
+                "device_id": TEST_DEVICE_ID,
+                "fingerprint": "fp-simple-loc",
+                "model": "Simple Loc",
+            },
+            headers=headers,
+        )
+
+    def test_post_location_simple_persists(self):
+        self._ensure_device()
+        resp = client.post(
+            "/api/device/location/simple",
+            json={
+                "device_id": TEST_DEVICE_ID,
+                "lat": 9.0820,
+                "lng": 8.6753,
+                "accuracy": 12.0,
+                "provider": "gps",
+            },
+            headers=get_device_headers(),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "ok"
+
+        # The row must exist with the accuracy mapped to accuracy_horizontal
+        with database.get_db_context() as conn:
+            row = conn.execute(
+                "SELECT * FROM locations WHERE device_id=? AND provider='gps' ORDER BY id DESC LIMIT 1",
+                (TEST_DEVICE_ID,),
+            ).fetchone()
+        assert row is not None
+        assert row["accuracy_horizontal"] == 12.0
+        assert row["server_timestamp"] is not None
+
+    def test_post_location_simple_device_mismatch_403(self):
+        """The authenticated device_id must match the body's device_id — a
+        device must not be able to write locations under another device's id."""
+        self._ensure_device()
+        resp = client.post(
+            "/api/device/location/simple",
+            json={
+                "device_id": "some-other-device",
+                "lat": 9.0,
+                "lng": 8.6,
+            },
+            headers=get_device_headers(),
+        )
+        assert resp.status_code == 403
+
+
+# ─── Evidence PDF Generation ────────────────────────────────────────────────
+
+
+class TestEvidencePdf:
+    """Regression (shipped once): the evidence PDF path SELECTed non-existent
+    `accuracy`/`timestamp` columns from locations and 500'd. Generating a
+    report must return a valid application/pdf even when the device has
+    location history."""
+
+    def _ensure_device_with_locations(self):
+        headers = get_auth_headers()
+        client.post(
+            "/api/device/register",
+            json={
+                "device_id": TEST_DEVICE_ID,
+                "fingerprint": "fp-pdf-dev",
+                "model": "PDF Test",
+            },
+            headers=headers,
+        )
+        # Seed a couple of location rows (the failing query only triggers
+        # when the device has a location trail).
+        dev_headers = get_device_headers()
+        for lat in (9.08, 9.09):
+            client.post(
+                "/api/device/location",
+                json={"device_id": TEST_DEVICE_ID, "lat": lat, "lng": 8.67, "accuracy": 10.0},
+                headers=dev_headers,
+            )
+
+    def test_generate_pdf_returns_pdf(self):
+        self._ensure_device_with_locations()
+        resp = client.post(
+            f"/api/dashboard/evidence/{TEST_DEVICE_ID}/generate-pdf",
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.headers["content-type"].startswith("application/pdf")
+        assert resp.content.startswith(b"%PDF")
+
+    def test_compile_pdf_data_maps_real_columns(self):
+        """compile_pdf_data must return location rows keyed by the names the
+        PDF renderer reads (timestamp, lat, lng, speed, battery_percent)."""
+        self._ensure_device_with_locations()
+
+        case_id = evidence_builder.create_case(TEST_DEVICE_ID)
+        data = evidence_builder.compile_pdf_data(case_id)
+        assert data is not None
+        assert data["locations"], "seeded locations must appear in PDF data"
+        loc = data["locations"][0]
+        assert "timestamp" in loc, "renderer needs a 'timestamp' key"
+        assert "lat" in loc and "lng" in loc
+        assert "battery_percent" in loc
+
 
 # ─── Commands ────────────────────────────────────────────────────────────────
 
@@ -316,6 +541,61 @@ class TestCommands:
         )
         assert response.status_code == 200
 
+    def test_reack_is_idempotent_and_never_redelivered(self):
+        """Server half of the at-most-once contract (the Android half is
+        RecentCommandTracker): when a device loses an ack and re-acks the same
+        command on a later poll (the 'executes in loops' bug fix), the server
+        must accept the duplicate ack (200, idempotent), keep the command in
+        the executed state, and never re-deliver it — so a lost ack can never
+        cause a second execution."""
+        # Self-sufficient under -k filters: the commands FK requires the
+        # device row, which other classes register only when they run.
+        client.post(
+            "/api/device/register",
+            json={
+                "device_id": TEST_DEVICE_ID,
+                "fingerprint": "fp-reack",
+                "model": "ReAck",
+            },
+            headers=get_auth_headers(),
+        )
+        dash = get_dashboard_headers()
+        resp = client.post(
+            "/api/dashboard/command",
+            json={"device_id": TEST_DEVICE_ID, "command": "ping"},
+            headers=dash,
+        )
+        cmd_id = resp.json()["command_id"]
+
+        # Pending + pollable before the ack.
+        poll = client.get(f"/api/device/commands/{TEST_DEVICE_ID}", headers=get_device_headers()).json()
+        assert any(c["id"] == cmd_id for c in poll["commands"])
+
+        # First ack lands.
+        first = client.post(
+            f"/api/device/commands/{cmd_id}/ack",
+            json={"status": "executed"},
+            headers=get_device_headers(),
+        )
+        assert first.status_code == 200
+
+        # The device lost the response and re-acks on the next poll — the
+        # server must accept it as an idempotent no-op (this is exactly what
+        # RecentCommandTracker.statusOf re-sends).
+        second = client.post(
+            f"/api/device/commands/{cmd_id}/ack",
+            json={"status": "executed"},
+            headers=get_device_headers(),
+        )
+        assert second.status_code == 200
+
+        # Status stays executed, and the poll never delivers it again.
+        with database.get_db_context() as conn:
+            row = conn.execute("SELECT status FROM commands WHERE id=?", (cmd_id,)).fetchone()
+        assert row["status"] == "executed"
+        poll2 = client.get(f"/api/device/commands/{TEST_DEVICE_ID}", headers=get_device_headers()).json()
+        assert all(c["id"] != cmd_id for c in poll2["commands"])
+
     def test_invalid_command_rejected(self):
         headers = get_dashboard_headers()
         response = client.post(
@@ -327,6 +607,399 @@ class TestCommands:
             headers=headers,
         )
         assert response.status_code == 422  # Validation error
+
+    def test_phantom_commands_are_not_valid(self):
+        """Regression (dead API surface): the server used to accept commands
+        the Android app could never execute (phantom_on/off, fake_shutdown,
+        location_burst_stop, capture_photo_rear) — every one always acked
+        'failed', so the dashboard could queue commands that could NEVER work.
+        The valid set must match what TrackingService.handleCommand implements."""
+        headers = get_dashboard_headers()
+        for dead in ("phantom_on", "phantom_off", "fake_shutdown", "location_burst_stop", "capture_photo_rear"):
+            resp = client.post(
+                "/api/dashboard/command",
+                json={"device_id": TEST_DEVICE_ID, "command": dead},
+                headers=headers,
+            )
+            assert resp.status_code == 422, f"{dead} must be rejected (got {resp.status_code})"
+
+    def test_wipe_requires_password(self):
+        """Wipe is a factory reset — the most destructive command. Like device
+        deletion it must step-up re-authenticate; a stolen dashboard session
+        alone must never be able to wipe a device."""
+        headers = get_dashboard_headers()
+        resp = client.post(
+            "/api/dashboard/command",
+            json={"device_id": TEST_DEVICE_ID, "command": "wipe", "params": "CONFIRMED_WIPE"},
+            headers=headers,
+        )
+        assert resp.status_code == 400  # password required
+
+    def test_wipe_wrong_password_rejected(self):
+        headers = get_dashboard_headers()
+        resp = client.post(
+            "/api/dashboard/command",
+            json={
+                "device_id": TEST_DEVICE_ID,
+                "command": "wipe",
+                "params": "CONFIRMED_WIPE",
+                "password": "not-the-master-key",
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 401
+
+    def test_wipe_with_master_api_key_succeeds(self):
+        headers = get_dashboard_headers()
+        resp = client.post(
+            "/api/dashboard/command",
+            json={
+                "device_id": TEST_DEVICE_ID,
+                "command": "wipe",
+                "params": "CONFIRMED_WIPE",
+                "password": TEST_API_KEY,
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "queued"
+
+        # And the queued wipe carries priority 1 (executes before pings).
+        with database.get_db_context() as conn:
+            row = conn.execute("SELECT priority FROM commands WHERE id=?", (resp.json()["command_id"],)).fetchone()
+        assert row["priority"] == 1
+
+    def test_urgent_commands_priority_one(self):
+        """wipe/lock/alarm/capture must jump the queue (device poll orders by
+        priority ASC) so they execute before pings in a burst."""
+        dash = get_dashboard_headers()
+        for cmd_name in ("lock", "alarm", "capture_photo", "capture_audio", "capture_photo_front"):
+            resp = client.post(
+                "/api/dashboard/command",
+                json={"device_id": TEST_DEVICE_ID, "command": cmd_name},
+                headers=dash,
+            )
+            assert resp.status_code == 200, resp.text
+            with database.get_db_context() as conn:
+                row = conn.execute("SELECT priority FROM commands WHERE id=?", (resp.json()["command_id"],)).fetchone()
+            assert row["priority"] == 1, f"{cmd_name} should be priority 1, got {row['priority']}"
+
+        # Non-urgent commands keep the default priority.
+        resp = client.post(
+            "/api/dashboard/command",
+            json={"device_id": TEST_DEVICE_ID, "command": "ping"},
+            headers=dash,
+        )
+        with database.get_db_context() as conn:
+            row = conn.execute("SELECT priority FROM commands WHERE id=?", (resp.json()["command_id"],)).fetchone()
+        assert row["priority"] == 5
+
+    def test_sms_relay_routes_offline_command(self, monkeypatch):
+        """When a device is offline and the owner enabled SMS commands with a
+        phone number, issue_command must ALSO deliver the command over SMS
+        (MAGNET wire format) and mark delivery_channel='sms' so the poll never
+        double-delivers it."""
+
+        device_id = "sms-relay-device"
+        client.post(
+            "/api/device/register",
+            json={
+                "device_id": device_id,
+                "fingerprint": "fp-sms-relay",
+                "model": "SMS Relay",
+                "device_key": "sms-relay-key",
+            },
+            headers=get_auth_headers(),
+        )
+        # Enable the relay + set the phone number.
+        resp = client.patch(
+            f"/api/dashboard/devices/{device_id}/sms-settings",
+            json={"sms_phone": "+2348012345678", "sms_commands_enabled": True},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 200, resp.text
+
+        # Backdate last_seen so the device looks offline.
+        from datetime import datetime, timedelta, timezone
+
+        with database.get_db_context() as conn:
+            conn.execute(
+                "UPDATE devices SET last_seen=? WHERE id=?",
+                ((datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(), device_id),
+            )
+            conn.commit()
+
+        import sms_relay
+
+        sent = {}
+        original = sms_relay.send_command_sms
+
+        def fake_send(to, body):
+            sent["to"] = to
+            sent["body"] = body
+            return True
+
+        sms_relay.send_command_sms = fake_send
+        try:
+            resp = client.post(
+                "/api/dashboard/command",
+                json={"device_id": device_id, "command": "alarm"},
+                headers=get_dashboard_headers(),
+            )
+        finally:
+            sms_relay.send_command_sms = original
+
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["delivery"] == "sms"
+        assert data["sms_delivered"] is True
+
+        # The SMS body must carry the pairing code derived from the device key
+        # (first 8 hex of SHA-256) + the command id + the command name.
+        import hashlib
+
+        code = hashlib.sha256(b"sms-relay-key").hexdigest()[:8]
+        assert sent["to"] == "+2348012345678"
+        assert sent["body"] == f"MAGNET {code} CMD {data['command_id']} alarm"
+
+        # delivery_channel='sms' is persisted → the device poll excludes it.
+        poll = client.get(f"/api/device/commands/{device_id}", headers=get_device_headers(device_id)).json()
+        assert all(c["id"] != data["command_id"] for c in poll["commands"])
+
+    def test_sms_relay_skipped_when_disabled_or_online(self, monkeypatch):
+        """SMS routing only fires when the owner enabled it AND the device is
+        offline — an online device (or one without the relay configured) uses
+        the normal poll channel and costs nothing."""
+
+        device_id = "sms-relay-online"
+        client.post(
+            "/api/device/register",
+            json={"device_id": device_id, "fingerprint": "fp-sms-online", "model": "SMS"},
+            headers=get_auth_headers(),
+        )
+        client.patch(
+            f"/api/dashboard/devices/{device_id}/sms-settings",
+            json={"sms_phone": "+2348012345678", "sms_commands_enabled": True},
+            headers=get_dashboard_headers(),
+        )
+
+        import sms_relay
+
+        sent = {}
+        original = sms_relay.send_command_sms
+
+        def fake_send(to, body):
+            sent["to"] = to
+            sent["body"] = body
+            return True
+
+        sms_relay.send_command_sms = fake_send
+        try:
+            # Device just registered → last_seen is now → ONLINE → no SMS.
+            resp = client.post(
+                "/api/dashboard/command",
+                json={"device_id": device_id, "command": "ping"},
+                headers=get_dashboard_headers(),
+            )
+        finally:
+            sms_relay.send_command_sms = original
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["delivery"] == "poll"
+        assert not sent, "online device must use the poll channel, not SMS"
+
+        # Disabled relay → never SMS, even offline.
+        client.patch(
+            f"/api/dashboard/devices/{device_id}/sms-settings",
+            json={"sms_phone": "", "sms_commands_enabled": False},
+            headers=get_dashboard_headers(),
+        )
+        from datetime import datetime, timedelta, timezone
+
+        with database.get_db_context() as conn:
+            conn.execute(
+                "UPDATE devices SET last_seen=? WHERE id=?",
+                ((datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(), device_id),
+            )
+            conn.commit()
+
+        sms_relay.send_command_sms = fake_send
+        try:
+            resp = client.post(
+                "/api/dashboard/command",
+                json={"device_id": device_id, "command": "ping"},
+                headers=get_dashboard_headers(),
+            )
+        finally:
+            sms_relay.send_command_sms = original
+
+        assert resp.json()["delivery"] == "poll"
+        assert not sent
+
+    def test_sms_relay_send_failure_falls_back_to_poll(self, monkeypatch):
+        """Regression (stranded-command bug): a failed SMS send used to leave
+        the command stamped delivery_channel='sms', which excludes it from the
+        device poll FOREVER — never executable, never retryable by the normal
+        channel. It must fall back to the poll channel (with the poll expiry)
+        so the command stays deliverable the moment the device returns, while
+        sms_delivered=false tells the operator the SMS failed."""
+
+        device_id = "sms-relay-fail"
+        client.post(
+            "/api/device/register",
+            json={"device_id": device_id, "fingerprint": "fp-sms-fail", "model": "SMS", "device_key": "fail-key"},
+            headers=get_auth_headers(),
+        )
+        client.patch(
+            f"/api/dashboard/devices/{device_id}/sms-settings",
+            json={"sms_phone": "+2348012345678", "sms_commands_enabled": True},
+            headers=get_dashboard_headers(),
+        )
+        from datetime import datetime, timedelta, timezone
+
+        with database.get_db_context() as conn:
+            conn.execute(
+                "UPDATE devices SET last_seen=? WHERE id=?",
+                ((datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(), device_id),
+            )
+            conn.commit()
+
+        import sms_relay
+
+        original = sms_relay.send_command_sms
+        sms_relay.send_command_sms = lambda to, body: False
+        try:
+            resp = client.post(
+                "/api/dashboard/command",
+                json={"device_id": device_id, "command": "alarm"},
+                headers=get_dashboard_headers(),
+            )
+        finally:
+            sms_relay.send_command_sms = original
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["delivery"] == "poll", "failed SMS must fall back to poll"
+        assert resp.json()["sms_delivered"] is False
+        # The command row still exists (queued, not lost) AND is now poll-
+        # deliverable with the poll (not 24h SMS) expiry.
+        with database.get_db_context() as conn:
+            row = conn.execute(
+                "SELECT status, delivery_channel, expires_at FROM commands WHERE id=?",
+                (resp.json()["command_id"],),
+            ).fetchone()
+        assert row["status"] == "pending"
+        assert row["delivery_channel"] == "poll"
+
+        # It is pollable — the device can now fetch it (not stranded).
+        poll = client.get(f"/api/device/commands/{device_id}", headers=get_device_headers(device_id)).json()
+        assert any(c["id"] == resp.json()["command_id"] for c in poll["commands"])
+
+        # Alarm (sensitive) gets the 5-minute poll expiry, not 24h.
+        import datetime as _dt
+
+        row_expiry = row["expires_at"]
+        age = _dt.datetime.now(_dt.timezone.utc) - _dt.datetime.fromisoformat(row_expiry)
+        assert age < _dt.timedelta(minutes=10), "failed-SMS fallback must re-stamp poll expiry"
+
+    def test_sms_relay_rate_limited_per_device(self, monkeypatch):
+        """Each device may only relay 5 SMS commands per minute — the shared
+        20/min dashboard-command budget is NOT enough to stop one user firing
+        ~28k SMS/day at one number through the relay (cost/abuse vector)."""
+
+        device_id = "sms-relay-ratelimit"
+        client.post(
+            "/api/device/register",
+            json={"device_id": device_id, "fingerprint": "fp-sms-rl", "model": "SMS", "device_key": "rl-key"},
+            headers=get_auth_headers(),
+        )
+        client.patch(
+            f"/api/dashboard/devices/{device_id}/sms-settings",
+            json={"sms_phone": "+2348012345678", "sms_commands_enabled": True},
+            headers=get_dashboard_headers(),
+        )
+        from datetime import datetime, timedelta, timezone
+
+        with database.get_db_context() as conn:
+            conn.execute(
+                "UPDATE devices SET last_seen=? WHERE id=?",
+                ((datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(), device_id),
+            )
+            conn.commit()
+
+        import sms_relay
+
+        original = sms_relay.send_command_sms
+        sms_relay.send_command_sms = lambda to, body: True
+        try:
+            for _ in range(5):
+                resp = client.post(
+                    "/api/dashboard/command",
+                    json={"device_id": device_id, "command": "alarm"},
+                    headers=get_dashboard_headers(),
+                )
+                assert resp.status_code == 200, resp.text
+                assert resp.json()["delivery"] == "sms"
+
+            # 6th SMS relay in the same minute → throttled.
+            resp = client.post(
+                "/api/dashboard/command",
+                json={"device_id": device_id, "command": "alarm"},
+                headers=get_dashboard_headers(),
+            )
+        finally:
+            sms_relay.send_command_sms = original
+
+        assert resp.status_code == 429
+        assert "SMS" in resp.json()["detail"]
+
+    def test_sms_relay_skipped_for_keyless_device(self, monkeypatch):
+        """A device with NO device_key_hash can never verify the MAGNET
+        pairing code on-device, so the relay must not route to it (the SMS
+        would be ignored and the command stranded on the SMS channel)."""
+
+        device_id = "sms-relay-keyless"
+        # Register WITHOUT a device_key → device_key_hash stays NULL.
+        client.post(
+            "/api/device/register",
+            json={"device_id": device_id, "fingerprint": "fp-sms-keyless", "model": "SMS"},
+            headers=get_auth_headers(),
+        )
+        client.patch(
+            f"/api/dashboard/devices/{device_id}/sms-settings",
+            json={"sms_phone": "+2348012345678", "sms_commands_enabled": True},
+            headers=get_dashboard_headers(),
+        )
+        from datetime import datetime, timedelta, timezone
+
+        with database.get_db_context() as conn:
+            conn.execute(
+                "UPDATE devices SET last_seen=? WHERE id=?",
+                ((datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(), device_id),
+            )
+            conn.commit()
+
+        import sms_relay
+
+        sent = {}
+        original = sms_relay.send_command_sms
+
+        def fake_send(to, body):
+            sent["to"] = to
+            return True
+
+        sms_relay.send_command_sms = fake_send
+        try:
+            resp = client.post(
+                "/api/dashboard/command",
+                json={"device_id": device_id, "command": "alarm"},
+                headers=get_dashboard_headers(),
+            )
+        finally:
+            sms_relay.send_command_sms = original
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["delivery"] == "poll", "keyless device must use poll, not SMS"
+        assert not sent, "no SMS may be sent to a keyless device"
 
     def test_stale_pending_command_auto_expires(self):
         """A pending command past its expiry must show EXPIRED in history and
@@ -816,6 +1489,489 @@ class TestDeviceDeleteStepUp:
         assert resp.status_code == 404
 
 
+class TestDeleteArchivedDevices:
+    """Bulk purge of stale (archived) devices — password-gated like
+    single-device deletion, scoped to the caller's own archived devices.
+    (The module-level _clear_rate_buckets fixture keeps the step-up verify
+    and command-issuance rate limits from compounding across tests in this
+    file.)
+    """
+
+    def _register_archived(self, device_id: str):
+        resp = client.post(
+            "/api/device/register",
+            json={
+                "device_id": device_id,
+                "fingerprint": f"fp-arch-{device_id}",
+                "model": "Archived Test",
+            },
+            headers=get_auth_headers(),
+        )
+        assert resp.status_code == 200
+        # Soft-archive it the same way archive_monitor does.
+        with database.get_db_context() as conn:
+            conn.execute("UPDATE devices SET archived_at=datetime('now') WHERE id=?", (device_id,))
+            conn.commit()
+
+    def _exists(self, device_id: str) -> bool:
+        with database.get_db_context() as conn:
+            return conn.execute("SELECT 1 FROM devices WHERE id=?", (device_id,)).fetchone() is not None
+
+    def test_bulk_delete_requires_password(self):
+        device_id = "arch-bulk-nopw"
+        self._register_archived(device_id)
+        resp = client.request("DELETE", "/api/dashboard/devices/archived", headers=get_dashboard_headers())
+        assert resp.status_code == 400
+        assert self._exists(device_id), "device must survive a passwordless bulk delete"
+
+    def test_bulk_delete_wrong_password_rejected(self):
+        device_id = "arch-bulk-wrong"
+        self._register_archived(device_id)
+        resp = client.request(
+            "DELETE",
+            "/api/dashboard/devices/archived",
+            json={"password": "nope"},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 401
+        assert self._exists(device_id)
+
+    def test_bulk_delete_removes_all_archived(self):
+        ids = [f"arch-bulk-{i}" for i in range(3)]
+        for did in ids:
+            self._register_archived(did)
+        # A NON-archived device must survive the purge.
+        alive = "arch-bulk-alive"
+        resp = client.post(
+            "/api/device/register",
+            json={"device_id": alive, "fingerprint": "fp-arch-alive", "model": "Alive"},
+            headers=get_auth_headers(),
+        )
+        assert resp.status_code == 200
+
+        resp = client.request(
+            "DELETE",
+            "/api/dashboard/devices/archived",
+            json={"password": TEST_API_KEY},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        # NOTE: the DB may already hold archived devices left by earlier tests
+        # in this class (each test archives its own row and the class shares
+        # one DB), so assert our three are all gone + at least those 3 deleted
+        # rather than an exact global count.
+        assert data["count"] >= 3
+        assert set(ids).issubset(set(data["deleted"]))
+        for did in ids:
+            assert not self._exists(did), "archived device must be gone"
+        assert self._exists(alive), "active device must survive the purge"
+
+    def test_bulk_delete_cascade_removes_locations(self):
+        """Cascade must wipe the archived device's history, not just the row."""
+        device_id = "arch-bulk-cascade"
+        self._register_archived(device_id)
+        with database.get_db_context() as conn:
+            conn.execute(
+                "INSERT INTO locations (device_id, lat, lng, server_timestamp) VALUES (?,?,?,datetime('now'))",
+                (device_id, 9.0, 8.6),
+            )
+            conn.commit()
+
+        client.request(
+            "DELETE",
+            "/api/dashboard/devices/archived",
+            json={"password": TEST_API_KEY},
+            headers=get_dashboard_headers(),
+        )
+        with database.get_db_context() as conn:
+            locs = conn.execute("SELECT COUNT(*) FROM locations WHERE device_id=?", (device_id,)).fetchone()[0]
+        assert locs == 0
+
+    def test_bulk_delete_static_path_not_captured_as_device_id(self):
+        """The /archived static route must win over /{device_id} (FastAPI
+        matches in registration order) — otherwise this 404s as an unknown
+        device instead of bulk-deleting."""
+        self._register_archived("arch-route-order")
+        resp = client.request(
+            "DELETE",
+            "/api/dashboard/devices/archived",
+            json={"password": TEST_API_KEY},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 200, resp.text
+
+
+class TestSmsInboundWebhook:
+    """The SMS reply return channel: the phone best-effort SMS-replies
+    'MT-ACK #<id> <status>' to the relay number; Twilio forwards it here.
+    Signature-verified (only genuine Twilio traffic may drive acks) and
+    sender-matched to the device's sms_phone (a stranger can never ack
+    another device's commands)."""
+
+    def _sign(self, url: str, form: dict, auth_token: str) -> str:
+        """Compute the Twilio X-Twilio-Signature for a webhook request (the
+        exact algorithm the endpoint verifies): base64(HMAC-SHA1(auth_token,
+        url + urlencoded_sorted_params))."""
+        import base64
+        import hashlib
+        import hmac as _hmac
+        import urllib.parse
+
+        sorted_params = urllib.parse.urlencode(sorted(form.items()))
+        digest = _hmac.new(auth_token.encode(), f"{url}{sorted_params}".encode(), hashlib.sha1).digest()
+        return base64.b64encode(digest).decode()
+
+    def _issue_sms_command(self, device_id: str, device_key: str) -> int:
+        """Register a device (offline + SMS-enabled) and issue a command over
+        the relay; returns the command id."""
+        from datetime import datetime, timedelta, timezone
+
+        import sms_relay
+
+        client.post(
+            "/api/device/register",
+            json={
+                "device_id": device_id,
+                "fingerprint": f"fp-sms-in-{device_id}",
+                "model": "SMS",
+                "device_key": device_key,
+            },
+            headers=get_auth_headers(),
+        )
+        client.patch(
+            f"/api/dashboard/devices/{device_id}/sms-settings",
+            json={"sms_phone": "+2348012345678", "sms_commands_enabled": True},
+            headers=get_dashboard_headers(),
+        )
+        with database.get_db_context() as conn:
+            conn.execute(
+                "UPDATE devices SET last_seen=? WHERE id=?",
+                ((datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(), device_id),
+            )
+            conn.commit()
+
+        original = sms_relay.send_command_sms
+        sms_relay.send_command_sms = lambda to, body: True
+        try:
+            resp = client.post(
+                "/api/dashboard/command",
+                json={"device_id": device_id, "command": "alarm"},
+                headers=get_dashboard_headers(),
+            )
+        finally:
+            sms_relay.send_command_sms = original
+        assert resp.json()["delivery"] == "sms"
+        return resp.json()["command_id"]
+
+    def test_webhook_rejects_missing_signature(self):
+        resp = client.post(
+            "/api/sms/inbound",
+            data={"From": "+2348012345678", "Body": "MT-ACK #1 executed"},
+        )
+        assert resp.status_code == 403
+
+    def test_webhook_rejects_bad_signature(self):
+        """A genuine signature mismatch must 403 (not the 'not configured'
+        branch) — pin a token so the HMAC check actually runs."""
+        saved_token = config.settings.TWILIO_AUTH_TOKEN
+        config.settings.TWILIO_AUTH_TOKEN = "D" * 32
+        try:
+            resp = client.post(
+                "/api/sms/inbound",
+                data={"From": "+2348012345678", "Body": "MT-ACK #1 executed"},
+                headers={"X-Twilio-Signature": "forged-signature"},
+            )
+        finally:
+            config.settings.TWILIO_AUTH_TOKEN = saved_token
+        assert resp.status_code == 403
+
+    def test_webhook_acks_command_from_owner_number(self, monkeypatch):
+        """A signature-valid MT-ACK from the device's own sms_phone marks the
+        command executed server-side — the instant return channel."""
+        # Patch the MODULE-LEVEL `config` binding (see test_config_exposes...
+        # for the eviction rationale) — the routes hold the pre-eviction
+        # settings object, so a function-local re-import would patch the wrong
+        # one and the webhook would see an unset/foreign token.
+        saved_token = config.settings.TWILIO_AUTH_TOKEN
+        config.settings.TWILIO_AUTH_TOKEN = "A" * 32
+        try:
+            device_id = "sms-in-ok"
+            cmd_id = self._issue_sms_command(device_id, "in-ok-key")
+
+            url = "http://testserver/api/sms/inbound"
+            form = {"From": "+2348012345678", "Body": f"MT-ACK #{cmd_id} executed"}
+            sig = self._sign(url, form, "A" * 32)
+            resp = client.post(
+                "/api/sms/inbound",
+                data=form,
+                headers={"X-Twilio-Signature": sig},
+            )
+        finally:
+            config.settings.TWILIO_AUTH_TOKEN = saved_token
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "acknowledged"
+        with database.get_db_context() as conn:
+            row = conn.execute("SELECT status FROM commands WHERE id=?", (cmd_id,)).fetchone()
+        assert row["status"] == "executed"
+
+    def test_webhook_rejects_ack_from_foreign_number(self):
+        """The From number must match the device's sms_phone — a different
+        number must never ack (or forge) this device's commands."""
+        saved_token = config.settings.TWILIO_AUTH_TOKEN
+        config.settings.TWILIO_AUTH_TOKEN = "B" * 32
+        try:
+            device_id = "sms-in-foreign"
+            cmd_id = self._issue_sms_command(device_id, "in-foreign-key")
+
+            url = "http://testserver/api/sms/inbound"
+            form = {"From": "+15551234567", "Body": f"MT-ACK #{cmd_id} executed"}  # NOT the owner's number
+            sig = self._sign(url, form, "B" * 32)
+            resp = client.post(
+                "/api/sms/inbound",
+                data=form,
+                headers={"X-Twilio-Signature": sig},
+            )
+        finally:
+            config.settings.TWILIO_AUTH_TOKEN = saved_token
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "sender_mismatch"
+        with database.get_db_context() as conn:
+            row = conn.execute("SELECT status FROM commands WHERE id=?", (cmd_id,)).fetchone()
+        assert row["status"] == "pending", "foreign sender must not change the command"
+
+    def test_webhook_ignores_non_ack_sms(self):
+        saved_token = config.settings.TWILIO_AUTH_TOKEN
+        config.settings.TWILIO_AUTH_TOKEN = "C" * 32
+        try:
+            url = "http://testserver/api/sms/inbound"
+            form = {"From": "+2348012345678", "Body": "hello from a friend"}
+            sig = self._sign(url, form, "C" * 32)
+            resp = client.post(
+                "/api/sms/inbound",
+                data=form,
+                headers={"X-Twilio-Signature": sig},
+            )
+        finally:
+            config.settings.TWILIO_AUTH_TOKEN = saved_token
+
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "ignored"
+
+    def test_parse_ack_sms(self):
+        """The wire format is case-insensitive on status and rejects garbage."""
+        from sms_relay import parse_ack_sms
+
+        assert parse_ack_sms("MT-ACK #42 executed") == (42, "executed")
+        assert parse_ack_sms("MT-ACK #7 failed") == (7, "failed")
+        assert parse_ack_sms("mt-ack #9 FAILED") == (9, "failed")
+        assert parse_ack_sms("MT-ACK #42") is None  # missing status
+        assert parse_ack_sms("MT-ACK x42 executed") is None  # non-numeric id
+        assert parse_ack_sms("") is None
+        assert parse_ack_sms("hello world") is None
+
+
+class TestSmsSettingsEndpoint:
+    """Offline Command Relay configuration — E.164 validation, ownership
+    scoping, and the enable-requires-number contract."""
+
+    def _register(self, device_id: str):
+        client.post(
+            "/api/device/register",
+            json={
+                "device_id": device_id,
+                "fingerprint": f"fp-sms-set-{device_id}",
+                "model": "SMS Settings",
+            },
+            headers=get_auth_headers(),
+        )
+
+    def test_set_sms_phone_and_enable(self):
+        self._register("sms-set-ok")
+        resp = client.patch(
+            "/api/dashboard/devices/sms-set-ok/sms-settings",
+            json={"sms_phone": "+2348012345678", "sms_commands_enabled": True},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["sms_phone"] == "+2348012345678"
+        assert resp.json()["sms_commands_enabled"] is True
+
+        # Persisted and surfaced in the device list.
+        devices = client.get("/api/dashboard/devices", headers=get_dashboard_headers()).json()["devices"]
+        row = next(d for d in devices if d["id"] == "sms-set-ok")
+        assert row["sms_phone"] == "+2348012345678"
+        assert row["sms_commands_enabled"] is True
+
+    def test_requires_e164_phone(self):
+        self._register("sms-set-bad")
+        resp = client.patch(
+            "/api/dashboard/devices/sms-set-bad/sms-settings",
+            json={"sms_phone": "08012345678", "sms_commands_enabled": True},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 400
+
+    def test_enable_requires_number(self):
+        self._register("sms-set-nonum")
+        resp = client.patch(
+            "/api/dashboard/devices/sms-set-nonum/sms-settings",
+            json={"sms_phone": "", "sms_commands_enabled": True},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 400
+
+    def test_unknown_device_404(self):
+        resp = client.patch(
+            "/api/dashboard/devices/never-sms/sms-settings",
+            json={"sms_phone": "+2348012345678", "sms_commands_enabled": True},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 404
+
+    def test_registration_prefills_sms_phone_from_sim_phone(self):
+        """The app reports its SIM number best-effort; the server prefills
+        sms_phone ONLY when it is still NULL (never overwrites an
+        owner-confirmed number)."""
+        device_id = "sms-set-prefill"
+        client.post(
+            "/api/device/register",
+            json={
+                "device_id": device_id,
+                "fingerprint": "fp-sms-prefill",
+                "model": "Prefill",
+                "sim_phone": "+2348099999999",
+            },
+            headers=get_auth_headers(),
+        )
+        devices = client.get("/api/dashboard/devices", headers=get_dashboard_headers()).json()["devices"]
+        row = next(d for d in devices if d["id"] == device_id)
+        assert row["sms_phone"] == "+2348099999999"
+
+        # Owner sets a different number; a re-register with the same sim_phone
+        # must NOT overwrite it.
+        client.patch(
+            f"/api/dashboard/devices/{device_id}/sms-settings",
+            json={"sms_phone": "+2348077777777", "sms_commands_enabled": True},
+            headers=get_dashboard_headers(),
+        )
+        client.post(
+            "/api/device/register",
+            json={
+                "device_id": device_id,
+                "fingerprint": "fp-sms-prefill",
+                "model": "Prefill",
+                "sim_phone": "+2348099999999",
+            },
+            headers=get_auth_headers(),
+        )
+        devices = client.get("/api/dashboard/devices", headers=get_dashboard_headers()).json()["devices"]
+        row = next(d for d in devices if d["id"] == device_id)
+        assert row["sms_phone"] == "+2348077777777"
+
+
+class TestCellLocate:
+    """Cell-tower fingerprint resolution — cache-first, provider-pluggable,
+    graceful degradation when no provider is configured."""
+
+    def test_unconfigured_provider_degrades_gracefully(self):
+        config.settings.CELL_LOOKUP_API_KEY = ""
+        resp = client.post(
+            "/api/dashboard/cell-locate",
+            json={"cell_tower_ids": ["lte:621:20:30544:123456"]},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["resolved"] is False
+        assert data["reason"] == "no_provider_configured"
+
+    def test_cache_hit_returns_stored_fix(self):
+        with database.get_db_context() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO cell_location_cache "
+                "(fingerprint, lat, lng, accuracy_meters, provider) VALUES (?, ?, ?, ?, ?)",
+                ("lte:621:20:30544:123456", 6.5244, 3.3792, 120.0, "test"),
+            )
+            conn.commit()
+        resp = client.post(
+            "/api/dashboard/cell-locate",
+            json={"cell_tower_ids": ["lte:621:20:30544:123456"]},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["resolved"] is True
+        assert data["cached"] is True
+        assert abs(data["lat"] - 6.5244) < 1e-6
+        assert abs(data["lng"] - 3.3792) < 1e-6
+
+    def test_provider_resolution_roundtrip(self, monkeypatch):
+        """With a provider configured, a resolve stores the fix in the cache
+        so a second call is a cache hit."""
+
+        config.settings.CELL_LOOKUP_API_KEY = "test-token"
+        calls = []
+
+        import httpx as _httpx
+
+        def fake_client(*args, **kwargs):
+            class FakeResp:
+                def json(self):
+                    return {"status": "ok", "lat": 9.0765, "lon": 7.3986, "accuracy": 95}
+
+            class FakeCtx:
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *exc):
+                    return False
+
+                def post(self, url, json=None):
+                    calls.append(url)
+                    return FakeResp()
+
+            return FakeCtx()
+
+        monkeypatch.setattr(_httpx, "Client", fake_client)
+        try:
+            resp = client.post(
+                "/api/dashboard/cell-locate",
+                json={"cell_tower_ids": ["lte:621:20:30544:987654"]},
+                headers=get_dashboard_headers(),
+            )
+        finally:
+            config.settings.CELL_LOOKUP_API_KEY = ""
+
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["resolved"] is True
+        assert data["cached"] is False
+        assert abs(data["lat"] - 9.0765) < 1e-6
+        assert calls, "provider must have been called"
+
+        # Second call is now a cache hit (no provider call).
+        resp2 = client.post(
+            "/api/dashboard/cell-locate",
+            json={"cell_tower_ids": ["lte:621:20:30544:987654"]},
+            headers=get_dashboard_headers(),
+        )
+        assert resp2.json()["cached"] is True
+        assert len(calls) == 1
+
+    def test_invalid_input_rejected(self):
+        resp = client.post("/api/dashboard/cell-locate", json={}, headers=get_dashboard_headers())
+        assert resp.status_code == 400
+        resp = client.post(
+            "/api/dashboard/cell-locate",
+            json={"cell_tower_ids": ["not-a-tower-id"]},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 400
+
+
 class TestCommandDeleteStepUp:
     """Command history is an audit trail (wipe/lock/alarm) — deleting it must
     re-authenticate with a step-up password, exactly like media/device
@@ -1029,6 +2185,62 @@ class TestGeofences:
 
 
 class TestSchemaMigration:
+    def test_ensure_initialized_migrates_commands_failure_reason(self, monkeypatch):
+        """Regression (shipped once in production): the live DB's commands
+        table was missing failure_reason while the running ack route already
+        wrote it — every device ack 500'd with 'no such column'. The old
+        ensure_initialized short-circuit only validated DEVICES columns, so
+        it returned 'current' and never ran the commands ALTER migration.
+        It must now detect a stale commands table too."""
+        import sqlite3
+        import tempfile
+
+        fd, path = tempfile.mkstemp(suffix="-commands-stale.db")
+        os.close(fd)
+        try:
+            # A complete schema WITHOUT the failure_reason column (exactly
+            # what production looked like before the migration landed).
+            conn = sqlite3.connect(path)
+            conn.executescript(
+                """
+                CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT UNIQUE, password_hash TEXT,
+                    display_name TEXT, tier TEXT DEFAULT 'free', is_active BOOLEAN DEFAULT TRUE,
+                    email_verified BOOLEAN DEFAULT FALSE, created_at TIMESTAMP, last_login TIMESTAMP);
+                CREATE TABLE devices (id TEXT PRIMARY KEY, alias TEXT, owner_id TEXT,
+                    device_fingerprint TEXT, platform TEXT DEFAULT 'android', app_version TEXT,
+                    os_version TEXT, model TEXT, imei_hash TEXT, sim_serial_hash TEXT,
+                    device_key_hash TEXT, last_seen TIMESTAMP, registered TIMESTAMP,
+                    is_stolen BOOLEAN DEFAULT FALSE, theft_confirmed_at TIMESTAMP,
+                    operating_mode TEXT DEFAULT 'normal', sentinel_score INTEGER DEFAULT 0,
+                    capture_armed BOOLEAN, alert_phone TEXT, alert_email TEXT,
+                    alert_channels TEXT, enabled_types TEXT, quiet_hours_start INTEGER,
+                    quiet_hours_end INTEGER, archived_at TIMESTAMP);
+                CREATE TABLE commands (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    device_id TEXT NOT NULL, command TEXT NOT NULL, params TEXT,
+                    status TEXT DEFAULT 'pending', priority INTEGER DEFAULT 5,
+                    issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    executed_at TIMESTAMP, expires_at TIMESTAMP);
+                """
+            )
+            conn.commit()
+            conn.close()
+
+            monkeypatch.setattr(database, "DB_PATH", path)
+            assert database.ensure_initialized() is True, "stale commands table must trigger migration"
+
+            conn = sqlite3.connect(path)
+            try:
+                cols = {r[1] for r in conn.execute("PRAGMA table_info(commands)")}
+            finally:
+                conn.close()
+            assert "failure_reason" in cols, "migration must add failure_reason to commands"
+
+            # And the second call is a no-op: the DB is now current.
+            assert database.ensure_initialized() is False
+        finally:
+            if os.path.exists(path):
+                os.remove(path)
+
     def test_init_db_migrates_existing_database(self):
         """Regression: init_db must apply column migrations to a DB created
         before the columns existed. The old ensure_initialized short-circuit

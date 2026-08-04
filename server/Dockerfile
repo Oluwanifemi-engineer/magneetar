@@ -13,10 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies (including optional pg support)
+# Install Python dependencies (asyncpg for the optional Postgres adapter is
+# already pinned in requirements.txt)
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt \
-    && pip install --no-cache-dir --user asyncpg 2>/dev/null || true
+RUN pip install --no-cache-dir --user -r requirements.txt
 
 # ── Production Stage ─────────────────────────────────────────────────────────
 FROM python:3.12-slim

@@ -41,12 +41,13 @@ MT_API_KEY=${API_KEY}
 MT_JWT_SECRET=${JWT_SECRET}
 MT_ENCRYPTION_KEY=${ENCRYPTION_KEY}
 
-# Database (SQLite for development, PostgreSQL for production)
+# Database — SQLite is the single data plane (WAL mode + online-backup
+# script). MT_DB_PATH must point at the persisted volume in Docker:
+#   /app/data/magneetar.db
 MT_DB_PATH=magneetar.db
+# Optional PostgreSQL adapter (EXPERIMENTAL, schema may lag SQLite — see
+# database_postgres.py). Not needed for the Docker stack.
 # MT_DATABASE_URL=postgresql://magneetar:password@localhost:5432/magneetar
-
-# Docker PostgreSQL password (also stored in server/.db_password)
-# MT_DB_PASSWORD=your-db-password
 
 # Environment
 MT_ENVIRONMENT=development
@@ -76,19 +77,13 @@ MT_RETENTION_DAYS=90
 # MT_SENTRY_DSN=your-sentry-dsn
 EOF
 
-# Generate Docker DB password file if --docker flag
+# The --docker flag used to generate a PostgreSQL password + .db_password
+# secret file. Since v1.3.1 the stack is SQLite-only (single data plane), so
+# there is nothing extra to generate — the flag is kept for CLI compatibility
+# and prints a short note.
 if [ "$USE_DOCKER" = "--docker" ]; then
-    DB_PASSWORD=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))" 2>/dev/null || python -c "import secrets; print(secrets.token_urlsafe(24))")
-    echo "$DB_PASSWORD" > "$PROJECT_DIR/server/.db_password"
-    echo "✅ Generated Docker DB password file: server/.db_password"
+    echo "ℹ️  SQLite-only deployment: no DB password file needed (PostgreSQL removed from the stack)."
     echo ""
-    # Also append to .env
-    {
-        echo ""
-        echo "# Docker PostgreSQL"
-        echo "MT_DB_PASSWORD=${DB_PASSWORD}"
-        echo "MT_DATABASE_URL=postgresql://magneetar:${DB_PASSWORD}@db:5432/magneetar"
-    } >> "$ENV_FILE"
 fi
 
 echo "✅ Generated: $ENV_FILE"

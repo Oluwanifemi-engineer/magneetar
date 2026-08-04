@@ -27,6 +27,11 @@ export interface Device {
   // the flag. Archived devices are dimmed in the sidebar with a review &
   // purge flow (password-gated permanent deletion).
   archived_at: string | null;
+  // Offline Command Relay (SMS): when a device is offline (no data), commands
+  // are SMSed to sms_phone (E.164, the phone's SIM number) and executed
+  // locally. Owner opt-in only — sms_commands_enabled defaults to false.
+  sms_phone: string | null;
+  sms_commands_enabled: boolean;
 }
 
 export interface DeviceWithStatus extends Device {
@@ -73,6 +78,13 @@ export interface LocationWithMeta extends Location {
 
 // ─── Commands ────────────────────────────────────────────────────────────────
 
+// NOTE: keep this in sync with the SERVER's valid command set
+// (server/models.py CommandRequest.validate_command) AND the Android app
+// (TrackingService.handleCommand). Commands the device cannot execute were
+// removed (phantom_on/off, fake_shutdown, location_burst_stop,
+// capture_photo_rear, display_message, get_sim_info, get_battery, reboot) —
+// the old list advertised commands that would 422 on the server or always
+// ack 'failed', i.e. buttons that could never work.
 export type CommandType =
   | 'ping'
   | 'capture_photo'
@@ -83,11 +95,7 @@ export type CommandType =
   | 'wipe'
   // Wire command for the siren — the server (models.CommandRequest) and the
   // Android app (TrackingService.handleCommand) only accept 'alarm'.
-  | 'alarm'
-  | 'display_message'
-  | 'get_sim_info'
-  | 'get_battery'
-  | 'reboot';
+  | 'alarm';
 
 export interface Command {
   id: number;
@@ -103,6 +111,10 @@ export interface Command {
   // Microphone to Allow all the time"). Sent by the Android app, shown on
   // the command row so a red FAILED explains itself.
   failure_reason?: string | null;
+  // How the command reached the device: 'poll' (normal network poll) or
+  // 'sms' (offline command relay — delivered over SMS because the device had
+  // no data). Surfaced so the operator knows the delivery path.
+  delivery_channel?: 'poll' | 'sms' | null;
 }
 
 // ─── Media ───────────────────────────────────────────────────────────────────

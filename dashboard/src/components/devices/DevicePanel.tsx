@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { useStore } from '@/store/useStore';
 import { cn, relativeTime, formatCoordinate, deviceDisplayName, stepUpPasswordHint } from '@/lib/utils';
-import { BellRing, MapPin, LocateFixed, Navigation, ExternalLink, Save, Check, Trash2, X, Pencil } from 'lucide-react';
+import { BellRing, MapPin, LocateFixed, Navigation, ExternalLink, Save, Check, Trash2, X, Pencil, MessageSquareText } from 'lucide-react';
 import { CoordDisplay } from '@/components/ui/CoordDisplay';
 import { getAPI } from '@/lib/api';
 
@@ -41,6 +41,15 @@ export function DevicePanel() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  // Offline Command Relay (SMS): when the device is offline (no data), the
+  // dashboard can still reach it over SMS. Owner opt-in only — the toggle
+  // defaults to OFF (SMS costs money + is a real attack surface).
+  const [smsPhone, setSmsPhone] = useState('');
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const [smsSaving, setSmsSaving] = useState(false);
+  const [smsSaved, setSmsSaved] = useState(false);
+  const [smsError, setSmsError] = useState('');
+  const [showSmsSettings, setShowSmsSettings] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
@@ -66,8 +75,12 @@ export function DevicePanel() {
     setEnabledTypes(device?.enabled_types ?? null);
     setQuietStart(device?.quiet_hours_start ?? null);
     setQuietEnd(device?.quiet_hours_end ?? null);
+    setSmsPhone(device?.sms_phone || '');
+    setSmsEnabled(device?.sms_commands_enabled ?? false);
     setError('');
     setSaved(false);
+    setSmsError('');
+    setSmsSaved(false);
     setEditingName(false);
     setNameError('');
     setDeletePassword('');
@@ -122,6 +135,31 @@ export function DevicePanel() {
       setEditingName(true);
     } finally {
       setNameSaving(false);
+    }
+  };
+
+  const saveSmsSettings = async () => {
+    if (!device || smsSaving) return;
+    setSmsSaving(true);
+    setSmsError('');
+    setSmsSaved(false);
+    try {
+      const res = await getAPI().updateSmsSettings(device.id, smsPhone.trim(), smsEnabled);
+      setSmsPhone(res.sms_phone || '');
+      setSmsEnabled(res.sms_commands_enabled);
+      setSmsSaved(true);
+      // Refresh the device list so the stored relay settings stay in sync
+      try {
+        const { devices: freshDevices } = await getAPI().getDevices();
+        setDevices(freshDevices);
+      } catch {
+        /* non-fatal — UI already reflects the saved values */
+      }
+      setTimeout(() => setSmsSaved(false), 2000);
+    } catch (e: any) {
+      setSmsError(e.message || 'Failed to save SMS settings');
+    } finally {
+      setSmsSaving(false);
     }
   };
 
@@ -500,6 +538,82 @@ export function DevicePanel() {
           No location data available yet.
         </div>
       )}
+
+      {/* Offline Command Relay (SMS) — commands that reach the phone even with no data */}
+      <div className="bg-mag-surface/30 border border-mag-border/30 rounded-xl p-4 space-y-3">
+        <button
+          onClick={() => setShowSmsSettings(!showSmsSettings)}
+          className="w-full flex items-center justify-between text-[11px] font-mono text-mag-text-dim/80 uppercase tracking-wider font-bold hover:text-mag-text transition-colors"
+        >
+          <span className="flex items-center gap-1.5">
+            <MessageSquareText size={12} className="text-mag-accent" />
+            Offline SMS Commands
+            {device.sms_commands_enabled && (
+              <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                On
+              </span>
+            )}
+          </span>
+          <span className="text-mag-text-dim/50">{showSmsSettings ? '−' : '+'}</span>
+        </button>
+
+        {showSmsSettings && (
+          <div className="space-y-2.5 pt-1">
+            <p className="text-[10px] font-mono text-mag-text-dim/50 leading-relaxed">
+              When this device is <span className="text-mag-text-dim/80 font-bold">offline (no data)</span>,
+              the dashboard can still command it over the cellular SMS channel — every phone
+              receives SMS even with zero data plan. Commands are texted to the SIM number
+              below and executed on the phone locally. Location comes back as a coarse
+              cell-tower fix + the exact GPS fix when the phone regains any internet.
+            </p>
+            <div>
+              <label className="text-[10px] font-mono text-mag-text-dim/60 font-bold mb-1 block">
+                Device SIM number (E.164, e.g. +2348081234567)
+              </label>
+              <input
+                value={smsPhone}
+                onChange={e => setSmsPhone(e.target.value)}
+                placeholder="+234..."
+                aria-label="Offline SMS phone number"
+                className="w-full bg-mag-bg/60 border border-mag-border/40 rounded-lg px-3 py-2 text-xs font-mono text-mag-text placeholder:text-mag-text-dim/30 focus:outline-none focus:border-mag-primary/60 transition-colors"
+              />
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={smsEnabled}
+                onChange={e => setSmsEnabled(e.target.checked)}
+                aria-label="Enable offline SMS commands"
+                className="accent-mag-accent w-4 h-4"
+              />
+              <span className="text-[10px] font-mono text-mag-text-dim/70 font-bold">
+                Enable SMS commands for this device
+              </span>
+            </label>
+            {smsError && <div className="text-[10px] font-mono text-red-400">{smsError}</div>}
+            <button
+              onClick={saveSmsSettings}
+              disabled={smsSaving}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-mag-primary/90 hover:bg-mag-primary disabled:opacity-50 text-white text-xs font-bold transition-all"
+            >
+              {smsSaved ? <Check size={13} /> : <Save size={13} />}
+              {smsSaving ? 'Saving...' : smsSaved ? 'Saved' : 'Save SMS Settings'}
+            </button>
+            <p className="text-[10px] font-mono text-mag-text-dim/40 leading-relaxed">
+              SMS messages cost money and an SMS command is a security surface — that's why this
+              is opt-in. Commands only SMS when the device is offline; online devices use the
+              normal poll. The phone verifies a per-device secret code and only accepts commands
+              from the server's own number.
+            </p>
+            <p className="text-[10px] font-mono text-amber-400/70 leading-relaxed">
+              ⚠ Also enable <span className="font-bold">Offline SMS Commands</span> in the Magneetar
+              app on the phone (Home → Offline SMS) — the phone only accepts command SMS while its
+              own toggle is on, and it must have the SMS permission (granted in the app's
+              Permissions screen). Both sides must be enabled for the relay to work.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Permanent deletion (privacy policy promise) */}
       <div className="bg-mag-surface/30 border border-mag-border/30 rounded-xl p-4">

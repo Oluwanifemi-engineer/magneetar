@@ -59,6 +59,14 @@ class Settings:
     # Twilio number used as the SMS sender (e.g. "+15551234567", SMS-capable).
     # On a trial account, use the Twilio-assigned trial number and verify
     # the recipient in the console before sending.
+    # Optional cell-tower geolocation provider token (Unwired Labs etc.). The
+    # offline command relay captures a cell fingerprint on the device and the
+    # server resolves it to approximate coordinates. Graceful degradation: no
+    # token → the raw fingerprint is still stored, "unresolved" is returned.
+    CELL_LOOKUP_API_KEY: str = os.environ.get("MT_CELL_LOOKUP_API_KEY", "")
+    # Optional override for the provider endpoint (Unwired Labs default).
+    CELL_LOOKUP_URL: str = os.environ.get("MT_CELL_LOOKUP_URL", "https://us1.unwiredlabs.com/v2/process.php")
+
     TWILIO_SMS_FROM: str = os.environ.get("MT_TWILIO_SMS_FROM", "")
     # WhatsApp sender. Defaults to Twilio's shared sandbox number; replace with
     # your approved WhatsApp Business sender after sandbox onboarding.

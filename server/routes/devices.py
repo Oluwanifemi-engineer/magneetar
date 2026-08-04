@@ -269,6 +269,15 @@ async def register_device(
             ),
         )
 
+    # Prefill the Offline Command Relay recipient (sms_phone) from the SIM
+    # number the app reports — but ONLY when sms_phone is still NULL, so an
+    # owner-confirmed number is never overwritten by a later registration.
+    if reg.sim_phone:
+        db.execute(
+            "UPDATE devices SET sms_phone=COALESCE(sms_phone, ?) WHERE id=?",
+            (reg.sim_phone, canonical_id),
+        )
+
     # Fresh registration un-archives the device (it is alive and reporting).
     unarchive_device(db, canonical_id)
     db.commit()
@@ -473,6 +482,12 @@ async def post_location(
                     },
                 )
 
+    # Accuracy is a core part of a tracking UI ("±12m" vs "±500m" changes
+    # what the operator trusts). The dashboard's live map/panel reads
+    # accuracy_horizontal — this broadcast used to omit it (and
+    # provider/bearing/confidence), so the real-time feed always rendered
+    # "±?m" even though the device reported the fused Kalman accuracy on
+    # every ping.
     await broadcast_to_dashboards(
         {
             "type": "location",
@@ -485,6 +500,10 @@ async def post_location(
                 "sentinel_score": score,
                 "threat_level": threat_level,
                 "timestamp": now,
+                "accuracy_horizontal": report.accuracy_horizontal,
+                "provider": report.provider,
+                "bearing": report.bearing,
+                "confidence_level": report.confidence_level,
             },
         }
     )
@@ -508,12 +527,20 @@ async def post_location_simple(
     device_id: str = Depends(get_current_device_or_key),
 ):
     """Simplified location report for basic tracking."""
+    if report.device_id != device_id:
+        raise HTTPException(status_code=403, detail="Device ID mismatch")
+
     now = datetime.now(timezone.utc).isoformat()
     ts = report.timestamp or now
 
+    # Regression (shipped once): the INSERT referenced an `accuracy` column
+    # that doesn't exist in the locations schema (it's accuracy_horizontal),
+    # so every call 500'd with "no such column: accuracy". The request model
+    # keeps its `accuracy` field for API compatibility; only the column name
+    # is mapped to the real one.
     db.execute(
         (
-            "INSERT INTO locations (device_id, lat, lng, accuracy, provider, "
+            "INSERT INTO locations (device_id, lat, lng, accuracy_horizontal, provider, "
             "device_timestamp, server_timestamp) VALUES (?,?,?,?,?,?,?)"
         ),
         (device_id, report.lat, report.lng, report.accuracy, report.provider, ts, now),
@@ -614,6 +641,7 @@ async def get_device_commands(
         """SELECT id, command, params, priority
            FROM commands
            WHERE device_id=? AND status='pending'
+           AND (delivery_channel IS NULL OR delivery_channel != 'sms')
            AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
            ORDER BY priority ASC""",
         (device_id,),

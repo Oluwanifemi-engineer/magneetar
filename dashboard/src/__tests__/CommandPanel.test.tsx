@@ -8,6 +8,7 @@ import '@testing-library/jest-dom/jest-globals';
 // ─── Mutable mock state ───────────────────────────────────────────────────
 let mockSelectedDeviceId: string | null = 'device-001';
 let mockCommands: any[] = [];
+let mockDevices: any[] = [];
 const mockSetCommands = jest.fn();
 const mockIssueCommand = jest.fn<(...args: any[]) => any>();
 const mockGetCommands = jest.fn<(...args: any[]) => any>();
@@ -19,6 +20,7 @@ jest.mock('@/store/useStore', () => ({    useStore: jest.fn((selector: any) => {
       selectedDeviceId: mockSelectedDeviceId,
       commands: mockCommands,
       setCommands: mockSetCommands,
+      devices: mockDevices,
     };
     return selector ? selector(state) : state;
   }),
@@ -47,6 +49,7 @@ jest.mock('lucide-react', () => {
     CheckCircle2: noop,
     Trash2: noop,
     X: noop,
+    MessageSquareText: noop,
   };
 });
 
@@ -77,10 +80,45 @@ describe('CommandPanel Component', () => {
     jest.clearAllMocks();
     mockSelectedDeviceId = 'device-001';
     mockCommands = [];
+    mockDevices = [];
     mockIssueCommand.mockResolvedValue({ status: 'queued', command_id: 1 });
     mockGetCommands.mockResolvedValue({ commands: [] });
     mockDeleteCommand.mockResolvedValue({ status: 'ok', deleted_id: 1 });
     mockClearCommandHistory.mockResolvedValue({ status: 'ok', deleted: 1 });
+  });
+
+  it('shows an offline-SMS notice when the device is offline with SMS enabled', () => {
+    mockDevices = [{
+      id: 'device-001',
+      is_online: false,
+      sms_commands_enabled: true,
+      sms_phone: '+2348012345678',
+    }];
+    render(<CommandPanel />);
+    expect(screen.getByText(/delivered via SMS/i)).toBeInTheDocument();
+    expect(screen.getByText(/\+2348012345678/)).toBeInTheDocument();
+  });
+
+  it('hides the offline-SMS notice when the device is online', () => {
+    mockDevices = [{
+      id: 'device-001',
+      is_online: true,
+      sms_commands_enabled: true,
+      sms_phone: '+2348012345678',
+    }];
+    render(<CommandPanel />);
+    expect(screen.queryByText(/delivered via SMS/i)).not.toBeInTheDocument();
+  });
+
+  it('hides the offline-SMS notice when SMS commands are not enabled', () => {
+    mockDevices = [{
+      id: 'device-001',
+      is_online: false,
+      sms_commands_enabled: false,
+      sms_phone: null,
+    }];
+    render(<CommandPanel />);
+    expect(screen.queryByText(/delivered via SMS/i)).not.toBeInTheDocument();
   });
 
   it('renders all quick action command buttons', () => {
@@ -124,7 +162,7 @@ describe('CommandPanel Component', () => {
     fireEvent.click(pingBtn);
 
     await waitFor(() => {
-      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'ping', '');
+      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'ping', '', undefined);
     });
   });
 
@@ -134,7 +172,7 @@ describe('CommandPanel Component', () => {
     fireEvent.click(sirenBtn);
 
     await waitFor(() => {
-      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'alarm', '');
+      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'alarm', '', undefined);
     });
   });
 
@@ -147,17 +185,42 @@ describe('CommandPanel Component', () => {
     expect(mockIssueCommand).not.toHaveBeenCalled();
   });
 
-  it('sends CONFIRMED_WIPE only after an explicit confirmation', async () => {
+  it('sends CONFIRMED_WIPE only after an explicit confirmation + step-up password', async () => {
     render(<CommandPanel />);
     // First click arms the confirmation — no command issued yet.
     fireEvent.click(screen.getByTestId('cmd-btn-wipe'));
     expect(mockIssueCommand).not.toHaveBeenCalled();
 
-    // Confirmation dialog appears; confirm issues the wipe with the wire param.
+    // Confirmation dialog appears; a wipe needs the step-up password (the
+    // server re-verifies it before queueing a factory reset).
     const confirmBtn = screen.getByRole('button', { name: /confirm wipe/i });
     fireEvent.click(confirmBtn);
+    // Empty password → local validation, no API call.
+    expect(mockIssueCommand).not.toHaveBeenCalled();
+    expect(screen.getByText('Enter your password to confirm the wipe.')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Confirm wipe password'), { target: { value: 'master-key' } });
+    fireEvent.click(confirmBtn);
     await waitFor(() => {
-      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'wipe', 'CONFIRMED_WIPE');
+      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'wipe', 'CONFIRMED_WIPE', 'master-key');
+    });
+  });
+
+  it('wipe password is required — Enter with empty password does not fire', async () => {
+    render(<CommandPanel />);
+    fireEvent.click(screen.getByTestId('cmd-btn-wipe'));
+    fireEvent.keyDown(screen.getByLabelText('Confirm wipe password'), { key: 'Enter' });
+    expect(mockIssueCommand).not.toHaveBeenCalled();
+    expect(screen.getByText('Enter your password to confirm the wipe.')).toBeInTheDocument();
+  });
+
+  it('wipe sends the password on Enter', async () => {
+    render(<CommandPanel />);
+    fireEvent.click(screen.getByTestId('cmd-btn-wipe'));
+    fireEvent.change(screen.getByLabelText('Confirm wipe password'), { target: { value: 's3cret' } });
+    fireEvent.keyDown(screen.getByLabelText('Confirm wipe password'), { key: 'Enter' });
+    await waitFor(() => {
+      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'wipe', 'CONFIRMED_WIPE', 's3cret');
     });
   });
 
@@ -175,7 +238,7 @@ describe('CommandPanel Component', () => {
     render(<CommandPanel />);
     fireEvent.click(screen.getByTestId('cmd-btn-capture_photo_front'));
     await waitFor(() => {
-      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'capture_photo_front', '');
+      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'capture_photo_front', '', undefined);
     });
   });
 
@@ -183,7 +246,7 @@ describe('CommandPanel Component', () => {
     render(<CommandPanel />);
     fireEvent.click(screen.getByTestId('cmd-btn-location_burst'));
     await waitFor(() => {
-      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'location_burst', '');
+      expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'location_burst', '', undefined);
     });
   });
 });

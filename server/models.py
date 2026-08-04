@@ -20,6 +20,11 @@ class DeviceRegistration(BaseModel):
     imei_hash: Optional[str] = None
     sim_serial_hash: Optional[str] = None
     device_key: Optional[str] = None
+    # Best-effort SIM phone number (E.164-ish, often empty on Android 10+ due
+    # to getLine1Number gating). Used to prefill the Offline Command Relay's
+    # sms_phone — the OWNER confirms/overrides it on the dashboard before any
+    # SMS is sent.
+    sim_phone: Optional[str] = None
 
     @field_validator("device_id")
     @classmethod
@@ -226,23 +231,31 @@ class CommandRequest(BaseModel):
     command: str
     params: Optional[str] = ""
     priority: int = Field(5, ge=1, le=10)
+    # Step-up password — REQUIRED for destructive commands (wipe). A stolen
+    # dashboard session alone must not be able to factory-reset a device; the
+    # caller re-authenticates with the account password (users) or master API
+    # key (admin), exactly like device/media deletion. Optional for all other
+    # commands so the plain issue flow is unchanged.
+    password: Optional[str] = Field(None, max_length=200)
 
     @field_validator("command")
     @classmethod
     def validate_command(cls, v):
+        # Every command here must be IMPLEMENTED end-to-end: the Android app's
+        # TrackingService.handleCommand() has a branch for each one. Commands
+        # the app cannot execute were removed (phantom_on/off, fake_shutdown,
+        # location_burst_stop, capture_photo_rear) — the old set accepted them
+        # but the device always acked 'failed', so the dashboard could queue
+        # commands that could NEVER work. Keep this list in sync with
+        # android-app .../TrackingService.kt and dashboard CommandPanel.tsx.
         valid = {
             "ping",
             "capture_photo",
             "capture_photo_front",
-            "capture_photo_rear",
             "capture_audio",
             "location_burst",
-            "location_burst_stop",
             "lock",
             "alarm",
-            "phantom_on",
-            "phantom_off",
-            "fake_shutdown",
             "wipe",
         }
         if v not in valid:
@@ -515,3 +528,9 @@ class ConfigResponse(BaseModel):
         "geofencing",
         "real_time_tracking",
     ]
+    # Offline Command Relay (SMS): the number command SMS are sent FROM. The
+    # Android app allowlists this as the ONLY sender that may issue commands
+    # (alongside the pairing code) — a leaked/intercepted SMS alone can't be
+    # replayed from a different number. Empty when the server has no SMS
+    # sender configured; the app then falls back to code-only verification.
+    sms_relay_number: str = ""

@@ -13,16 +13,18 @@ import traceback as tb
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
+from alerts import normalize_phone_to_e164  # noqa: E402  (SMS inbound webhook)
 from archive_monitor import archive_stale_devices_loop
 from auth import decode_token, user_id_from_subject
 from config import settings
-from database import check_rate_limit, ensure_initialized, log_error
+from database import check_rate_limit, ensure_initialized, get_db_context, log_error
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from logging_config import get_logger
 from models import ConfigResponse, HealthResponse
 from offline_monitor import check_offline_devices_loop
+from sms_relay import parse_ack_sms  # noqa: E402  (SMS inbound webhook)
 from websocket_manager import (
     ADMIN_OWNER,
     active_dashboard_connections,
@@ -133,7 +135,13 @@ async def lifespan(app: FastAPI):
                 pg = await get_postgres_db()
                 if pg.is_connected:
                     pg_connected = True
-                    logger.info("PostgreSQL connected and schema initialized")
+                    logger.warning(
+                        "PostgreSQL connected, but ALL application routes read/write "
+                        "SQLite (database.py) — the live data plane is SQLite. The "
+                        "Postgres adapter (database_postgres.py) is EXPERIMENTAL and "
+                        "its schema may lag the SQLite schema; the Docker stack is "
+                        "SQLite-only by design. Set MT_DATABASE_URL='' to silence this."
+                    )
         except Exception as e:
             logger.warning(f"PostgreSQL setup failed, falling back to SQLite: {e}")
 
@@ -665,10 +673,151 @@ async def get_config():
     """Public config endpoint for mobile apps."""
     # app_version must match /health (single source: VERSION file). A stale
     # hardcoded value here broke the Android "update available" nudge.
-    return ConfigResponse(app_version=APP_VERSION)
+    return ConfigResponse(
+        app_version=APP_VERSION,
+        # Offline Command Relay: the number command SMS are sent FROM. The
+        # Android app allowlists it as the only command-issuing sender (along
+        # with the Termii alphanumeric "Magneetar"), so a leaked pairing code
+        # alone can't be replayed from a random number. Empty when the server
+        # has no SMS sender configured — the app then falls back to code-only.
+        sms_relay_number=settings.TWILIO_SMS_FROM,
+    )
+
+
+@app.post("/api/sms/inbound")
+async def sms_inbound_webhook(request: Request):
+    """Twilio inbound-SMS webhook — the SMS reply return channel.
+
+    When a phone executes a command that arrived over SMS and CAN send SMS
+    (default SMS app / SMS_MANAGER role), the app SMS-replies
+    "MT-ACK #<id> <status>" to the relay number. Twilio forwards that inbound
+    message to this webhook, which applies the ack server-side — so an
+    offline command can be acknowledged without waiting for the network
+    outbox. The network outbox remains the reliable default; this is the
+    instant path when available.
+
+    Security:
+    - X-Twilio-Signature is verified with the account auth token (HMAC-SHA1
+      over the canonical URL + body params), so only genuine Twilio traffic
+      can drive acks. Without a configured TWILIO_AUTH_TOKEN the endpoint is
+      inert (403) — no signature, no processing.
+    - The reply is applied ONLY when the From number matches the device's
+      registered sms_phone (E.164-normalized), so a stranger's SMS can never
+      ack (or forge) another device's commands.
+    - The ack is limited to marking the command executed/failed; it can never
+      issue new commands.
+    """
+    import base64 as _b64
+    import urllib.parse as _urlparse
+
+    # NOTE: get_db_context / normalize_phone_to_e164 / parse_ack_sms are
+    # imported at MODULE level (top of this file) — under full-suite
+    # collection test_e2e evicts modules from sys.modules; a function-local
+    # `from database import get_db_context` would resolve the post-eviction
+    # module whose DB_PATH points elsewhere, so the command lookup below would
+    # 404 as 'unknown_command' (same bug class as the evidence PDF / step-up
+    # password evictions documented in routes/dashboard.py).
+    signature = request.headers.get("X-Twilio-Signature", "")
+    auth_token = settings.TWILIO_AUTH_TOKEN
+    if not signature or not auth_token:
+        raise HTTPException(status_code=403, detail="SMS inbound webhook not configured")
+
+    form = dict(await request.form())
+    from_number = (form.get("From") or "").strip()
+    body = (form.get("Body") or "").strip()
+
+    # Twilio signature: base64(HMAC-SHA1(auth_token, url + urlencoded_params))
+    # where params are the POST body, sorted by key. The URL must match the
+    # one configured in the Twilio console exactly (scheme + host + path).
+    canonical_url = str(request.url)
+    sorted_params = _urlparse.urlencode(sorted(form.items()))
+    expected = _b64.b64encode(
+        hmac.new(
+            auth_token.encode(),
+            f"{canonical_url}{sorted_params}".encode(),
+            hashlib.sha1,
+        ).digest()
+    ).decode()
+    if not hmac.compare_digest(expected, signature):
+        logger.warning("SMS inbound: Twilio signature mismatch — rejecting")
+        raise HTTPException(status_code=403, detail="Invalid Twilio signature")
+
+    parsed = parse_ack_sms(body)
+    if not parsed:
+        # Not an MT-ACK (e.g. a stray message to the relay number) — 200 so
+        # Twilio doesn't retry; nothing to do.
+        return {"status": "ignored"}
+    command_id, ack_status = parsed
+
+    # Per-sender rate limit (defense in depth): even with a valid signature,
+    # bulk-replaying acks would write to the DB on every hit. Cap at 10
+    # webhook acks per sender per minute.
+    if not check_rate_limit(f"sms_inbound:{from_number}", "sms_inbound", 10, 1):
+        logger.warning(f"SMS inbound: rate limited for sender {from_number}")
+        raise HTTPException(status_code=429, detail="SMS inbound rate limit exceeded")
+
+    with get_db_context() as conn:
+        # Only acks for SMS-DELIVERED commands are accepted — a poll-delivered
+        # command's lifecycle is fully handled by the network ack, so this
+        # webhook must never interfere with it (scope tightness).
+        row = conn.execute(
+            "SELECT c.device_id, c.status, d.sms_phone FROM commands c "
+            "JOIN devices d ON c.device_id=d.id WHERE c.id=? AND c.delivery_channel='sms'",
+            (command_id,),
+        ).fetchone()
+        if not row:
+            return {"status": "unknown_command"}
+        if row["status"] != "pending":
+            return {"status": "already_acknowledged"}
+
+        # From must match the device's registered SMS number — a different
+        # number must never ack this device's commands.
+        device_phone = (row["sms_phone"] or "").strip()
+        if not device_phone:
+            return {"status": "no_phone_configured"}
+        if normalize_phone_to_e164(from_number, settings.PHONE_COUNTRY_CODE) != normalize_phone_to_e164(
+            device_phone, settings.PHONE_COUNTRY_CODE
+        ):
+            logger.warning(f"SMS inbound: ack for command {command_id} from non-owner number {from_number} — rejecting")
+            return {"status": "sender_mismatch"}
+
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
+
+        conn.execute(
+            "UPDATE commands SET status=?, executed_at=? WHERE id=?",
+            (ack_status, _dt.now(_tz.utc).isoformat(), command_id),
+        )
+        conn.commit()
+
+    logger.info(
+        "SMS inbound ack applied",
+        extra={
+            "extra_data": {
+                "command_id": command_id,
+                "status": ack_status,
+                "device_id": row["device_id"],
+            }
+        },
+    )
+    return {"status": "acknowledged", "command_id": command_id}
 
 
 # ─── WebSocket ───────────────────────────────────────────────────────────────
+
+
+def _is_pong_message(data: str) -> bool:
+    """True when a client keepalive message is a pong.
+
+    The dashboard client sends a JSON pong (`{"type":"pong"}`) via
+    JSON.stringify; older clients sent the bare string "pong". Both are
+    accepted. JSON whitespace is normalized so a differently-spaced
+    serialization can never make a live client look dead to the 90s
+    stale-prune heartbeat.
+    """
+    if data == "pong":
+        return True
+    return data.replace(" ", "") == '{"type":"pong"}'
 
 
 @app.websocket("/ws/dashboard")
@@ -755,7 +904,7 @@ async def dashboard_websocket(websocket: WebSocket):
             data = await websocket.receive_text()
             if data == "ping":
                 await websocket.send_json({"type": "pong"})
-            elif data in ("pong", '{"type": "pong"}'):
+            elif _is_pong_message(data):
                 record_pong(websocket)
     except WebSocketDisconnect:
         remove_websocket(websocket)

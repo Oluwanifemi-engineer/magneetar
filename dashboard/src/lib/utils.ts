@@ -230,24 +230,25 @@ export function openWazeDirections(destLat: number, destLng: number): void {
 
 // ─── Command Utilities ───────────────────────────────────────────────────────
 
+// Labels for the commands the platform actually implements end-to-end (the
+// server's CommandRequest.validate_command set). Commands the app cannot
+// execute were removed from CommandType — keep both in sync.
 export function getCommandLabel(command: string): string {
   const labels: Record<string, string> = {
     ping: 'PING',
     capture_photo: 'PHOTO',
+    capture_photo_front: 'FRONT',
     capture_audio: 'AUDIO',
+    location_burst: 'BURST',
     lock: 'LOCK',
     wipe: 'WIPE',
     alarm: 'SIREN',
-    display_message: 'MESSAGE',
-    get_sim_info: 'SIM INFO',
-    get_battery: 'BATTERY',
-    reboot: 'REBOOT',
   };
   return labels[command] || command.toUpperCase();
 }
 
 export function isDestructiveCommand(command: string): boolean {
-  return ['wipe', 'reboot'].includes(command);
+  return command === 'wipe';
 }
 
 // ─── Signal Strength ─────────────────────────────────────────────────────────

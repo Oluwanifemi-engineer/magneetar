@@ -16,9 +16,10 @@
 
 ```
 ┌──────────────┐     ┌──────────────────┐     ┌────────────────┐
-│   Android App │────▶│   Magneetar API  │────▶│   PostgreSQL   │
-│  (Kotlin/Jet) │     │   (FastAPI/Py)   │     │   (or SQLite)  │
-└──────┬───────┘     └────────┬─────────┘     └────────────────┘
+│   Android App │────▶│   Magneetar API  │────▶│     SQLite     │
+│  (Kotlin/Jet) │     │   (FastAPI/Py)   │     │  (WAL, single  │
+└──────┬───────┘     └────────┬─────────┘     │   data plane)  │
+       │                      │               └────────────────┘
        │                      │
        │  x-device-key        │  WebSocket
        │  (unique per device) │  (real-time)
@@ -114,7 +115,7 @@ make validate      # full CI-equivalent gate: lint + typecheck + test + pre-comm
 make test-all      # everything — same as make test (alias kept for compatibility)
 ```
 
-> **230 backend tests + 109 dashboard tests** should pass. `make validate` runs
+> **300 backend tests + 133 dashboard tests** should pass. `make validate` runs
 > every gate that CI enforces, so a green local `make validate` predicts a green
 > GitHub Actions run.
 
@@ -133,8 +134,9 @@ docker compose up --build -d
 ```
 
 This starts:
-- **PostgreSQL 16** — production database with persistence
-- **Magneetar Server** — FastAPI with uvicorn (port 8002)
+- **Magneetar Server** — FastAPI with uvicorn (port 8002), SQLite on the
+  persisted `magneetar-data` volume (the single data plane — WAL mode,
+  online-backup via `scripts/backup-db.sh`)
 - **Magneetar Dashboard** — Next.js served via Nginx (port 3000)
 
 ### Cloudflare Tunnel (Public Access)
@@ -264,7 +266,7 @@ Download the APK artifact and install on your device.
 
 ### Backend
 - **Python 3.12+** with **FastAPI**
-- **SQLite** (dev) / **PostgreSQL 16** (prod)
+- **SQLite** (WAL) — the single data plane, backed up via `scripts/backup-db.sh`
 - **JWT** + **Device Key** authentication
 - **Cloudflare Tunnel** for secure public access
 - **Docker Compose** for orchestration

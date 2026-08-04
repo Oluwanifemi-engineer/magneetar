@@ -11,9 +11,13 @@ Magneetar can be deployed:
 - **Production**: Docker + Cloudflare Tunnel (recommended)
 
 The app's live data plane is **SQLite** at `/app/data/magneetar.db` on the
-persisted `magneetar-data` volume (see `MT_DB_PATH`). PostgreSQL is optional
-and holds no app data in the current deployment — `backup-db.sh` snapshots the
-SQLite database.
+persisted `magneetar-data` volume (see `MT_DB_PATH`). Since **v1.3.1** SQLite
+is the *single* data plane: the empty PostgreSQL container was removed from
+the Docker stack (every route already read/wrote SQLite; the Postgres adapter
+schema had drifted and held no app data). `backup-db.sh` snapshots the SQLite
+database. An experimental PostgreSQL adapter (`database_postgres.py`) remains
+in the codebase for future scale-out and logs a warning if you opt in via
+`MT_DATABASE_URL` — the Docker stack does not use it.
 
 ---
 
@@ -54,7 +58,9 @@ npm run dev
 
 This creates:
 - `server/.env` — API keys, JWT secret, encryption key
-- `server/.db_password` — PostgreSQL password (mounted as Docker secret)
+
+> The `--docker` flag no longer generates a PostgreSQL password file — the
+> stack is SQLite-only (kept for CLI compatibility).
 
 ### Step 2: Build and start
 
@@ -68,7 +74,8 @@ Services:
 |------------|--------|---------------------------|
 | API Server | 8000   | http://localhost:8000      |
 | Dashboard  | 3000   | http://localhost:3000      |
-| PostgreSQL (optional, not the live data plane) | 5432 | internal (db:5432) |
+
+> No database container — SQLite lives on the persisted `magneetar-data` volume.
 
 ### Step 3: Verify
 
@@ -77,18 +84,16 @@ curl http://localhost:8000/health
 # → {"status":"online","version":"1.0.0",...}
 ```
 
-### Step 4: Choose the database engine
+### Step 4: The database (single data plane)
 
-The server auto-detects `MT_DATABASE_URL`. The current production deployment
-uses **SQLite on a persisted volume** (the default when `MT_DATABASE_URL` is
-blank), because the route layer reads/writes SQLite via `database.py`:
+SQLite (WAL mode) on the persisted volume is the one and only data plane. The
+Docker stack sets `MT_DB_PATH=/app/data/magneetar.db`; **do not** set
+`MT_DATABASE_URL` in the stack (an experimental Postgres adapter exists, but
+its schema may lag SQLite — see `server/database_postgres.py`).
 
 ```env
-# Production (default — SQLite on persisted volume)
+# Production (SQLite on persisted volume)
 MT_DB_PATH=/app/data/magneetar.db
-
-# Optional (PostgreSQL — secondary/experimental, not the live data plane)
-# MT_DATABASE_URL=postgresql://magneetar:your-password@db:5432/magneetar
 ```
 
 ---
@@ -166,7 +171,7 @@ cloudflared:
 | `MT_API_KEY` | ✅ Yes | — | Min 32 chars, used by dashboard to login |
 | `MT_JWT_SECRET` | ✅ Yes | — | Min 64 chars, JWT signing key |
 | `MT_ENCRYPTION_KEY` | ✅ Yes | — | 32 bytes hex, encryption key |
-| `MT_DATABASE_URL` | No | — | Optional PostgreSQL URL (not the live data plane) |
+| `MT_DATABASE_URL` | No | — | EXPERIMENTAL PostgreSQL adapter (schema may lag SQLite; logs a warning). Leave unset in the Docker stack. |
 | `MT_DB_PATH` | No | `magneetar.db` | SQLite database path — set to `/app/data/magneetar.db` (persisted volume) in production |
 | `MT_ENVIRONMENT` | No | `development` | `development` or `production` |
 | `MT_HOST` | No | `0.0.0.0` | Server bind address |
@@ -192,7 +197,7 @@ cloudflared:
 - [ ] CORS is configured with specific origins in production
 - [ ] HTTPS is enforced (via Cloudflare or reverse proxy)
 - [ ] Rate limiting is active (default: 5 login attempts/10 min)
-- [ ] Docker secrets are used for database password
+- [x] Single data plane (SQLite on persisted volume) — no database secrets to manage
 - [ ] All sensitive data is encrypted at rest
 
 ### Monitoring
@@ -216,8 +221,7 @@ cloudflared:
 > **Note:** The app's live data plane is SQLite at `/app/data/magneetar.db` (the
 > persisted `magneetar-data` volume) inside the `magneetar-server` container.
 > `backup-db.sh` snapshots that database via the SQLite online backup API.
-> PostgreSQL (`magneetar-db`) is optional and holds no app data — do not back
-> it up in place of the SQLite database.
+> There is no PostgreSQL container in the v1.3.1+ stack.
 
 ### Alerts (Configure at least one)
 
@@ -275,14 +279,21 @@ print(f'PG: {settings.DATABASE_URL}')
 docker compose logs server
 ```
 
-### PostgreSQL connection refused
+### SQLite database issues
 
 ```bash
-# Wait for DB to be ready
-docker compose logs db
+# Check the SQLite file is on the persisted volume
+docker compose exec server ls -la /app/data/
 
-# Verify credentials
-docker compose exec db psql -U magneetar -d magneetar -c "SELECT 1"
+# Verify integrity (run inside the server container)
+docker compose exec server python -c "
+import sqlite3
+print(sqlite3.connect('/app/data/magneetar.db').execute('PRAGMA integrity_check').fetchone())
+"
+
+# Restore from backup if the DB is corrupt:
+bash scripts/backup-db.sh --list
+bash scripts/backup-db.sh --restore <file>
 ```
 
 ### Dashboard can't reach API

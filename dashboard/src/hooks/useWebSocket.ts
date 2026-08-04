@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useStore } from '@/store/useStore';
 
-type MessageType = 'location' | 'alert' | 'command_ack' | 'heartbeat' | 'sentinel' | 'pong';
+type MessageType = 'location' | 'alert' | 'command_ack' | 'heartbeat' | 'sentinel' | 'ping' | 'pong';
 
 interface WebSocketMessage {
   type: MessageType;
@@ -19,6 +19,7 @@ export function useWebSocket() {
     setDevices,
     setLocations,
     setCommands,
+    applyCommandAck,
     setConnected,
   } = useStore();
 
@@ -100,11 +101,17 @@ export function useWebSocket() {
               device_id: data.device_id,
               lat: data.lat,
               lng: data.lng,
-              accuracy: data.accuracy || null,
-              accuracy_horizontal: null,
+              // The server broadcasts accuracy_horizontal (the device's
+              // Kalman-fused accuracy in meters) on every live location — map
+              // it to the UI's `accuracy` field so the map circle and
+              // "±Nm" readouts show the REAL fused accuracy in real time,
+              // not a perpetual "±?m". Falls back to the legacy `accuracy`
+              // key for older server builds.
+              accuracy: data.accuracy_horizontal ?? data.accuracy ?? null,
+              accuracy_horizontal: data.accuracy_horizontal ?? null,
               provider: data.provider || 'gps',
               speed: data.speed,
-              bearing: data.bearing || null,
+              bearing: data.bearing ?? null,
               battery_percent: data.battery,
               altitude: null,
               sentinel_score: data.sentinel_score,
@@ -119,7 +126,9 @@ export function useWebSocket() {
               is_airplane_mode: null,
               is_location_enabled: null,
               activity_type: null,
-              confidence_level: 'high',
+              // Honest confidence from the device's telemetry (HIGH/MEDIUM/
+              // LOW) instead of a hardcoded 'high'.
+              confidence_level: data.confidence_level || 'unknown',
             },
             // Also update map center if following
             mapCenter: useStore.getState().followDevice ? [data.lat, data.lng] : useStore.getState().mapCenter,
@@ -140,6 +149,9 @@ export function useWebSocket() {
           lng: data.lng,
           battery_percent: data.battery,
           speed: data.speed,
+          accuracy: data.accuracy_horizontal ?? data.accuracy ?? null,
+          provider: data.provider || null,
+          bearing: data.bearing ?? null,
           timestamp: data.timestamp,
           sentinel_score: data.sentinel_score,
           threat_level: data.threat_level,
@@ -164,7 +176,14 @@ export function useWebSocket() {
         break;
 
       case 'command_ack':
-        // Command acknowledgment received
+        // Command acknowledgment received — flip the command row's status
+        // IMMEDIATELY (executed/failed) instead of waiting up to 10s for the
+        // next history poll. The server broadcasts this the moment the device
+        // acks; the old empty handler is why a successful command kept showing
+        // PENDING for seconds even when the device had already executed it.
+        if (data && typeof data.command_id === 'number') {
+          applyCommandAck(data.command_id, data.status || 'executed', data.failure_reason);
+        }
         break;
 
       case 'heartbeat':
@@ -175,6 +194,17 @@ export function useWebSocket() {
         // Sentinel score update received
         break;
 
+      case 'ping':
+        // Server keepalive heartbeat (every 30s). MUST reply with a pong —
+        // the server prunes connections that don't pong within 90s. The old
+        // client never responded, so every dashboard connection was
+        // force-dropped and reconnect-looped forever (the real-time feed
+        // churned every ~90s instead of staying live).
+        // Send directly on the socket (not via the `send` helper) so this
+        // handler needs no extra hook deps.
+        wsRef.current?.send(JSON.stringify({ type: 'pong' }));
+        break;
+
       case 'pong':
         // Connection alive
         break;
@@ -182,7 +212,7 @@ export function useWebSocket() {
       default:
         console.log('[WebSocket] Unknown message type:', type);
     }
-  }, [addAlert]);
+  }, [addAlert, applyCommandAck]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {

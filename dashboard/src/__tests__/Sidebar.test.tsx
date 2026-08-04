@@ -2,12 +2,13 @@
  * @jest-environment jsdom
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/jest-globals';
 
 // Mock the store
 const mockSelectDevice = jest.fn();
 const mockSetSidebarOpen = jest.fn();
+const mockSetDevices = jest.fn();
 let mockDevices: any[] = [];
 let mockSidebarOpen = true;
 let mockSelectedDeviceId: string | null = null;
@@ -21,6 +22,7 @@ jest.mock('@/store/useStore', () => ({    useStore: jest.fn((selector: any) => {
       isConnected: mockIsConnected,
       selectDevice: mockSelectDevice,
       setSidebarOpen: mockSetSidebarOpen,
+      setDevices: mockSetDevices,
     };
     return selector ? selector(state) : state;
   }),
@@ -38,7 +40,14 @@ jest.mock('lucide-react', () => ({
   Battery: () => null,
   MapPin: () => null,
   Link2: () => null,
+  Trash2: () => null,
+  X: () => null,
+  AlertTriangle: () => null,
 }));
+
+// Mutable mock for the archived purge flow
+const mockDeleteArchivedDevices = jest.fn<(...args: any[]) => any>();
+const mockGetDevices = jest.fn<(...args: any[]) => any>();
 
 jest.mock('@/lib/api', () => ({
   getAPI: () => ({
@@ -50,6 +59,8 @@ jest.mock('@/lib/api', () => ({
       total_media: 12,
       alerts_today: 2,
     }),
+    deleteArchivedDevices: mockDeleteArchivedDevices,
+    getDevices: mockGetDevices,
   }),
 }));
 
@@ -63,6 +74,7 @@ jest.mock('@/lib/utils', () => ({
   isOnline: (ts: string) => ts === 'recent',
   getSignalLevel: () => 'strong',
   deviceDisplayName: (device: any) => device?.alias || device?.model || 'Device',
+  stepUpPasswordHint: () => 'the master API key (API-key mode)',
 }));
 
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -82,6 +94,8 @@ describe('Sidebar Component', () => {
     mockSidebarOpen = true;
     mockSelectedDeviceId = null;
     mockIsConnected = true;
+    mockDeleteArchivedDevices.mockResolvedValue({ status: 'ok', deleted: [], count: 0 });
+    mockGetDevices.mockResolvedValue({ devices: mockDevices });
   });
 
   it('renders the brand name when open', async () => {
@@ -115,6 +129,70 @@ describe('Sidebar Component', () => {
     await renderSidebar();
     expect(screen.getByText('My Phone')).toBeInTheDocument();
     expect(screen.getByText('device-001')).toBeInTheDocument();
+  });
+
+  it('shows a Delete archived button when archived devices exist', async () => {
+    mockDevices = [
+      { id: 'stale-1', model: 'Old Phone', last_seen: 'long-ago', archived_at: '2026-07-01T00:00:00Z' },
+      { id: 'stale-2', model: 'Older Phone', last_seen: 'longer-ago', archived_at: '2026-06-01T00:00:00Z' },
+      { id: 'live-1', model: 'Pixel 8', last_seen: 'recent', archived_at: null },
+    ];
+    await renderSidebar();
+    expect(screen.getByRole('button', { name: /delete all archived/i })).toBeInTheDocument();
+    // The devices header chip and the purge button both mention the count;
+    // assert at least one "2 archived" label is visible.
+    expect(screen.getAllByText(/2 archived/).length).toBeGreaterThan(0);
+  });
+
+  it('hides the Delete archived button when no devices are archived', async () => {
+    mockDevices = [{ id: 'live-1', model: 'Pixel 8', last_seen: 'recent', archived_at: null }];
+    await renderSidebar();
+    expect(screen.queryByRole('button', { name: /delete all archived/i })).not.toBeInTheDocument();
+  });
+
+  it('bulk purge requires the step-up password — empty input never calls the API', async () => {
+    mockDevices = [
+      { id: 'stale-1', model: 'Old Phone', last_seen: 'long-ago', archived_at: '2026-07-01T00:00:00Z' },
+    ];
+    await renderSidebar();
+    fireEvent.click(screen.getByRole('button', { name: /delete all archived/i }));
+    fireEvent.click(screen.getByText('Yes, Delete'));
+    await waitFor(() => {
+      expect(screen.getByText('Enter your password to confirm.')).toBeInTheDocument();
+    });
+    expect(mockDeleteArchivedDevices).not.toHaveBeenCalled();
+  });
+
+  it('bulk purge calls the API with the password and refreshes the device list', async () => {
+    mockDevices = [
+      { id: 'stale-1', model: 'Old Phone', last_seen: 'long-ago', archived_at: '2026-07-01T00:00:00Z' },
+    ];
+    mockDeleteArchivedDevices.mockResolvedValue({ status: 'ok', deleted: ['stale-1'], count: 1 });
+    mockGetDevices.mockResolvedValue({ devices: [] });
+    await renderSidebar();
+    fireEvent.click(screen.getByRole('button', { name: /delete all archived/i }));
+    fireEvent.change(screen.getByLabelText('Confirm deletion password'), { target: { value: 'master-key' } });
+    fireEvent.click(screen.getByText('Yes, Delete'));
+    await waitFor(() => {
+      expect(mockDeleteArchivedDevices).toHaveBeenCalledWith('master-key');
+      expect(mockGetDevices).toHaveBeenCalled();
+      expect(mockSetDevices).toHaveBeenCalled();
+    });
+  });
+
+  it('shows the API error and keeps the modal open on wrong password', async () => {
+    mockDevices = [
+      { id: 'stale-1', model: 'Old Phone', last_seen: 'long-ago', archived_at: '2026-07-01T00:00:00Z' },
+    ];
+    mockDeleteArchivedDevices.mockRejectedValueOnce(new Error('Invalid password'));
+    await renderSidebar();
+    fireEvent.click(screen.getByRole('button', { name: /delete all archived/i }));
+    fireEvent.change(screen.getByLabelText('Confirm deletion password'), { target: { value: 'wrong' } });
+    fireEvent.click(screen.getByText('Yes, Delete'));
+    await waitFor(() => {
+      expect(screen.getByText('Invalid password')).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText('Confirm deletion password')).toBeInTheDocument();
   });
 });
 

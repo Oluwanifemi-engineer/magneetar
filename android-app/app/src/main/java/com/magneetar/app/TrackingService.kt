@@ -136,6 +136,19 @@ class TrackingService : Service() {
         } catch (e: Exception) { "" }
     }
 
+    /**
+     * Best-effort SIM phone number (E.164-ish). Often empty on Android 10+
+     * because getLine1Number is gated to carrier/default apps — never a hard
+     * dependency; the dashboard's SMS-commands number is owner-confirmed.
+     */
+    @SuppressLint("MissingPermission")
+    private fun simPhone(): String {
+        return try {
+            val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+            tm.line1Number ?: ""
+        } catch (e: Exception) { "" }
+    }
+
     companion object {
         private const val CHANNEL_ID = "mt_channel"
         private const val NOTIF_ID = 1
@@ -200,6 +213,20 @@ class TrackingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Offline Command Relay: a verified SMS command (SmsCommandReceiver)
+        // is handed here and executed through the SAME handleCommand path as a
+        // polled command — siren/lock/wipe work with zero internet. The ack
+        // travels over the network outbox when connectivity returns.
+        if (intent?.action == SmsCommandReceiver.ACTION_SMS_COMMAND && intent.hasExtra(SmsCommandReceiver.EXTRA_COMMAND_ID)) {
+            val commandId = intent.getIntExtra(SmsCommandReceiver.EXTRA_COMMAND_ID, -1)
+            val command = intent.getStringExtra(SmsCommandReceiver.EXTRA_COMMAND) ?: ""
+            val params = intent.getStringExtra(SmsCommandReceiver.EXTRA_PARAMS) ?: ""
+            if (commandId > 0 && command.isNotEmpty()) {
+                scope.launch {
+                    handleCommand(commandId, command, params, fromSms = true)
+                }
+            }
+        }
         return START_STICKY
     }
 
@@ -344,6 +371,11 @@ class TrackingService : Service() {
                 put("imei_hash", "") // Not available on Android 10+
                 put("sim_serial_hash", simSerialHash)
                 put("device_key", deviceKey)
+                // Offline Command Relay: best-effort SIM phone number so the
+                // server can prefill the dashboard's SMS-commands number. Often
+                // empty on Android 10+ (getLine1Number gating) — the owner
+                // confirms/enters it on the dashboard.
+                put("sim_phone", simPhone())
             }.toString().toRequestBody(JSON)
 
             // Multi-user support: when a user is signed in, send their bearer
@@ -456,6 +488,14 @@ class TrackingService : Service() {
             val config = JSONObject(response)
             val minSdk = config.optInt("min_android_version", -1)
             val latestVersion = config.optString("app_version", "")
+
+            // Offline Command Relay: learn the server's SMS sender number and
+            // store it for SmsCommandReceiver's sender allowlist — commands are
+            // only accepted from this number (or the Termii alphanumeric).
+            // Empty when the server has no SMS sender → the receiver falls
+            // back to code-only verification.
+            val relayNumber = config.optString("sms_relay_number", "")
+            prefs.edit().putString("sms_relay_number", relayNumber).apply()
 
             // 1) Device OS older than the server requires → tell the user to
             //    update the app (best-effort; tracking continues regardless).
@@ -685,9 +725,64 @@ class TrackingService : Service() {
             // posture (armed → remote capture possible) instead of a phantom
             // 'executed' on unarmed devices.
             put("capture_armed", MediaCaptureService.isArmed)
+            // Offline Command Relay: the surrounding cell-tower fingerprint
+            // (MCC/MNC/TAC/CID) — captured with ZERO internet and resolved to
+            // approximate coordinates by the server's cell-locate endpoint.
+            put("cell_tower_ids", captureCellFingerprint())
         }.toString().toRequestBody(JSON)
 
         post("/api/device/location", body)
+    }
+
+    /**
+     * Capture the surrounding cell towers as "type:mcc:mnc:tac:cid" strings
+     * (the same format server/routes/dashboard.py cell-locate parses). Works
+     * offline — the SIM radio is independent of data connectivity. Returns a
+     * JSONArray of strings (empty on failure/permission denial — never crashes).
+     * Requires ACCESS_FINE_LOCATION + the system location toggle on Android
+     * 10+ (getAllCellInfo is gated); when denied it degrades to an empty list
+     * and the location itself still reports.
+     */
+    @SuppressLint("MissingPermission")
+    private fun captureCellFingerprint(): JSONArray {
+        val result = JSONArray()
+        try {
+            val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+            val cells = tm.allCellInfo ?: return result
+            for (cell in cells) {
+                val id = try {
+                    when (cell) {
+                        is android.telephony.CellInfoLte -> {
+                            val i = cell.cellIdentity as android.telephony.CellIdentityLte
+                            "lte:${i.mcc}:${i.mnc}:${i.tac}:${i.ci}"
+                        }
+                        is android.telephony.CellInfoGsm -> {
+                            val i = cell.cellIdentity as android.telephony.CellIdentityGsm
+                            "gsm:${i.mcc}:${i.mnc}:${i.lac}:${i.cid}"
+                        }
+                        is android.telephony.CellInfoWcdma -> {
+                            val i = cell.cellIdentity as android.telephony.CellIdentityWcdma
+                            "wcdma:${i.mcc}:${i.mnc}:${i.lac}:${i.cid}"
+                        }
+                        is android.telephony.CellInfoNr -> {
+                            val i = cell.cellIdentity as android.telephony.CellIdentityNr
+                            // API 35 removed the int getMcc()/getMnc() from
+                            // CellIdentityNr — only the string forms remain.
+                            val mcc = i.mccString ?: "0"
+                            val mnc = i.mncString ?: "0"
+                            "nr:${mcc}:${mnc}:${i.tac}:${i.nci}"
+                        }
+                        else -> null
+                    }
+                } catch (e: Exception) {
+                    null
+                }
+                if (id != null && !id.contains(":0:0:")) result.put(id)
+            }
+        } catch (e: Exception) {
+            // No telephony / permission denied / location off — empty fingerprint.
+        }
+        return result
     }
 
     // ── Heartbeat ─────────────────────────────────────────────────────────────
@@ -724,7 +819,81 @@ class TrackingService : Service() {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+            // Offline command relay: flush any queued acks/locations captured
+            // while the device had no data (each 60s heartbeat is also a
+            // natural reconnect probe).
+            try { flushOutbox() } catch (e: Exception) { e.printStackTrace() }
             delay(HEARTBEAT_INTERVAL_MS)
+        }
+    }
+
+    /**
+     * Flush the OfflineOutbox: deliver queued command acks and captured
+     * locations to the server the moment connectivity returns. Never throws —
+     * on a mid-batch network failure, ALL undelivered entries (the failed one
+     * and everything after it) are re-queued so nothing is lost, and the next
+     * heartbeat retries.
+     */
+    private suspend fun flushOutbox() {
+        if (!isRegistered) return
+        val batch = OfflineOutbox.take(this) ?: return
+        val (acks, locations) = batch
+
+        // Deliver acks first (a command ack is the most time-sensitive item).
+        for (i in 0 until acks.length()) {
+            try {
+                val ack = acks.getJSONObject(i)
+                val id = ack.getInt("command_id")
+                val status = ack.optString("status", "executed")
+                val body = JSONObject().apply { put("status", status) }.toString().toRequestBody(JSON)
+                if (post("/api/device/commands/$id/ack", body) == null) {
+                    // Network failed — requeue this ack and everything after it.
+                    requeueTail(acks, i) { enqueueAckBody(it) }
+                    requeueAll(locations)
+                    return
+                }
+            } catch (e: Exception) {
+                requeueTail(acks, i) { enqueueAckBody(it) }
+                requeueAll(locations)
+                return
+            }
+        }
+
+        for (i in 0 until locations.length()) {
+            try {
+                val ping = locations.getJSONObject(i)
+                val payload = JSONObject().apply {
+                    put("pings", JSONArray().put(ping))
+                }.toString().toRequestBody(JSON)
+                if (post("/api/device/offline-queue", payload) == null) {
+                    requeueTail(locations, i) { enqueueLocationBody(it) }
+                    return
+                }
+            } catch (e: Exception) {
+                requeueTail(locations, i) { enqueueLocationBody(it) }
+                return
+            }
+        }
+    }
+
+    private fun enqueueAckBody(entry: JSONObject) {
+        OfflineOutbox.enqueueAck(this, entry.getInt("command_id"), entry.optString("status", "executed"))
+    }
+
+    private fun enqueueLocationBody(entry: JSONObject) {
+        OfflineOutbox.enqueueLocation(this, entry)
+    }
+
+    /** Re-queue entries from fromIndex onward (including the failed one). */
+    private fun requeueTail(arr: JSONArray, fromIndex: Int, enqueue: (JSONObject) -> Unit) {
+        for (i in fromIndex until arr.length()) {
+            try { enqueue(arr.getJSONObject(i)) } catch (e: Exception) {}
+        }
+    }
+
+    private fun requeueAll(arr: JSONArray) {
+        for (i in 0 until arr.length()) {
+            try { enqueueLocationBody(arr.getJSONObject(i)) } catch (e: Exception) {}
         }
     }
 
@@ -745,9 +914,26 @@ class TrackingService : Service() {
      */
     private val inFlightCommands = Collections.synchronizedSet(mutableSetOf<Int>())
 
+    /**
+     * At-most-once execution memory (persisted, restart-safe). Records every
+     * command outcome; the poll skips anything already handled within the
+     * retention window and re-sends the stored ack instead — breaking the
+     * re-execution loop when an ack is lost (see RecentCommandTracker).
+     */
+    private val recentCommands: RecentCommandTracker by lazy {
+        RecentCommandTracker.persistent(this)
+    }
+
     private suspend fun commandLoop() {
         while (true) {
             try {
+                // Flush queued acks BEFORE polling: a lost ack from a previous
+                // execution must land before the poll can re-deliver the same
+                // command — otherwise the device would re-execute it while the
+                // outbox still holds the ack (the "executes in loops" bug).
+                // No-op when the outbox is empty.
+                try { flushOutbox() } catch (e: Exception) { e.printStackTrace() }
+
                 val response = get("/api/device/commands/$deviceId")
                 if (response != null) {
                     val commands = JSONObject(response).getJSONArray("commands")
@@ -759,9 +945,32 @@ class TrackingService : Service() {
                         if (inFlightCommands.contains(id) ||
                             MediaCaptureService.activeCaptureIds.contains(id)
                         ) continue
+
+                        // AT-MOST-ONCE: the server re-delivers any command still
+                        // pending, and a lost ack would otherwise replay siren/
+                        // capture/burst every 10s until expiry. A command already
+                        // handled within the retention window is NEVER executed
+                        // again — instead we re-send the recorded ack (idempotent
+                        // on the server) so the state converges without a second
+                        // execution.
+                        val knownStatus = recentCommands.statusOf(id)
+                        if (knownStatus != null) {
+                            android.util.Log.d(
+                                "TrackingService",
+                                "Command #$id already handled ($knownStatus) — re-acking instead of re-executing"
+                            )
+                            ackCommand(id, knownStatus)
+                            continue
+                        }
+
                         inFlightCommands.add(id)
                         try {
-                            handleCommand(id, commands.getJSONObject(i).getString("command"))
+                            handleCommand(
+                                id,
+                                commands.getJSONObject(i).getString("command"),
+                                commands.getJSONObject(i).optString("params", ""),
+                                fromSms = false
+                            )
                         } finally {
                             inFlightCommands.remove(id)
                         }
@@ -783,7 +992,7 @@ class TrackingService : Service() {
      * MediaCaptureService (which acks them itself); everything else acks
      * here — executed only on genuine success.
      */
-    private suspend fun handleCommand(id: Int, command: String) {
+    private suspend fun handleCommand(id: Int, command: String, params: String = "", fromSms: Boolean = false) {
         try {
             when (command) {
                 "ping" -> {
@@ -820,6 +1029,13 @@ class TrackingService : Service() {
                     }
                 }
                 else -> ackCommand(id, "failed")
+            }
+
+            // Offline command relay: when the command arrived over SMS, also
+            // best-effort SMS-reply the ack (works when the app can send SMS;
+            // otherwise silently skipped — the network ack above covers it).
+            if (fromSms) {
+                replyViaSms(id, command)
             }
         } catch (e: CancellationException) {
             throw e  // never swallow real cancellation — let the loop stop cleanly
@@ -881,35 +1097,118 @@ class TrackingService : Service() {
     }
 
     private suspend fun ackCommand(id: Int, status: String) {
+        // At-most-once memory: record the definitive outcome BEFORE the network
+        // attempt, so a lost ack can never turn into a re-execution (the next
+        // poll re-acks the recorded status instead of running the command
+        // again). Re-acking the same id refreshes the timestamp, keeping the
+        // command inside the retention window while it is still pending.
+        recentCommands.remember(id, status)
+
         val body = JSONObject().apply {
             put("status", status)
         }.toString().toRequestBody(JSON)
-        post("/api/device/commands/$id/ack", body)
+        val code = postCode("/api/device/commands/$id/ack", body)
+        // Queue the outbox ONLY on genuine delivery failures — a network error
+        // (code -1) or an auth death (401, resolved by re-registration). A
+        // server-side REJECTION (403/429/500) must NOT retry forever from the
+        // outbox every heartbeat — the server already saw the request, so
+        // retrying it is both wasteful and could mask a real problem.
+        if (code == -1 || code == 401) {
+            OfflineOutbox.enqueueAck(this, id, status)
+        }
     }
+
+    /**
+     * POST and return the HTTP status code (or -1 on network failure) with
+     * the same 401-refresh-retry behavior as post(). Lets callers distinguish
+     * "the server rejected this" (403/429/500) from "the request never got
+     * there" (network error / auth death) — the outbox must only cover the
+     * latter.
+     */
+    private suspend fun postCode(path: String, body: RequestBody): Int =
+        withContext(Dispatchers.IO) {
+            try {
+                val builder = Request.Builder()
+                    .url("$SERVER$path")
+                    .post(body)
+                authHeaders().forEach { (k, v) -> builder.addHeader(k, v) }
+                val response = client.newCall(builder.build()).execute()
+                if (response.code == 401) {
+                    response.close()
+                    if (refreshToken != null && refreshAccessToken()) {
+                        val retryBuilder = Request.Builder()
+                            .url("$SERVER$path")
+                            .post(body)
+                        authHeaders().forEach { (k, v) -> retryBuilder.addHeader(k, v) }
+                        client.newCall(retryBuilder.build()).execute().use { retry -> retry.code }
+                    } else {
+                        // Access AND refresh tokens dead — re-register so
+                        // tracking continues; the caller can enqueue the ack
+                        // (the outbox flush will land it with the fresh token).
+                        onAuthFailed()
+                        401
+                    }
+                } else {
+                    response.use { it.code }
+                }
+            } catch (e: Exception) {
+                -1
+            }
+        }
+
+    /**
+     * Best-effort SMS reply for a command that arrived over SMS (the offline
+     * relay's return channel). Sending SMS is restricted on modern Android
+     * (default-SMS-app / SMS_MANAGER role) — when it is not possible, this
+     * silently no-ops and the network outbox carries the ack instead. Never
+     * throws.
+     */
+    private fun replyViaSms(id: Int, command: String) {
+        try {
+            if (!hasSmsSendPermission()) return
+            val smsManager = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                getSystemService(android.telephony.SmsManager::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                android.telephony.SmsManager.getDefault()
+            }
+            // Reply to the last-received sender number (the server's relay
+            // number or the owner's phone). Prefix keeps it identifiable.
+            val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+            val replyTo = prefs.getString("sms_last_sender", "") ?: ""
+            // Only routable E.164-ish numbers — a Termii alphanumeric sender
+            // ("Magneetar") is not a valid SMS destination; skip it.
+            if (!replyTo.startsWith("+")) return
+            val msg = "MT-ACK #$id $command"
+            @Suppress("DEPRECATION")
+            smsManager.sendTextMessage(replyTo, null, msg, null, null)
+        } catch (e: SecurityException) {
+            // Not allowed to send SMS (not default SMS app) — expected on
+            // modern Android; the network outbox is the reliable path.
+        } catch (e: Exception) {
+            // Best-effort only.
+        }
+    }
+
+    private fun hasSmsSendPermission(): Boolean =
+        android.content.pm.PackageManager.PERMISSION_GRANTED ==
+            checkSelfPermission(android.Manifest.permission.SEND_SMS)
 
     // ── Location Burst ─────────────────────────────────────────────────────────
 
     // LOCATION is runtime-granted during onboarding (PermissionsActivity);
-    // best-effort last-known-location reads wrapped in try/catch — a revoked
-    // permission degrades to no burst, never a crash.
+    // best-effort reads wrapped in try/catch — a revoked permission degrades
+    // to no burst, never a crash.
     @SuppressLint("MissingPermission")
     private suspend fun locationBurst() {
         // Send 5 rapid location updates. Each one is fed through the same
         // Kalman filter as the live stream so a burst can't inject a raw
         // 500m network teleport — the fused position is what gets reported.
+        val mainLooper = Looper.getMainLooper()
         for (i in 1..5) {
             try {
                 locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                val gpsLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                val networkLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                // Prefer the more accurate provider (smaller accuracy number),
-                // then fall back to whatever exists.
-                val best = when {
-                    gpsLocation != null && networkLocation != null ->
-                        if (gpsLocation.accuracy < networkLocation.accuracy) gpsLocation else networkLocation
-                    gpsLocation != null -> gpsLocation
-                    else -> networkLocation
-                }
+                val best = freshFixOrLastKnown(mainLooper)
                 if (best != null) {
                     val filtered = locationFilter.update(
                         LocationFilter.Fix(
@@ -927,6 +1226,66 @@ class TrackingService : Service() {
             } catch (e: Exception) {}
             delay(1_000)
         }
+    }
+
+    /**
+     * Ask the provider for a FRESH single fix (up to ~900ms), falling back to
+     * the best last-known location when no new fix arrives (providers off,
+     * timeout, or permission revoked).
+     *
+     * WHY FRESH (researched): the old burst re-read getLastKnownLocation()
+     * five times — a provider returns the SAME cached fix on every call, so a
+     * "5-fix burst" sent one stale point five times. A burst exists to pin
+     * down a device's CURRENT position (e.g. right after theft), so each
+     * round must request a new fix and only fall back to last-known when that
+     * genuinely fails. Each fresh fix also feeds the Kalman filter, so the
+     * burst converges on the true position instead of re-reporting noise.
+     */
+    @SuppressLint("MissingPermission")
+    private suspend fun freshFixOrLastKnown(mainLooper: Looper): Location? {
+        if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) &&
+            !locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        ) {
+            return bestLastKnown()
+        }
+        val deferred = CompletableDeferred<Location>()
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                deferred.complete(location)
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+        }
+        try {
+            locationManager.requestSingleUpdate(LocationManager.GPS_PROVIDER, listener, mainLooper)
+            locationManager.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, listener, mainLooper)
+        } catch (e: SecurityException) {
+            return bestLastKnown()
+        }
+        return try {
+            withTimeoutOrNull(900L) { deferred.await() } ?: bestLastKnown()
+        } catch (e: Exception) {
+            bestLastKnown()
+        } finally {
+            try {
+                locationManager.removeUpdates(listener)
+            } catch (e: Exception) {}
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun bestLastKnown(): Location? {
+        return try {
+            val gpsLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            val networkLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            when {
+                gpsLocation != null && networkLocation != null ->
+                    if (gpsLocation.accuracy < networkLocation.accuracy) gpsLocation else networkLocation
+                gpsLocation != null -> gpsLocation
+                else -> networkLocation
+            }
+        } catch (e: Exception) { null }
     }
 
     // ── Siren / Alarm ─────────────────────────────────────────────────────────

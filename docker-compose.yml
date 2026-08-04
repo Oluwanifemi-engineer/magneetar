@@ -1,33 +1,20 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAGNEETAR — Docker Compose
-# Production deployment with PostgreSQL + server + dashboard
+# Production deployment with server + dashboard on a single data plane.
 # ═══════════════════════════════════════════════════════════════════════════════
+#
+# DATABASE DECISION (v1.3.1): the app's data plane is SQLite at
+# /app/data/magneetar.db (persisted volume), with WAL + the online-backup
+# script (scripts/backup-db.sh). Every route reads/writes SQLite via
+# database.py — PostgreSQL was a documented-optional path that held NO app
+# data, and its adapter schema had drifted (missing users/fcm_tokens/error_log
+# tables), so enabling MT_DATABASE_URL would break registration. It is removed
+# from this stack to keep one honest, well-tested persistence layer.
+#
+# An optional PostgreSQL adapter (database_postgres.py) still exists in the
+# codebase for future scale-out; the server logs a clear warning if you opt in.
 
 services:
-
-  # ── PostgreSQL Database ──────────────────────────────────────────────────
-  db:
-    image: postgres:16-alpine
-    container_name: magneetar-db
-    restart: unless-stopped
-    env_file:
-      - ./server/.env
-    environment:
-      POSTGRES_DB: magneetar
-      POSTGRES_USER: magneetar
-      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-    secrets:
-      - db_password
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U magneetar -d magneetar"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    ports:
-      - "5432:5432"
 
   # ── Backend API ────────────────────────────────────────────────────────────
   server:
@@ -35,7 +22,7 @@ services:
       context: ./server
       dockerfile: Dockerfile
       args:
-        APP_VERSION: "1.3.0"
+        APP_VERSION: "1.3.1"
     container_name: magneetar-server
     restart: unless-stopped
     ports:
@@ -44,13 +31,6 @@ services:
       - ./server/.env
     environment:
       - MT_ENVIRONMENT=production
-      # Use PostgreSQL in Docker.
-      # NOTE: MT_DB_PASSWORD is interpolated from the ROOT .env (compose only
-      # reads the project-root .env for ${} interpolation), and must stay in
-      # sync with server/.env (which the container also loads via env_file).
-      # If they drift, PostgreSQL auth silently fails and the server falls
-      # back to SQLite — keep both files updated together (generate-env.sh).
-      - MT_DATABASE_URL=postgresql://magneetar:${MT_DB_PASSWORD:-changeme}@db:5432/magneetar
       # SQLite must live on the persisted volume (/app/data), NOT the container
       # layer (/app). A relative path resolves against WORKDIR=/app, so every
       # rebuild silently wiped accounts + device registrations. /app/data is the
@@ -62,9 +42,6 @@ services:
       # Firebase service-account JSON for FCM push alerts (MT_FIREBASE_KEY in
       # server/.env must point to the CONTAINER path /app/firebase-service-account.json).
       - ./server/firebase-service-account.json:/app/firebase-service-account.json:ro
-    depends_on:
-      db:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
@@ -109,10 +86,5 @@ services:
       - server
       - dashboard
 
-secrets:
-  db_password:
-    file: ./server/.db_password
-
 volumes:
-  postgres-data:
   magneetar-data:

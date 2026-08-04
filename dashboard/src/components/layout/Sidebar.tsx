@@ -6,7 +6,8 @@ import { getAPI } from '@/lib/api';
 import { cn, relativeTime, isOnline, getSignalLevel, deviceDisplayName } from '@/lib/utils';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { ClaimDeviceModal } from '@/components/devices/ClaimDeviceModal';
-import { ChevronLeft, ChevronRight, Smartphone, BarChart3, FileText, BookOpen, Copy, Battery, MapPin, Link2 } from 'lucide-react';
+import { stepUpPasswordHint } from '@/lib/utils';
+import { ChevronLeft, ChevronRight, Smartphone, BarChart3, FileText, BookOpen, Copy, Battery, MapPin, Link2, Trash2, X, AlertTriangle } from 'lucide-react';
 
 function sentinelLevel(score: number): string {
   if (score >= 70) return 'HIGH';
@@ -24,9 +25,16 @@ interface DashboardStats {
 }
 
 export function Sidebar() {
-  const { devices, selectedDeviceId, selectDevice, sidebarOpen, setSidebarOpen, isConnected } = useStore();
+  const { devices, selectedDeviceId, selectDevice, sidebarOpen, setSidebarOpen, isConnected, setDevices } = useStore();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [showClaimModal, setShowClaimModal] = useState(false);
+  // Bulk purge of stale/archived devices — step-up password gated like
+  // single-device deletion, so a stolen session can't wipe the account's
+  // device history in one click.
+  const [confirmPurge, setConfirmPurge] = useState(false);
+  const [purgePassword, setPurgePassword] = useState('');
+  const [purgeError, setPurgeError] = useState('');
+  const [purging, setPurging] = useState(false);
 
   const onlineCount = devices.filter(d => isOnline(d.last_seen)).length;
   const offlineCount = devices.filter(d => !isOnline(d.last_seen)).length;
@@ -46,6 +54,35 @@ export function Sidebar() {
       // Stats endpoint may not exist yet
     }
   }, [isConnected]);
+
+  // Bulk-delete all archived (stale) devices after verifying the step-up
+  // password. The server re-checks it (account password for users, master API
+  // key for admins), so this UI prompt is the confirmation layer, not the
+  // security boundary.
+  const confirmPurgeArchived = async () => {
+    if (purging || archivedDevices.length === 0) return;
+    if (!purgePassword.trim()) {
+      setPurgeError('Enter your password to confirm.');
+      return;
+    }
+    setPurging(true);
+    setPurgeError('');
+    try {
+      const res = await getAPI().deleteArchivedDevices(purgePassword);
+      // Refresh the device list so the sidebar drops the removed rows.
+      const { devices: freshDevices } = await getAPI().getDevices();
+      setDevices(freshDevices);
+      if (res.count === 0) {
+        setPurgeError('No archived devices remain to delete.');
+      }
+      setConfirmPurge(false);
+      setPurgePassword('');
+    } catch (e: any) {
+      setPurgeError(e?.message || 'Failed to delete archived devices');
+    } finally {
+      setPurging(false);
+    }
+  };
 
   useEffect(() => {
     fetchStats();
@@ -146,6 +183,18 @@ export function Sidebar() {
                 Link
               </button>
             </div>
+            {/* Purge stale/archived devices — password-gated (step-up) */}
+            {archivedDevices.length > 0 && (
+              <button
+                onClick={() => { setConfirmPurge(true); setPurgeError(''); }}
+                title={`Delete all ${archivedDevices.length} archived device(s) permanently (requires password)`}
+                aria-label="Delete all archived devices"
+                className="mt-2 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10 border border-amber-500/25 transition-all"
+              >
+                <Trash2 size={10} />
+                Delete {archivedDevices.length} archived
+              </button>
+            )}
           </div>
 
           {/* ─── Device List ────────────────────────────────────────────────── */}
@@ -314,6 +363,64 @@ export function Sidebar() {
 
       {/* Link-a-device modal (pairing code claim) */}
       {showClaimModal && <ClaimDeviceModal onClose={() => setShowClaimModal(false)} />}
+
+      {/* Purge archived devices — step-up password confirm */}
+      {confirmPurge && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-mag-bg/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-amber-500/30 bg-mag-panel/95 shadow-2xl p-4 space-y-3 animate-fade-in">
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <div className="text-[11px] font-mono text-amber-400 font-bold uppercase tracking-wider">
+                  Delete {archivedDevices.length} archived device{archivedDevices.length !== 1 ? 's' : ''}
+                </div>
+                <div className="text-[10px] font-mono text-mag-text-dim/70 mt-1 leading-relaxed">
+                  These devices have been silent beyond the archive threshold. All their
+                  locations, media, evidence & alerts are erased permanently. This cannot
+                  be undone.
+                </div>
+              </div>
+            </div>
+            <input
+              type="password"
+              value={purgePassword}
+              onChange={e => setPurgePassword(e.target.value)}
+              placeholder={stepUpPasswordHint()}
+              autoFocus
+              aria-label="Confirm deletion password"
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !purging) {
+                  e.preventDefault();
+                  confirmPurgeArchived();
+                }
+              }}
+              className="w-full bg-mag-bg/60 border border-mag-border/40 rounded-lg px-3 py-2 text-xs font-mono text-mag-text placeholder:text-mag-text-dim/30 focus:outline-none focus:border-amber-500/60 transition-colors"
+            />
+            {purgeError && <div className="text-[10px] font-mono text-red-400">{purgeError}</div>}
+            <div className="text-[10px] font-mono text-mag-text-dim/50 leading-relaxed">
+              This session verifies with <span className="font-bold text-mag-text-dim/70">{stepUpPasswordHint()}</span>.
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={confirmPurgeArchived}
+                disabled={purging}
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-amber-500/90 hover:bg-amber-500 disabled:opacity-50 text-white text-[11px] font-bold transition-all"
+              >
+                <Trash2 size={12} />
+                {purging ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+              <button
+                onClick={() => { setConfirmPurge(false); setPurgePassword(''); setPurgeError(''); }}
+                disabled={purging}
+                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-mag-border/40 text-mag-text-dim/70 hover:text-mag-text text-[11px] font-bold transition-all"
+              >
+                <X size={12} />
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

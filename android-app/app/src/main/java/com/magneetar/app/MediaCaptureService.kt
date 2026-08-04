@@ -725,6 +725,11 @@ class MediaCaptureService : Service() {
     }
 
     private suspend fun ackCommand(id: Int, status: String, failureReason: String? = null) {
+        // At-most-once memory: record the definitive outcome so a lost ack can
+        // never turn into a re-execution — the TrackingService poll consults
+        // the same tracker and re-acks instead of re-capturing (see
+        // RecentCommandTracker).
+        RecentCommandTracker.persistent(this).remember(id, status)
         val body = JSONObject().apply {
             put("status", status)
             if (failureReason != null) put("failure_reason", failureReason)
