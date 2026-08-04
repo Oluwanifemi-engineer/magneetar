@@ -5,7 +5,8 @@ import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { cn, relativeTime, isOnline, getSignalLevel, deviceDisplayName } from '@/lib/utils';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
-import { ChevronLeft, ChevronRight, Smartphone, BarChart3, FileText, BookOpen, Copy, Battery, MapPin } from 'lucide-react';
+import { ClaimDeviceModal } from '@/components/devices/ClaimDeviceModal';
+import { ChevronLeft, ChevronRight, Smartphone, BarChart3, FileText, BookOpen, Copy, Battery, MapPin, Link2 } from 'lucide-react';
 
 function sentinelLevel(score: number): string {
   if (score >= 70) return 'HIGH';
@@ -25,6 +26,7 @@ interface DashboardStats {
 export function Sidebar() {
   const { devices, selectedDeviceId, selectDevice, sidebarOpen, setSidebarOpen, isConnected } = useStore();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [showClaimModal, setShowClaimModal] = useState(false);
 
   const onlineCount = devices.filter(d => isOnline(d.last_seen)).length;
   const offlineCount = devices.filter(d => !isOnline(d.last_seen)).length;
@@ -133,6 +135,16 @@ export function Sidebar() {
                 )}
                 <span className="text-mag-text-dim/40">{activeDevices.length}</span>
               </span>
+              {/* Link a device — claim an ownerless phone via its pairing code */}
+              <button
+                onClick={() => setShowClaimModal(true)}
+                title="Link a device (pairing code)"
+                aria-label="Link a device"
+                className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider text-mag-accent/80 hover:text-mag-accent hover:bg-mag-accent/10 border border-mag-accent/25 transition-all"
+              >
+                <Link2 size={10} />
+                Link
+              </button>
             </div>
           </div>
 
@@ -299,6 +311,9 @@ export function Sidebar() {
           </div>
         </>
       )}
+
+      {/* Link-a-device modal (pairing code claim) */}
+      {showClaimModal && <ClaimDeviceModal onClose={() => setShowClaimModal(false)} />}
     </aside>
   );
 }

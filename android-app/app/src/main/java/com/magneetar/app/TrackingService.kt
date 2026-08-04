@@ -252,6 +252,34 @@ class TrackingService : Service() {
     }
 
     /**
+     * Post a once-per-24h notification when the account's device limit blocks
+     * linking. Without this the phone silently stays ownerless (invisible on
+     * the dashboard) while the user sees no reason why.
+     */
+    private fun notifyDeviceLimitReached() {
+        try {
+            val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+            val last = prefs.getLong("device_limit_notified_at", 0L)
+            if (System.currentTimeMillis() - last < 24L * 60 * 60 * 1000) return
+            prefs.edit().putLong("device_limit_notified_at", System.currentTimeMillis()).apply()
+
+            val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            mgr.notify(
+                NOTIF_ID + 3,
+                NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setContentTitle("Magneetar — device limit reached")
+                    .setContentText("This phone can't be linked to your dashboard: delete a stale device or upgrade your plan.")
+                    .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                    .setAutoCancel(true)
+                    .build()
+            )
+        } catch (e: Exception) {
+            // Non-fatal: notification failure never breaks tracking.
+        }
+    }
+
+    /**
      * Returns true when a fresh user token is in prefs. Refreshes via
      * /api/auth/user/refresh when the stored token is missing or within
      * 15 minutes of expiry. Silently returns false when no refresh token
@@ -339,6 +367,15 @@ class TrackingService : Service() {
             // different account), fall back to a plain registration so tracking
             // still works — the device just stays unlinked.
             if (code !in 200..299 && extraHeaders.isNotEmpty()) {
+                // Surface the silent-degradation trap: when the LINKED attempt
+                // was rejected because the account hit its device limit, the
+                // plain fallback would leave the phone invisible on the
+                // dashboard with zero feedback. Tell the owner what to do
+                // (delete a stale device or upgrade) instead of failing dark.
+                val linkedBody = response ?: ""
+                if (code == 403 && linkedBody.contains("limit", ignoreCase = true)) {
+                    notifyDeviceLimitReached()
+                }
                 val (plainCode, plainBody) = postRaw("/api/device/register", body, useApiKey = true)
                 code = plainCode
                 response = plainBody

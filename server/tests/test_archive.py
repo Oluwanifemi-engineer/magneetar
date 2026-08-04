@@ -94,6 +94,13 @@ def device_auth_headers(reg: dict) -> dict:
     return {"Authorization": f"Bearer {reg['token']}"}
 
 
+def get_dashboard_devices(auth: dict) -> list:
+    """GET /api/dashboard/devices and return the device list."""
+    resp = client.get("/api/dashboard/devices", headers=auth)
+    assert resp.status_code == 200, f"list devices failed: {resp.text}"
+    return resp.json()["devices"]
+
+
 def set_last_seen(device_id: str, days_ago: int) -> None:
     with database.get_db_context() as conn:
         conn.execute(
@@ -331,6 +338,102 @@ def test_reinstall_adopts_own_row_even_when_fresh():
     row = device_row("adopt-own-device")
     assert row["owner_id"] is not None
     assert row["device_key_hash"] != ""  # new key adopted
+
+
+def test_full_reinstall_lifecycle_no_duplicates_and_dashboard_visible():
+    """END-TO-END reinstall scenario: register → reinstall (fresh id, same
+    fingerprint) → re-link with user token → heartbeat → the device must be a
+    SINGLE row, still owned, and visible on the account dashboard as online.
+
+    This is the exact "my phone disappeared from the dashboard after a
+    reinstall" regression the whole feature exists for."""
+    cleanup_test_devices()
+    # 1. Fresh account + first install linked to it.
+    user_resp = client.post(
+        "/api/auth/register",
+        json={
+            "email": "lifecycle-owner@example.com",
+            "password": "StrongPass1",
+            "display_name": "Owner",
+        },
+    )
+    assert user_resp.status_code == 200, user_resp.text
+    user_token = user_resp.json()["token"]
+    user_headers = {"Authorization": f"Bearer {user_token}"}
+
+    reg1 = client.post(
+        "/api/device/register",
+        headers={**api_key_headers(), **user_headers},
+        json={
+            "device_id": "lc-device-a",
+            "fingerprint": "fingerprint-lifecycle-01",
+            "model": "Lifecycle Phone",
+            "app_version": "1.3.0",
+            "device_key": "key-lifecycle-a",
+        },
+    )
+    assert reg1.status_code == 200, reg1.text
+    assert reg1.json()["device_id"] == "lc-device-a"
+    assert reg1.json()["owner_id"] is not None
+
+    # 2. Reinstall: the app generates a FRESH random device_id but the same
+    #    ANDROID_ID fingerprint, and the user is signed in again. The server
+    #    must adopt the ORIGINAL row (canonical id) — no duplicate row.
+    reg2 = client.post(
+        "/api/device/register",
+        headers={**api_key_headers(), **user_headers},
+        json={
+            "device_id": "lc-device-b",
+            "fingerprint": "fingerprint-lifecycle-01",
+            "model": "Lifecycle Phone",
+            "app_version": "1.3.0",
+            "device_key": "key-lifecycle-b",
+        },
+    )
+    assert reg2.status_code == 200, reg2.text
+    assert reg2.json()["device_id"] == "lc-device-a"  # canonical, not the new id
+    dev_b_token = reg2.json()["token"]
+
+    # 3. No duplicate row — exactly one device with this fingerprint.
+    with database.get_db_context() as conn:
+        cnt = conn.execute(
+            "SELECT COUNT(*) FROM devices WHERE device_fingerprint='fingerprint-lifecycle-01'"
+        ).fetchone()[0]
+    assert cnt == 1
+
+    # 4. The reinstalled app heartbeats under its (canonical) id → online.
+    hb = client.post(
+        "/api/device/heartbeat",
+        headers={"Authorization": f"Bearer {dev_b_token}"},
+        json={
+            "device_id": "lc-device-a",
+            "battery_percent": 88,
+            "is_charging": True,
+            "network_type": "wifi",
+            "app_version": "1.3.0",
+        },
+    )
+    assert hb.status_code == 200, hb.text
+
+    # 5. Dashboard (user account) sees exactly ONE device, and it is ONLINE.
+    devices = get_dashboard_devices(user_headers)
+    assert len(devices) == 1
+    assert devices[0]["id"] == "lc-device-a"
+    assert devices[0]["is_online"] is True
+
+    # 6. Command issued on the dashboard is delivered to the canonical id.
+    cmd = client.post(
+        "/api/dashboard/command",
+        json={"device_id": "lc-device-a", "command": "ping"},
+        headers=user_headers,
+    )
+    assert cmd.status_code == 200, cmd.text
+    poll = client.get(
+        "/api/device/commands/lc-device-a",
+        headers={"Authorization": f"Bearer {dev_b_token}"},
+    )
+    assert poll.status_code == 200, poll.text
+    assert any(c["command"] == "ping" for c in poll.json()["commands"])
 
 
 def test_same_id_reregister_stays_idempotent():

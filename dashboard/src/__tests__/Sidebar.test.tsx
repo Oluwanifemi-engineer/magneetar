@@ -34,6 +34,10 @@ jest.mock('lucide-react', () => ({
   BarChart3: () => null,
   FileText: () => null,
   BookOpen: () => null,
+  Copy: () => null,
+  Battery: () => null,
+  MapPin: () => null,
+  Link2: () => null,
 }));
 
 jest.mock('@/lib/api', () => ({

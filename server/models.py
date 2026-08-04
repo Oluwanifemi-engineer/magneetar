@@ -49,6 +49,35 @@ class DeviceClaimRequest(BaseModel):
         return v
 
 
+class DeviceClaimByPairingRequest(BaseModel):
+    """Link an ownerless device to the authenticated user's account using the
+    pairing code shown in the Magneetar app on the phone.
+
+    The pairing code is the first 8 hex chars of SHA-256(device_key): the app
+    displays it (it holds the raw key) and the server stores only the hash, so
+    both sides derive it without ever sharing the key. 8 hex chars = 32 bits of
+    guessing entropy — safe because the endpoint is rate-limited per user and
+    the code is only shown on the physical phone.
+    """
+
+    device_id: str = Field(..., min_length=3, max_length=64)
+    pairing_code: str = Field(..., min_length=8, max_length=8)
+
+    @field_validator("device_id")
+    @classmethod
+    def validate_device_id(cls, v):
+        if not re.match(r"^[a-zA-Z0-9_-]+$", v):
+            raise ValueError("device_id must be alphanumeric with hyphens/underscores")
+        return v
+
+    @field_validator("pairing_code")
+    @classmethod
+    def validate_pairing_code(cls, v):
+        if not re.match(r"^[a-f0-9]{8}$", v):
+            raise ValueError("pairing_code must be 8 lowercase hex characters")
+        return v
+
+
 class DeviceResponse(BaseModel):
     id: str
     alias: Optional[str] = None

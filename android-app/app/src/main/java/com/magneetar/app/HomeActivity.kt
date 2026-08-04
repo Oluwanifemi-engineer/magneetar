@@ -33,6 +33,8 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var btnOpenDashboard: Button
     private lateinit var btnAutoStart: Button
     private lateinit var btnOptimizeBattery: Button
+    private lateinit var tvPairingDeviceId: TextView
+    private lateinit var tvPairingCode: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +50,30 @@ class HomeActivity : AppCompatActivity() {
         btnOpenDashboard = findViewById(R.id.btn_open_dashboard)
         btnAutoStart = findViewById(R.id.btn_auto_start)
         btnOptimizeBattery = findViewById(R.id.btn_optimize_battery)
+        tvPairingDeviceId = findViewById(R.id.tv_pairing_device_id)
+        tvPairingCode = findViewById(R.id.tv_pairing_code)
+
+        // Tap the pairing card to copy "device_id pairing_code" to the
+        // clipboard — the exact input the dashboard's "Link a device" flow
+        // needs to claim this phone into the signed-in account.
+        findViewById<android.view.View>(R.id.device_pairing_card).setOnClickListener {
+            val code = tvPairingCode.text.toString()
+            val id = tvPairingDeviceId.text.toString()
+            if (code.isNotEmpty() && id.isNotEmpty()) {
+                try {
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(
+                        android.content.ClipData.newPlainText(
+                            "Magneetar pairing",
+                            "$id\n$code"
+                        )
+                    )
+                    Toast.makeText(this, "Copied device ID + pairing code", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    // Clipboard failure is non-fatal
+                }
+            }
+        }
 
         btnOpenDashboard.setOnClickListener {
             openDashboard()
@@ -105,6 +131,19 @@ class HomeActivity : AppCompatActivity() {
             "Disconnected"
         } else {
             "Connected — $email"
+        }
+
+        // Device ID + pairing code (first 8 hex chars of SHA-256(device_key)).
+        // The server stores the full hash and compares the same 8-char prefix,
+        // so this phone can be linked to the dashboard from a browser.
+        val prefs2 = getSharedPreferences("mt", Context.MODE_PRIVATE)
+        val deviceId = prefs2.getString("device_id", "") ?: ""
+        val deviceKey = prefs2.getString("device_key", "") ?: ""
+        tvPairingDeviceId.text = "Device ID: $deviceId"
+        tvPairingCode.text = if (deviceKey.isNotEmpty()) {
+            "Pairing code: ${PairingCode.of(deviceKey)}"
+        } else {
+            "Pairing code: unavailable (reinstall the app)"
         }
 
         // Uninstall protection status — the base gate is an active Device Admin

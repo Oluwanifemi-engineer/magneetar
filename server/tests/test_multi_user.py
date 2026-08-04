@@ -33,7 +33,11 @@ from database import init_db  # noqa: E402
 
 init_db(test_db_path)
 
-from auth import create_dashboard_tokens, decode_token, user_id_from_subject  # noqa: E402
+from auth import (  # noqa: E402 (env set above)
+    create_dashboard_tokens,
+    decode_token,
+    user_id_from_subject,
+)
 from main import app  # noqa: E402
 
 client = TestClient(app)
@@ -197,7 +201,11 @@ class TestClaimDevice:
         assert resp.json()["device_id"] == "claim-key-device"
 
     def test_claim_requires_user_auth(self):
-        resp = client.post("/api/device/claim", json={"device_id": "any-device"}, headers=api_key_headers())
+        resp = client.post(
+            "/api/device/claim",
+            json={"device_id": "any-device"},
+            headers=api_key_headers(),
+        )
         assert resp.status_code == 401
 
     def test_claim_unknown_device_404(self):
@@ -227,6 +235,177 @@ class TestClaimDevice:
             headers=user_headers(intruder["token"]),
         )
         assert resp.status_code == 403
+
+
+# ─── Dashboard claim-by-pairing (link an ownerless phone) ──────────────────
+# The dashboard can claim an unlinked device using the pairing code shown in
+# the app (first 8 hex chars of SHA-256(device_key)). Tests cover the happy
+# path, wrong-code rejection, cross-account guard, device-limit enforcement,
+# rate limiting, and admin claiming.
+
+
+def _pairing_code(device_key: str) -> str:
+    """Derive the pairing code exactly as the app + server do."""
+    import hashlib
+
+    return hashlib.sha256(device_key.encode()).hexdigest()[:8]
+
+
+class TestClaimByPairing:
+    def _claim(self, token: str, device_id: str, code: str):
+        return client.post(
+            "/api/dashboard/devices/claim-by-pairing",
+            json={"device_id": device_id, "pairing_code": code},
+            headers=user_headers(token),
+        )
+
+    def test_claim_ownerless_device_with_correct_code(self):
+        user = register_user("pair-ok@example.com")
+        register_device("pair-ok-device")  # ownerless
+
+        resp = self._claim(user["token"], "pair-ok-device", _pairing_code("devicekey-pair-ok-device"))
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["owner_id"] == user_id_of(user["token"])
+
+        devices = get_dashboard_devices(user_headers(user["token"]))
+        assert any(d["id"] == "pair-ok-device" for d in devices)
+
+    def test_claim_wrong_code_403(self):
+        user = register_user("pair-wrong@example.com")
+        register_device("pair-wrong-device")
+
+        resp = self._claim(user["token"], "pair-wrong-device", "deadbeef")
+        assert resp.status_code == 403
+        assert "pairing" in resp.json()["detail"].lower()
+
+        # Still ownerless after a wrong guess.
+        with database.get_db_context() as conn:
+            owner = conn.execute("SELECT owner_id FROM devices WHERE id='pair-wrong-device'").fetchone()[0]
+        assert owner is None
+
+    def test_claim_unknown_device_404(self):
+        user = register_user("pair-404@example.com")
+        resp = self._claim(user["token"], "never-existed", "a1b2c3d4")
+        assert resp.status_code == 404
+
+    def test_claim_owned_by_other_real_account_403(self):
+        owner = register_user("pair-owner@example.com")
+        intruder = register_user("pair-intruder@example.com")
+        register_device("pair-owned-device", user_token=owner["token"])
+
+        # Correct code, but another REAL account owns it → denied.
+        resp = self._claim(
+            intruder["token"],
+            "pair-owned-device",
+            _pairing_code("devicekey-pair-owned-device"),
+        )
+        assert resp.status_code == 403
+        assert "linked to another account" in resp.json()["detail"]
+
+    def test_claim_ghost_owned_device_succeeds(self):
+        """A device whose owner account was deleted stays claimable by code."""
+        user = register_user("pair-ghost@example.com")
+        register_device("pair-ghost-device")
+        with database.get_db_context() as conn:
+            conn.execute("UPDATE devices SET owner_id='usr-deleted-ghost' WHERE id='pair-ghost-device'")
+            conn.commit()
+
+        resp = self._claim(
+            user["token"],
+            "pair-ghost-device",
+            _pairing_code("devicekey-pair-ghost-device"),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["owner_id"] == user_id_of(user["token"])
+
+    def test_claim_rejected_when_at_device_limit(self, monkeypatch):
+        monkeypatch.setattr(config.settings, "MAX_DEVICES_PER_USER", 1)
+        user = register_user("pair-limit@example.com")
+        register_device("pair-limit-device-1", user_token=user["token"])
+        register_device("pair-limit-device-2")  # ownerless
+
+        resp = self._claim(
+            user["token"],
+            "pair-limit-device-2",
+            _pairing_code("devicekey-pair-limit-device-2"),
+        )
+        assert resp.status_code == 403
+        assert "limit" in resp.json()["detail"].lower()
+
+    def test_claim_rate_limited_after_10_attempts(self):
+        user = register_user("pair-rl@example.com")
+        register_device("pair-rl-device")
+
+        # 10 wrong guesses are allowed (rate limit is 10 / 10 min)…
+        for _ in range(10):
+            resp = self._claim(user["token"], "pair-rl-device", "00000000")
+            assert resp.status_code == 403
+        # …the 11th is throttled, not a code verdict.
+        resp = self._claim(user["token"], "pair-rl-device", _pairing_code("devicekey-pair-rl-device"))
+        assert resp.status_code == 429
+
+    def test_admin_session_rejected(self):
+        """Account-linking is a USER action — admin (dashboard/API-key) sessions
+        are rejected (they already see every device; an admin 'claim' would be
+        a no-op that sets owner_id=NULL). Mirrors /api/device/claim."""
+        register_device("pair-admin-device")
+        tokens = create_dashboard_tokens(TEST_API_KEY)
+
+        resp = client.post(
+            "/api/dashboard/devices/claim-by-pairing",
+            json={
+                "device_id": "pair-admin-device",
+                "pairing_code": _pairing_code("devicekey-pair-admin-device"),
+            },
+            headers={"Authorization": f"Bearer {tokens['token']}"},
+        )
+        assert resp.status_code == 403
+        assert "user authentication" in resp.json()["detail"].lower()
+
+        # Device still ownerless (no ghost/no-op claim happened).
+        with database.get_db_context() as conn:
+            owner = conn.execute("SELECT owner_id FROM devices WHERE id='pair-admin-device'").fetchone()[0]
+        assert owner is None
+
+    def test_claim_with_stale_deleted_account_token_401(self):
+        """A stale token from a permanently deleted account must not claim
+        devices into the ghost id (same bug class as register/claim)."""
+        user = register_user("pair-stale@example.com")
+        stale_token = user["token"]
+        register_device("pair-stale-device")
+        resp = client.delete("/api/auth/user/account", headers=user_headers(stale_token))
+        assert resp.status_code == 200
+
+        resp = self._claim(
+            stale_token,
+            "pair-stale-device",
+            _pairing_code("devicekey-pair-stale-device"),
+        )
+        assert resp.status_code == 401
+        assert "no longer exists" in resp.json()["detail"].lower()
+
+        # Device stays ownerless — no ghost link created.
+        with database.get_db_context() as conn:
+            owner = conn.execute("SELECT owner_id FROM devices WHERE id='pair-stale-device'").fetchone()[0]
+        assert owner is None
+
+    def test_claim_requires_auth(self):
+        resp = client.post(
+            "/api/dashboard/devices/claim-by-pairing",
+            json={"device_id": "whatever", "pairing_code": "a1b2c3d4"},
+        )
+        assert resp.status_code == 401
+
+    def test_pairing_code_validation(self):
+        user = register_user("pair-valid@example.com")
+        # 7 chars / uppercase / non-hex are all 422 at the schema layer.
+        for bad in ("a1b2c3", "A1B2C3D4", "zzzzzzzz", "a1b2c3d4e"):
+            resp = client.post(
+                "/api/dashboard/devices/claim-by-pairing",
+                json={"device_id": "pair-valid-device", "pairing_code": bad},
+                headers=user_headers(user["token"]),
+            )
+            assert resp.status_code == 422, f"{bad} → {resp.status_code}"
 
 
 # ─── Orphaned (ghost) ownership recovery ───────────────────────────────────
@@ -384,12 +563,18 @@ class TestDashboardScoping:
     def test_non_owner_denied_location_history(self):
         user_a, user_b = self._setup()
         # user_b cannot read user_a's location history
-        resp = client.get("/api/dashboard/locations/scope-device-a", headers=user_headers(user_b["token"]))
+        resp = client.get(
+            "/api/dashboard/locations/scope-device-a",
+            headers=user_headers(user_b["token"]),
+        )
         assert resp.status_code == 403
 
     def test_owner_allowed_location_history(self):
         user_a, _user_b = self._setup()
-        resp = client.get("/api/dashboard/locations/scope-device-a", headers=user_headers(user_a["token"]))
+        resp = client.get(
+            "/api/dashboard/locations/scope-device-a",
+            headers=user_headers(user_a["token"]),
+        )
         assert resp.status_code == 200
 
     def test_non_owner_denied_command_issue(self):
@@ -417,17 +602,26 @@ class TestDashboardScoping:
 
     def test_non_owner_denied_alerts(self):
         user_a, user_b = self._setup()
-        resp = client.get("/api/dashboard/alerts/scope-device-a", headers=user_headers(user_b["token"]))
+        resp = client.get(
+            "/api/dashboard/alerts/scope-device-a",
+            headers=user_headers(user_b["token"]),
+        )
         assert resp.status_code == 403
 
     def test_non_owner_denied_geofence_list(self):
         user_a, user_b = self._setup()
-        resp = client.get("/api/dashboard/geofences/scope-device-a", headers=user_headers(user_b["token"]))
+        resp = client.get(
+            "/api/dashboard/geofences/scope-device-a",
+            headers=user_headers(user_b["token"]),
+        )
         assert resp.status_code == 403
 
     def test_non_owner_denied_evidence(self):
         user_a, user_b = self._setup()
-        resp = client.get("/api/dashboard/evidence/scope-device-a", headers=user_headers(user_b["token"]))
+        resp = client.get(
+            "/api/dashboard/evidence/scope-device-a",
+            headers=user_headers(user_b["token"]),
+        )
         assert resp.status_code == 403
 
     def test_non_owner_denied_alias_update(self):
@@ -542,19 +736,41 @@ class TestIdorBoundarySweep:
         did = "idor-device"
 
         cases = [
-            ("PATCH", "/api/dashboard/devices/idor-device/alias", {"alias": "hijacked"}),
-            ("PATCH", "/api/dashboard/devices/idor-device/alert-settings", {"alert_phone": "+2348000000000"}),
+            (
+                "PATCH",
+                "/api/dashboard/devices/idor-device/alias",
+                {"alias": "hijacked"},
+            ),
+            (
+                "PATCH",
+                "/api/dashboard/devices/idor-device/alert-settings",
+                {"alert_phone": "+2348000000000"},
+            ),
             ("DELETE", "/api/dashboard/devices/idor-device", None),
             ("POST", "/api/dashboard/devices/idor-device/recover", None),
-            ("POST", "/api/dashboard/command", {"device_id": did, "command": "wipe", "params": "CONFIRMED_WIPE"}),
+            (
+                "POST",
+                "/api/dashboard/command",
+                {"device_id": did, "command": "wipe", "params": "CONFIRMED_WIPE"},
+            ),
             ("POST", "/api/dashboard/evidence/idor-device/generate-pdf", None),
             (
                 "POST",
                 "/api/dashboard/geofence",
-                {"device_id": did, "name": "x", "center_lat": 9.0, "center_lng": 8.6, "radius_meters": 100},
+                {
+                    "device_id": did,
+                    "name": "x",
+                    "center_lat": 9.0,
+                    "center_lng": 8.6,
+                    "radius_meters": 100,
+                },
             ),
             ("DELETE", f"/api/dashboard/geofence/{geofence_id}", None),
-            ("POST", f"/api/dashboard/media/{media_id}/delete", {"password": "StrongPass1"}),
+            (
+                "POST",
+                f"/api/dashboard/media/{media_id}/delete",
+                {"password": "StrongPass1"},
+            ),
             ("POST", "/api/recovery/requests/rec-idor-device/close", None),
             ("POST", "/api/recovery/requests", {"device_id": did, "description": "x"}),
         ]
@@ -584,7 +800,11 @@ class TestIdorBoundarySweep:
         assert client.get(f"/api/dashboard/media/file/{media_id}", headers=h).status_code == 200
         assert client.get("/api/recovery/requests", headers=h).status_code == 200
         assert (
-            client.patch("/api/dashboard/devices/idor-device/alias", json={"alias": "mine"}, headers=h).status_code
+            client.patch(
+                "/api/dashboard/devices/idor-device/alias",
+                json={"alias": "mine"},
+                headers=h,
+            ).status_code
             == 200
         )
 
@@ -918,7 +1138,10 @@ class TestPermanentDeletion:
         intruder = register_user("del-intruder@example.com")
         register_device("del-guarded", user_token=owner["token"])
 
-        resp = client.delete("/api/dashboard/devices/del-guarded", headers=user_headers(intruder["token"]))
+        resp = client.delete(
+            "/api/dashboard/devices/del-guarded",
+            headers=user_headers(intruder["token"]),
+        )
         assert resp.status_code == 403
 
         # Device still exists.

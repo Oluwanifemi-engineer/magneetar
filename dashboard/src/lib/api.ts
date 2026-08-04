@@ -238,6 +238,18 @@ class MagneetarAPI {
     return this.request(`/api/dashboard/devices/${deviceId}/recover`, 'POST');
   }
 
+  /**
+   * Link an ownerless device to this account using the pairing code shown in
+   * the Magneetar app on the phone (first 8 hex chars of SHA-256 of the
+   * device key). Rate-limited per user server-side.
+   */
+  async claimDeviceByPairing(deviceId: string, pairingCode: string): Promise<{ status: string; device_id: string; owner_id: string | null }> {
+    return this.request('/api/dashboard/devices/claim-by-pairing', 'POST', {
+      device_id: deviceId,
+      pairing_code: pairingCode,
+    });
+  }
+
   async deleteDevice(deviceId: string, password: string): Promise<{ status: string; message: string }> {
     // Step-up password: deletion is destructive, so the server re-authenticates
     // with the account password (users) or the master API key (admin).

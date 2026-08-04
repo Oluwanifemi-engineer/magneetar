@@ -157,12 +157,53 @@
             android:textSize="13sp"
             android:fontFamily="sans-serif-mono" />
 
+        <!-- Device pairing info (tap to copy) -->
+        <LinearLayout
+            android:id="@+id/device_pairing_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/tv_capture_status"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/btn_surface"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <TextView
+                android:id="@+id/tv_pairing_device_id"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#00D9FF"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-mono" />
+
+            <TextView
+                android:id="@+id/tv_pairing_code"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="#00FF88"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-mono" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Tap to copy — use on the dashboard to link this phone to your account"
+                android:textColor="#606060"
+                android:textSize="10sp"
+                android:fontFamily="sans-serif" />
+
+        </LinearLayout>
+
         <!-- Arm / disarm remote capture toggle -->
         <Button
             android:id="@+id/btn_toggle_capture"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_below="@id/tv_capture_status"
+            android:layout_below="@id/device_pairing_card"
             android:layout_marginTop="8dp"
             android:background="@drawable/btn_secondary"
             android:text="Disarm Remote Capture"

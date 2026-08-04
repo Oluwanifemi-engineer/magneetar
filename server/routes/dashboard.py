@@ -17,17 +17,28 @@ from auth import (
     user_id_from_subject,
 )
 from config import settings
-from database import delete_device_cascade, get_db, get_db_context, log_audit
+from database import (
+    check_rate_limit,
+    delete_device_cascade,
+    get_db,
+    get_db_context,
+    log_audit,
+)
 from evidence import evidence_builder
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from logging_config import get_logger
 from models import (
     CommandRequest,
+    DeviceClaimByPairingRequest,
     GeofenceRequest,
     LoginRequest,
     RefreshRequest,
     TokenResponse,
 )
+
+# Shared device helpers live in routes/devices.py; importing them here is
+# cycle-safe (devices.py never imports routes/dashboard).
+from routes.devices import _user_exists  # noqa: E402
 
 logger = get_logger("magneetar")
 
@@ -215,6 +226,82 @@ async def list_devices(
         )
 
     return {"devices": result}
+
+
+@router.post("/api/dashboard/devices/claim-by-pairing")
+async def claim_device_by_pairing(
+    req: DeviceClaimByPairingRequest,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
+):
+    """Link an ownerless device to the authenticated account using the pairing
+    code shown in the Magneetar app on the phone.
+
+    The pairing code is the first 8 hex chars of SHA-256(device_key). The app
+    displays it (it holds the raw key); the server stores only the full hash
+    (device_key_hash), so verification compares the submitted code against the
+    first 8 chars of the stored hash — constant-time, never sharing the key.
+
+    Security model:
+    - Only ownerless (or same-owner) devices are claimable; a device owned by
+      a REAL other account is 403 (same guard as /api/device/claim).
+    - 32 bits of code entropy is safe because attempts are rate-limited per
+      user (10 / 10 min) and the code only exists on the physical phone.
+    - The per-user device limit still applies (claiming is a NEW link).
+    - Admin (dashboard/API-key) sessions can claim too — same ownership guard,
+      no limit for the operator, which lets support re-link a lost device.
+    """
+    # Rate-limit attempts per actor so the 32-bit code can't be brute-forced
+    # from the dashboard (a wrong guess is cheap for the caller, not the DB).
+    if not check_rate_limit(f"claim_pairing:{auth}", "claim_pairing", 10, 10):
+        raise HTTPException(status_code=429, detail="Too many claim attempts — try again shortly")
+
+    user_id = _resolve_user_id(auth)
+
+    # Account-linking is a USER action. Admin (dashboard/API-key) sessions can
+    # already see every device — there is nothing for them to claim, and an
+    # "admin claim" would just set owner_id=NULL (a no-op). Mirroring
+    # /api/device/claim's contract, admin sessions are rejected here.
+    if user_id is None:
+        raise HTTPException(status_code=403, detail="User authentication required")
+
+    # A stale token from a permanently deleted account must not claim devices
+    # (that would re-create a ghost link — same bug class as register/claim).
+    if not _user_exists(db, user_id):
+        raise HTTPException(status_code=401, detail="Account no longer exists")
+
+    device = db.execute("SELECT id, owner_id, device_key_hash FROM devices WHERE id=?", (req.device_id,)).fetchone()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    # Constant-time pairing-code check against the first 8 hex chars of the
+    # stored SHA-256 of the device key. A device with no key hash (e.g. an old
+    # build registered via API key only) has no pairing code — 403.
+    stored_hash = device["device_key_hash"] or ""
+    if len(stored_hash) < 8 or not hmac.compare_digest(req.pairing_code, stored_hash[:8]):
+        raise HTTPException(status_code=403, detail="Invalid pairing code")
+
+    existing_owner = device["owner_id"]
+    # Same guard as /api/device/claim: only block when the existing owner is a
+    # REAL account that isn't the caller. Ghost-owned (deleted account) rows
+    # stay claimable; same-owner re-claims stay idempotent.
+    if existing_owner and existing_owner != user_id and _user_exists(db, existing_owner):
+        raise HTTPException(status_code=403, detail="Device already linked to another account")
+
+    if existing_owner != user_id:
+        from routes.devices import _enforce_device_limit
+
+        _enforce_device_limit(db, user_id)
+
+    db.execute("UPDATE devices SET owner_id=? WHERE id=?", (user_id, req.device_id))
+    db.commit()
+
+    from websocket_manager import update_device_owner
+
+    update_device_owner(req.device_id, user_id)
+    log_audit("device_claimed_by_pairing", actor=auth, details=f"Device: {req.device_id}")
+
+    return {"status": "ok", "device_id": req.device_id, "owner_id": user_id}
 
 
 @router.patch("/api/dashboard/devices/{device_id}/alias")
