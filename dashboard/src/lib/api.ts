@@ -97,6 +97,25 @@ class MagneetarAPI {
     });
   }
 
+  /**
+   * Delete a single command from history. Step-up auth: requires the account
+   * password (user mode) or the master API key (admin mode) — commands are an
+   * audit trail (wipe/lock/alarm), so a dashboard session alone is not enough
+   * to erase them.
+   */
+  async deleteCommand(commandId: number, password: string): Promise<{ status: string; deleted_id: number }> {
+    return this.request(`/api/dashboard/commands/${commandId}`, 'DELETE', { password });
+  }
+
+  /**
+   * Clear a device's command history. only_finished=true (default) removes
+   * executed/failed/expired entries but KEEPS pending ones (an in-flight
+   * wipe/lock must never be erased mid-delivery). Step-up password required.
+   */
+  async clearCommandHistory(deviceId: string, password: string, onlyFinished = true): Promise<{ status: string; deleted: number }> {
+    return this.request(`/api/dashboard/commands/device/${deviceId}?only_finished=${onlyFinished}`, 'DELETE', { password });
+  }
+
   // ── Media ───────────────────────────────────────────────────────────────
 
   async getMedia(deviceId: string): Promise<{ media: MediaItem[] }> {

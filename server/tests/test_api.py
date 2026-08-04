@@ -816,6 +816,187 @@ class TestDeviceDeleteStepUp:
         assert resp.status_code == 404
 
 
+class TestCommandDeleteStepUp:
+    """Command history is an audit trail (wipe/lock/alarm) — deleting it must
+    re-authenticate with a step-up password, exactly like media/device
+    deletion. Pending commands are never erased by the 'clear finished' path.
+    """
+
+    def _register(self, device_id: str) -> str:
+        resp = client.post(
+            "/api/device/register",
+            json={
+                "device_id": device_id,
+                "fingerprint": "fp-cmd-stepup",
+                "model": "Cmd Test",
+            },
+            headers=get_auth_headers(),
+        )
+        assert resp.status_code == 200
+        return resp.json()["token"]
+
+    def _issue(self, device_id: str, command: str = "ping") -> int:
+        resp = client.post(
+            "/api/dashboard/command",
+            json={"device_id": device_id, "command": command},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 200
+        return resp.json()["command_id"]
+
+    def _count(self, device_id: str, status: str = None) -> int:
+        with database.get_db_context() as conn:
+            if status:
+                return conn.execute(
+                    "SELECT COUNT(*) FROM commands WHERE device_id=? AND status=?",
+                    (device_id, status),
+                ).fetchone()[0]
+            return conn.execute("SELECT COUNT(*) FROM commands WHERE device_id=?", (device_id,)).fetchone()[0]
+
+    def _mark(self, command_id: int, status: str):
+        with database.get_db_context() as conn:
+            conn.execute("UPDATE commands SET status=? WHERE id=?", (status, command_id))
+            conn.commit()
+
+    def test_delete_single_requires_password(self):
+        device_id = "cmd-del-nopw"
+        self._register(device_id)
+        cmd_id = self._issue(device_id)
+
+        resp = client.request(
+            "DELETE",
+            f"/api/dashboard/commands/{cmd_id}",
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 400  # password required
+        assert self._count(device_id) == 1, "command must survive a passwordless delete"
+
+    def test_delete_single_wrong_password_rejected(self):
+        device_id = "cmd-del-wrong"
+        self._register(device_id)
+        cmd_id = self._issue(device_id)
+
+        resp = client.request(
+            "DELETE",
+            f"/api/dashboard/commands/{cmd_id}",
+            json={"password": "wrong"},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 401
+        assert self._count(device_id) == 1
+
+    def test_delete_single_succeeds(self):
+        device_id = "cmd-del-ok"
+        self._register(device_id)
+        cmd_id = self._issue(device_id)
+
+        resp = client.request(
+            "DELETE",
+            f"/api/dashboard/commands/{cmd_id}",
+            json={"password": TEST_API_KEY},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 200
+        assert self._count(device_id) == 0
+
+    def test_clear_finished_keeps_pending(self):
+        device_id = "cmd-clear-finished"
+        self._register(device_id)
+        done = self._issue(device_id)  # ping
+        self._mark(done, "executed")
+        self._issue(device_id)  # stays pending
+
+        resp = client.request(
+            "DELETE",
+            f"/api/dashboard/commands/device/{device_id}?only_finished=true",
+            json={"password": TEST_API_KEY},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["deleted"] == 1
+        assert self._count(device_id, "pending") == 1, "pending command must survive"
+        assert self._count(device_id) == 1
+
+    def test_clear_all_includes_pending(self):
+        device_id = "cmd-clear-all"
+        self._register(device_id)
+        self._issue(device_id)
+        self._issue(device_id)
+
+        resp = client.request(
+            "DELETE",
+            f"/api/dashboard/commands/device/{device_id}?only_finished=false",
+            json={"password": TEST_API_KEY},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 200
+        assert self._count(device_id) == 0
+
+    def test_clear_finished_requires_password(self):
+        device_id = "cmd-clear-nopw"
+        self._register(device_id)
+        self._issue(device_id)
+
+        resp = client.request(
+            "DELETE",
+            f"/api/dashboard/commands/device/{device_id}",
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 400
+        assert self._count(device_id) == 1
+
+    def test_clear_finished_wrong_password_rejected(self):
+        device_id = "cmd-clear-wrong"
+        self._register(device_id)
+        done = self._issue(device_id)
+        self._mark(done, "executed")
+
+        resp = client.request(
+            "DELETE",
+            f"/api/dashboard/commands/device/{device_id}",
+            json={"password": "not-the-master-key"},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 401
+        assert self._count(device_id) == 1, "wrong password must preserve history"
+
+    def test_delete_unknown_command_404(self):
+        resp = client.request(
+            "DELETE",
+            "/api/dashboard/commands/99999999",
+            json={"password": TEST_API_KEY},
+            headers=get_dashboard_headers(),
+        )
+        assert resp.status_code == 404
+
+    def test_cross_tenant_delete_forbidden(self):
+        # A second user must NOT be able to delete another account's commands.
+        device_id = "cmd-del-other"
+        self._register(device_id)
+        cmd_id = self._issue(device_id)
+
+        # Local user registration (test_api.py has no shared helper; the
+        # dashboard view for a user is scoped to their OWN devices, so a
+        # different account hitting this command id must 403 at ownership).
+        other = client.post(
+            "/api/auth/register",
+            json={
+                "email": "cmd-other-owner@example.com",
+                "password": "Test-Pass-12345",
+            },
+        )
+        assert other.status_code == 200
+        other_token = other.json()["token"]
+
+        resp = client.request(
+            "DELETE",
+            f"/api/dashboard/commands/{cmd_id}",
+            json={"password": "Test-Pass-12345"},
+            headers={"Authorization": f"Bearer {other_token}"},
+        )
+        assert resp.status_code == 403
+
+
 # ─── Geofences ───────────────────────────────────────────────────────────────
 
 

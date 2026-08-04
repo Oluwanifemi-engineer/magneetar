@@ -5,7 +5,7 @@ import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { cn, getCommandLabel, isDestructiveCommand, formatTimestamp } from '@/lib/utils';
 import { CommandButton, type CommandTone } from '@/components/ui/CommandButton';
-import { Radio, Camera, Webcam, Mic, LocateFixed, Lock, Siren, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Radio, Camera, Webcam, Mic, LocateFixed, Lock, Siren, AlertTriangle, CheckCircle2, Trash2, X } from 'lucide-react';
 import type { CommandType } from '@/types';
 
 // NOTE: buttons send the WIRE command name, which must match what the server
@@ -37,6 +37,38 @@ export function CommandPanel() {
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [commandError, setCommandError] = useState('');
   const [lastSent, setLastSent] = useState('');
+  // History cleanup (step-up password, mirroring the device/media delete
+  // contract): deleting one command or clearing finished history re-
+  // authenticates with the account password (users) or master API key (admin).
+  const [deleteTarget, setDeleteTarget] = useState<number | 'all-finished' | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = async () => {
+    if (!selectedDeviceId || deleteTarget === null || deleting) return;
+    if (!deletePassword.trim()) {
+      setDeleteError('Enter your password to confirm.');
+      return;
+    }
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      const api = getAPI();
+      if (deleteTarget === 'all-finished') {
+        await api.clearCommandHistory(selectedDeviceId, deletePassword);
+      } else {
+        await api.deleteCommand(deleteTarget, deletePassword);
+      }
+      setDeleteTarget(null);
+      setDeletePassword('');
+      await fetchCommands();
+    } catch (e: any) {
+      setDeleteError(e?.message || 'Failed to delete command');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Fetch commands
   const fetchCommands = useCallback(async () => {
@@ -55,6 +87,18 @@ export function CommandPanel() {
     const interval = setInterval(fetchCommands, 10000);
     return () => clearInterval(interval);
   }, [fetchCommands]);
+
+  // Device switch while the step-up card is open: a pending deleteTarget from
+  // the OLD device must never apply to the NEW device ('all-finished' would
+  // clear the wrong device's history; a command id could 404 or hit a same-id
+  // row on another owned device). Reset the confirm state whenever the
+  // selected device changes.
+  useEffect(() => {
+    setDeleteTarget(null);
+    setDeletePassword('');
+    setDeleteError('');
+    setDeleting(false);
+  }, [selectedDeviceId]);
 
   // Send command. `params` is the wire param — wipe MUST be 'CONFIRMED_WIPE'
   // or the server rejects it with 400 (which is why the old WIPE button
@@ -163,9 +207,67 @@ export function CommandPanel() {
 
       {/* Command History */}
       <div>
-        <div className="text-[11px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold mb-2.5 px-1">
-          Recent Commands
+        <div className="flex items-center justify-between mb-2.5 px-1">
+          <div className="text-[11px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold">
+            Recent Commands
+          </div>
+          {commands.filter(c => c.status !== 'pending').length > 0 && deleteTarget !== 'all-finished' && (
+            <button
+              onClick={() => { setDeleteTarget('all-finished'); setDeleteError(''); }}
+              className="flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider text-mag-text-dim/60 hover:text-mag-danger/80 transition-colors"
+              title="Remove ALL executed, failed & expired entries (keeps pending commands)"
+            >
+              <Trash2 size={11} />
+              Clear all finished
+            </button>
+          )}
         </div>
+
+        {/* Step-up confirm card (password required) */}
+        {deleteTarget !== null && (
+          <div className="mb-2.5 rounded-xl border border-mag-danger/30 bg-mag-danger/[0.05] p-3.5 space-y-2.5 animate-fade-in">
+            <div className="text-[10px] font-mono text-mag-danger/90 leading-relaxed">
+              {deleteTarget === 'all-finished'
+                ? 'Delete all executed, failed & expired commands for this device? Pending commands are kept. This cannot be undone.'
+                : `Delete this ${getCommandLabel(commands.find(c => c.id === deleteTarget)?.command || '')} command from history? This cannot be undone.`}
+            </div>
+            <input
+              type="password"
+              value={deletePassword}
+              onChange={e => setDeletePassword(e.target.value)}
+              placeholder="Account password or master API key"
+              autoFocus
+              aria-label="Confirm deletion password"
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !deleting) {
+                  e.preventDefault();
+                  confirmDelete();
+                }
+              }}
+              className="w-full bg-mag-bg/60 border border-mag-border/40 rounded-lg px-3 py-2 text-xs font-mono text-mag-text placeholder:text-mag-text-dim/30 focus:outline-none focus:border-mag-danger/60 transition-colors"
+            />
+            {deleteError && <div className="text-[10px] font-mono text-red-400">{deleteError}</div>}
+            <div className="flex gap-2">
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-mag-danger/90 hover:bg-mag-danger disabled:opacity-50 text-white text-[11px] font-bold transition-all"
+              >
+                <Trash2 size={12} />
+                {deleting ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+              <button
+                onClick={() => { setDeleteTarget(null); setDeletePassword(''); setDeleteError(''); }}
+                disabled={deleting}
+                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-mag-border/40 text-mag-text-dim/70 hover:text-mag-text text-[11px] font-bold transition-all"
+              >
+                <X size={12} />
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-1.5 max-h-48 overflow-y-auto">
           {commands.length === 0 ? (
             <div className="text-mag-text-dim/40 text-xs font-mono text-center py-4">
@@ -201,6 +303,14 @@ export function CommandPanel() {
                 )}>
                   {cmd.status}
                 </span>
+                <button
+                  onClick={() => { setDeleteTarget(cmd.id); setDeleteError(''); }}
+                  className="text-mag-text-dim/35 hover:text-mag-danger/80 transition-colors p-0.5"
+                  title="Delete this command from history"
+                  aria-label={`Delete ${getCommandLabel(cmd.command)} command`}
+                >
+                  <Trash2 size={12} />
+                </button>
               </div>
             ))
           )}

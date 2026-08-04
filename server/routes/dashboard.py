@@ -670,6 +670,76 @@ async def get_command_history(
     return {"commands": [dict(r) for r in rows]}
 
 
+# ─── Command Deletion (history cleanup, step-up gated) ───────────────────────
+
+
+@router.delete("/api/dashboard/commands/{command_id}")
+async def delete_command(
+    command_id: int,
+    body: dict = None,
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
+):
+    """Delete a single command from history, gated by a step-up password.
+
+    Commands are an audit trail (they can include wipe/lock/alarm), so a
+    dashboard session alone must not erase them — the caller re-authenticates
+    with the step-up password (account password for users, master API key for
+    admins), the same contract as media/device deletion. Ownership is checked
+    BEFORE the password so a non-owner never reaches the verify step.
+    """
+    row = db.execute("SELECT device_id FROM commands WHERE id=?", (command_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Command not found")
+    _assert_device_access(db, row["device_id"], auth)
+
+    _verify_stepup_password(db, auth, (body or {}).get("password"))
+
+    db.execute("DELETE FROM commands WHERE id=?", (command_id,))
+    db.commit()
+    log_audit(
+        "command_deleted",
+        actor=auth,
+        details=f"Command: {command_id}, device: {row['device_id']}",
+    )
+    return {"status": "ok", "deleted_id": command_id}
+
+
+@router.delete("/api/dashboard/commands/device/{device_id}")
+async def clear_command_history(
+    device_id: str,
+    body: dict = None,
+    only_finished: bool = Query(True),
+    db: sqlite3.Connection = Depends(get_db),
+    auth: str = Depends(require_dashboard_auth),
+):
+    """Delete command history for a device, gated by a step-up password.
+
+    only_finished=true (default) removes executed/failed/expired commands
+    while KEEPING pending ones — an in-flight wipe/lock/alarm must never be
+    erased mid-delivery. only_finished=false clears the entire history
+    (including pending, which effectively cancels queued commands).
+    """
+    _assert_device_access(db, device_id, auth)
+
+    _verify_stepup_password(db, auth, (body or {}).get("password"))
+
+    if only_finished:
+        cur = db.execute(
+            "DELETE FROM commands WHERE device_id=? AND status != 'pending'",
+            (device_id,),
+        )
+    else:
+        cur = db.execute("DELETE FROM commands WHERE device_id=?", (device_id,))
+    db.commit()
+    log_audit(
+        "command_history_cleared",
+        actor=auth,
+        details=f"Device: {device_id}, only_finished={only_finished}",
+    )
+    return {"status": "ok", "deleted": cur.rowcount if cur else 0}
+
+
 # ─── Evidence ────────────────────────────────────────────────────────────────
 
 

@@ -24,6 +24,8 @@ The sweep runs from the FastAPI lifespan (see main.py) every 6 hours.
 
 import asyncio
 
+from config import settings
+from database import get_db_context
 from logging_config import get_logger
 
 logger = get_logger("magneetar")
@@ -37,12 +39,15 @@ def archive_stale_devices(days: int = None) -> int:
     """Soft-archive devices silent for more than `days` days.
 
     Returns how many devices were newly archived. Safe to call repeatedly.
+
+    NOTE on imports: get_db_context/settings are bound at MODULE level (not
+    inside the function). Resolving them at call time via sys.modules drifted
+    when test_e2e evicts database/config mid-suite: the sweep then read a
+    DIFFERENT database module instance than the app/tests bind, so the
+    archive sweep operated on an empty DB while the test wrote to its own
+    (full-suite archive tests failed with 'assert 0 >= 1'). Module-level
+    binding keeps the sweep on the same instance as everything else.
     """
-    # Import INSIDE the function (codebase convention, see main.py): test_e2e
-    # evicts the database/config modules from sys.modules mid-suite, and a
-    # stale import-time binding would read a DB path from a dead instance.
-    from config import settings
-    from database import get_db_context
 
     threshold = max(days if days is not None else settings.ARCHIVE_AFTER_DAYS, _MIN_FLOOR_DAYS)
 

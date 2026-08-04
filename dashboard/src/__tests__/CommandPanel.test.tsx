@@ -11,6 +11,8 @@ let mockCommands: any[] = [];
 const mockSetCommands = jest.fn();
 const mockIssueCommand = jest.fn<(...args: any[]) => any>();
 const mockGetCommands = jest.fn<(...args: any[]) => any>();
+const mockDeleteCommand = jest.fn<(...args: any[]) => any>();
+const mockClearCommandHistory = jest.fn<(...args: any[]) => any>();
 
 jest.mock('@/store/useStore', () => ({    useStore: jest.fn((selector: any) => {
     const state = {
@@ -26,6 +28,8 @@ jest.mock('@/lib/api', () => ({
   getAPI: () => ({
     issueCommand: mockIssueCommand,
     getCommands: mockGetCommands,
+    deleteCommand: mockDeleteCommand,
+    clearCommandHistory: mockClearCommandHistory,
   }),
 }));
 
@@ -41,6 +45,8 @@ jest.mock('lucide-react', () => {
     Siren: noop,
     AlertTriangle: noop,
     CheckCircle2: noop,
+    Trash2: noop,
+    X: noop,
   };
 });
 
@@ -72,6 +78,8 @@ describe('CommandPanel Component', () => {
     mockCommands = [];
     mockIssueCommand.mockResolvedValue({ status: 'queued', command_id: 1 });
     mockGetCommands.mockResolvedValue({ commands: [] });
+    mockDeleteCommand.mockResolvedValue({ status: 'ok', deleted_id: 1 });
+    mockClearCommandHistory.mockResolvedValue({ status: 'ok', deleted: 1 });
   });
 
   it('renders all quick action command buttons', () => {
@@ -176,5 +184,86 @@ describe('CommandPanel Component', () => {
     await waitFor(() => {
       expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'location_burst', '');
     });
+  });
+});
+
+describe('CommandPanel — password-gated history deletion (step-up)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSelectedDeviceId = 'device-001';
+    mockCommands = [
+      { id: 1, command: 'ping', status: 'executed', issued_at: '2024-01-01' },
+      { id: 2, command: 'lock', status: 'pending', issued_at: '2024-01-02' },
+    ];
+    mockGetCommands.mockResolvedValue({ commands: mockCommands });
+    mockDeleteCommand.mockResolvedValue({ status: 'ok', deleted_id: 1 });
+    mockClearCommandHistory.mockResolvedValue({ status: 'ok', deleted: 1 });
+  });
+
+  it('shows a per-row trash button and opens the password card', () => {
+    render(<CommandPanel />);
+    const trash = screen.getAllByLabelText(/Delete .* command/);
+    expect(trash).toHaveLength(2);
+    fireEvent.click(trash[0]);
+    expect(screen.getByLabelText('Confirm deletion password')).toBeInTheDocument();
+  });
+
+  it('requires a password — empty input never calls the API', async () => {
+    render(<CommandPanel />);
+    fireEvent.click(screen.getAllByLabelText(/Delete .* command/)[0]);
+    fireEvent.click(screen.getByText('Yes, Delete'));
+    await waitFor(() => {
+      expect(screen.getByText('Enter your password to confirm.')).toBeInTheDocument();
+    });
+    expect(mockDeleteCommand).not.toHaveBeenCalled();
+  });
+
+  it('deletes a single command with the step-up password', async () => {
+    render(<CommandPanel />);
+    fireEvent.click(screen.getAllByLabelText(/Delete .* command/)[0]);
+    fireEvent.change(screen.getByLabelText('Confirm deletion password'), { target: { value: 's3cret' } });
+    fireEvent.click(screen.getByText('Yes, Delete'));
+    await waitFor(() => {
+      expect(mockDeleteCommand).toHaveBeenCalledWith(1, 's3cret');
+    });
+  });
+
+  it('keeps the card open and shows the error when the password is wrong', async () => {
+    mockDeleteCommand.mockRejectedValueOnce(new Error('Invalid password'));
+    render(<CommandPanel />);
+    fireEvent.click(screen.getAllByLabelText(/Delete .* command/)[0]);
+    fireEvent.change(screen.getByLabelText('Confirm deletion password'), { target: { value: 'wrong' } });
+    fireEvent.click(screen.getByText('Yes, Delete'));
+    await waitFor(() => {
+      expect(screen.getByText('Invalid password')).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText('Confirm deletion password')).toBeInTheDocument();
+  });
+
+  it('shows Clear all finished only when finished commands exist and clears them with the password', async () => {
+    render(<CommandPanel />);
+    fireEvent.click(screen.getByText('Clear all finished'));
+    expect(screen.getByLabelText('Confirm deletion password')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Confirm deletion password'), { target: { value: 's3cret' } });
+    fireEvent.click(screen.getByText('Yes, Delete'));
+    await waitFor(() => {
+      expect(mockClearCommandHistory).toHaveBeenCalledWith('device-001', 's3cret');
+    });
+  });
+
+  it('hides Clear all finished when every command is pending', () => {
+    mockCommands = [{ id: 2, command: 'lock', status: 'pending', issued_at: '2024-01-02' }];
+    render(<CommandPanel />);
+    expect(screen.queryByText('Clear all finished')).not.toBeInTheDocument();
+  });
+
+  it('resets the pending delete confirm when the selected device changes', () => {
+    const { rerender } = render(<CommandPanel />);
+    fireEvent.click(screen.getAllByLabelText(/Delete .* command/)[0]);
+    expect(screen.getByLabelText('Confirm deletion password')).toBeInTheDocument();
+
+    mockSelectedDeviceId = 'device-002';
+    rerender(<CommandPanel />);
+    expect(screen.queryByLabelText('Confirm deletion password')).not.toBeInTheDocument();
   });
 });

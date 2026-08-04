@@ -41,6 +41,12 @@ for mod_name in list(sys.modules.keys()):
         or mod_name == "user_auth"
         or mod_name == "evidence_pdf"
         or mod_name == "database_postgres"
+        # archive_monitor/offline_monitor bind database at MODULE level; if
+        # they were imported before this eviction (e.g. by test_archive,
+        # which sorts earlier alphabetically), leaving the stale copies in
+        # sys.modules makes their sweep read a dead database instance's path.
+        or mod_name == "archive_monitor"
+        or mod_name == "offline_monitor"
     ):
         del sys.modules[mod_name]
 
@@ -96,7 +102,11 @@ class TestDeviceManagement:
 
     def test_update_device_alias(self):
         headers = get_dash_headers()
-        resp = client.patch("/api/dashboard/devices/e2e-test-device/alias", json={"alias": "My Phone"}, headers=headers)
+        resp = client.patch(
+            "/api/dashboard/devices/e2e-test-device/alias",
+            json={"alias": "My Phone"},
+            headers=headers,
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
@@ -104,12 +114,19 @@ class TestDeviceManagement:
 
     def test_update_device_alias_empty_rejected(self):
         headers = get_dash_headers()
-        resp = client.patch("/api/dashboard/devices/e2e-test-device/alias", json={"alias": ""}, headers=headers)
+        resp = client.patch(
+            "/api/dashboard/devices/e2e-test-device/alias",
+            json={"alias": ""},
+            headers=headers,
+        )
         assert resp.status_code == 400
 
     def test_mark_device_recovered(self):
         with db_module.get_db_context() as db:
-            db.execute("UPDATE devices SET is_stolen=1, operating_mode='stolen' WHERE id=?", ("e2e-test-device",))
+            db.execute(
+                "UPDATE devices SET is_stolen=1, operating_mode='stolen' WHERE id=?",
+                ("e2e-test-device",),
+            )
             db.commit()
 
         headers = get_dash_headers()
@@ -120,7 +137,8 @@ class TestDeviceManagement:
 
         with db_module.get_db_context() as db:
             device = db.execute(
-                "SELECT is_stolen, operating_mode FROM devices WHERE id=?", ("e2e-test-device",)
+                "SELECT is_stolen, operating_mode FROM devices WHERE id=?",
+                ("e2e-test-device",),
             ).fetchone()
             assert device["is_stolen"] == 0
             assert device["operating_mode"] == "normal"
