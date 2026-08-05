@@ -250,6 +250,23 @@ async def register_device(
                 ),
             )
     else:
+        # Unowned-registration cap (F-07): the master API key is PUBLIC (it
+        # ships inside every APK), so a new unowned device row costs nothing
+        # to create — cap how many can exist so an attacker can't flood the
+        # devices table with junk. Account-linked registrations are bounded by
+        # the per-user device limit instead. Adoption of an existing unowned
+        # row never hits this (no new row is created).
+        if owner_id is None:
+            unowned = db.execute("SELECT COUNT(*) as cnt FROM devices WHERE owner_id IS NULL").fetchone()["cnt"]
+            if unowned >= settings.MAX_UNOWNED_DEVICES:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "Too many unowned devices on this server — register the "
+                        "device to your account instead (sign in on the phone first)"
+                    ),
+                )
+
         db.execute(
             """INSERT INTO devices (id, device_fingerprint, model, os_version,
                app_version, imei_hash, sim_serial_hash, device_key_hash, owner_id, last_seen, registered)
@@ -570,6 +587,18 @@ async def post_media(
     now = datetime.now(timezone.utc).isoformat()
     ts = report.timestamp or now
 
+    # Media storage refactor (v1.4): evidence bytes go to DISK via
+    # media_store.py — validated (per-type size caps + magic bytes) BEFORE
+    # any decode, so an oversized or bogus payload is rejected with 413/415
+    # instead of spiking memory or bloating the SQLite file. The row keeps
+    # metadata + the file's SHA-256; legacy base64 stays empty for new rows.
+    from media_store import MediaValidationError, save_media
+
+    try:
+        stored = save_media(device_id, report.type, report.data_b64)
+    except MediaValidationError as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e))
+
     data = base64.b64decode(report.data_b64)
     sha256_hash = hashlib.sha256(data).hexdigest()
 
@@ -582,17 +611,18 @@ async def post_media(
 
     db.execute(
         """INSERT INTO media (device_id, type, data_b64, lat, lng, timestamp,
-           evidence_case_id, sha256_hash)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+           evidence_case_id, sha256_hash, file_path, file_size)
+           VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?)""",
         (
             device_id,
             report.type,
-            report.data_b64,
             report.lat,
             report.lng,
             ts,
             case_id,
             sha256_hash,
+            stored["file_path"],
+            stored["file_size"],
         ),
     )
     db.commit()

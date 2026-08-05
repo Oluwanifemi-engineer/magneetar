@@ -206,6 +206,60 @@ def init_db(db_path: str = None):
     except sqlite3.OperationalError:
         pass  # Column already exists
 
+    # Media storage refactor (v1.4): evidence bytes moved from the data_b64
+    # blob to files on disk. New columns are NULL for legacy rows (they keep
+    # their base64) and populated for new rows (data_b64 written as '').
+    try:
+        c.execute("ALTER TABLE media ADD COLUMN file_path TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    try:
+        c.execute("ALTER TABLE media ADD COLUMN file_size INTEGER")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
+    # ─── Account security (v1.4) ────────────────────────────────────────────
+    # TOTP 2FA: the secret is AES-256-GCM encrypted at rest (user_security.py)
+    # and only enabled after the user proves a valid code; totp_last_period
+    # stores the time-step of the last accepted code for replay protection.
+    for col in ("totp_secret_enc",):
+        try:
+            c.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+    for col in ("totp_enabled", "totp_last_period"):
+        try:
+            c.execute(f"ALTER TABLE users ADD COLUMN {col} INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+    c.executescript(
+        """
+        -- Password reset + email verification tokens (single-use, hashed,
+        -- expiring). token_hash stores SHA-256(token) — the raw token is
+        -- only ever sent to the user's inbox.
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_password_reset_user ON password_reset_tokens(user_id);
+
+        CREATE TABLE IF NOT EXISTS email_verify_tokens (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_email_verify_user ON email_verify_tokens(user_id);
+        """
+    )
+
     c.executescript(
         """
 
@@ -250,6 +304,11 @@ def init_db(db_path: str = None):
         );
 
         -- ─── Media ──────────────────────────────────────────────────────────
+        -- file_path/file_size: since the v1.4 media refactor, evidence bytes
+        -- live on DISK (media_store.py) and the row keeps metadata only.
+        -- data_b64 stays NOT NULL for legacy rows (pre-refactor); new rows
+        -- store '' and carry file_path. Consumers use media_store's
+        -- media_bytes_for_row() which prefers disk and falls back to b64.
         CREATE TABLE IF NOT EXISTS media (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             device_id TEXT NOT NULL,
@@ -260,6 +319,8 @@ def init_db(db_path: str = None):
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             evidence_case_id TEXT,
             sha256_hash TEXT,
+            file_path TEXT,
+            file_size INTEGER,
             FOREIGN KEY (device_id) REFERENCES devices(id)
         );
 
@@ -481,6 +542,17 @@ def delete_device_cascade(conn, device_id: str):
     )
     conn.execute("DELETE FROM recovery_requests WHERE device_id=?", (device_id,))
 
+    # Media files on disk must be removed when the device row goes away —
+    # the DB rows are deleted below, so resolve the file paths FIRST.
+    try:
+        from media_store import delete_media_file
+
+        media_rows = conn.execute("SELECT file_path FROM media WHERE device_id=?", (device_id,)).fetchall()
+        for row in media_rows:
+            delete_media_file(row["file_path"])
+    except Exception:
+        pass  # never block deletion on a disk glitch
+
     # Everything else references the device row directly.
     for table in (
         "locations",
@@ -595,8 +667,34 @@ def purge_old_data(retention_days: int = 90):
             (cutoff,),
         ).rowcount
 
+        # Evidence retention (v1.4): media belonging to an ACTIVE evidence
+        # case is excluded from the retention purge — a forensic case must
+        # never have its photos/audio silently deleted while the case is
+        # still open. Closed cases age out normally. Files on disk are
+        # removed alongside the DB rows.
+        stale_media = conn.execute(
+            """SELECT id, file_path FROM media
+               WHERE datetime(timestamp) < datetime('now', ?)
+                 AND NOT EXISTS (
+                     SELECT 1 FROM evidence_cases ec
+                     WHERE ec.id = media.evidence_case_id AND ec.status = 'active'
+                 )""",
+            (cutoff,),
+        ).fetchall()
+        try:
+            from media_store import delete_media_file
+
+            for row in stale_media:
+                delete_media_file(row["file_path"])
+        except Exception:
+            pass  # never let a disk glitch crash the purge
         deleted_media = conn.execute(
-            "DELETE FROM media WHERE datetime(timestamp) < datetime('now', ?)",
+            """DELETE FROM media
+               WHERE datetime(timestamp) < datetime('now', ?)
+                 AND NOT EXISTS (
+                     SELECT 1 FROM evidence_cases ec
+                     WHERE ec.id = media.evidence_case_id AND ec.status = 'active'
+                 )""",
             (cutoff,),
         ).rowcount
 
@@ -677,6 +775,8 @@ def ensure_initialized() -> bool:
         "revoked_tokens",
         "error_log",
         "cell_location_cache",
+        "password_reset_tokens",
+        "email_verify_tokens",
     }
     # ⚠️ Keep in sync with the CREATE TABLE devices columns in init_db() +
     # the guarded ALTER TABLE migrations below it. A stale list here makes
@@ -730,6 +830,34 @@ def ensure_initialized() -> bool:
         "failure_reason",
         "delivery_channel",
     }
+    # Media refactor columns — a DB that predates them stores base64 blobs
+    # only; new rows carry file_path/file_size (see media_store.py).
+    expected_media_columns = {
+        "id",
+        "device_id",
+        "type",
+        "data_b64",
+        "timestamp",
+        "evidence_case_id",
+        "sha256_hash",
+        "file_path",
+        "file_size",
+    }
+    # Account-security columns — 2FA state (secret encrypted, replay period).
+    expected_users_columns = {
+        "id",
+        "email",
+        "password_hash",
+        "display_name",
+        "tier",
+        "is_active",
+        "email_verified",
+        "created_at",
+        "last_login",
+        "totp_secret_enc",
+        "totp_enabled",
+        "totp_last_period",
+    }
     try:
         with get_db_context() as conn:
             present_tables = {
@@ -737,10 +865,14 @@ def ensure_initialized() -> bool:
             }
             devices_columns = {row["name"] for row in conn.execute("PRAGMA table_info(devices)").fetchall()}
             commands_columns = {row["name"] for row in conn.execute("PRAGMA table_info(commands)").fetchall()}
+            media_columns = {row["name"] for row in conn.execute("PRAGMA table_info(media)").fetchall()}
+            users_columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
         if (
             required_tables.issubset(present_tables)
             and expected_devices_columns.issubset(devices_columns)
             and expected_commands_columns.issubset(commands_columns)
+            and expected_media_columns.issubset(media_columns)
+            and expected_users_columns.issubset(users_columns)
         ):
             return False
         init_db()

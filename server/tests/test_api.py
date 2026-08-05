@@ -45,6 +45,11 @@ os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
 os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
 os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
 os.environ["MT_DB_PATH"] = test_db_path
+# Media files land in a temp dir (media_store.py resolves MT_MEDIA_DIR live
+# from the environment at request time, so this works regardless of import
+# order). Upload tests must never write into the repo tree.
+test_media_dir = tempfile.mkdtemp(prefix="magneetar-test-media-")
+os.environ["MT_MEDIA_DIR"] = test_media_dir
 
 # Override the settings module's DB_PATH
 import config  # noqa: E402 (env set above)
@@ -1094,6 +1099,235 @@ class TestMedia:
         response = client.get(f"/api/dashboard/media/{TEST_DEVICE_ID}", headers=headers)
         assert response.status_code == 200
         assert "media" in response.json()
+
+
+class TestMediaStorageRefactor:
+    """v1.4 media refactor E2E: bytes land on DISK (file_path/file_size), the
+    SQLite row stays lean (data_b64 empty for new rows), read-back serves the
+    exact bytes, and oversized / mismatched payloads are rejected with the
+    right status codes (413/415)."""
+
+    def _ensure_device(self):
+        headers = get_auth_headers()
+        client.post(
+            "/api/device/register",
+            json={
+                "device_id": TEST_DEVICE_ID,
+                "fingerprint": "fp-media-refactor",
+                "model": "Media Refactor",
+            },
+            headers=headers,
+        )
+
+    def test_upload_persists_to_disk_not_sqlite(self):
+        import base64
+
+        self._ensure_device()
+        png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 200
+        resp = client.post(
+            "/api/device/media",
+            json={"device_id": TEST_DEVICE_ID, "type": "photo", "data_b64": base64.b64encode(png).decode()},
+            headers=get_device_headers(),
+        )
+        assert resp.status_code == 200, resp.text
+        media_id = resp.json()["media_id"]
+
+        with database.get_db_context() as conn:
+            row = conn.execute("SELECT * FROM media WHERE id=?", (media_id,)).fetchone()
+        assert row["file_path"], "new media rows must carry a file_path"
+        assert row["file_size"] == len(png)
+        assert row["data_b64"] == "", "new rows must NOT duplicate bytes into SQLite"
+
+        # The file exists on disk with the exact bytes.
+        import os as _os
+
+        full = _os.path.join(_os.environ["MT_MEDIA_DIR"], row["file_path"])
+        assert _os.path.isfile(full)
+        with open(full, "rb") as f:
+            assert f.read() == png
+
+    def test_media_file_read_back_returns_exact_bytes(self):
+        import base64
+
+        self._ensure_device()
+        png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 300
+        media_id = client.post(
+            "/api/device/media",
+            json={"device_id": TEST_DEVICE_ID, "type": "photo", "data_b64": base64.b64encode(png).decode()},
+            headers=get_device_headers(),
+        ).json()["media_id"]
+
+        fetched = client.get(f"/api/dashboard/media/file/{media_id}", headers=get_dashboard_headers())
+        assert fetched.status_code == 200
+        assert fetched.json()["data_b64"] == base64.b64encode(png).decode()
+        assert fetched.json()["sha256_hash"] is not None
+
+    def test_legacy_base64_row_still_reads_back(self):
+        """Pre-refactor rows (data_b64 populated, file_path NULL) must keep
+        working through the same endpoint — no data loss on upgrade."""
+        import base64
+
+        self._ensure_device()
+        legacy_png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 50
+        with database.get_db_context() as conn:
+            conn.execute(
+                "INSERT INTO media (device_id, type, data_b64, timestamp) VALUES (?, 'photo', ?, datetime('now'))",
+                (TEST_DEVICE_ID, base64.b64encode(legacy_png).decode()),
+            )
+            conn.commit()
+            media_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+        fetched = client.get(f"/api/dashboard/media/file/{media_id}", headers=get_dashboard_headers())
+        assert fetched.status_code == 200
+        assert fetched.json()["data_b64"] == base64.b64encode(legacy_png).decode()
+
+    def test_oversized_upload_rejected_413(self):
+        import base64
+
+        self._ensure_device()
+        huge = b"\x89PNG\r\n\x1a\n" + b"\x00" * (15 * 1024 * 1024)  # > 15MB photo cap
+        resp = client.post(
+            "/api/device/media",
+            json={"device_id": TEST_DEVICE_ID, "type": "photo", "data_b64": base64.b64encode(huge).decode()},
+            headers=get_device_headers(),
+        )
+        assert resp.status_code == 413, resp.text
+
+    def test_wrong_magic_rejected_415(self):
+        import base64
+
+        self._ensure_device()
+        resp = client.post(
+            "/api/device/media",
+            json={
+                "device_id": TEST_DEVICE_ID,
+                "type": "photo",
+                "data_b64": base64.b64encode(b"nope not an image").decode(),
+            },
+            headers=get_device_headers(),
+        )
+        assert resp.status_code == 415, resp.text
+
+    def test_audio_upload_magic_validated(self):
+        import base64
+
+        self._ensure_device()
+        mp3 = b"ID3\x04\x00\x00\x00" + b"\x00" * 100
+        resp = client.post(
+            "/api/device/media",
+            json={"device_id": TEST_DEVICE_ID, "type": "audio", "data_b64": base64.b64encode(mp3).decode()},
+            headers=get_device_headers(),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["media_id"] > 0
+
+
+class TestUnownedDeviceCap:
+    """F-07: the master API key ships inside every APK (public), so anyone
+    can register devices. The unowned-device cap bounds that storage-pollution
+    surface — account-linked devices are bounded by the per-user limit instead."""
+
+    def test_cap_blocks_unowned_flood(self):
+        # Module-level `database` binding (pre-eviction instance the app's
+        # routers use — a function-local import resolves the post-eviction
+        # module whose DB_PATH points at another file's DB under full-suite
+        # runs, and the cap count would read the wrong table).
+        with database.get_db_context() as conn:
+            unowned = conn.execute("SELECT COUNT(*) FROM devices WHERE owner_id IS NULL").fetchone()[0]
+        saved = config.settings.MAX_UNOWNED_DEVICES
+        config.settings.MAX_UNOWNED_DEVICES = unowned + 2
+        try:
+            for i in range(2):
+                resp = client.post(
+                    "/api/device/register",
+                    json={"device_id": f"unowned-cap-{i}", "fingerprint": f"fp-unowned-{i}"},
+                    headers=get_auth_headers(),
+                )
+                assert resp.status_code == 200, resp.text
+            # One over the cap → 403, and NO row created.
+            resp = client.post(
+                "/api/device/register",
+                json={"device_id": "unowned-cap-overflow", "fingerprint": "fp-unowned-overflow"},
+                headers=get_auth_headers(),
+            )
+            assert resp.status_code == 403
+            with database.get_db_context() as conn:
+                assert conn.execute("SELECT 1 FROM devices WHERE id='unowned-cap-overflow'").fetchone() is None
+        finally:
+            config.settings.MAX_UNOWNED_DEVICES = saved
+
+    def test_account_linked_registration_ignores_cap(self):
+        """A device registered WITH a user token is bounded by the per-user
+        limit, not the unowned cap — even when the cap is tiny."""
+        # Register an account + device token (registration links ownership).
+        email = "cap-owner@test.dev"
+        reg = client.post(
+            "/api/auth/register",
+            json={"email": email, "password": "CapOwner123", "display_name": "Cap"},
+        )
+        assert reg.status_code == 200
+        user_token = reg.json()["token"]
+
+        saved = config.settings.MAX_UNOWNED_DEVICES
+        config.settings.MAX_UNOWNED_DEVICES = 0  # nothing unowned allowed
+        try:
+            resp = client.post(
+                "/api/device/register",
+                json={"device_id": "cap-owned-device", "fingerprint": "fp-cap-owned"},
+                headers={"Authorization": f"Bearer {user_token}", "x-api-key": TEST_API_KEY},
+            )
+        finally:
+            config.settings.MAX_UNOWNED_DEVICES = saved
+        assert resp.status_code == 200, resp.text
+
+
+class TestEvidenceRetentionPurge:
+    """v1.4: the retention purge must NOT delete evidence belonging to an
+    ACTIVE evidence case — a forensic case must never lose its photos/audio
+    while open. Closed-case and orphaned media age out normally."""
+
+    def test_active_case_media_survives_purge(self):
+        client.post(
+            "/api/device/register",
+            json={"device_id": "purge-device", "fingerprint": "fp-purge", "model": "P"},
+            headers=get_auth_headers(),
+        )
+        with database.get_db_context() as conn:
+            case_id = evidence_builder.create_case("purge-device")
+            # Media rows with a very old timestamp: one tied to an ACTIVE
+            # case, one with NO case, one tied to a CLOSED case.
+            closed_id = evidence_builder.create_case("purge-device")
+            conn.execute("UPDATE evidence_cases SET status='closed' WHERE id=?", (closed_id,))
+            conn.execute(
+                "INSERT INTO media (device_id, type, data_b64, timestamp, evidence_case_id) "
+                "VALUES ('purge-device', 'photo', 'AAAA', '2020-01-01 00:00:00', ?)",
+                (case_id,),
+            )
+            conn.execute(
+                "INSERT INTO media (device_id, type, data_b64, timestamp) "
+                "VALUES ('purge-device', 'photo', 'BBBB', '2020-01-01 00:00:00')",
+            )
+            conn.execute(
+                "INSERT INTO media (device_id, type, data_b64, timestamp, evidence_case_id) "
+                "VALUES ('purge-device', 'photo', 'CCCC', '2020-01-01 00:00:00', ?)",
+                (closed_id,),
+            )
+            conn.commit()
+
+        # Module-level `database` binding for the same eviction reason as the
+        # cap test: purge must run against the SAME DB the rows above were
+        # inserted into.
+        result = database.purge_old_data(0)  # 0-day retention: everything old is stale
+
+        with database.get_db_context() as conn:
+            remaining = [
+                r["data_b64"]
+                for r in conn.execute("SELECT data_b64 FROM media WHERE device_id='purge-device'").fetchall()
+            ]
+        # Only the active-case photo survives (other test rows may have been
+        # purged too — assert on OUR rows, not an exact global count).
+        assert remaining == ["AAAA"], f"expected only active-case media, got {remaining}"
+        assert result["media_purged"] >= 2
 
 
 # ─── Authentication ──────────────────────────────────────────────────────────

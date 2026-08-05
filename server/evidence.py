@@ -141,10 +141,35 @@ class EvidenceBuilder:
             }
 
     def get_media_for_case(self, case_id: str) -> list[dict]:
-        """Get full media items (including data_b64) for an evidence case."""
+        """Get full media items (including data_b64) for an evidence case.
+
+        Since the v1.4 media refactor, bytes live on disk (file_path); the
+        legacy data_b64 field is reconstructed from the file so consumers
+        (evidence_pdf.py) keep working unchanged. Pre-refactor rows still
+        carry their base64 directly.
+        """
+        import base64
+
         with get_db_context() as conn:
             rows = conn.execute("SELECT * FROM media WHERE evidence_case_id=?", (case_id,)).fetchall()
-            return [dict(r) for r in rows]
+
+        result = []
+        for r in rows:
+            item = dict(r)
+            file_path = item.get("file_path")
+            if file_path:
+                try:
+                    from media_store import load_media
+
+                    item["data_b64"] = base64.b64encode(load_media(file_path)).decode("ascii")
+                except (FileNotFoundError, ValueError):
+                    # Missing file (e.g. media volume restored before DB):
+                    # keep the row so the PDF skips the image gracefully.
+                    item["data_b64"] = ""
+            # Legacy rows have no file_path — data_b64 is already populated.
+            result.append(item)
+
+        return result
 
     def compile_pdf_data(self, case_id: str) -> Optional[dict]:
         """

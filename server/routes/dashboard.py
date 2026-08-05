@@ -3,6 +3,7 @@ Magneetar Dashboard-Facing API Routes
 All endpoints for the web dashboard (devices, locations, commands, evidence, etc.)
 """
 
+import base64
 import hmac
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -854,14 +855,25 @@ async def get_media_file(
         raise HTTPException(status_code=404, detail="Media not found")
     _assert_device_access(db, row["device_id"], auth)
 
+    # Media storage refactor (v1.4): bytes live on disk (file_path) for new
+    # rows; legacy rows keep base64 in data_b64. Both are served in the same
+    # legacy wire format so old dashboard builds keep working unchanged.
+    from media_store import media_bytes_for_row
+
+    try:
+        data_b64 = base64.b64encode(media_bytes_for_row(row)).decode("ascii")
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(status_code=404, detail="Media file missing on server")
+
     return {
         "id": row["id"],
         "type": row["type"],
-        "data_b64": row["data_b64"],
+        "data_b64": data_b64,
         "timestamp": row["timestamp"],
         "lat": row["lat"],
         "lng": row["lng"],
         "sha256_hash": row["sha256_hash"],
+        "file_size": row["file_size"] if "file_size" in row.keys() else None,
     }
 
 
@@ -885,6 +897,11 @@ async def delete_media(
     _assert_device_access(db, row["device_id"], auth)
 
     _verify_stepup_password(db, auth, body.get("password"))
+
+    # Remove the media file from disk alongside the DB row (best-effort).
+    from media_store import delete_media_file
+
+    delete_media_file(row["file_path"] if "file_path" in row.keys() else None)
 
     # Remove the media row, then fix up the evidence-case counters it
     # contributed (a deleted item must not leave stale counts).
