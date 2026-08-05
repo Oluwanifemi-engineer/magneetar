@@ -46,7 +46,30 @@ jobs:
       - name: Run tests (full suite incl. live WebSocket integration tests)
         run: |
           cd server
-          python -m pytest tests/ -v --tb=short
+          python -m pytest tests/ -v --tb=short 2>&1 | tee /tmp/pytest.log
+
+      - name: Surface pytest failure details (diagnostic annotations)
+        # CI logs require auth, but annotations are public via the check-runs
+        # API. On failure, emit the tail of the pytest log as ::error:: so the
+        # exact failing test/traceback is visible without admin access.
+        if: failure()
+        run: |
+          python3 - <<'PYEOF'
+          import pathlib
+          try:
+              text = pathlib.Path('/tmp/pytest.log').read_text(errors='replace')
+          except FileNotFoundError:
+              print('::error::pytest log not found')
+              raise SystemExit(0)
+          lines = text.splitlines()
+          # Keep failing-test context: any FAILED/ERROR lines + last 60 lines.
+          keep = [l for l in lines if any(k in l for k in ('FAILED', 'ERROR', 'Error', 'assert', 'Exception'))][-40:]
+          tail = lines[-60:]
+          merged = keep + ['---tail---'] + tail
+          msg = '\n'.join(merged[-90:])
+          msg = msg.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error file=server/tests::CI pytest failure:{msg[:60000]}')
+          PYEOF
 
       - name: Run linting (flake8)
         # Uses the repo-root .flake8 config (auto-discovered by walking up from
