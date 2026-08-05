@@ -52,16 +52,17 @@ from websocket_manager import (  # noqa: E402
 client = TestClient(app)
 
 
-async def _wait_until(predicate, timeout: float = 10.0) -> bool:
+async def _wait_until(predicate, timeout: float = 20.0) -> bool:
     """Poll a plain condition until it holds or the timeout elapses.
 
     WebSocket registration/eviction happens in the uvicorn thread, so the
     test must poll the shared module-level connection list rather than sleep.
 
-    The timeout is deliberately generous (10s): these are LIVE tests against
-    a real uvicorn server, and under full-suite / CI load (2-core runners) a
-    slow scheduler can delay registration by more than the old 3s budget — a
-    recurring CI flake. Tests that call this raise their own assertion with
+    The timeout is deliberately generous (20s): these are LIVE tests against
+    a real uvicorn server, and under full-suite / CI load (2-4 core runners)
+    a slow scheduler can delay registration by more than the old 3s budget —
+    a recurring CI flake (observed in the wild: a late frame surfaced as a
+    raw TimeoutError). Tests that call this raise their own assertion with
     the expected condition on False.
     """
     deadline = time.time() + timeout
@@ -72,7 +73,7 @@ async def _wait_until(predicate, timeout: float = 10.0) -> bool:
     return False
 
 
-async def _assert_closed_with_code(url: str, code: int, timeout: float = 10.0) -> None:
+async def _assert_closed_with_code(url: str, code: int, timeout: float = 30.0) -> None:
     """Assert that connecting to `url` is closed by the server with `code`.
 
     Assumes the endpoint accepts first and only closes afterward (e.g. 4001 on
@@ -81,11 +82,13 @@ async def _assert_closed_with_code(url: str, code: int, timeout: float = 10.0) -
     raise InvalidStatus (not ConnectionClosed) and this helper would surface it
     as a raw error rather than an assertion.
 
-    The recv timeout is deliberately generous (10s): these are LIVE tests
-    against a real uvicorn server, and under full-suite / CI load a slow
-    scheduler can delay the close frame by more than the old 2s budget — the
-    resulting raw TimeoutError was a recurring CI flake. A timeout now raises a
-    clear assertion naming the expected code instead.
+    The recv timeout is deliberately generous (30s): these are LIVE tests
+    against a real uvicorn server, and under full-suite / CI load the close
+    frame can be delayed well beyond the old 2s/10s budgets — reproduced under
+    CPU contention at 10s (raw TimeoutError), which was the recurring CI flake
+    and the reason each server's teardown now forces a prompt uvicorn exit (no
+    zombie event loops stealing CPU from the next live test). A timeout now
+    raises a clear assertion naming the expected code instead.
     """
     try:
         async with websockets.connect(url) as ws:
@@ -116,11 +119,15 @@ def live_ws_server():
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]
 
-    server = uvicorn.Server(uvicorn.Config(app, log_level="warning", access_log=False))
+    # timeout_graceful_shutdown: without it, uvicorn's graceful shutdown waits
+    # indefinitely for lingering connections, so thread.join() below would
+    # time out and leave a zombie event loop stealing CPU from the next live
+    # test — a compounding CI flake source under load.
+    server = uvicorn.Server(uvicorn.Config(app, log_level="warning", access_log=False, timeout_graceful_shutdown=2))
     thread = threading.Thread(target=server.run, args=([sock],), daemon=True)
     thread.start()
 
-    deadline = time.time() + 10
+    deadline = time.time() + 20
     while not server.started and time.time() < deadline:
         time.sleep(0.05)
     assert server.started, "uvicorn failed to start for WebSocket integration test"
@@ -128,7 +135,9 @@ def live_ws_server():
     yield f"ws://127.0.0.1:{port}/ws/dashboard"
 
     server.should_exit = True
-    thread.join(timeout=5)
+    server.force_exit = True  # skip waiting for active connections → prompt exit
+    thread.join(timeout=15)
+    assert not thread.is_alive(), "uvicorn server thread leaked past teardown (zombie event loop)"
 
 
 # ── Cleanup ─────────────────────────────────────────────────────────────────
@@ -352,12 +361,12 @@ class TestWebSocketConnectionLimits:
             # auth-rejection tests; see _assert_closed_with_code).
             assert await _wait_until(lambda: len(active_dashboard_connections) == 2)
             try:
-                await asyncio.wait_for(ws1.recv(), timeout=10.0)
+                await asyncio.wait_for(ws1.recv(), timeout=30.0)
                 raise AssertionError("ws1 should have been evicted")
             except websockets.exceptions.ConnectionClosed as exc:
                 assert getattr(exc.rcvd, "code", None) == 1013
             except asyncio.TimeoutError:
-                raise AssertionError("server did not evict ws1 within 10s (expected close code 1013)")
+                raise AssertionError("server did not evict ws1 within 30s (expected close code 1013)")
         finally:
             for ws in (ws2, ws3):
                 if ws is not None:
@@ -393,7 +402,7 @@ class TestWebSocketConnectionLimits:
         async with websockets.connect(url) as ws:
             assert await _wait_until(lambda: len(active_dashboard_connections) == 1)
             await ws.send("ping")
-            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=10.0))
+            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=30.0))
             assert pong["type"] == "pong"
 
         # Connection must be deregistered after the client disconnects
@@ -410,7 +419,7 @@ class TestWebSocketConnectionLimits:
         async with websockets.connect(url) as ws:
             assert await _wait_until(lambda: len(active_dashboard_connections) == 1)
             await ws.send("ping")
-            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=10.0))
+            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=30.0))
             assert pong["type"] == "pong"
 
         assert await _wait_until(lambda: len(active_dashboard_connections) == 0)
@@ -430,7 +439,7 @@ class TestWebSocketConnectionLimits:
         async with websockets.connect(url) as ws:
             assert await _wait_until(lambda: len(active_dashboard_connections) == 1)
             await ws.send("ping")
-            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=10.0))
+            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=30.0))
             assert pong["type"] == "pong"
 
         assert await _wait_until(lambda: len(active_dashboard_connections) == 0)
