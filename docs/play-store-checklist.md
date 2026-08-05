@@ -9,6 +9,73 @@ lost smart device.
 
 ---
 
+## 🚨 Play Protect blocks sideloaded installs (live issue — 2026-08-05)
+
+**Reported:** a user installing the APK from `app.magneetar.me/download` hit
+Google Play Protect's hard block ("This app can request access to sensitive
+data"). Root cause analysis + verification:
+
+### Why the block happens
+
+Play Protect applies maximum skepticism to any app installed from outside the
+Play Store, and it blocks deterministically when the manifest declares the
+permission profile that malware/ stalkerware abuse. Magneetar declares exactly
+that profile because it is a real anti-theft product:
+
+| Permission | Declared for | Why it's also a malware signal |
+|---|---|---|
+| `RECEIVE_SMS` | Offline command relay (commands over SMS when a stolen phone has no data) | SMS interception = 2FA-theft vector — the #1 deterministic sideload block trigger |
+| `SEND_SMS` | Best-effort ack reply over SMS | SMS abuse signal |
+| `READ_PHONE_STATE` | Best-effort SIM-number prefill | Telephony-data signal |
+| `BIND_DEVICE_ADMIN` (AdminReceiver) | Survive thief's uninstall attempt | Ransomware/stalkerware hallmark |
+| `ACCESS_BACKGROUND_LOCATION` | Theft detection when app is closed | Stalkerware signal |
+| `CAMERA` + `RECORD_AUDIO` | Remote evidence capture during theft response | Spyware signal |
+| `SYSTEM_ALERT_WINDOW`, `USE_EXACT_ALARM`, `SCHEDULE_EXACT_ALARM` | Theft-deterrent overlay + watchdog alarms | Restricted-permission scrutiny |
+
+Plus: the release key is **new** (created 2026-08-03, zero install history), so
+Play Protect also shows the "doesn't recognize this app's developer" warning
+until the certificate builds reputation. **The app itself is not malware** — a
+code audit confirms genuine defense-in-depth (SMS sender allowlist + pairing
+code + 24h brute-force cooldown, device-admin user consent, TLS-only release
+builds) — this is a **false-positive profile block**, and it will recur for
+every new user until the app is on the Play Store.
+
+### The fundamental conflict (product decision)
+
+The **offline SMS relay** feature *requires* `RECEIVE_SMS` in the manifest —
+there is no other Android API that lets a non-default-SMS-app read incoming
+SMS. `RECEIVE_SMS` is simultaneously the strongest deterministic Play Protect
+block trigger for sideloaded apps. **Sideloading and the SMS relay cannot both
+be frictionless.** Options:
+
+1. **Distribute via Google Play (the real fix).** Play-installed apps inherit a
+trust baseline; the permission declarations + Data Safety form give Google the
+legitimate-use context for `RECEIVE_SMS`. The block disappears for everyone.
+2. **Shrink the trigger surface (partial relief):** drop `USE_EXACT_ALARM`
+(restricted on Android 14+, see section D); consider dropping `SEND_SMS` +
+`READ_PHONE_STATE` (best-effort only — modern Android requires default-SMS-app
+status to send SMS anyway, and the network outbox already carries acks).
+`RECEIVE_SMS` stays (load-bearing).
+3. **Split builds:** a base APK *without* SMS permissions for clean sideloads,
+with the SMS relay shipped only via a separate Play-listed build.
+4. **Play Protect appeal** (only if ever flagged PHA — not the current case):
+`developers.google.com/android/play-protect/warning-dev-guidance`.
+
+### Consumer mitigation (implemented 2026-08-05)
+
+- The download page now has a **"Android says Play Protect blocked this app?"**
+guide: it explains the warning is generic for any sideloaded app with
+sensitive permissions, gives the exact **More details → Install anyway** flow,
+and points users to the SHA-256 + signature checks as the trust mechanism.
+- The checksum + `apksigner` verification instructions already on the page let
+a cautious user confirm the file is the genuine, correctly-signed release.
+
+**Decision needed before Play submission:** option 1 (Play) is the only
+complete fix; options 2–3 are partial mitigations. See also section C (Device
+Admin EMM declaration) — the same submission gates apply.
+
+---
+
 ## ✅ Completed & Verified
 
 | # | Item | Evidence |

@@ -7,6 +7,7 @@ import { Footer } from '@/components/landing/Footer';
 import {
   Download,
   ShieldCheck,
+  ShieldAlert,
   Smartphone,
   Copy,
   Check,
@@ -318,6 +319,55 @@ export default function DownloadPage() {
                 <span className="text-[12px] font-mono text-white/40">FETCHING CHECKSUM…</span>
               </div>
             )}
+          </div>
+        </section>
+
+        {/* ─── Play Protect warning guide ────────────────────────────────── */}
+        <section className="mt-14 rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-7 sm:p-9">
+          <div className="flex items-center gap-2">
+            <ShieldAlert size={17} className="text-amber-400" />
+            <h2 className="text-xl font-display font-extrabold tracking-tight">
+              Android says &ldquo;Play Protect blocked this app&rdquo;?
+            </h2>
+          </div>
+          <p className="mt-3 text-[13.5px] leading-relaxed text-white/50">
+            That warning is expected for Magneetar today — it is a generic caution Android shows for{' '}
+            <span className="text-white font-semibold">any</span> app installed from outside the Play
+            Store that requests sensitive permissions. It is not a malware detection. Here is why it
+            appears and how to proceed safely.
+          </p>
+
+          <div className="mt-6 space-y-4">
+            <div className="flex gap-3">
+              <span className="mt-[7px] w-1.5 h-1.5 shrink-0 rounded-full bg-amber-400/80" aria-hidden="true" />
+              <div className="text-[13.5px] leading-relaxed text-white/50">
+                <span className="text-white font-semibold">Why the warning appears:</span> Magneetar needs
+                the same permissions spyware abuses — SMS (for offline theft commands when a stolen phone
+                has no data), Device Admin (so a thief can&apos;t uninstall it), and background location (theft
+                detection). Because those permissions are abused by real malware, Google warns about them
+                on every sideloaded install, regardless of whether the app is legitimate.
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-[7px] w-1.5 h-1.5 shrink-0 rounded-full bg-amber-400/80" aria-hidden="true" />
+              <div className="text-[13.5px] leading-relaxed text-white/50">
+                <span className="text-white font-semibold">What to do:</span> tap{' '}
+                <span className="font-mono text-white/80">More details</span>, review the list, then tap{' '}
+                <span className="font-mono text-white/80">Install anyway</span>. On some Android versions
+                the &ldquo;Install anyway&rdquo; button only appears after you open &ldquo;More details&rdquo;. The warning
+                disappears entirely once the app ships on the Play Store.
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-[7px] w-1.5 h-1.5 shrink-0 rounded-full bg-amber-400/80" aria-hidden="true" />
+              <div className="text-[13.5px] leading-relaxed text-white/50">
+                <span className="text-white font-semibold">Install only after verifying:</span> confirm the
+                downloaded file&apos;s SHA-256 matches the value shown in the card above, and that the APK
+                comes from this page (never WhatsApp forwards or mirrors). The checksum and signature
+                checks below are the trust mechanism that replaces the Play Store&apos;s review until Magneetar
+                is listed there.
+              </div>
+            </div>
           </div>
         </section>
 
