@@ -110,6 +110,7 @@
 
             <!-- Password -->
             <TextView
+                android:id="@+id/tv_password_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
@@ -132,6 +133,48 @@
                 android:hint="Enter your password"
                 android:inputType="textPassword"
                 android:fontFamily="sans-serif" />
+
+            <!-- Two-factor authentication step (hidden until the server
+                 answers login with requires_2fa). -->
+            <TextView
+                android:id="@+id/tv_2fa_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="2-FACTOR CODE"
+                android:textColor="#606060"
+                android:textSize="11sp"
+                android:letterSpacing="0.15"
+                android:fontFamily="sans-serif-medium"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tv_2fa_hint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="Open your authenticator app and enter the 6-digit code"
+                android:textColor="#808080"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif"
+                android:visibility="gone" />
+
+            <EditText
+                android:id="@+id/et_2fa_code"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginBottom="20dp"
+                android:background="@drawable/input_background"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp"
+                android:textColor="#F5F5F5"
+                android:textColorHint="#404040"
+                android:textSize="14sp"
+                android:hint="000000"
+                android:inputType="number"
+                android:maxLength="6"
+                android:fontFamily="sans-serif"
+                android:visibility="gone" />
 
             <!-- Error -->
             <TextView

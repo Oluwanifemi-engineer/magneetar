@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Network -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -8,7 +9,28 @@
     <!-- Location -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- PROMINENT DISCLOSURE — background location (required by Google Play
+         policy, enforced for targetSdk 30+):
+
+         Magneetar is an anti-theft app. When a phone is marked STOLEN (or
+         the owner arms remote evidence capture), the app reports the device
+         location in the background — including while the screen is locked —
+         so the owner can locate and recover the phone even after it falls
+         into a thief's hands.
+
+         This permission is only exercised when (a) the user has explicitly
+         signed in and linked the device to their account, and (b) theft mode
+         or evidence capture is active. Location is transmitted to the user's
+         own Magneetar server account; it is never sold or shared with third
+         parties, and no advertising/analytics use it.
+
+         The in-app consent flow (PermissionsActivity) states the purpose and
+         the dashboard settings page mirrors this disclosure. The Play
+         Console data-safety form must ALSO declare "Approximate/Derived
+         location" collection. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"
+        tools:ignore="ProtectedPermissions" />
 
     <!-- Camera (runtime) + Android 14+ foreground-service camera type.
          The FOREGROUND_SERVICE_* perms are normal install-time permissions
@@ -43,9 +65,14 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
-    <!-- Exact alarms (Android 13+) -->
+    <!-- Exact alarms (Android 12+): SCHEDULE_EXACT_ALARM is a runtime-granted
+         normal permission — the watchdog prefers exact alarms when the user
+         has allowed them (system settings → alarms & reminders), and silently
+         degrades to inexact alarms otherwise. USE_EXACT_ALARM is deliberately
+         NOT declared: Play restricts it to core alarm/calendar apps, and a
+         denied review would block the whole release for no survival benefit
+         (see WatchdogReceiver.canScheduleExactAlarms fallback). -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <!-- Offline Command Relay (SMS): RECEIVE_SMS lets the app intercept
          command SMS from the server when the device has no data; SEND_SMS

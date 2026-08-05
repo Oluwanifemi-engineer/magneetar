@@ -135,7 +135,7 @@ android {
         // versionName is read from the repo-root VERSION file at build time
         // (same value the server reports and the APK filename uses).
         // versionCode must strictly increase on every Play release.
-        versionCode = 5
+        versionCode = 6
         versionName = appVersion
 
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")
@@ -168,12 +168,14 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        // Java 17 bytecode target — required by recent AGP/AndroidX releases
+        // and the Google Play Console's 2025+ toolchain expectations.
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
 }
 

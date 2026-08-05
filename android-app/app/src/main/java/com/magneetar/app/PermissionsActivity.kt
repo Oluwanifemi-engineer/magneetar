@@ -28,6 +28,7 @@ class PermissionsActivity : AppCompatActivity() {
     companion object {
         private const val PERM_REQUEST_CODE = 200
         private const val ADMIN_REQUEST_CODE = 201
+        private const val BG_LOCATION_DISCLOSURE_CODE = 202
     }
 
     private lateinit var devicePolicyManager: DevicePolicyManager
@@ -247,6 +248,42 @@ class PermissionsActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Google Play requires a PROMINENT DISCLOSURE before an app that targets
+     * SDK 30+ may request background location. It must be shown in-app (not
+     * only in the Play listing) and must say the request itself and its
+     * purpose. We show it the first time location is about to be requested;
+     * the user must actively acknowledge before we call requestPermissions.
+     */
+    private var disclosurePendingLocation = false
+
+    private fun showBackgroundLocationDisclosure() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Location access for theft protection")
+            .setMessage(
+                "Magneetar requests access to your device's location " +
+                "\u2014 including in the background \u2014 so you can find your phone " +
+                "if it is stolen." +
+                "\n\n" +
+                "\u2022 Your location is sent only to your own Magneetar account.\n" +
+                "\u2022 It is never sold or shared with advertisers or third parties.\n" +
+                "\u2022 Background tracking is used for theft recovery and armed " +
+                "evidence capture only.\n\n" +
+                "You can stop background location anytime in Settings."
+            )
+            .setPositiveButton("ALLOW LOCATION") { _, _ ->
+                disclosurePendingLocation = false
+                requestPermissionsInternal()
+            }
+            .setNegativeButton("NOT NOW") { _, _ ->
+                disclosurePendingLocation = false
+                refreshUI()
+            }
+            .setCancelable(true)
+            .setOnCancelListener { disclosurePendingLocation = false }
+            .show()
+    }
+
     private fun onActionClick() {
         // Step 1: Request runtime permissions. The SMS permissions are bundled
         // into the same batch — RECEIVE_SMS is what makes the Offline Command
@@ -255,28 +292,14 @@ class PermissionsActivity : AppCompatActivity() {
         // is an opt-in feature), so they're requested alongside the required
         // ones but never block completion if denied.
         if (!hasLocation() || !hasCamera() || !hasMic() || !hasNotifications() || !hasSmsPermissions()) {
-            val missing = mutableListOf<String>()
-            if (!hasLocation()) {
-                missing.add(Manifest.permission.ACCESS_FINE_LOCATION)
-                missing.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            // Prominent-disclosure gate: hold the request until the user has
+            // acknowledged background-location access (one-time per session).
+            if (!disclosurePendingLocation && !hasLocation()) {
+                disclosurePendingLocation = true
+                showBackgroundLocationDisclosure()
+                return
             }
-            if (!hasCamera()) missing.add(Manifest.permission.CAMERA)
-            if (!hasMic()) missing.add(Manifest.permission.RECORD_AUDIO)
-            // Android 13+ requires POST_NOTIFICATIONS for FCM alert delivery
-            if (!hasNotifications()) missing.add(Manifest.permission.POST_NOTIFICATIONS)
-            // Offline Command Relay (optional): RECEIVE_SMS intercepts command
-            // SMS, SEND_SMS enables best-effort ack replies, READ_PHONE_STATE
-            // reads the SIM number for the relay's target. Safe to request in
-            // the same dialog; the user can deny without blocking setup.
-            if (!hasSmsPermissions()) {
-                missing.add(Manifest.permission.RECEIVE_SMS)
-                missing.add(Manifest.permission.SEND_SMS)
-                missing.add(Manifest.permission.READ_PHONE_STATE)
-            }
-
-            ActivityCompat.requestPermissions(
-                this, missing.toTypedArray(), PERM_REQUEST_CODE
-            )
+            requestPermissionsInternal()
             return
         }
 
@@ -307,6 +330,41 @@ class PermissionsActivity : AppCompatActivity() {
 
         // All done
         navigateToHome()
+    }
+
+    private fun requestPermissionsInternal() {
+        if (hasLocation() && hasCamera() && hasMic() && hasNotifications() && hasSmsPermissions()) {
+            refreshUI()
+            return
+        }
+        val missing = mutableListOf<String>()
+        if (!hasLocation()) {
+            missing.add(Manifest.permission.ACCESS_FINE_LOCATION)
+            missing.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            // Background location is requested in the SAME dialog as the
+            // foreground permissions — Play requires the permission to be
+            // requested together, not separately, for targetSdk 30+.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                missing.add(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            }
+        }
+        if (!hasCamera()) missing.add(Manifest.permission.CAMERA)
+        if (!hasMic()) missing.add(Manifest.permission.RECORD_AUDIO)
+        // Android 13+ requires POST_NOTIFICATIONS for FCM alert delivery
+        if (!hasNotifications()) missing.add(Manifest.permission.POST_NOTIFICATIONS)
+        // Offline Command Relay (optional): RECEIVE_SMS intercepts command
+        // SMS, SEND_SMS enables best-effort ack replies, READ_PHONE_STATE
+        // reads the SIM number for the relay's target. Safe to request in
+        // the same dialog; the user can deny without blocking setup.
+        if (!hasSmsPermissions()) {
+            missing.add(Manifest.permission.RECEIVE_SMS)
+            missing.add(Manifest.permission.SEND_SMS)
+            missing.add(Manifest.permission.READ_PHONE_STATE)
+        }
+
+        ActivityCompat.requestPermissions(
+            this, missing.toTypedArray(), PERM_REQUEST_CODE
+        )
     }
 
     override fun onRequestPermissionsResult(
