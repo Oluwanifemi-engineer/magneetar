@@ -364,6 +364,61 @@ class UserResponse(BaseModel):
     created_at: Optional[str] = None
     device_count: int = 0
     max_devices: int = 5
+    # Account security (v1.4): 2FA state + email verification status, surfaced
+    # so the dashboard can show the right settings UI.
+    totp_enabled: bool = False
+    email_verified: bool = False
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v):
+        return v.lower().strip()
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    token: str = Field(..., min_length=20, max_length=200)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v):
+        return v.lower().strip()
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password(cls, v):
+        # Mirror UserRegisterRequest's strength rules (a reset must not be
+        # able to set a weaker password than registration allows).
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(c.islower() for c in v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit")
+        return v
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(..., min_length=20, max_length=200)
+
+
+class TwoFactorVerifyRequest(BaseModel):
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^[0-9]{6}$")
+    password: Optional[str] = Field(None, max_length=200)
+
+
+class TwoFactorDisableRequest(BaseModel):
+    password: str = Field(..., max_length=200)
+
+
+class LoginTwoFactorRequest(BaseModel):
+    two_factor_token: str
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^[0-9]{6}$")
 
 
 class RefreshRequest(BaseModel):

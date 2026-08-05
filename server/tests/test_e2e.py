@@ -47,6 +47,13 @@ for mod_name in list(sys.modules.keys()):
         # sys.modules makes their sweep read a dead database instance's path.
         or mod_name == "archive_monitor"
         or mod_name == "offline_monitor"
+        # user_security/media_store (v1.4) are imported by main/user_auth and
+        # also bind database+config at MODULE level. Without eviction they
+        # keep pointing at a pre-eviction database module whose DB_PATH is an
+        # earlier test file's temp DB — 2FA/reset writes land in the wrong
+        # database and tests read them back from their own fresh one.
+        or mod_name == "user_security"
+        or mod_name == "media_store"
     ):
         del sys.modules[mod_name]
 

@@ -50,6 +50,12 @@ class Settings:
     # ── Database ───────────────────────────────────────────────────────────
     DB_PATH: str = os.environ.get("MT_DB_PATH", "magneetar.db")
     DATABASE_URL: str = os.environ.get("MT_DATABASE_URL", "")
+    # Media files (evidence photos/audio/video) live on DISK, not in the DB
+    # (see media_store.py). Default `media/` relative to the server CWD; set
+    # to /app/media on the persisted volume in the Docker stack. media_store
+    # resolves this live from the environment so tests can point it at a temp
+    # dir without import-order games.
+    MEDIA_DIR: str = os.environ.get("MT_MEDIA_DIR", "media")
 
     # ── Alert Services ─────────────────────────────────────────────────────
     SENDGRID_API_KEY: str = os.environ.get("MT_SENDGRID_KEY", "")
@@ -94,10 +100,23 @@ class Settings:
 
     # ── Environment ────────────────────────────────────────────────────────
     ENVIRONMENT: str = os.environ.get("MT_ENVIRONMENT", "development")
+    # Base URL of the dashboard web app — used for links emailed to users
+    # (password reset, email verification). Self-hosted deployments must set
+    # this to their own dashboard origin.
+    DASHBOARD_URL: str = os.environ.get("MT_DASHBOARD_URL", "https://app.magneetar.me")
 
     # ── Limits ─────────────────────────────────────────────────────────────
     # Free-tier device allowance (default 1 — "free for one device").
     MAX_DEVICES_PER_USER: int = int(os.environ.get("MT_MAX_DEVICES", "1"))
+    # Cap on UNOWNED (not linked to any account) devices. The master API key
+    # ships inside every APK, so anyone can register a device; this bounds the
+    # storage-pollution surface so an attacker can't flood the devices table
+    # (locations/heartbeats/media can only be uploaded to YOUR OWN registered
+    # ids, but thousands of junk rows still bloat the DB and dashboards).
+    # Default 250: generous enough for a real deployment's transiently-unlinked
+    # fleet (phones register with the embedded key, then link to an account on
+    # sign-in) while still capping a single attacker's flood.
+    MAX_UNOWNED_DEVICES: int = int(os.environ.get("MT_MAX_UNOWNED_DEVICES", "250"))
     # Device allowance per PAID tier. Overridable as a JSON object via
     # MT_PLAN_LIMITS, e.g. '{"personal": 3, "guardian": 10, "enterprise": 999}'.
     # A partial override MERGES over the defaults (never replaces them), so

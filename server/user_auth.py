@@ -26,6 +26,12 @@ from models import (
     UserResponse,
 )
 
+# 2FA: the login flow branches into a challenge when the user has TOTP
+# enabled. Imported at module level (never inside the request path) — see the
+# test_e2e eviction notes in routes/dashboard.py; user_security.py does not
+# import user_auth, so there is no cycle.
+from user_security import issue_2fa_challenge, login_requires_2fa
+
 router = APIRouter()
 
 
@@ -76,9 +82,14 @@ async def register_user(req: UserRegisterRequest, request: Request):
     return TokenResponse(**tokens)
 
 
-@router.post("/api/auth/user/login", response_model=TokenResponse)
+@router.post("/api/auth/user/login")
 async def login_user(req: UserLoginRequest, request: Request):
-    """Login with email and password."""
+    """Login with email and password.
+
+    No response_model on purpose: with 2FA enabled the response is a
+    challenge ({requires_2fa, two_factor_token}) instead of tokens, so the
+    shape is dynamic. Clients branch on requires_2fa.
+    """
     forwarded = request.headers.get("X-Forwarded-For", "")
     cf_ip = request.headers.get("CF-Connecting-IP", "")
     client_ip = cf_ip or (
@@ -89,7 +100,9 @@ async def login_user(req: UserLoginRequest, request: Request):
         raise HTTPException(status_code=429, detail="Too many login attempts")
 
     with get_db_context() as db:
-        user = db.execute("SELECT id, password_hash, is_active FROM users WHERE email=?", (req.email,)).fetchone()
+        user = db.execute(
+            "SELECT id, password_hash, is_active, totp_enabled FROM users WHERE email=?", (req.email,)
+        ).fetchone()
 
         # Always run verify_password to prevent timing attacks (a fixed
         # well-formed pbkdf2 hash burns the same CPU as a real one, so
@@ -108,14 +121,22 @@ async def login_user(req: UserLoginRequest, request: Request):
         if not user["is_active"]:
             raise HTTPException(status_code=403, detail="Account is deactivated")
 
-        # Update last login
-        db.execute(
-            "UPDATE users SET last_login=? WHERE id=?",
-            (datetime.now(timezone.utc).isoformat(), user["id"]),
-        )
-        db.commit()
+        # Update last login (only when 2FA is NOT enabled — with 2FA, "last
+        # login" is stamped by the successful second step).
+        if not login_requires_2fa(user):
+            db.execute(
+                "UPDATE users SET last_login=? WHERE id=?",
+                (datetime.now(timezone.utc).isoformat(), user["id"]),
+            )
+            db.commit()
 
         log_audit("user_login", actor=user["id"], ip_address=client_ip)
+
+    # 2FA gate: a 2FA-enabled account never receives real tokens from the
+    # password step alone — only a short-lived challenge, exchanged for real
+    # tokens at /api/auth/user/login/2fa after a valid TOTP code.
+    if login_requires_2fa(user):
+        return issue_2fa_challenge(user["id"])
 
     tokens = create_user_tokens(user["id"])
     return TokenResponse(**tokens)
@@ -140,7 +161,8 @@ async def get_me(user_id: str = Depends(get_current_user)):
 
     with get_db_context() as db:
         user = db.execute(
-            "SELECT id, email, display_name, tier, is_active, created_at FROM users WHERE id=?",
+            "SELECT id, email, display_name, tier, is_active, created_at, email_verified, totp_enabled "
+            "FROM users WHERE id=?",
             (user_id,),
         ).fetchone()
 
@@ -160,6 +182,8 @@ async def get_me(user_id: str = Depends(get_current_user)):
             created_at=user["created_at"],
             device_count=device_count,
             max_devices=max_devices,
+            totp_enabled=bool(user["totp_enabled"]),
+            email_verified=bool(user["email_verified"]),
         )
 
 

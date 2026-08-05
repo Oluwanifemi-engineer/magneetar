@@ -378,6 +378,17 @@ def create_user_tokens(user_id: str) -> dict:
     }
 
 
+def create_two_factor_token(user_id: str) -> str:
+    """Short-lived single-purpose JWT proving the password half of a 2FA
+    login. Issued when a 2FA-enabled user logs in with the correct password;
+    exchanged for real tokens only after a valid TOTP code is submitted.
+
+    The type '2fa' is rejected by every other auth dependency (device,
+    dashboard, user), so a stolen 2FA token is useless outside this flow.
+    """
+    return create_token(f"user:{user_id}", "2fa", timedelta(minutes=5))
+
+
 def user_id_from_subject(subject: str) -> Optional[str]:
     """Extract the user id from a JWT subject like 'user:usr-xxx'.
 
@@ -399,13 +410,20 @@ def get_current_user(
     Security (F-02): the master API key is embedded in every APK and must not
     grant user-route access. The x-api-key -> 'api_key_user' fallback has been
     removed; only real JWTs are accepted.
+
+    Type check (v1.4): a `user:` subject alone is NOT enough — the 2FA
+    challenge JWT (type '2fa') also carries a user: subject and must never
+    act as a session. Only tokens minted as real session tokens
+    (dashboard/access) pass.
     """
     if credentials:
         payload = decode_token(credentials.credentials)
         sub = payload.get("sub", "")
         user_id = user_id_from_subject(sub)
         if user_id:
-            return user_id
+            if payload.get("type") in ("dashboard", "access"):
+                return user_id
+            raise HTTPException(status_code=401, detail="Invalid token type")
         if payload.get("type") in ("dashboard", "access"):
             return sub
 

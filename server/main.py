@@ -317,6 +317,11 @@ from user_auth import router as user_auth_router  # noqa: E402
 
 app.include_router(user_auth_router)
 
+# User account security routes (2FA, password reset, email verification)
+from user_security import router as user_security_router  # noqa: E402
+
+app.include_router(user_security_router)
+
 # Device-facing routes (registration, location, media, commands, heartbeats)
 from routes.devices import router as device_router  # noqa: E402
 

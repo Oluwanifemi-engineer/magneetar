@@ -37,6 +37,12 @@ firebase-admin==7.5.0
 # Password hashing
 bcrypt==5.0.0
 
+# Account security (v1.4): TOTP two-factor auth + QR provisioning.
+# pyotp is the standard RFC 6238 TOTP implementation; segno renders the
+# provisioning QR as pure-Python SVG (no Pillow dependency).
+pyotp==2.10.0
+segno==1.6.6
+
 # PDF generation for evidence reports
 reportlab==5.0.0
 python-multipart
