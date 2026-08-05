@@ -210,6 +210,8 @@ cloudflared:
 ### Backup
 
 - [x] Live SQLite database is backed up daily (`bash scripts/backup-db.sh`)
+- [x] **Media evidence backed up too** — the same script snapshots `/app/data/media` into a gzipped tarball (restore with `bash scripts/backup-db.sh --restore-media`)
+- [x] **Off-site sync available** — set `MT_RCLONE_REMOTE="mybackups:magneetar"` (any rclone remote) to push DB + media snapshots off-machine after each backup; skipped gracefully when rclone or the remote is unconfigured
 - [ ] Set up automatic daily backups via cron:
   ```bash
   # crontab -e

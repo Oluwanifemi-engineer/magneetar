@@ -22,7 +22,7 @@ services:
       context: ./server
       dockerfile: Dockerfile
       args:
-        APP_VERSION: "1.3.1"
+        APP_VERSION: "1.4.0"
     container_name: magneetar-server
     restart: unless-stopped
     ports:
@@ -36,8 +36,12 @@ services:
       # rebuild silently wiped accounts + device registrations. /app/data is the
       # magneetar-data volume, so data now survives rebuilds.
       - MT_DB_PATH=/app/data/magneetar.db
+      # Media files (evidence photos/audio/video) on the persisted media volume
+      # (v1.4 media refactor — bytes no longer live in the SQLite file).
+      - MT_MEDIA_DIR=/app/media
     volumes:
       - magneetar-data:/app/data
+      - magneetar-media:/app/media
       - ./server/static/apk:/app/static/apk
       # Firebase service-account JSON for FCM push alerts (MT_FIREBASE_KEY in
       # server/.env must point to the CONTAINER path /app/firebase-service-account.json).
@@ -88,3 +92,4 @@ services:
 
 volumes:
   magneetar-data:
+  magneetar-media:

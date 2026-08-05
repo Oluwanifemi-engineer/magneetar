@@ -30,7 +30,13 @@ that profile because it is a real anti-theft product:
 | `BIND_DEVICE_ADMIN` (AdminReceiver) | Survive thief's uninstall attempt | Ransomware/stalkerware hallmark |
 | `ACCESS_BACKGROUND_LOCATION` | Theft detection when app is closed | Stalkerware signal |
 | `CAMERA` + `RECORD_AUDIO` | Remote evidence capture during theft response | Spyware signal |
-| `SYSTEM_ALERT_WINDOW`, `USE_EXACT_ALARM`, `SCHEDULE_EXACT_ALARM` | Theft-deterrent overlay + watchdog alarms | Restricted-permission scrutiny |
+| `SYSTEM_ALERT_WINDOW`, `SCHEDULE_EXACT_ALARM` | Theft-deterrent overlay + watchdog alarms | Restricted-permission scrutiny |
+
+> **Update (2026-08-05):** `USE_EXACT_ALARM` has been **removed** from the
+> manifest (Play restricts it to core alarm/calendar apps). The watchdog now
+> prefers exact alarms only when the user has granted `SCHEDULE_EXACT_ALARM`
+> via system settings, and silently degrades to inexact `set()` otherwise
+> (`WatchdogReceiver.canScheduleExactAlarms()`).
 
 Plus: the release key is **new** (created 2026-08-03, zero install history), so
 Play Protect also shows the "doesn't recognize this app's developer" warning
@@ -81,7 +87,7 @@ Admin EMM declaration) — the same submission gates apply.
 | # | Item | Evidence |
 |---|------|----------|
 | 1 | **Recovery capability proven end-to-end** | `bash scripts/recovery-drill.sh` — 12/12 steps PASS (register → link → theft detection → evidence case → community recovery launch → guardian opt-in → blurred nearby scan → sighting → owner notified → close → device recovered). |
-| 2 | **Full test suite green** | Backend **193 passed** (`server/tests/`: 69 reliability, 36 multi-user, 23 guardian, 22 api, 17 sentinel, 15 auth, 11 e2e). Dashboard **74 passed** (jest, 11 suites) + TypeScript clean (`npx tsc --noEmit`). |
+| 2 | **Full test suite green** | Backend **381 passed** (incl. 24 new user-security tests: 2FA lifecycle, password reset, email verification, unowned-device cap, evidence-retention purge) + flake8 clean. Dashboard **106 passed** across 14 suites (incl. login-2FA, Settings security panel, forgot/reset password) + TypeScript clean (`npx tsc --noEmit`). |
 | 3 | **Privacy policy page** | `dashboard/src/app/privacy/page.tsx` — hosted at `/privacy`, linked from the landing footer (Legal column). Required by Play's User Data policy. |
 | 4 | **Data safety disclosures** | Backend stores only hashed secrets (bcrypt passwords, SHA-256 device keys, hashed IMEI/SIM). No PII sold or shared. |
 | 5 | **Self-hosted server model** | Users connect to their own server URL (default `https://api.magneetar.me`). No third-party data processors beyond user-selected alert providers (Twilio/WhatsApp/email) and optional Sentry. |
@@ -92,7 +98,7 @@ Admin EMM declaration) — the same submission gates apply.
 ## 🟡 Pre-Submission Work Items (mandatory before upload)
 
 ### A. Target SDK & compile SDK ✅ DONE (2026-08-01)
-- **Current:** `compileSdk = 35`, `targetSdk = 35`, `minSdk = 24` in `android-app/app/build.gradle.kts` (AGP 8.7.3, Gradle 8.12 — build requires JDK 21; host default JDK 25 breaks Gradle 8.12, use `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64`).
+- **Current:** `compileSdk = 35`, `targetSdk = 35`, `minSdk = 24` in `android-app/app/build.gradle.kts` (AGP 8.7.3, Gradle 8.12 — build requires JDK 21; host default JDK 25 breaks Gradle 8.12, use `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64`). Bytecode target now **Java 17** (`sourceCompatibility/targetCompatibility = 17`, `kotlinOptions.jvmTarget = "17"`) — required by current AGP/AndroidX and Play's 2025+ toolchain expectations.
 - **Play requirement (2026):** new apps must target **API 35 (Android 15)**; API 36 (Android 16) becomes mandatory **Aug 31, 2026** — bump to 36 then (AGP 8.9.1+ + Gradle 8.11.1+).
 - **Verified:** `./gradlew assembleRelease` succeeds; `aapt` reports `targetSdkVersion:'35'`, `compileSdkVersion:'35'`; release APK live at `/apk/download` (byte-identical). Both CI workflows (`ci.yml`, `build-apk.yml`) now install `platforms;android-35 build-tools;35.0.0`.
 - **Remaining:** re-test background location + FGS behavior on a real device (Android 15 FGS time limits) once the phone is plugged in.
@@ -116,13 +122,14 @@ Admin EMM declaration) — the same submission gates apply.
 ### D. Restricted permissions — declaration form
 Play Console requires a **Permissions Declaration** for each of these (explain feature, user value, and how data is handled):
 - `ACCESS_BACKGROUND_LOCATION` — theft detection when app is closed. Must mention the FGS `location` service and that tracking is per-device opt-in.
-- `SCHEDULE_EXACT_ALARM` + `USE_EXACT_ALARM` — watchdog/health-check alarms. Prefer `SCHEDULE_EXACT_ALARM` (user-grantable) over `USE_EXACT_ALARM` (restricted); on Android 14+ `USE_EXACT_ALARM` is denied for most apps unless the app is a calendar/alarm app. **Action: drop `USE_EXACT_ALARM`** and request exact-alarm via `canScheduleExactAlarms()` flow.
+- `SCHEDULE_EXACT_ALARM` — watchdog/health-check alarms. User-grantable via system settings; the app degrades to inexact alarms when not granted (no `USE_EXACT_ALARM` declared — removed 2026-08-05).
 - `SYSTEM_ALERT_WINDOW` — theft-deterrent overlay. Must be declared with an on-device rationale + link to settings for grant.
 
-### E. Background location justification (review-sensitive)
+### E. Background location justification (review-sensitive) ✅ IMPLEMENTED (2026-08-05)
 - Play's policy: background location must be **integral to the core feature** and the app must be **foreground-service + prominent-disclosure** compliant.
 - The app already: shows a persistent FGS notification (dataSync/location), requests runtime permission with rationale (`PermissionsActivity`), and disables tracking when permission is revoked.
-- **Action:** add an **in-app prominent disclosure** screen (one-time, before enabling background location) that states: *"Magneetar uses background location only while theft protection is armed, to detect when your device leaves a safe zone or changes SIM. Location stops when you disarm or uninstall."* — capture a screenshot for the Play declaration.
+- **Prominent disclosure now shipped in-app:** `PermissionsActivity` shows a one-time **"Location access for theft protection"** dialog before the first location request — it states that location is used *including in the background*, that data goes only to the user's own Magneetar account, is never sold/shared, is used for theft recovery + armed evidence capture only, and how to stop it (Settings). The manifest also carries the disclosure rationale as a comment next to `ACCESS_BACKGROUND_LOCATION`, and `ACCESS_BACKGROUND_LOCATION` is now requested in the **same dialog** as the foreground location permissions (Play-required pattern for targetSdk 30+).
+- **Remaining:** capture a screenshot of the disclosure dialog for the Play declaration.
 
 ### F. Data Safety Form (Play Console)
 Complete with these answers:
@@ -178,7 +185,8 @@ cd android-app && ./gradlew assembleRelease
 - [x] compileSdk/targetSdk ≥ 35 (SDK 35, AGP 8.7.3, Gradle 8.12)
 - [x] Cleartext restricted to local hosts only (release strict, debug override)
 - [ ] Device Admin decision made (EMM declaration OR wipe-data removed)
-- [ ] `USE_EXACT_ALARM` removed; exact-alarm runtime flow implemented
+- [x] `USE_EXACT_ALARM` removed; exact-alarm runtime flow implemented (`canScheduleExactAlarms()` + inexact fallback)
+- [x] In-app prominent disclosure implemented (background location) — screenshots still to capture
 - [ ] Prominent disclosure screenshots captured (background location, overlay)
 - [ ] Privacy policy live at public URL (not localhost)
 - [ ] Data Safety Form + Permissions Declaration + IARC submitted
