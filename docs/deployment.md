@@ -19,6 +19,13 @@ database. An experimental PostgreSQL adapter (`database_postgres.py`) remains
 in the codebase for future scale-out and logs a warning if you opt in via
 `MT_DATABASE_URL` — the Docker stack does not use it.
 
+> **Upgrading from a pre-v1.3.1 stack?** The old `db` (postgres) service may
+> linger as an orphan container after the compose file lost its definition.
+> Remove it with `docker compose up -d --remove-orphans` (it holds no app
+> data — SQLite is the data plane). The legacy postgres *volume* (if any) can
+> be removed with `docker volume rm <name>` once you've confirmed nothing
+> depends on it.
+
 ---
 
 ## 1. Quick Start (Development)
