@@ -52,11 +52,17 @@ from websocket_manager import (  # noqa: E402
 client = TestClient(app)
 
 
-async def _wait_until(predicate, timeout: float = 3.0) -> bool:
+async def _wait_until(predicate, timeout: float = 10.0) -> bool:
     """Poll a plain condition until it holds or the timeout elapses.
 
     WebSocket registration/eviction happens in the uvicorn thread, so the
     test must poll the shared module-level connection list rather than sleep.
+
+    The timeout is deliberately generous (10s): these are LIVE tests against
+    a real uvicorn server, and under full-suite / CI load (2-core runners) a
+    slow scheduler can delay registration by more than the old 3s budget — a
+    recurring CI flake. Tests that call this raise their own assertion with
+    the expected condition on False.
     """
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -339,13 +345,19 @@ class TestWebSocketConnectionLimits:
 
             ws3 = await websockets.connect(url)
 
-            # ws1 (oldest) must be evicted with close code 1013
+            # ws1 (oldest) must be evicted with close code 1013. The recv
+            # timeout is generous (10s) — under CI load the eviction close
+            # frame can arrive late, and a raw TimeoutError used to fail this
+            # test nondeterministically (same class of flake fixed for the
+            # auth-rejection tests; see _assert_closed_with_code).
             assert await _wait_until(lambda: len(active_dashboard_connections) == 2)
             try:
-                await asyncio.wait_for(ws1.recv(), timeout=2.0)
+                await asyncio.wait_for(ws1.recv(), timeout=10.0)
                 raise AssertionError("ws1 should have been evicted")
             except websockets.exceptions.ConnectionClosed as exc:
                 assert getattr(exc.rcvd, "code", None) == 1013
+            except asyncio.TimeoutError:
+                raise AssertionError("server did not evict ws1 within 10s (expected close code 1013)")
         finally:
             for ws in (ws2, ws3):
                 if ws is not None:
@@ -381,7 +393,7 @@ class TestWebSocketConnectionLimits:
         async with websockets.connect(url) as ws:
             assert await _wait_until(lambda: len(active_dashboard_connections) == 1)
             await ws.send("ping")
-            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=2.0))
+            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=10.0))
             assert pong["type"] == "pong"
 
         # Connection must be deregistered after the client disconnects
@@ -398,7 +410,7 @@ class TestWebSocketConnectionLimits:
         async with websockets.connect(url) as ws:
             assert await _wait_until(lambda: len(active_dashboard_connections) == 1)
             await ws.send("ping")
-            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=2.0))
+            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=10.0))
             assert pong["type"] == "pong"
 
         assert await _wait_until(lambda: len(active_dashboard_connections) == 0)
@@ -418,7 +430,7 @@ class TestWebSocketConnectionLimits:
         async with websockets.connect(url) as ws:
             assert await _wait_until(lambda: len(active_dashboard_connections) == 1)
             await ws.send("ping")
-            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=2.0))
+            pong = json.loads(await asyncio.wait_for(ws.recv(), timeout=10.0))
             assert pong["type"] == "pong"
 
         assert await _wait_until(lambda: len(active_dashboard_connections) == 0)

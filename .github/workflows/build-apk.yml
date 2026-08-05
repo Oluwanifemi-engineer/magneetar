@@ -130,11 +130,23 @@ jobs:
         # worthless (and dangerous) to ship — fail the build if the signature
         # does not validate or the certificate is missing. Debug APKs verify
         # against the Android debug key (fine — they are test artifacts only).
+        #
+        # NOTE: the APK lookup uses `find`, NOT `ls "{release,debug}"/*.apk`.
+        # GitHub's step shell runs `bash -e -o pipefail`, and `ls` exits 2
+        # when one of the directories (e.g. release/ on a debug-only build)
+        # does not exist — pipefail then propagates that exit code through
+        # `| head -1`, and `set -e` aborts the step before the signature
+        # check ever runs. This failed the job with a bare "exit code 2".
         shell: bash
         run: |
-          APK=$(ls "$GITHUB_WORKSPACE"/android-app/app/build/outputs/apk/{release,debug}/*.apk 2>/dev/null | head -1)
+          APK=$(find "$GITHUB_WORKSPACE"/android-app/app/build/outputs/apk -name '*.apk' 2>/dev/null | head -1)
           if [ -z "$APK" ]; then
             echo "::error::No APK produced — expected one in app/build/outputs/apk/release/ or .../debug/"
+            exit 1
+          fi
+          if [ ! -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]; then
+            echo "::error::apksigner not found at $ANDROID_HOME/build-tools/35.0.0/apksigner"
+            ls "$ANDROID_HOME/build-tools/" 2>&1 || true
             exit 1
           fi
           echo "Verifying: $APK"
@@ -158,3 +170,7 @@ jobs:
             android-app/app/build/outputs/apk/release/*.apk
             android-app/app/build/outputs/apk/debug/*.apk
           retention-days: 30
+          # A debug-only push legitimately has no release/*.apk — never fail
+          # the job over a missing artifact (the signature check already
+          # verified the APK that exists).
+          if-no-files-found: warn
