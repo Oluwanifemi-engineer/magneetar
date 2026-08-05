@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { UserProfile } from '@/types';
-import { X, Trash2, ShieldAlert, Crown, ArrowUpRight } from 'lucide-react';
+import { X, Trash2, ShieldAlert, ShieldCheck, Crown, ArrowUpRight, Smartphone, Mail, RefreshCw } from 'lucide-react';
 
 const PLAN_LABELS: Record<string, string> = {
   free: 'FREE',
@@ -27,6 +27,16 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileUnavailable, setProfileUnavailable] = useState(false);
+
+  // ── Security panel state (2FA + email verification) ─────────────────────
+  const [twoFaStep, setTwoFaStep] = useState<'idle' | 'setup'>('idle');
+  const [totpSecret, setTotpSecret] = useState('');
+  const [qrDataUri, setQrDataUri] = useState('');
+  const [stepupPassword, setStepupPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [securityMsg, setSecurityMsg] = useState('');
+  const [securityError, setSecurityError] = useState('');
+  const [securityBusy, setSecurityBusy] = useState(false);
 
   const authMode =
     typeof window !== 'undefined' ? sessionStorage.getItem('mt_auth_mode') : null;
@@ -67,6 +77,81 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       setDeleting(false);
     }
   };
+
+  // ── Security handlers ────────────────────────────────────────────────────
+  const startTwoFactorSetup = async () => {
+    setSecurityBusy(true);
+    setSecurityError('');
+    setSecurityMsg('');
+    try {
+      const res = await getAPI().setupTwoFactor();
+      setTotpSecret(res.secret);
+      setQrDataUri(res.qr_svg_data_uri);
+      setTwoFaStep('setup');
+    } catch (e: any) {
+      setSecurityError(e.message || 'Could not start 2FA setup');
+    } finally {
+      setSecurityBusy(false);
+    }
+  };
+
+  const confirmTwoFactorEnable = async () => {
+    setSecurityBusy(true);
+    setSecurityError('');
+    setSecurityMsg('');
+    try {
+      const res = await getAPI().enableTwoFactor(stepupPassword, totpCode);
+      if (res.totp_enabled) {
+        setProfile((p) => (p ? { ...p, totp_enabled: true } : p));
+        setTwoFaStep('idle');
+        setTotpSecret('');
+        setQrDataUri('');
+        setStepupPassword('');
+        setTotpCode('');
+        setSecurityMsg('Two-factor authentication is now ON — your account is protected by a second factor.');
+      }
+    } catch (e: any) {
+      setSecurityError(e.message || 'Could not enable 2FA — check your password and code');
+    } finally {
+      setSecurityBusy(false);
+    }
+  };
+
+  const disableTwoFactor = async () => {
+    setSecurityBusy(true);
+    setSecurityError('');
+    setSecurityMsg('');
+    try {
+      const res = await getAPI().disableTwoFactor(stepupPassword);
+      if (!res.totp_enabled) {
+        setProfile((p) => (p ? { ...p, totp_enabled: false } : p));
+        setStepupPassword('');
+        setSecurityMsg('Two-factor authentication is now OFF.');
+      }
+    } catch (e: any) {
+      setSecurityError(e.message || 'Could not disable 2FA — check your password');
+    } finally {
+      setSecurityBusy(false);
+    }
+  };
+
+  const resendVerification = async () => {
+    setSecurityBusy(true);
+    setSecurityError('');
+    setSecurityMsg('');
+    try {
+      const res = await getAPI().resendVerificationEmail();
+      setSecurityMsg(res.message);
+    } catch (e: any) {
+      setSecurityError(e.message || 'Could not send the verification email');
+    } finally {
+      setSecurityBusy(false);
+    }
+  };
+
+  const stepupInputClass =
+    'w-full px-3 py-2 bg-mag-bg/60 border border-mag-border/40 rounded-lg text-[11px] font-mono text-mag-text ' +
+    'placeholder:text-mag-text-dim/40 focus:outline-none focus:border-mag-accent/50 focus:ring-1 focus:ring-mag-accent/20 transition-all';
 
   // Rendered through a portal into document.body. The modal used to live
   // inside the <header>, whose backdrop-blur (backdrop-filter) establishes a
@@ -189,6 +274,163 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
         </div>
+
+        {/* Security (user accounts only — API-key admins have no account row) */}
+        {authMode === 'user' && (
+          <div className="bg-mag-surface/30 border border-mag-border/30 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold">
+              <ShieldCheck size={12} />
+              Security
+            </div>
+
+            {securityMsg && (
+              <div className="text-[10px] font-mono text-emerald-300/90 bg-emerald-500/[0.06] border border-emerald-500/20 rounded-lg px-3 py-2 leading-relaxed">
+                {securityMsg}
+              </div>
+            )}
+            {securityError && (
+              <div className="text-[10px] font-mono text-red-400/90 bg-red-500/[0.06] border border-red-500/20 rounded-lg px-3 py-2 leading-relaxed" role="alert">
+                {securityError}
+              </div>
+            )}
+
+            {/* Email verification */}
+            <div className="rounded-lg border border-mag-border/20 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-[11px] font-mono text-mag-text font-bold">
+                  <Mail size={12} className="text-mag-text-dim/60" />
+                  Email verified
+                </div>
+                {profile?.email_verified ? (
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[9px] font-mono font-bold text-emerald-300 uppercase tracking-wider">
+                    VERIFIED
+                  </span>
+                ) : (
+                  <button
+                    onClick={resendVerification}
+                    disabled={securityBusy}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-mag-border/40 text-[9px] font-mono font-bold text-mag-accent hover:text-emerald-300 hover:border-mag-accent/40 transition-all disabled:opacity-50"
+                  >
+                    <RefreshCw size={9} />
+                    {securityBusy ? 'SENDING...' : 'RESEND EMAIL'}
+                  </button>
+                )}
+              </div>
+              {!profile?.email_verified && (
+                <div className="text-[9px] font-mono text-mag-text-dim/50 leading-relaxed">
+                  Verifying your email unlocks account recovery — a reset link can only be sent to a
+                  verified address.
+                </div>
+              )}
+            </div>
+
+            {/* Two-factor authentication */}
+            <div className="rounded-lg border border-mag-border/20 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-[11px] font-mono text-mag-text font-bold">
+                  <Smartphone size={12} className="text-mag-text-dim/60" />
+                  Two-factor auth
+                </div>
+                {profile?.totp_enabled ? (
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[9px] font-mono font-bold text-emerald-300 uppercase tracking-wider">
+                    ENABLED
+                  </span>
+                ) : (
+                  <button
+                    onClick={startTwoFactorSetup}
+                    disabled={securityBusy}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-mag-border/40 text-[9px] font-mono font-bold text-mag-accent hover:text-emerald-300 hover:border-mag-accent/40 transition-all disabled:opacity-50"
+                  >
+                    <ShieldCheck size={9} />
+                    {securityBusy ? 'STARTING...' : 'ENABLE'}
+                  </button>
+                )}
+              </div>
+
+              {twoFaStep === 'setup' && (
+                <div className="space-y-3 animate-fade-in">
+                  <div className="text-[9px] font-mono text-mag-text-dim/50 leading-relaxed">
+                    Scan the QR code with Google Authenticator (or any TOTP app), then confirm with your
+                    password + a fresh code.
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {qrDataUri && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={qrDataUri}
+                        alt="TOTP setup QR code"
+                        className="w-28 h-28 rounded-lg border border-mag-border/40 bg-white p-1"
+                      />
+                    )}
+                    <div className="text-[9px] font-mono text-mag-text-dim/50 leading-relaxed">
+                      Can&apos;t scan? Manual secret:
+                      <div className="mt-1 font-mono text-[10px] text-mag-text font-bold break-all select-all">
+                        {totpSecret}
+                      </div>
+                    </div>
+                  </div>
+                  <input
+                    type="password"
+                    value={stepupPassword}
+                    onChange={(e) => setStepupPassword(e.target.value)}
+                    placeholder="Account password"
+                    autoComplete="current-password"
+                    className={stepupInputClass}
+                  />
+                  <input
+                    inputMode="numeric"
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="6-digit code"
+                    autoComplete="one-time-code"
+                    className={`${stepupInputClass} tracking-[0.3em]`}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={confirmTwoFactorEnable}
+                      disabled={securityBusy}
+                      className="flex-1 py-2 rounded-lg bg-mag-accent/90 hover:bg-mag-accent disabled:opacity-50 text-white text-[10px] font-mono font-bold uppercase tracking-wider transition-all"
+                    >
+                      {securityBusy ? 'CONFIRMING...' : 'Confirm & Enable'}
+                    </button>
+                    <button
+                      onClick={() => { setTwoFaStep('idle'); setTotpSecret(''); setQrDataUri(''); setSecurityError(''); }}
+                      className="px-3 py-2 rounded-lg border border-mag-border/40 text-mag-text-dim/70 hover:text-mag-text text-[10px] font-mono font-bold transition-all"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {profile?.totp_enabled && (
+                <div className="space-y-2 animate-fade-in">
+                  <div className="text-[9px] font-mono text-mag-text-dim/50 leading-relaxed">
+                    Sign-in now requires a code from your authenticator app. Disabling requires your
+                    account password.
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      value={stepupPassword}
+                      onChange={(e) => setStepupPassword(e.target.value)}
+                      placeholder="Account password"
+                      autoComplete="current-password"
+                      className={stepupInputClass}
+                    />
+                    <button
+                      onClick={disableTwoFactor}
+                      disabled={securityBusy}
+                      className="px-4 py-2 rounded-lg border border-mag-danger/30 text-mag-danger/90 hover:text-mag-danger hover:border-mag-danger/60 text-[10px] font-mono font-bold uppercase tracking-wider transition-all whitespace-nowrap"
+                    >
+                      {securityBusy ? 'DISABLING...' : 'Disable'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Danger Zone */}
         <div className="bg-mag-danger/[0.03] border border-mag-danger/20 rounded-xl p-4">

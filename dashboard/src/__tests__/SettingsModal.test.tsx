@@ -10,6 +10,10 @@ let mockServerUrl = 'https://api.magneetar.me';
 const mockLogout = jest.fn();
 const mockDeleteAccount = jest.fn<(...args: any[]) => any>();
 const mockFetchMe = jest.fn<(...args: any[]) => any>();
+const mockSetupTwoFactor = jest.fn<(...args: any[]) => any>();
+const mockEnableTwoFactor = jest.fn<(...args: any[]) => any>();
+const mockDisableTwoFactor = jest.fn<(...args: any[]) => any>();
+const mockResendVerification = jest.fn<(...args: any[]) => any>();
 
 jest.mock('@/store/useStore', () => ({
   useStore: jest.fn((selector: any) => {
@@ -25,6 +29,10 @@ jest.mock('@/lib/api', () => ({
   getAPI: () => ({
     deleteAccount: mockDeleteAccount,
     fetchMe: mockFetchMe,
+    setupTwoFactor: mockSetupTwoFactor,
+    enableTwoFactor: mockEnableTwoFactor,
+    disableTwoFactor: mockDisableTwoFactor,
+    resendVerificationEmail: mockResendVerification,
   }),
 }));
 
@@ -38,8 +46,12 @@ jest.mock('lucide-react', () => {
     X: stub('X'),
     Trash2: stub('Trash2'),
     ShieldAlert: stub('ShieldAlert'),
+    ShieldCheck: stub('ShieldCheck'),
     Crown: stub('Crown'),
     ArrowUpRight: stub('ArrowUpRight'),
+    Smartphone: stub('Smartphone'),
+    Mail: stub('Mail'),
+    RefreshCw: stub('RefreshCw'),
   };
 });
 
@@ -61,7 +73,17 @@ describe('SettingsModal — portal + danger zone', () => {
       created_at: null,
       device_count: 1,
       max_devices: 1,
+      email_verified: true,
+      totp_enabled: false,
     });
+    mockSetupTwoFactor.mockResolvedValue({
+      secret: 'ABCDEFGHIJKLMNOP',
+      otpauth_uri: 'otpauth://totp/Magneetar:test%40example.com?secret=ABCDEFGHIJKLMNOP',
+      qr_svg_data_uri: 'data:image/svg+xml;base64,PHN2Zz4=',
+    });
+    mockEnableTwoFactor.mockResolvedValue({ status: 'ok', totp_enabled: true });
+    mockDisableTwoFactor.mockResolvedValue({ status: 'ok', totp_enabled: false });
+    mockResendVerification.mockResolvedValue({ status: 'ok', message: 'Verification email sent', delivered: true });
     sessionStorage.clear();
   });
 
@@ -123,5 +145,67 @@ describe('SettingsModal — portal + danger zone', () => {
     const backdrop = screen.getByRole('dialog').querySelector('.absolute.inset-0');
     fireEvent.click(backdrop!);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('shows an unverified-email banner with a resend action (user mode)', async () => {
+    sessionStorage.setItem('mt_auth_mode', 'user');
+    mockFetchMe.mockResolvedValueOnce({
+      id: 'usr-test',
+      email: 'test@example.com',
+      display_name: 'Test User',
+      tier: 'free',
+      is_active: true,
+      created_at: null,
+      device_count: 1,
+      max_devices: 1,
+      email_verified: false,
+      totp_enabled: false,
+    });
+    render(<SettingsModal onClose={onClose} />);
+
+    expect(await screen.findByText('RESEND EMAIL')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('RESEND EMAIL'));
+    await waitFor(() => expect(mockResendVerification).toHaveBeenCalled());
+    expect(await screen.findByText('Verification email sent')).toBeInTheDocument();
+  });
+
+  it('enables 2FA end-to-end: setup shows the QR + secret, confirm flips the state', async () => {
+    sessionStorage.setItem('mt_auth_mode', 'user');
+    render(<SettingsModal onClose={onClose} />);
+
+    fireEvent.click(await screen.findByText('ENABLE'));
+    await waitFor(() => expect(mockSetupTwoFactor).toHaveBeenCalled());
+    expect(await screen.findByText('ABCDEFGHIJKLMNOP')).toBeInTheDocument();
+    expect(screen.getByAltText('TOTP setup QR code')).toHaveAttribute('src', 'data:image/svg+xml;base64,PHN2Zz4=');
+
+    fireEvent.change(screen.getByPlaceholderText('Account password'), { target: { value: 'StrongPass1' } });
+    fireEvent.change(screen.getByPlaceholderText('6-digit code'), { target: { value: '123456' } });
+    fireEvent.click(screen.getByText('Confirm & Enable'));
+
+    await waitFor(() =>
+      expect(mockEnableTwoFactor).toHaveBeenCalledWith('StrongPass1', '123456')
+    );
+    expect(await screen.findByText('ENABLED')).toBeInTheDocument();
+  });
+
+  it('disables 2FA with a step-up password', async () => {
+    sessionStorage.setItem('mt_auth_mode', 'user');
+    mockFetchMe.mockResolvedValueOnce({
+      id: 'usr-test',
+      email: 'test@example.com',
+      display_name: 'Test User',
+      tier: 'free',
+      is_active: true,
+      created_at: null,
+      device_count: 1,
+      max_devices: 1,
+      email_verified: true,
+      totp_enabled: true,
+    });
+    render(<SettingsModal onClose={onClose} />);
+
+    fireEvent.change(await screen.findByPlaceholderText('Account password'), { target: { value: 'StrongPass1' } });
+    fireEvent.click(screen.getByText('Disable'));
+    await waitFor(() => expect(mockDisableTwoFactor).toHaveBeenCalledWith('StrongPass1'));
   });
 });

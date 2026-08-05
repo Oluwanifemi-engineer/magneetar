@@ -153,6 +153,9 @@ export interface UserProfile {
   created_at: string | null;
   device_count: number;
   max_devices: number;
+  // v1.4 account security: email verification + TOTP 2FA state.
+  email_verified: boolean;
+  totp_enabled: boolean;
 }
 
 // ─── Map ─────────────────────────────────────────────────────────────────────

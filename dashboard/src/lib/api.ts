@@ -71,6 +71,64 @@ class MagneetarAPI {
     return this.request('/api/auth/me');
   }
 
+  /**
+   * User-account login. With 2FA enabled the server returns a challenge
+   * ({ requires_2fa, two_factor_token }) instead of tokens — callers must
+   * branch on requires_2fa and complete loginTwoFactor().
+   */
+  async loginUser(email: string, password: string): Promise<{
+    token?: string;
+    refresh_token?: string;
+    requires_2fa?: boolean;
+    two_factor_token?: string;
+  }> {
+    return this.request('/api/auth/user/login', 'POST', { email, password });
+  }
+
+  /** Second factor step: exchange the challenge token + TOTP code for real tokens. */
+  async loginTwoFactor(twoFactorToken: string, code: string): Promise<{ token: string; refresh_token: string }> {
+    return this.request('/api/auth/user/login/2fa', 'POST', { two_factor_token: twoFactorToken, code });
+  }
+
+  /**
+   * Request a password reset email. The server returns the SAME response for
+   * known and unknown addresses (no account enumeration); success text tells
+   * the user to check their inbox either way.
+   */
+  async forgotPassword(email: string): Promise<{ status: string; message: string }> {
+    return this.request('/api/auth/forgot-password', 'POST', { email });
+  }
+
+  /** Reset the password with the emailed token. Returns tokens (auto-login). */
+  async resetPassword(email: string, token: string, newPassword: string): Promise<{ token: string; refresh_token: string }> {
+    return this.request('/api/auth/reset-password', 'POST', { email, token, new_password: newPassword });
+  }
+
+  /** Verify the email with the emailed token. */
+  async verifyEmail(token: string): Promise<{ status: string; message: string }> {
+    return this.request('/api/auth/verify-email', 'POST', { token });
+  }
+
+  /** Re-send the verification email for the signed-in account. */
+  async resendVerificationEmail(): Promise<{ status: string; message: string; delivered: boolean }> {
+    return this.request('/api/auth/verify-email/resend', 'POST');
+  }
+
+  /** Start 2FA enrollment: returns the secret + provisioning URI + QR data-URI. */
+  async setupTwoFactor(): Promise<{ secret: string; otpauth_uri: string; qr_svg_data_uri: string }> {
+    return this.request('/api/auth/2fa/setup', 'POST');
+  }
+
+  /** Confirm enrollment with the account password + a fresh TOTP code. */
+  async enableTwoFactor(password: string, code: string): Promise<{ status: string; totp_enabled: boolean }> {
+    return this.request('/api/auth/2fa/enable', 'POST', { password, code });
+  }
+
+  /** Disable 2FA (password step-up). */
+  async disableTwoFactor(password: string): Promise<{ status: string; totp_enabled: boolean }> {
+    return this.request('/api/auth/2fa/disable', 'POST', { password });
+  }
+
   // ── Devices ─────────────────────────────────────────────────────────────
 
   async getDevices(): Promise<{ devices: Device[] }> {

@@ -179,4 +179,61 @@ describe('Login Page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
     expect(password).toHaveAttribute('type', 'password');
   });
+
+  it('shows the 2FA step on a challenge and completes the second factor', async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ requires_2fa: true, two_factor_token: 'challenge-jwt' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ token: 'user-jwt', refresh_token: 'rt-1' }) });
+    await renderPage();
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'user@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'StrongPass1' } });
+
+    await act(async () => {
+      fireEvent.submit(document.querySelector('form') as HTMLFormElement);
+    });
+
+    // Second-factor step appears — and no session token may be minted yet.
+    expect(screen.getByText('Two-factor authentication')).toBeInTheDocument();
+    expect(sessionStorage.getItem('mt_api_key')).toBeNull();
+    expect(screen.getByText(/for user@example.com/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Authenticator code'), { target: { value: '123456' } });
+    await act(async () => {
+      fireEvent.submit(document.querySelector('form') as HTMLFormElement);
+    });
+
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      'https://api.magneetar.me/api/auth/user/login/2fa',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ two_factor_token: 'challenge-jwt', code: '123456' }),
+      })
+    );
+    expect(sessionStorage.getItem('mt_api_key')).toBe('user-jwt');
+    expect(sessionStorage.getItem('mt_auth_mode')).toBe('user');
+    expect(mockSetCredentials).toHaveBeenCalledWith('https://api.magneetar.me', 'user-jwt');
+  });
+
+  it('rejects a malformed 2FA code without calling the server', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ requires_2fa: true, two_factor_token: 'challenge-jwt' }) });
+    await renderPage();
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'user@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'StrongPass1' } });
+    await act(async () => {
+      fireEvent.submit(document.querySelector('form') as HTMLFormElement);
+    });
+
+    fireEvent.change(screen.getByLabelText('Authenticator code'), { target: { value: '12' } });
+    await act(async () => {
+      fireEvent.submit(document.querySelector('form') as HTMLFormElement);
+    });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter the 6-digit code');
+    expect(mockFetch).toHaveBeenCalledTimes(1); // only the password login
+  });
+
+  it('offers a forgot-password link on the account form', async () => {
+    await renderPage();
+    expect(screen.getByRole('link', { name: 'Forgot password?' })).toHaveAttribute('href', '/forgot-password');
+  });
 });

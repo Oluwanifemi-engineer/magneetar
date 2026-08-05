@@ -52,6 +52,12 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // 2FA second-factor step (account mode only): the server answers a
+  // password-correct login with a short-lived challenge token when the user
+  // has TOTP enabled — never real tokens.
+  const [step2fa, setStep2fa] = useState(false);
+  const [twoFactorToken, setTwoFactorToken] = useState('');
+  const [code, setCode] = useState('');
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setMounted(true); }, []);
@@ -99,6 +105,15 @@ export default function LoginPage() {
           throw new Error(extractErrorMessage(await res.json().catch(() => null), 'Invalid email or password'));
         }
         const data = await res.json();
+        // 2FA enabled → the server sends a challenge instead of tokens. The
+        // password was correct; the second factor decides entry.
+        if (data.requires_2fa && data.two_factor_token) {
+          setTwoFactorToken(data.two_factor_token);
+          setCode('');
+          setStep2fa(true);
+          setLoading(false);
+          return;
+        }
         sessionStorage.setItem('mt_server_url', baseUrl);
         sessionStorage.setItem('mt_api_key', data.token);
         sessionStorage.setItem('mt_refresh_token', data.refresh_token || '');
@@ -134,6 +149,47 @@ export default function LoginPage() {
         setConnected(true);
       }
 
+      window.location.href = '/dashboard';
+    } catch (err: any) {
+      setError(err.message || 'Connection failed. Check your credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTwoFactorSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(code.trim())) {
+      setError('Enter the 6-digit code from your authenticator app.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    const baseUrl = serverUrl.replace(/\/+$/, '');
+    try {
+      const res = await fetch(`${baseUrl}/api/auth/user/login/2fa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ two_factor_token: twoFactorToken, code: code.trim() }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const message = extractErrorMessage(body, 'Invalid or expired code — try again.');
+        if (res.status === 429) {
+          setError('Too many attempts. Wait a few minutes and try again.');
+        } else {
+          setError(message);
+        }
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      sessionStorage.setItem('mt_server_url', baseUrl);
+      sessionStorage.setItem('mt_api_key', data.token);
+      sessionStorage.setItem('mt_refresh_token', data.refresh_token || '');
+      sessionStorage.setItem('mt_auth_mode', 'user');
+      setCredentials(baseUrl, data.token);
+      setConnected(true);
       window.location.href = '/dashboard';
     } catch (err: any) {
       setError(err.message || 'Connection failed. Check your credentials.');
@@ -411,6 +467,86 @@ export default function LoginPage() {
               className="spotlight-card relative rounded-2xl border border-white/[0.08] bg-[#0d0d14]/85 backdrop-blur-xl p-7 sm:p-8 shadow-2xl shadow-black/50"
             >
               <div className="relative z-10">
+                {/* ── 2FA second-factor step ─────────────────────────────── */}
+                {step2fa ? (
+                  <div className="animate-fade-in">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-[#E91E8C]/10 border border-[#E91E8C]/25 flex items-center justify-center">
+                        <ShieldCheck size={17} className="text-[#E91E8C]" />
+                      </div>
+                      <div>
+                        <h3 className="text-[15px] font-display font-extrabold tracking-tight text-white">Two-factor authentication</h3>
+                        <div className="text-[10px] font-mono text-white/35 font-bold mt-0.5">SECOND FACTOR REQUIRED</div>
+                      </div>
+                    </div>
+                    <p className="text-[12px] text-white/40 leading-relaxed mb-6">
+                      Enter the 6-digit code from your authenticator app
+                      <span className="block mt-1 text-white/25 font-mono text-[10px]">for {email}</span>
+                    </p>
+
+                    <form onSubmit={handleTwoFactorSubmit} noValidate>
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <label htmlFor="login-2fa-code" className="text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] font-bold">
+                            Authenticator code
+                          </label>
+                          <input
+                            id="login-2fa-code"
+                            name="code"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            value={code}
+                            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            placeholder="000000"
+                            className={cn(inputClass, 'pl-4 text-center tracking-[0.5em] font-mono text-lg')}
+                            autoFocus
+                          />
+                        </div>
+
+                        {error && (
+                          <div
+                            key={error}
+                            className="flex items-center gap-3 text-red-400/90 text-[12px] font-mono bg-red-500/[0.05] border border-red-500/15 rounded-xl px-4 py-3 animate-shake"
+                            role="alert"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0" aria-hidden="true">
+                              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                            </svg>
+                            <span>{error}</span>
+                          </div>
+                        )}
+
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="group relative w-full py-3.5 rounded-xl text-[12px] font-bold uppercase tracking-[0.2em] font-mono bg-gradient-to-r from-[#E91E8C] to-[#06B6D4] text-white shadow-lg shadow-[#E91E8C]/20 hover:shadow-[#E91E8C]/35 hover:brightness-110 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] overflow-hidden"
+                        >
+                          {loading ? (
+                            <span className="flex items-center justify-center gap-2.5">
+                              <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+                              Verifying...
+                            </span>
+                          ) : (
+                            <span className="flex items-center justify-center gap-2.5">
+                              Verify &amp; Connect
+                              <ArrowRight size={14} />
+                            </span>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => { setStep2fa(false); setTwoFactorToken(''); setCode(''); setError(''); }}
+                          disabled={loading}
+                          className="w-full py-2 text-[11px] font-mono font-bold uppercase tracking-wider text-white/30 hover:text-white/60 transition-colors"
+                        >
+                          ← Back to sign in
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                ) : (
+                  <>
                 {/* Mode toggle */}
                 <div role="group" aria-label="Login mode" className="relative flex bg-white/[0.02] rounded-xl p-1 mb-7 border border-white/[0.05]">
                   <div
@@ -489,9 +625,14 @@ export default function LoginPage() {
                         </div>
 
                         <div className="space-y-1.5">
-                          <label htmlFor="login-password" className="text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] font-bold">
-                            Password
-                          </label>
+                          <div className="flex items-center justify-between">
+                            <label htmlFor="login-password" className="text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] font-bold">
+                              Password
+                            </label>
+                            <Link href="/forgot-password" className="text-[10px] font-mono text-[#06B6D4]/70 hover:text-[#22D3EE] font-bold transition-colors">
+                              Forgot password?
+                            </Link>
+                          </div>
                           <div className="relative">
                             <Lock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
                             <input
@@ -573,6 +714,8 @@ export default function LoginPage() {
                     </button>
                   </div>
                 </form>
+                  </>
+                )}
               </div>
             </div>
 
