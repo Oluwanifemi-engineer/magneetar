@@ -178,6 +178,25 @@ android {
         }
     }
 
+    // Distribution flavors — one codebase, two permission profiles:
+    //   sideload  — full permissions (offline SMS relay included). This is the
+    //               APK served on app.magneetar.me/download.
+    //   play      — Play Store build: SMS permissions REMOVED via the
+    //               src/play/AndroidManifest.xml overlay (Google Play's SMS
+    //               policy requires default-SMS-handler status or SMS-core
+    //               functionality; the relay is neither). Network/FCM
+    //               commands + the offline queue still work. The app already
+    //               treats SMS as optional (denial never blocks onboarding).
+    flavorDimensions += "dist"
+    productFlavors {
+        create("sideload") {
+            dimension = "dist"
+        }
+        create("play") {
+            dimension = "dist"
+        }
+    }
+
     compileOptions {
         // Java 17 bytecode target — required by recent AGP/AndroidX releases
         // and the Google Play Console's 2025+ toolchain expectations.
