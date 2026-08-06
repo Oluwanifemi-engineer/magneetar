@@ -361,6 +361,15 @@ export default function DownloadPage() {
             <div className="flex gap-3">
               <span className="mt-[7px] w-1.5 h-1.5 shrink-0 rounded-full bg-amber-400/80" aria-hidden="true" />
               <div className="text-[13.5px] leading-relaxed text-white/50">
+                <span className="text-white font-semibold">Still blocked with no way to continue?</span>{' '}
+                Newer Android versions hard-block sideloaded apps that request Device Admin + SMS — the
+                dialog offers no button at all. The fix is to pause Play Protect scanning for the install
+                and turn it straight back on (step-by-step below).
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-[7px] w-1.5 h-1.5 shrink-0 rounded-full bg-amber-400/80" aria-hidden="true" />
+              <div className="text-[13.5px] leading-relaxed text-white/50">
                 <span className="text-white font-semibold">Install only after verifying:</span> confirm the
                 downloaded file&apos;s SHA-256 matches the value shown in the card above, and that the APK
                 comes from this page (never WhatsApp forwards or mirrors). The checksum and signature
@@ -368,6 +377,52 @@ export default function DownloadPage() {
                 is listed there.
               </div>
             </div>
+          </div>
+
+          {/* Hard-block: pause Play Protect scanning for the install */}
+          <div className="mt-6 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-5">
+            <p className="text-[13px] font-bold text-amber-200 tracking-tight">
+              Blocked outright — no &ldquo;Install anyway&rdquo; button?
+            </p>
+            <ol className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-white/55">
+              <li className="flex gap-2.5">
+                <span className="font-mono text-amber-300/80 font-bold shrink-0">1.</span>
+                <span>
+                  Open the <span className="text-white font-semibold">Play Store</span> app and tap your
+                  profile picture (top-right) → <span className="font-mono text-white/75">Play Protect</span>.
+                </span>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="font-mono text-amber-300/80 font-bold shrink-0">2.</span>
+                <span>
+                  Tap the <span className="font-mono text-white/75">gear / settings</span> icon in the top
+                  corner and turn <span className="text-white font-semibold">OFF</span>{' '}
+                  <span className="font-mono text-white/75">&ldquo;Scan apps with Play Protect&rdquo;</span>.
+                </span>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="font-mono text-amber-300/80 font-bold shrink-0">3.</span>
+                <span>
+                  Download the APK again from the button above and install it — Android now installs it
+                  without the block.
+                </span>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="font-mono text-amber-300/80 font-bold shrink-0">4.</span>
+                <span>
+                  Go straight back to <span className="font-mono text-white/75">Play Protect</span> and turn{' '}
+                  <span className="text-white font-semibold">ON</span>{' '}
+                  <span className="font-mono text-white/75">&ldquo;Scan apps with Play Protect&rdquo;</span> again —
+                  the installed app keeps working and your phone stays protected.
+                </span>
+              </li>
+            </ol>
+            <p className="mt-3 text-[12px] leading-relaxed text-white/40">
+              Only pause scanning for this one install, never leave it off. The block is not a virus
+              flag — it is Google being strict about sideloaded apps that request anti-theft powers
+              (Device Admin, SMS, background location). The permanent fix is the Play Store listing,
+              which is already prepared (docs/play-store-checklist.md) and removes this warning entirely.
+            </p>
           </div>
         </section>
 
