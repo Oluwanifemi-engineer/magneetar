@@ -133,15 +133,16 @@ if (wantsRelease) {
 
 android {
     namespace = "com.magneetar.app"
-    // Android 15 — required by Google Play for new apps/updates since Aug 31,
-    // 2025 (targetSdk 35+). Existing-app availability also requires 35+.
-    // Bump to 36 (Android 16) before Aug 31, 2026 (needs AGP 8.9.1+/Gradle 8.11.1+).
-    compileSdk = 35
+    // Android 16 — required by Google Play for ALL new apps and updates since
+    // Aug 31, 2026 (targetSdk 36+; extension possible until Nov 1, 2026).
+    // compileSdk 36 needs AGP 8.9.1+ (we ship 8.10.1) and Gradle 8.11.1+
+    // (we ship 8.12).
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.magneetar.app"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         // versionName is read from the repo-root VERSION file at build time
         // (same value the server reports and the APK filename uses).
         // versionCode must strictly increase on every Play release.

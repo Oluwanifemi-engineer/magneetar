@@ -253,6 +253,22 @@ if [ ! -f "$APK_DIR/app-release.apk" ]; then
 fi
 log "Release APK built"
 
+# ── Step 6.5: Play-ready AAB ───────────────────────────────────────────────
+# Google Play requires new apps (and updates) to be uploaded as Android App
+# Bundles (AAB) — raw APK uploads are not accepted for new listings. The AAB
+# uses the same signing config; Play then generates per-device APKs from it.
+# Sideload distribution keeps using the APK above; Play submission uses this.
+./gradlew bundleRelease --no-daemon 2>&1 | tail -10
+
+AAB_DIR="$ANDROID_DIR/app/build/outputs/bundle/release"
+if [ ! -f "$AAB_DIR/app-release.aab" ]; then
+    warn "AAB not produced at $AAB_DIR — the Play Store submission needs it (raw APK uploads are rejected for new apps)"
+else
+    AAB_NAME="Magneetar-v${VERSION_NAME}-b${VERSION_CODE}.aab"
+    cp "$AAB_DIR/app-release.aab" "$AAB_DIR/$AAB_NAME"
+    log "Play AAB built: $AAB_DIR/$AAB_NAME ($(du -sh "$AAB_DIR/$AAB_NAME" | cut -f1))"
+fi
+
 # ── Step 7: Sign & Verify APK ───────────────────────────────────────────────
 
 header "Step 7/9 — Verifying APK Signature"

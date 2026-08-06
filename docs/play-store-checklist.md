@@ -67,6 +67,22 @@ with the SMS relay shipped only via a separate Play-listed build.
 4. **Play Protect appeal** (only if ever flagged PHA — not the current case):
 `developers.google.com/android/play-protect/warning-dev-guidance`.
 
+### Play Protect recognition does NOT follow sideloads (2026-08-06 research)
+
+Even after the app is published on Play, users who sideload the same APK from
+`app.magneetar.me/download` still hit the Play Protect block — Play's install
+trust for Play-delivered apps does not extend to the identical binary
+sideloaded from a website (separate verification pipelines; Play App Signing
+stamps only apply to Play-delivered APKs). Consequence: **the download-page
+workaround (pause scanning → install → re-enable) stays the permanent
+sideload UX**, and Play is the friction-free channel once approved.
+
+### Android App Bundle (AAB) — required (2026-08-06)
+
+Play accepts **only AAB for new apps** (since 2021). `build-release.sh` and
+`build-apk.yml` now also build `bundleRelease` (same signing config) and ship
+`Magneetar-vX.Y.Z-bN.aab` / the `Magneetar-aab` CI artifact.
+
 ### Consumer mitigation (implemented 2026-08-05)
 
 - The download page now has a **"Android says Play Protect blocked this app?"**
@@ -97,11 +113,11 @@ Admin EMM declaration) — the same submission gates apply.
 
 ## 🟡 Pre-Submission Work Items (mandatory before upload)
 
-### A. Target SDK & compile SDK ✅ DONE (2026-08-01)
-- **Current:** `compileSdk = 35`, `targetSdk = 35`, `minSdk = 24` in `android-app/app/build.gradle.kts` (AGP 8.7.3, Gradle 8.12 — build requires JDK 21; host default JDK 25 breaks Gradle 8.12, use `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64`). Bytecode target now **Java 17** (`sourceCompatibility/targetCompatibility = 17`, `kotlinOptions.jvmTarget = "17"`) — required by current AGP/AndroidX and Play's 2025+ toolchain expectations.
-- **Play requirement (2026):** new apps must target **API 35 (Android 15)**; API 36 (Android 16) becomes mandatory **Aug 31, 2026** — bump to 36 then (AGP 8.9.1+ + Gradle 8.11.1+).
-- **Verified:** `./gradlew assembleRelease` succeeds; `aapt` reports `targetSdkVersion:'35'`, `compileSdkVersion:'35'`; release APK live at `/apk/download` (byte-identical). Both CI workflows (`ci.yml`, `build-apk.yml`) now install `platforms;android-35 build-tools;35.0.0`.
-- **Remaining:** re-test background location + FGS behavior on a real device (Android 15 FGS time limits) once the phone is plugged in.
+### A. Target SDK & compile SDK ✅ DONE → bumped to 36 (2026-08-06)
+- **Current:** `compileSdk = 36`, `targetSdk = 36`, `minSdk = 24` in `android-app/app/build.gradle.kts` (AGP **8.10.1**, Kotlin **2.0.21**, Gradle 8.12 — build requires JDK 21; host default JDK 25 breaks Gradle 8.12, use `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64`). Bytecode target **Java 17** (`sourceCompatibility/targetCompatibility = 17`, `kotlinOptions.jvmTarget = "17"`).
+- **Play requirement (2026):** ALL new apps and updates must target **API 36 (Android 16) from Aug 31, 2026** (extension window to Nov 1, 2026). We ship **ahead of the deadline**. compileSdk 36 needs AGP 8.9.1+ and Gradle 8.11.1+.
+- **Verified:** `assembleRelease` + `bundleRelease` succeed locally; CI `build-apk.yml` updated to `platforms;android-36 build-tools;36.0.0` and builds both the APK (sideload) and the Play AAB.
+- **Remaining:** re-test background location + FGS behavior on a real device (Android 16 edge-to-edge is enforced for targetSdk 36 — verify no content is under the system bars on an Android 16 phone; predictive-back is default).
 
 ### B. Cleartext traffic policy ✅ DONE (2026-08-01)
 - **Release builds:** `<base-config cleartextTrafficPermitted="false">` — cleartext blocked everywhere except `localhost` / `127.0.0.1` / `10.0.2.2` (emulator) via scoped `<domain-config>`. `android:usesCleartextTraffic="true"` removed from the manifest. Production `https://api.magneetar.me` stays TLS-only.

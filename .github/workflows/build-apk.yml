@@ -26,18 +26,18 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Android SDK (installs platform 34 + build tools, accepts licenses)
+      - name: Set up Android SDK (installs platform 36 + build tools, accepts licenses)
         uses: android-actions/setup-android@v3
         with:
-          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
 
       - name: Verify SDK components
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
           ls "$ANDROID_HOME/platforms/" 2>&1
           ls "$ANDROID_HOME/build-tools/" 2>&1
-          test -d "$ANDROID_HOME/platforms/android-35" && echo "OK: platform android-35 present" || echo "MISSING: platform android-35"
-          test -d "$ANDROID_HOME/build-tools/34.0.0" && echo "OK: build-tools 34.0.0 present" || echo "MISSING: build-tools 34.0.0"
+          test -d "$ANDROID_HOME/platforms/android-36" && echo "OK: platform android-36 present" || echo "MISSING: platform android-36 (compileSdk 36 required by AGP 8.10)"
+          test -d "$ANDROID_HOME/build-tools/36.0.0" && echo "OK: build-tools 36.0.0 present" || echo "MISSING: build-tools 36.0.0"
 
       - name: Inject real google-services.json (optional)
         # Placeholder is committed; if you set the GOOGLE_SERVICES_JSON
@@ -95,7 +95,9 @@ jobs:
             # DEVICE_KEY (NOT the master API_KEY!) — the APK must embed only
             # the low-privilege device key. Baking MT_API_KEY into the APK
             # would hand dashboard-admin to anyone who downloads it.
-            ./gradlew assembleRelease --stacktrace --console=plain \
+            # bundleRelease produces the Play Store AAB (new apps must upload
+            # AAB, not raw APKs); assembleRelease keeps the sideload APK.
+            ./gradlew assembleRelease bundleRelease --stacktrace --console=plain \
               -PSERVER_URL="$SERVER_URL" -PDEVICE_KEY="$DEVICE_KEY" \
               -PKEYSTORE_PASS="$KEYSTORE_PASS" -PKEY_ALIAS="$KEY_ALIAS" -PKEY_ALIAS_PASS="$KEY_ALIAS_PASS" \
               > "$GITHUB_WORKSPACE/gradle-build.log" 2>&1 || {
@@ -105,7 +107,7 @@ jobs:
                 echo "::error::Full log saved to artifact on failure"
                 exit 1
               }
-            echo "::notice::Gradle release build succeeded"
+            echo "::notice::Gradle release build succeeded (APK + Play AAB)"
           else
             # No keystore secrets on a push: build the DEBUG variant — still a
             # full Kotlin compile + unit-test gate, artifact for testing only.
@@ -149,13 +151,13 @@ jobs:
             echo "::error::No APK produced — expected one in app/build/outputs/apk/release/ or .../debug/"
             exit 1
           fi
-          if [ ! -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]; then
-            echo "::error::apksigner not found at $ANDROID_HOME/build-tools/35.0.0/apksigner"
+          if [ ! -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" ]; then
+            echo "::error::apksigner not found at $ANDROID_HOME/build-tools/36.0.0/apksigner"
             ls "$ANDROID_HOME/build-tools/" 2>&1 || true
             exit 1
           fi
           echo "Verifying: $APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK"
           echo "::notice::APK signature verified"
           echo "APK_FILE=$APK" >> "$GITHUB_ENV"
 
@@ -178,4 +180,12 @@ jobs:
           # A debug-only push legitimately has no release/*.apk — never fail
           # the job over a missing artifact (the signature check already
           # verified the APK that exists).
+          if-no-files-found: warn
+
+      - name: Upload Play AAB artifact (release builds only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Magneetar-aab
+          path: android-app/app/build/outputs/bundle/release/*.aab
+          retention-days: 30
           if-no-files-found: warn
