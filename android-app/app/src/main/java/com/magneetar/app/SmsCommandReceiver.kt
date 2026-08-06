@@ -3,6 +3,7 @@ package com.magneetar.app
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.provider.Telephony
 import android.util.Log
 
@@ -113,8 +114,15 @@ class SmsCommandReceiver : BroadcastReceiver() {
             }
             // TrackingService is a foreground service; starting it from a
             // broadcast receiver is fine on modern Android (the service calls
-            // startForeground in onCreate).
-            context.startForegroundService(serviceIntent)
+            // startForeground in onCreate). startForegroundService is API 26+;
+            // on older devices plain startService is the only option (and is
+            // still legal — the background-start ban arrived with API 26).
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                @Suppress("DEPRECATION")
+                context.startService(serviceIntent)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Could not hand SMS command to TrackingService: ${e.message}")
         }

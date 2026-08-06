@@ -751,26 +751,31 @@ class TrackingService : Service() {
             val cells = tm.allCellInfo ?: return result
             for (cell in cells) {
                 val id = try {
-                    when (cell) {
-                        is android.telephony.CellInfoLte -> {
-                            val i = cell.cellIdentity as android.telephony.CellIdentityLte
-                            "lte:${i.mcc}:${i.mnc}:${i.tac}:${i.ci}"
-                        }
-                        is android.telephony.CellInfoGsm -> {
-                            val i = cell.cellIdentity as android.telephony.CellIdentityGsm
-                            "gsm:${i.mcc}:${i.mnc}:${i.lac}:${i.cid}"
-                        }
-                        is android.telephony.CellInfoWcdma -> {
-                            val i = cell.cellIdentity as android.telephony.CellIdentityWcdma
-                            "wcdma:${i.mcc}:${i.mnc}:${i.lac}:${i.cid}"
-                        }
-                        is android.telephony.CellInfoNr -> {
+                    when {
+                        // 5G NR cells only exist on API 29+ — the class and its
+                        // getters must be SDK-gated or a pre-Android-10 device
+                        // would hit NoClassDefFoundError at runtime (lint
+                        // NewApi enforces this; minSdk is 24).
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                            cell is android.telephony.CellInfoNr -> {
                             val i = cell.cellIdentity as android.telephony.CellIdentityNr
                             // API 35 removed the int getMcc()/getMnc() from
                             // CellIdentityNr — only the string forms remain.
                             val mcc = i.mccString ?: "0"
                             val mnc = i.mncString ?: "0"
                             "nr:${mcc}:${mnc}:${i.tac}:${i.nci}"
+                        }
+                        cell is android.telephony.CellInfoLte -> {
+                            val i = cell.cellIdentity as android.telephony.CellIdentityLte
+                            "lte:${i.mcc}:${i.mnc}:${i.tac}:${i.ci}"
+                        }
+                        cell is android.telephony.CellInfoGsm -> {
+                            val i = cell.cellIdentity as android.telephony.CellIdentityGsm
+                            "gsm:${i.mcc}:${i.mnc}:${i.lac}:${i.cid}"
+                        }
+                        cell is android.telephony.CellInfoWcdma -> {
+                            val i = cell.cellIdentity as android.telephony.CellIdentityWcdma
+                            "wcdma:${i.mcc}:${i.mnc}:${i.lac}:${i.cid}"
                         }
                         else -> null
                     }

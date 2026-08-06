@@ -85,6 +85,13 @@
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!-- These SMS permissions imply the telephony hardware feature; declare it
+         optional (required=false) so the app remains installable on devices
+         without a cellular radio (ChromeOS tablets, Wi-Fi-only devices) — the
+         SMS relay simply no-ops there. lint: PermissionImpliesUnsupportedChromeOsHardware. -->
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
 
     <!-- Device admin is granted via the AdminReceiver declaration
          (android:permission="android.permission.BIND_DEVICE_ADMIN" on the
