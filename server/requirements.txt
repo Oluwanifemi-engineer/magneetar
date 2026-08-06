@@ -28,6 +28,13 @@ httpx==0.28.1
 # (database_postgres.py) — only needed if you set MT_DATABASE_URL.
 asyncpg==0.31.0
 
+# Realtime broadcast bus (multi-worker WebSocket fan-out). When MT_REDIS_URL
+# is set, every uvicorn worker publishes device updates to a Redis pub/sub
+# channel and a per-worker subscriber forwards them to that worker's dashboard
+# connections — keeping real-time sync correct with --workers > 1.
+# Unset (default) => in-process local delivery, no Redis required.
+redis==5.2.1
+
 # Monitoring & Error Tracking
 sentry-sdk==2.66.1
 

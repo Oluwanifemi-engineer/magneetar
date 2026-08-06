@@ -21,6 +21,7 @@ The sweep runs from the FastAPI lifespan (see main.py) every 60 seconds.
 
 import asyncio
 
+from leader_lock import acquire_task_lock, release_task_lock
 from logging_config import get_logger
 
 logger = get_logger("magneetar")
@@ -71,11 +72,24 @@ def find_offline_devices(minutes: int = None) -> list[dict]:
 
 
 async def check_offline_devices_loop(interval_seconds: int = 60):
-    """Periodic sweep that alerts owners of newly-offline devices."""
+    """Periodic sweep that alerts owners of newly-offline devices.
+
+    Runs under the leader lock (leader_lock.py): with --workers > 1 every
+    worker runs this loop, and all worker loops are phase-aligned — the
+    moment a device crosses the offline threshold EVERY worker would find it
+    before any wrote the dedup alert row. Without the lock an owner would
+    get N duplicate offline alerts for one incident.
+    """
     while True:
         try:
             await asyncio.sleep(interval_seconds)
-            await run_offline_sweep()
+            won, token = await acquire_task_lock("offline_monitor", ttl=interval_seconds + 60)
+            if not won:
+                continue  # another worker is the leader this cycle
+            try:
+                await run_offline_sweep()
+            finally:
+                await release_task_lock("offline_monitor", token)
         except asyncio.CancelledError:
             break
         except Exception as e:

@@ -48,8 +48,11 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 # Run with uvicorn in production mode
-EXPOSE 8000
+# --workers 4: the host is multi-core; a single worker leaves 3+ cores idle and
+#   caps fleet processing (sentinel scoring, broadcasts) to ~1 core. With Redis
+#   pub/sub (MT_REDIS_URL) WebSocket broadcasts stay consistent across workers;
+#   without Redis the stack still works (dashboards poll every 3s as fallback).
 # --no-access-log: uvicorn's default access log records the full request line
 # including query strings, which would write WebSocket ?token= JWTs to disk.
 # main.py's access_log_middleware logs method+path+status without the query.
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info", "--no-access-log"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--log-level", "info", "--no-access-log"]

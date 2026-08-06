@@ -26,6 +26,25 @@ const MAP_TILE_ATTRIBUTION = MAP_TILE_URL
     ? '&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>';
 
+// ─── Operator location accuracy policy ────────────────────────────────────────
+// The DEVICE marker comes from the tracked phone's GPS (server data). The
+// operator's own "YOU" position comes from navigator.geolocation, which varies
+// wildly by browser: mobile browsers use GPS (3-15m), desktop browsers fall
+// back to WiFi (~20-100m) or IP geolocation (1-100+ km) and ignore
+// enableHighAccuracy (no GPS hardware). Pretending an IP-derived position is
+// precise is dangerous for an anti-theft trailing tool, so the dashboard:
+//   1. draws the browser-reported accuracy circle around the YOU marker
+//   2. shows a distance only when the position is trustworthy enough
+//   3. blocks OSRM routing unless accuracy is street-level
+//   4. tells the operator when they're on an IP-derived fix (open on phone)
+const USER_ACCURACY_DISTANCE_MAX = 1000; // metres — show "X away" only within this
+const USER_ACCURACY_NAVIGATION_MAX = 300; // metres — OSRM route only when this good
+const USER_ACCURACY_IP_FALLBACK = 5000; // metres — >= this is an IP-derived (desktop) fix
+
+function formatAccuracyMeters(m: number): string {
+  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
+}
+
 // Dynamic imports for SSR safety
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
@@ -152,8 +171,9 @@ function MapController() {
 
 // ─── Distance Overlay Component ─────────────────────────────────────────────
 
-function DistanceOverlay({ userPos, deviceLat, deviceLng, offline, lastSeen }: {
+function DistanceOverlay({ userPos, userAccuracy, deviceLat, deviceLng, offline, lastSeen }: {
   userPos: [number, number] | null;
+  userAccuracy: number | null;
   deviceLat: number;
   deviceLng: number;
   offline: boolean;
@@ -162,7 +182,7 @@ function DistanceOverlay({ userPos, deviceLat, deviceLng, offline, lastSeen }: {
   const [distance, setDistance] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!userPos || offline) {
+    if (!userPos || offline || userAccuracy == null || userAccuracy > USER_ACCURACY_DISTANCE_MAX) {
       setDistance(null);
       return;
     }
@@ -174,7 +194,7 @@ function DistanceOverlay({ userPos, deviceLat, deviceLng, offline, lastSeen }: {
               Math.sin(dLng/2) * Math.sin(dLng/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     setDistance(R * c);
-  }, [userPos, deviceLat, deviceLng, offline]);
+  }, [userPos, deviceLat, deviceLng, offline, userAccuracy]);
 
   // Offline device — show when it was last seen and WHERE (last-known
   // coordinates) instead of hiding the overlay entirely.
@@ -190,6 +210,30 @@ function DistanceOverlay({ userPos, deviceLat, deviceLng, offline, lastSeen }: {
           </span>
           <span className="font-mono text-[10px] text-mag-text-dim/60 font-bold hidden sm:inline">
             · {deviceLat.toFixed(5)}, {deviceLng.toFixed(5)}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Operator position too coarse to trust (browser IP fallback, no GPS): show
+  // an honest notice instead of a fabricated "X km away".
+  if (!userPos || userAccuracy == null || userAccuracy > USER_ACCURACY_DISTANCE_MAX) {
+    return (
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000]">
+        <div className="mag-panel px-4 py-2.5 flex items-center gap-2.5 animate-fade-in">
+          <div className="w-2 h-2 rounded-full bg-mag-warning shadow-[0_0_10px_rgba(245,158,11,0.6)] animate-pulse-slow" />
+          <span className="font-mono text-[10px] text-mag-warning font-bold uppercase tracking-wider">
+            LOCATION UNCERTAIN
+          </span>
+          <div className="h-4 w-px bg-mag-border/40" />
+          <span className="font-mono text-[10px] text-mag-text-dim font-bold">
+            {userAccuracy != null
+              ? `your fix is ±${formatAccuracyMeters(userAccuracy)}`
+              : 'your browser has no GPS fix'}
+          </span>
+          <span className="font-mono text-[9px] text-mag-text-dim/60 font-bold hidden md:inline">
+            open this dashboard on your phone for accurate distance
           </span>
         </div>
       </div>
@@ -320,7 +364,16 @@ export function MapView() {
   const [iconsReady, setIconsReady] = useState(false);
   const [navigationRoute, setNavigationRoute] = useState<NavigationRoute | null>(null);
   const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
+  const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
+  const [userGeoDenied, setUserGeoDenied] = useState(false);
   const [navigating, setNavigating] = useState(false);
+
+  // Operator position is usable for navigation only when the browser's own
+  // reported accuracy is street-level; routing from an IP-derived fix would
+  // send the operator to the wrong city.
+  const userNavigationUsable =
+    !!userPosition && userAccuracy != null && userAccuracy <= USER_ACCURACY_NAVIGATION_MAX;
+  const userFixIsIpDerived = !!userPosition && userAccuracy != null && userAccuracy >= USER_ACCURACY_IP_FALLBACK;
 
   // Path tracker state — the index is shared with the timeline slider so
   // scrubbing and playback stay in sync
@@ -344,13 +397,21 @@ export function MapView() {
     }
   }, [pathPlaying, pathIndex, trailLocations.length]);
 
-  // Get user position
+  // Get user position — captures coords.accuracy too, because the operator's
+  // fix quality is browser-dependent (mobile GPS vs desktop WiFi/IP). Every
+  // downstream feature (distance, routing) is gated on that accuracy; the
+  // error handler flags permission denial so the UI can explain itself.
   useEffect(() => {
     if (!navigator.geolocation) return;
     const watchId = navigator.geolocation.watchPosition(
-      (pos) => setUserPosition([pos.coords.latitude, pos.coords.longitude]),
-      () => {},
-      { enableHighAccuracy: true, maximumAge: 5000 }
+      (pos) => {
+        setUserPosition([pos.coords.latitude, pos.coords.longitude]);
+        setUserAccuracy(pos.coords.accuracy);
+      },
+      (err) => {
+        if (err && err.code === err.PERMISSION_DENIED) setUserGeoDenied(true);
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
@@ -363,7 +424,7 @@ export function MapView() {
 
   // Navigation handler
   const handleNavigate = useCallback(async () => {
-    if (!latestLocation || !userPosition) return;
+    if (!latestLocation || !userPosition || !userNavigationUsable) return;
     setNavigating(true);
     try {
       const route = await getOSRMRoute(
@@ -376,7 +437,7 @@ export function MapView() {
     } finally {
       setNavigating(false);
     }
-  }, [latestLocation, userPosition]);
+  }, [latestLocation, userPosition, userNavigationUsable]);
 
   // Clear route when device moves
   useEffect(() => {
@@ -422,11 +483,53 @@ export function MapView() {
           {latestLocation && (userPosition || !deviceOnline) && (
             <DistanceOverlay
               userPos={userPosition}
+              userAccuracy={userAccuracy}
               deviceLat={latestLocation.lat}
               deviceLng={latestLocation.lng}
               offline={!deviceOnline}
               lastSeen={device?.last_seen ?? null}
             />
+          )}
+
+          {/* Operator position quality banner — desktop browsers report
+              IP-derived fixes (kilometres off, no GPS). Tell the operator
+              instead of letting them trust a bogus pin. */}
+          {userFixIsIpDerived && (
+            <div className="absolute top-3 right-3 z-[1000] max-w-xs">
+              <div className="mag-panel px-3 py-2 flex items-start gap-2 animate-fade-in">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-mag-warning shrink-0 mt-0.5">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <div className="text-[10px] font-mono text-mag-text-dim font-bold leading-tight">
+                  <span className="text-mag-warning">YOUR LOCATION IS IP-DERIVED</span>
+                  <span className="block mt-0.5 text-mag-text-dim/70">
+                    ±{formatAccuracyMeters(userAccuracy!)} — no GPS fix. For precise
+                    tracking open this dashboard on your phone.
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Location permission denied — distance/routing can't work at all */}
+          {userGeoDenied && (
+            <div className="absolute top-3 right-3 z-[1000] max-w-xs">
+              <div className="mag-panel px-3 py-2 flex items-start gap-2 animate-fade-in">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-mag-warning shrink-0 mt-0.5">
+                  <path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/>
+                  <path d="M2 12h20"/>
+                </svg>
+                <div className="text-[10px] font-mono text-mag-text-dim font-bold leading-tight">
+                  <span className="text-mag-warning">LOCATION PERMISSION DENIED</span>
+                  <span className="block mt-0.5 text-mag-text-dim/70">
+                    Distance and routing need browser location. Allow it in your
+                    browser settings.
+                  </span>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Path Animation Tracker — receives the memoized trail (already
@@ -556,6 +659,22 @@ export function MapView() {
             </Marker>
           )}
 
+          {/* User accuracy circle — honest visualization of the browser's own
+              reported fix quality (tiny on mobile GPS, huge on desktop IP). */}
+          {userPosition && userAccuracy != null && (
+            <Circle
+              center={userPosition}
+              radius={userAccuracy}
+              pathOptions={{
+                color: '#06B6D4',
+                fillColor: '#06B6D4',
+                fillOpacity: 0.05,
+                weight: 1,
+                opacity: 0.25,
+              }}
+            />
+          )}
+
           {/* User Location Marker */}
           {userPosition && iconsReady && userIcon && (
             <Marker position={userPosition} icon={userIcon}>
@@ -568,6 +687,14 @@ export function MapView() {
                   <div className="text-mag-text-dim font-mono text-[11px] font-bold">
                     {userPosition[0].toFixed(6)}, {userPosition[1].toFixed(6)}
                   </div>
+                  {userAccuracy != null && (
+                    <div className="text-mag-text-dim/70 font-mono text-[10px] font-bold mt-1">
+                      Accuracy ±{formatAccuracyMeters(userAccuracy)}
+                      {userAccuracy > USER_ACCURACY_DISTANCE_MAX && (
+                        <span className="text-mag-warning"> — IP-based, not GPS</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </Popup>
             </Marker>
@@ -771,7 +898,8 @@ export function MapView() {
                 <div className="flex gap-2">
                   <button
                     onClick={handleNavigate}
-                    disabled={!userPosition || navigating}
+                    disabled={!userPosition || !userNavigationUsable || navigating}
+                    title={!userNavigationUsable ? 'Your browser location fix is too imprecise to route from (±' + (userAccuracy != null ? formatAccuracyMeters(userAccuracy) : '?') + '). Open on your phone for GPS-accurate routing.' : undefined}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono font-bold border border-mag-primary/40 text-mag-primary bg-mag-primary/8 hover:bg-mag-primary/15 transition-all disabled:opacity-40"
                   >
                     {navigating ? (
@@ -782,7 +910,7 @@ export function MapView() {
                     ) : (
                       <>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                        GET ROUTE
+                        {userNavigationUsable ? 'GET ROUTE' : 'NEED GPS FIX'}
                       </>
                     )}
                   </button>

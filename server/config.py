@@ -194,6 +194,17 @@ class Settings:
     PORT: int = int(os.environ.get("MT_PORT", "8000"))
     LOG_LEVEL: str = os.environ.get("MT_LOG_LEVEL", "info")
 
+    # ── Realtime Broadcast (multi-worker WebSocket fan-out) ────────────────
+    # Redis URL for the pub/sub channel that keeps dashboard WebSockets
+    # consistent when uvicorn runs with --workers > 1. Empty (default)
+    # disables Redis: broadcasts are delivered locally in-process (single-
+    # worker mode). When set, every worker publishes device updates to the
+    # channel and a per-worker subscriber forwards them to that worker's
+    # dashboard connections — so a location ping handled by worker A still
+    # reaches dashboards connected to worker B. Degrades gracefully: a Redis
+    # outage falls back to local delivery (dashboards keep polling).
+    REDIS_URL: str = os.environ.get("MT_REDIS_URL", "")
+
     # ── Reliability ────────────────────────────────────────────────────────
     REQUEST_TIMEOUT_SECONDS: int = int(os.environ.get("MT_REQUEST_TIMEOUT", "30"))
 

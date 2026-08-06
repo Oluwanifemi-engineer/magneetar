@@ -21,18 +21,21 @@ from database import check_rate_limit, ensure_initialized, get_db_context, log_e
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from leader_lock import acquire_task_lock, release_task_lock
 from logging_config import get_logger
 from models import ConfigResponse, HealthResponse
 from offline_monitor import check_offline_devices_loop
 from sms_relay import parse_ack_sms  # noqa: E402  (SMS inbound webhook)
 from websocket_manager import (
     ADMIN_OWNER,
+    MAX_DASHBOARD_CONNECTIONS,
     active_dashboard_connections,
     add_connection,
     broadcast_to_dashboards,
     can_accept_new_connection,
     close_lowest_priority_connection,
     record_pong,
+    redis_broadcast_listener,
     remove_websocket,
     start_connection_heartbeat,
     update_device_owner,
@@ -175,6 +178,20 @@ async def lifespan(app: FastAPI):
     # ── WebSocket Connection Heartbeat (every 30s) ───────────────────
     heartbeat_task = asyncio.create_task(start_connection_heartbeat(interval=30))
 
+    # ── Multi-worker broadcast listener (Redis pub/sub) ─────────────────
+    # With --workers > 1 each worker owns its own WebSocket registry; this
+    # task subscribes to the shared channel and forwards messages to THIS
+    # worker's connections so every dashboard stays live regardless of which
+    # worker handled the originating request. No-op when MT_REDIS_URL unset.
+    redis_task = asyncio.create_task(redis_broadcast_listener())
+    if settings.REDIS_URL:
+        logger.info(
+            "Realtime broadcast: Redis pub/sub enabled",
+            extra={"extra_data": {"channel": "magneetar:ws"}},
+        )
+    else:
+        logger.info("Realtime broadcast: local (single-worker mode)")
+
     # ── Offline Monitor (every 60s) ──────────────────────────────────
     # Alerts owners once per incident when a device stops reporting. Safe on
     # restarts: dedup is persisted in the alerts table (see offline_monitor.py).
@@ -188,34 +205,53 @@ async def lifespan(app: FastAPI):
 
     # ── Scheduled Rate Limit Cleanup (every 6 hours) ────────────────────
     async def periodic_rate_limit_cleanup():
-        """Background task to clean up stale rate limit entries."""
+        """Background task to clean up stale rate limit entries.
+
+        Runs under the leader lock: the purge is idempotent but running it
+        in every worker (--workers > 1) is wasted DB churn, and the in-memory
+        limiter sweep should run once."""
         while True:
             try:
                 await asyncio.sleep(6 * 3600)  # 6 hours
-                use_pg = False
+                won, token = await acquire_task_lock("rate_limit_cleanup", ttl=6 * 3600 + 60)
+                if not won:
+                    continue  # another worker is the leader this cycle
                 try:
-                    from database_postgres import (
-                        get_postgres_db,
-                        is_postgres_configured,
-                    )
+                    use_pg = False
+                    try:
+                        from database_postgres import (
+                            get_postgres_db,
+                            is_postgres_configured,
+                        )
 
-                    if is_postgres_configured():
-                        pg = await get_postgres_db()
-                        if pg.is_connected:
-                            use_pg = True
-                except Exception:
-                    pass
+                        if is_postgres_configured():
+                            pg = await get_postgres_db()
+                            if pg.is_connected:
+                                use_pg = True
+                    except Exception:
+                        pass
 
-                if use_pg:
-                    await pg.execute("DELETE FROM rate_limits WHERE timestamp < NOW() - interval '7 days'")
-                    logger.info("Rate limit cleanup (PostgreSQL): purged entries older than 7 days")
-                else:
-                    from database import get_db_context
+                    if use_pg:
+                        await pg.execute("DELETE FROM rate_limits WHERE timestamp < NOW() - interval '7 days'")
+                        logger.info("Rate limit cleanup (PostgreSQL): purged entries older than 7 days")
+                    else:
+                        from database import get_db_context
 
-                    with get_db_context() as conn:
-                        conn.execute("DELETE FROM rate_limits WHERE timestamp < datetime('now', '-7 days')")
-                        conn.commit()
-                    logger.info("Rate limit cleanup (SQLite): purged entries older than 7 days")
+                        with get_db_context() as conn:
+                            conn.execute("DELETE FROM rate_limits WHERE timestamp < datetime('now', '-7 days')")
+                            conn.commit()
+                        logger.info("Rate limit cleanup (SQLite): purged entries older than 7 days")
+
+                    # In-memory telemetry limiter (memory_rate_limit): drop
+                    # keys whose windows have fully aged out (keeps it bounded
+                    # even before the 50k-key opportunistic sweep kicks in).
+                    from memory_rate_limit import sweep
+
+                    swept = sweep()
+                    if swept:
+                        logger.info(f"Rate limit cleanup (in-memory): swept {swept} idle device keys")
+                finally:
+                    await release_task_lock("rate_limit_cleanup", token)
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -225,6 +261,7 @@ async def lifespan(app: FastAPI):
     yield
     cleanup_task.cancel()
     heartbeat_task.cancel()
+    redis_task.cancel()
     offline_task.cancel()
     archive_task.cancel()
 
@@ -887,7 +924,7 @@ async def dashboard_websocket(websocket: WebSocket):
             extra={
                 "extra_data": {
                     "active": len(active_dashboard_connections),
-                    "max": 100,
+                    "max": MAX_DASHBOARD_CONNECTIONS,
                 }
             },
         )
@@ -899,7 +936,7 @@ async def dashboard_websocket(websocket: WebSocket):
         extra={
             "extra_data": {
                 "total": len(active_dashboard_connections),
-                "max": 100,
+                "max": MAX_DASHBOARD_CONNECTIONS,
             }
         },
     )

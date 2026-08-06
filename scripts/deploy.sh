@@ -81,6 +81,16 @@ for img in "$SERVER_IMAGE" "$DASHBOARD_IMAGE"; do
 done
 echo ""
 
+# ── 4.5 Bring up the realtime broadcast bus (Redis) ──────────────────────────
+# The server's WebSocket fan-out across its uvicorn workers runs on a Redis
+# pub/sub channel (MT_REDIS_URL). `--no-deps` below never starts
+# dependencies, so Redis must be started explicitly. Safe to re-run: up is
+# idempotent.
+echo "🚀 Ensuring Redis (realtime broadcast bus) is up..."
+docker compose up -d redis 2>&1
+echo "   ✅ Redis service ensured"
+echo ""
+
 # ── 5. Build and restart services (no deps — never touch db/cloudflared) ─────
 # --no-deps keeps PostgreSQL and the tunnel running untouched; only the two
 # app services are recreated. Rebuild failures leave the OLD containers up.

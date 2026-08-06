@@ -25,6 +25,12 @@ services:
         APP_VERSION: "1.4.0"
     container_name: magneetar-server
     restart: unless-stopped
+    depends_on:
+      redis:
+        # Wait for the pub/sub bus to be HEALTHY, not just started — the
+        # server's broadcast listener subscribes at boot and messages
+        # published before the first subscribe would be lost.
+        condition: service_healthy
     ports:
       - "8002:8000"
     env_file:
@@ -39,6 +45,11 @@ services:
       # Media files (evidence photos/audio/video) on the persisted media volume
       # (v1.4 media refactor — bytes no longer live in the SQLite file).
       - MT_MEDIA_DIR=/app/media
+      # Multi-worker realtime: Redis pub/sub keeps WebSocket broadcasts
+      # consistent across the 4 uvicorn workers (see websocket_manager.py).
+      - MT_REDIS_URL=redis://redis:6379/0
+      # Live dashboards per worker (4 workers => up to ~1,000 total).
+      - MT_MAX_WS_CONNECTIONS=250
     volumes:
       - magneetar-data:/app/data
       - magneetar-media:/app/media
@@ -69,6 +80,20 @@ services:
       - "3000:80"
     depends_on:
       - server
+
+  # ── Realtime Broadcast Bus (multi-worker WebSocket fan-out) ────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: magneetar-redis
+    restart: unless-stopped
+    # Pub/sub only — nothing to persist. Bounded memory keeps it tiny.
+    command:
+      ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   # ── Cloudflare Tunnel ──────────────────────────────────────────────────────
   cloudflared:

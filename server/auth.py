@@ -15,6 +15,7 @@ from config import settings
 from database import check_rate_limit, log_audit
 from fastapi import Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from memory_rate_limit import check_memory_rate_limit
 
 security = HTTPBearer(auto_error=False)
 
@@ -265,10 +266,13 @@ def check_login_rate_limit(ip_address: str) -> bool:
 
 
 def check_location_rate_limit(device_id: str) -> bool:
-    """Check device location report rate limit."""
-    return check_rate_limit(
-        f"location:{device_id}", "location", 30, 1  # 30 requests  # per minute (effectively 1 per 2 seconds)
-    )
+    """Check device location report rate limit: 30/min per device.
+
+    In-memory (memory_rate_limit) — this runs on EVERY location ping and the
+    DB-backed limiter's write-per-call was the telemetry hot-path bottleneck.
+    Semantics are identical (30 per rolling 60s).
+    """
+    return check_memory_rate_limit(f"location:{device_id}", 30, 60)
 
 
 def check_command_rate_limit(actor: str) -> bool:
@@ -284,18 +288,27 @@ def check_password_verify_rate_limit(actor: str) -> bool:
 
 
 def check_media_rate_limit(device_id: str) -> bool:
-    """Check media upload rate limit: 10 uploads per minute per device."""
-    return check_rate_limit(f"media:{device_id}", "media", settings.RATE_MEDIA_PER_MINUTE, 1)
+    """Check media upload rate limit: 10 uploads per minute per device.
+
+    In-memory (memory_rate_limit) — hot path (every media upload).
+    """
+    return check_memory_rate_limit(f"media:{device_id}", settings.RATE_MEDIA_PER_MINUTE, 60)
 
 
 def check_heartbeat_rate_limit(device_id: str) -> bool:
-    """Check heartbeat rate limit: 10 heartbeats per minute per device."""
-    return check_rate_limit(f"heartbeat:{device_id}", "heartbeat", settings.RATE_HEARTBEAT_PER_MINUTE, 1)
+    """Check heartbeat rate limit: 10 heartbeats per minute per device.
+
+    In-memory (memory_rate_limit) — hot path (every heartbeat).
+    """
+    return check_memory_rate_limit(f"heartbeat:{device_id}", settings.RATE_HEARTBEAT_PER_MINUTE, 60)
 
 
 def check_command_poll_rate_limit(device_id: str) -> bool:
-    """Check command poll rate limit: 30 polls per minute per device."""
-    return check_rate_limit(f"command_poll:{device_id}", "command_poll", settings.RATE_COMMAND_POLL_PER_MINUTE, 1)
+    """Check command poll rate limit: 30 polls per minute per device.
+
+    In-memory (memory_rate_limit) — hot path (every command poll).
+    """
+    return check_memory_rate_limit(f"command_poll:{device_id}", settings.RATE_COMMAND_POLL_PER_MINUTE, 60)
 
 
 # ─── Device Key Authentication ────────────────────────────────────────────────

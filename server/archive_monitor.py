@@ -26,6 +26,7 @@ import asyncio
 
 from config import settings
 from database import get_db_context
+from leader_lock import acquire_task_lock, release_task_lock
 from logging_config import get_logger
 
 logger = get_logger("magneetar")
@@ -68,13 +69,22 @@ def archive_stale_devices(days: int = None) -> int:
 
 
 async def archive_stale_devices_loop(interval_seconds: int = 6 * 3600):
-    """Periodic sweep that soft-archives stale devices."""
+    """Periodic sweep that soft-archives stale devices.
+
+    Runs under the leader lock so the sweep executes in exactly one worker
+    (with --workers > 1 every worker runs this loop)."""
     while True:
         try:
             await asyncio.sleep(interval_seconds)
-            archived = archive_stale_devices()
-            if archived:
-                logger.info(f"Archive sweep: {archived} device(s) archived")
+            won, token = await acquire_task_lock("archive_monitor", ttl=interval_seconds + 60)
+            if not won:
+                continue  # another worker is the leader this cycle
+            try:
+                archived = archive_stale_devices()
+                if archived:
+                    logger.info(f"Archive sweep: {archived} device(s) archived")
+            finally:
+                await release_task_lock("archive_monitor", token)
         except asyncio.CancelledError:
             break
         except Exception as e:
