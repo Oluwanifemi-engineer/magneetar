@@ -70,7 +70,7 @@ class MediaCaptureService : Service() {
         private const val SILENCE_PEAK_THRESHOLD = 60
         private val JSON = "application/json".toMediaType()
         private val SERVER = BuildConfig.SERVER_URL
-        private val API_KEY = BuildConfig.API_KEY
+        private val DEVICE_KEY = BuildConfig.DEVICE_KEY
 
         // Actions — ARM/DISARM from foreground contexts, CAPTURE_* from the
         // already-running armed service (plain startService is safe then).
@@ -705,7 +705,7 @@ class MediaCaptureService : Service() {
         } else {
             val deviceKey = prefs().getString("device_key", "") ?: ""
             if (deviceKey.isNotEmpty()) headers["x-device-key"] = deviceKey
-            else headers["x-api-key"] = API_KEY
+            else headers["x-api-key"] = DEVICE_KEY
         }
         return headers
     }

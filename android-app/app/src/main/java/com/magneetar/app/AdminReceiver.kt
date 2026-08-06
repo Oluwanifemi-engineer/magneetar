@@ -115,7 +115,7 @@ class AdminReceiver : DeviceAdminReceiver() {
                     } else {
                         val deviceKey = prefs.getString("device_key", "")
                         if (!deviceKey.isNullOrEmpty()) builder.addHeader("x-device-key", deviceKey)
-                        else builder.addHeader("x-api-key", BuildConfig.API_KEY)
+                        else builder.addHeader("x-api-key", BuildConfig.DEVICE_KEY)
                     }
                     val response = client.newCall(builder.build()).execute()
                     response.close()

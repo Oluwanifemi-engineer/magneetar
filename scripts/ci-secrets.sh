@@ -8,8 +8,10 @@
 #   KEYSTORE_PASS     store password          (android-app/local.properties)
 #   KEY_ALIAS         signing alias           (android-app/local.properties)
 #   KEY_ALIAS_PASS    key password            (android-app/local.properties)
-#   API_KEY           the server master key   (android-app/local.properties,
-#                     MUST match server/.env MT_API_KEY)
+#   DEVICE_KEY        the LOW-PRIVILEGE device key (android-app/local.properties,
+#                     MUST match server/.env MT_DEVICE_KEY — NEVER the master
+#                     MT_API_KEY, which would hand dashboard-admin to anyone
+#                     who downloads the APK)
 #   SERVER_URL        (optional, default https://api.magneetar.me)
 #
 # All values come from gitignored local files — nothing secret is stored in
@@ -59,26 +61,31 @@ read_prop() {
 KEYSTORE_PASS="$(read_prop KEYSTORE_PASS)"
 KEY_ALIAS="$(read_prop KEY_ALIAS)"
 KEY_ALIAS_PASS="$(read_prop KEY_ALIAS_PASS)"
-API_KEY="$(read_prop API_KEY)"
+DEVICE_KEY="$(read_prop DEVICE_KEY)"
 SERVER_URL="${SERVER_URL:-https://api.magneetar.me}"
 
 [ -n "$KEYSTORE_PASS" ] || fail "KEYSTORE_PASS not in $LOCAL_PROPS"
 [ -n "$KEY_ALIAS" ] || fail "KEY_ALIAS not in $LOCAL_PROPS"
 [ -n "$KEY_ALIAS_PASS" ] || fail "KEY_ALIAS_PASS not in $LOCAL_PROPS"
-[ -n "$API_KEY" ] || fail "API_KEY not in $LOCAL_PROPS"
+[ -n "$DEVICE_KEY" ] || fail "DEVICE_KEY not in $LOCAL_PROPS"
 
-# Sanity: the key must match the server's current MT_API_KEY (a mismatch ships
-# an APK the server 401s — devices stay offline).
+# Sanity: the device key must match the server's MT_DEVICE_KEY (a mismatch
+# ships an APK the server 401s — devices stay offline). Also guard against
+# someone mistakenly filling local.properties with the MASTER key.
 if [ -f "$PROJECT_DIR/server/.env" ]; then
-    SERVER_KEY="$(grep '^MT_API_KEY=' "$PROJECT_DIR/server/.env" | head -1 | cut -d= -f2- | tr -d '[:space:]')"
-    if [ -n "$SERVER_KEY" ] && [ "$SERVER_KEY" != "$API_KEY" ]; then
-        warn "API_KEY in local.properties does NOT match server/.env MT_API_KEY — devices built from this key will be rejected (401)."
+    SERVER_DEVICE="$(grep '^MT_DEVICE_KEY=' "$PROJECT_DIR/server/.env" | head -1 | cut -d= -f2- | tr -d '[:space:]')"
+    if [ -n "$SERVER_DEVICE" ] && [ "$SERVER_DEVICE" != "$DEVICE_KEY" ]; then
+        warn "DEVICE_KEY in local.properties does NOT match server/.env MT_DEVICE_KEY — devices built from this key will be rejected (401)."
+    fi
+    SERVER_MASTER="$(grep '^MT_API_KEY=' "$PROJECT_DIR/server/.env" | head -1 | cut -d= -f2- | tr -d '[:space:]')"
+    if [ -n "$SERVER_MASTER" ] && [ "$SERVER_MASTER" = "$DEVICE_KEY" ]; then
+        fail "local.properties DEVICE_KEY equals the server MASTER key (MT_API_KEY) — the APK must embed the low-privilege device key, never the master key."
     fi
 fi
 
 KEYSTORE_B64="$(base64 -w0 "$KEYSTORE")"
 
-log "Sources validated: keystore=$(stat -c%s "$KEYSTORE")B, alias=[$KEY_ALIAS], api_key=${API_KEY:0:8}…"
+log "Sources validated: keystore=$(stat -c%s "$KEYSTORE")B, alias=[$KEY_ALIAS], device_key=${DEVICE_KEY:0:8}…"
 
 # ── Emit ─────────────────────────────────────────────────────────────────────
 if [ "$APPLY" = true ]; then
@@ -89,9 +96,9 @@ if [ "$APPLY" = true ]; then
     printf '%s' "$KEYSTORE_PASS" | gh secret set KEYSTORE_PASS --repo "$REPO"
     printf '%s' "$KEY_ALIAS" | gh secret set KEY_ALIAS --repo "$REPO"
     printf '%s' "$KEY_ALIAS_PASS" | gh secret set KEY_ALIAS_PASS --repo "$REPO"
-    printf '%s' "$API_KEY" | gh secret set API_KEY --repo "$REPO"
+    printf '%s' "$DEVICE_KEY" | gh secret set DEVICE_KEY --repo "$REPO"
     printf '%s' "$SERVER_URL" | gh secret set SERVER_URL --repo "$REPO"
-    log "All secrets set on $REPO (KEYSTORE_BASE64, KEYSTORE_PASS, KEY_ALIAS, KEY_ALIAS_PASS, API_KEY, SERVER_URL)"
+    log "All secrets set on $REPO (KEYSTORE_BASE64, KEYSTORE_PASS, KEY_ALIAS, KEY_ALIAS_PASS, DEVICE_KEY, SERVER_URL)"
     warn "Optional: GOOGLE_SERVICES_JSON (base64 of android-app/app/google-services.json) for real Firebase push."
     echo "  base64 -w0 android-app/app/google-services.json | gh secret set GOOGLE_SERVICES_JSON --repo $REPO"
 else
@@ -110,7 +117,7 @@ $(command -v gh >/dev/null 2>&1 || echo '  # NOTE: gh is not installed on this m
   printf '%s' '$KEYSTORE_PASS' | gh secret set KEYSTORE_PASS --repo $REPO
   printf '%s' '$KEY_ALIAS' | gh secret set KEY_ALIAS --repo $REPO
   printf '%s' '$KEY_ALIAS_PASS' | gh secret set KEY_ALIAS_PASS --repo $REPO
-  printf '%s' '$API_KEY' | gh secret set API_KEY --repo $REPO
+  printf '%s' '$DEVICE_KEY' | gh secret set DEVICE_KEY --repo $REPO
   printf '%s' '$SERVER_URL' | gh secret set SERVER_URL --repo $REPO
 
   # Optional — real Firebase push (base64 of your google-services.json):

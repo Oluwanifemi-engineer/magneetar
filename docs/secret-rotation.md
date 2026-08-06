@@ -1,60 +1,68 @@
 # Magneetar — Secret Rotation Runbook
 
-Operational guide for rotating the three core security secrets without
-bricking deployed devices or losing data. Follow the **impact table** first —
-each secret has a different blast radius, and one of them (MT_API_KEY) is
-baked into every installed APK, so rotating it blindly **will** take
-deployed devices offline.
+Operational guide for rotating the core security secrets without bricking
+deployed devices or losing data. Follow the **impact table** first — each
+secret has a different blast radius.
 
 ---
 
 ## 1. The secrets and their roles
 
-| Secret | Env var | Minimum length | Used for |
-|---|---|---|---|
-| API key | `MT_API_KEY` | 32 chars | Device registration bootstrap (`x-api-key`), dashboard `/api/auth/login` |
-| JWT secret | `MT_JWT_SECRET` | 64 chars | Signing every access/refresh/device/dashboard token |
-| Encryption key | `MT_ENCRYPTION_KEY` | 64 hex (32 bytes) | AES-256-GCM field encryption, HKDF per-device key derivation |
+Since **v1.4.0 (2026-08-06)** the shared key is SPLIT into two tiers so the
+public APK can never carry admin power:
+
+| Secret | Env var | Min length | Used for | Ships in APK? |
+|---|---|---|---|---|
+| **Master key** | `MT_API_KEY` | 32 chars | Dashboard `/api/auth/login` + admin step-up ONLY | ❌ server-side only |
+| **Device key** | `MT_DEVICE_KEY` | 32 chars | Device-scope auth (`x-api-key`): register, location, media, fcm, command poll | ✅ embedded in every APK (`BuildConfig.DEVICE_KEY`) |
+| **Legacy device key** | `MT_LEGACY_DEVICE_KEY` | 32 chars | Pre-split master key accepted for **device-scope** auth only (rotation grace for installed APKs) | ❌ (it IS the old master, so old APKs present it) |
+| JWT secret | `MT_JWT_SECRET` | 64 chars | Signing every access/refresh/device/dashboard token | ❌ |
+| Encryption key | `MT_ENCRYPTION_KEY` | 64 hex (32 bytes) | AES-256-GCM field encryption, HKDF per-device key derivation | ❌ |
+
+**Why the split:** the APK is a public artifact — anyone can sideload it and
+`strings`-scan the dex. Before the split the APK carried the SAME key that
+mints dashboard-admin JWTs, so an extracted key = full platform control
+(every user's locations, WIPE/LOCK on any device, deleting evidence). Now
+`/api/auth/login` and admin step-up compare against `MT_API_KEY` **alone**,
+so the APK-embedded keys can never mint admin credentials. The device key
+is a low-privilege credential that only gates device-scope endpoints
+(bounded further by `MAX_UNOWNED_DEVICES`).
 
 ## 2. Impact table (read this first)
 
 | Rotating | Devices affected | Dashboards affected | Data risk | Notes |
 |---|---|---|---|---|
-| `MT_API_KEY` | **YES — all deployed APKs** | YES (login requires the key) | None | The key is compiled into every sideloaded APK (`BuildConfig.API_KEY`). Old APKs cannot re-register until a new APK ships with the new key. |
+| `MT_API_KEY` (master) | ❌ (device auth accepts device/legacy keys) | YES — users re-login | None | Rotation is now **zero-downtime for devices**: installed APKs keep working via `MT_LEGACY_DEVICE_KEY` (or the device key) until you also rotate it. |
+| `MT_DEVICE_KEY` | **YES — APKs that embed it** | ❌ | None | Ship a new APK embedding the new device key, and keep the old one as `MT_LEGACY_DEVICE_KEY` during rollout so in-the-wild APKs keep registering. |
+| `MT_LEGACY_DEVICE_KEY` | YES — pre-split APKs can't re-register | ❌ | None | Clear it only after the installed fleet has upgraded to an APK embedding the device key. |
 | `MT_JWT_SECRET` | YES — all active tokens invalid | YES — all sessions invalid | None | Tokens are short-lived; devices auto re-register (`TrackingService` auth-death loop) and users re-login. |
 | `MT_ENCRYPTION_KEY` | N/A (device-side never holds it) | N/A | **YES** | Old ciphertext becomes undecryptable. **Verify encryption is actually in use before rotating.** |
 
-## 3. The APK-baked-key hazard (MT_API_KEY)
+## 3. Rotating the master key (MT_API_KEY) — now safe anytime
 
-`MT_API_KEY` is embedded in every APK at build time via `-PAPI_KEY`. An APK
-installed from `v1.x.y` will always present the key it was built with. The
-server compares against `settings.API_KEY` loaded at startup.
+Because device auth accepts the device/legacy keys, `MT_API_KEY` is **no
+longer baked into APKs** and can be rotated without touching devices:
 
-**Consequence:** rotating `MT_API_KEY` on the server immediately breaks
-`/api/device/register` and `/api/auth/login` for every phone running an APK
-that still carries the old key. Devices already registered keep working
-(their per-device JWT + `x-device-key` remain valid — see §4), but any
-re-registration (auth-death recovery, reinstall, new phone) fails.
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"   # new master
+```
 
-### Safe rotation procedure for MT_API_KEY
+1. Update `MT_API_KEY` in `server/.env` (keep `MT_DEVICE_KEY` and
+   `MT_LEGACY_DEVICE_KEY` unchanged), then `bash scripts/deploy.sh`.
+2. Dashboard sessions using the old key are rejected at login — log in with
+   the new master key. Device traffic is unaffected.
+3. Verify: `POST /api/auth/login` with the new key → 200; with the old key
+   → 401; a device registration with `x-api-key` = old key → still 200
+   (legacy device scope) if `MT_LEGACY_DEVICE_KEY` still holds it.
 
-1. **Ship the new key first.** Generate a new key:
-   ```bash
-   openssl rand -hex 32   # 64 hex chars — or use python -c "import secrets; print(secrets.token_hex(32))"
-   ```
-2. Build a new release APK with `-PAPI_KEY=<new key>` (CI does this via the
-   `API_KEY` secret — update that secret, then trigger the workflow).
-3. Update `server/.env` with the new `MT_API_KEY` **in the same release
-   window** as the APK rollout, then `bash scripts/deploy.sh`.
-4. Optionally keep a **grace window** by NOT revoking the old key elsewhere
-   — the server only holds one `MT_API_KEY`, so this rotation is
-   all-or-nothing. Plan the APK + server deploy to land together.
-5. Old APKs in the wild will fail to re-register. That is expected; prompt
-   users to update via the in-app update notice / `/download` page.
+### Rotating the device key (MT_DEVICE_KEY)
 
-> **Long-term fix:** per-device keys (`x-device-key`) already exist and are
-> preferred by current APKs for device auth. Deprecating the shared-key
-> registration path entirely (Tier-2) removes this hazard.
+1. Generate a new device key; put it in `server/.env` as `MT_DEVICE_KEY`
+   AND move the current one to `MT_LEGACY_DEVICE_KEY` (grace).
+2. Update `DEVICE_KEY` in `android-app/local.properties` and the GitHub
+   secret `DEVICE_KEY`, then rebuild + ship the APK.
+3. Deploy the server and roll the APK out; once the fleet has upgraded,
+   drop the old key from `MT_LEGACY_DEVICE_KEY` and redeploy.
 
 ## 4. Rotating MT_JWT_SECRET
 
@@ -201,8 +209,33 @@ was free; do NOT lose the new keystore password.
 
 - `MT_JWT_SECRET`: any suspicion that a token was forged or a signing key
   leaked (repo history, CI logs, container image).
-- `MT_API_KEY`: key extracted from an APK and abused (it already ships in
-  APKs — so only rotate when a *different* key than the shipped one leaked,
-  or as part of a scheduled key lifecycle).
+- `MT_API_KEY` (master): key leaked outside the server (CI logs, chat,
+  screenshots, a compromised operator machine). Rotating is now safe — no
+  APK depends on it.
+- `MT_DEVICE_KEY`: key extracted from an APK (it WILL be — treat it as
+  public knowledge; rotate only to force the installed fleet onto a new
+  key, using the legacy grace path above).
+- `MT_LEGACY_DEVICE_KEY`: the old master key is in this chat log / every
+  old APK — keep it only for the installed-fleet grace period, then clear.
 - `MT_ENCRYPTION_KEY`: team-member departure with DB access, or key shown
   in logs/screenshots.
+
+## 10. Executed rotation — 2026-08-06 (master/device-key split + master rotation)
+
+- **Split implemented**: `MT_DEVICE_KEY` (low-privilege, embeds in APKs as
+  `BuildConfig.DEVICE_KEY`) + `MT_LEGACY_DEVICE_KEY` (grace) added to
+  `config.py`, `auth.py`, `generate-env.sh`, the Android build, CI
+  (`DEVICE_KEY` secret) and this runbook. Dashboard login/step-up remain
+  hard-gated to `MT_API_KEY` alone.
+- **Master rotated**: new `MT_API_KEY` written to `server/.env`; the OLD
+  master (the one embedded in every shipped APK — it was proven extractable
+  with a plain `strings` scan) is now `MT_LEGACY_DEVICE_KEY`, so installed
+  devices keep registering during the grace window.
+- **Regression coverage**: `tests/test_device_key_separation.py` — 14 tests
+  proving device/legacy keys pass device endpoints but are rejected by
+  dashboard login, and that dashboard.py never references the device key.
+  Full suite: **395 passed**.
+- **Actions still outstanding**: set the GitHub `DEVICE_KEY` secret (repo
+  Settings → Secrets → Actions) to the `MT_DEVICE_KEY` in `server/.env`;
+  rebuild + ship a release APK embedding `BuildConfig.DEVICE_KEY`; once the
+  fleet has upgraded, remove `MT_LEGACY_DEVICE_KEY` from `server/.env`.

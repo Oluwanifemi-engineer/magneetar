@@ -46,8 +46,8 @@ class MagneetarMessagingService : FirebaseMessagingService() {
     private val serverUrl: String
         get() = BuildConfig.SERVER_URL
 
-    private val apiKey: String
-        get() = BuildConfig.API_KEY
+    private val deviceKey: String
+        get() = BuildConfig.DEVICE_KEY
 
     // ── Token Registration ──────────────────────────────────────────────────
 
@@ -83,7 +83,7 @@ class MagneetarMessagingService : FirebaseMessagingService() {
                 requestBuilder.addHeader("x-device-key", deviceKey)
                 Log.d(TAG, "Registering FCM with device key auth")
             } else {
-                requestBuilder.addHeader("x-api-key", apiKey)
+                requestBuilder.addHeader("x-api-key", deviceKey)
                 Log.d(TAG, "Registering FCM with shared API key")
             }
 

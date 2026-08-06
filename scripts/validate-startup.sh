@@ -86,7 +86,8 @@ if [ "$CHECK_SERVER" = true ]; then
 
     # Required vars
     REQUIRED_VARS=(
-        "MT_API_KEY:API key (min 32 chars hex)"
+        "MT_API_KEY:Master key — dashboard admin login (min 32 chars hex, never in the APK)"
+        "MT_DEVICE_KEY:Low-privilege device key — the only shared key embedded in the APK (min 32 chars hex)"
         "MT_JWT_SECRET:JWT signing secret (min 64 chars hex)"
         "MT_ENCRYPTION_KEY:Encryption key (64 hex chars = 32 bytes)"
     )
@@ -98,7 +99,7 @@ if [ "$CHECK_SERVER" = true ]; then
 
         if [ -z "$var_value" ]; then
             fail "$var_name is not set ($var_desc)" config
-        elif [ "$var_name" = "MT_API_KEY" ] && [ "${#var_value}" -lt 32 ]; then
+        elif { [ "$var_name" = "MT_API_KEY" ] || [ "$var_name" = "MT_DEVICE_KEY" ]; } && [ "${#var_value}" -lt 32 ]; then
             fail "$var_name is too short: ${#var_value} chars (min 32)" config
         elif [ "$var_name" = "MT_JWT_SECRET" ] && [ "${#var_value}" -lt 64 ]; then
             fail "$var_name is too short: ${#var_value} chars (min 64)" config

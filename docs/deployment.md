@@ -175,7 +175,9 @@ cloudflared:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `MT_API_KEY` | ✅ Yes | — | Min 32 chars, used by dashboard to login |
+| `MT_API_KEY` | ✅ Yes | — | Min 32 chars. **Master key** — dashboard `/api/auth/login` + admin step-up ONLY. Never embedded in the APK. |
+| `MT_DEVICE_KEY` | ✅ Yes (prod) | — | Min 32 chars, must differ from `MT_API_KEY`. **Low-privilege device key** — the only shared key embedded in the APK (`BuildConfig.DEVICE_KEY`); scoped to device endpoints. |
+| `MT_LEGACY_DEVICE_KEY` | No | — | The pre-split master key, accepted for device-scope auth only (rotation grace for installed APKs). Remove once the fleet has upgraded. |
 | `MT_JWT_SECRET` | ✅ Yes | — | Min 64 chars, JWT signing key |
 | `MT_ENCRYPTION_KEY` | ✅ Yes | — | 32 bytes hex, encryption key |
 | `MT_DATABASE_URL` | No | — | EXPERIMENTAL PostgreSQL adapter (schema may lag SQLite; logs a warning). Leave unset in the Docker stack. |
@@ -242,7 +244,7 @@ cloudflared:
 ### Android App
 
 - [ ] `SERVER_URL` set in `android-app/app/build.gradle.kts`
-- [ ] `API_KEY` set in `android-app/app/build.gradle.kts`
+- [ ] `DEVICE_KEY` set in `android-app/app/build.gradle.kts` (the server's `MT_DEVICE_KEY` — **never** the master `MT_API_KEY`)
 - [ ] APK built with release signing
 - [ ] Device Admin permission requested on first launch
 - [ ] Battery optimization is disabled for the app

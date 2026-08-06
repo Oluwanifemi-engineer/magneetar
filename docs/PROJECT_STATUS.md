@@ -210,7 +210,9 @@ All **554 tests pass consistently** (381 backend + 173 dashboard). The latest ro
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `MT_API_KEY` | ✅ Yes | Master API key for legacy auth (min 32 chars) |
+| `MT_API_KEY` | ✅ Yes | **Master key** — dashboard admin login + step-up ONLY (min 32 chars, never in the APK) |
+| `MT_DEVICE_KEY` | ✅ Yes (prod) | **Low-privilege device key** — the only shared key embedded in the APK (`BuildConfig.DEVICE_KEY`), device-scope auth only, must differ from `MT_API_KEY` |
+| `MT_LEGACY_DEVICE_KEY` | ❌ No | Pre-split master key, device-scope grace for installed APKs (remove after fleet upgrade) |
 | `MT_JWT_SECRET` | ✅ Yes | JWT signing secret (min 64 chars) |
 | `MT_ENCRYPTION_KEY` | ✅ Yes | Data encryption key (64 hex chars = 32 bytes) |
 | `MT_FIREBASE_KEY` | ❌ No | **Service-account JSON path** for firebase-admin (FCM HTTP v1) |

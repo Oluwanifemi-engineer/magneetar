@@ -154,7 +154,7 @@ class TrackingService : Service() {
         private const val NOTIF_ID = 1
         private val JSON = "application/json".toMediaType()
         private val SERVER = BuildConfig.SERVER_URL
-        private val API_KEY = BuildConfig.API_KEY
+        private val DEVICE_KEY = BuildConfig.DEVICE_KEY
         private const val WAIT_BETWEEN_COMMANDS_MS = 10_000L
         private const val HEARTBEAT_INTERVAL_MS = 60_000L
         private const val LOCATION_INTERVAL_MS = 3_000L
@@ -1396,7 +1396,7 @@ class TrackingService : Service() {
         } else if (deviceKey.isNotEmpty()) {
             headers["x-device-key"] = deviceKey
         } else {
-            headers["x-api-key"] = API_KEY
+            headers["x-api-key"] = DEVICE_KEY
         }
         return headers
     }
@@ -1413,7 +1413,7 @@ class TrackingService : Service() {
                     .url("$SERVER$path")
                     .post(body)
                 if (useApiKey) {
-                    builder.addHeader("x-api-key", API_KEY)
+                    builder.addHeader("x-api-key", DEVICE_KEY)
                 } else {
                     authHeaders().forEach { (k, v) -> builder.addHeader(k, v) }
                 }

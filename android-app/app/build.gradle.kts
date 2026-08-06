@@ -16,9 +16,15 @@ val appVersion: String = run {
 
 // ── Build-time config resolution ──────────────────────────────────────────
 // Priority (highest first):
-//   1. -PAPI_KEY=... / -PSERVER_URL=... project flags (CI / ad-hoc builds)
-//   2. MT_API_KEY / MT_SENTRY_DSN environment variables
+//   1. -PDEVICE_KEY=... / -PSERVER_URL=... project flags (CI / ad-hoc builds)
+//   2. MT_DEVICE_KEY / MT_SENTRY_DSN environment variables
 //   3. android-app/local.properties (gitignored — the normal local build)
+//
+// SECURITY: the APK embeds the LOW-PRIVILEGE device key (server's
+// MT_DEVICE_KEY), NEVER the master API key (MT_API_KEY). The master key
+// grants dashboard admin access — putting it in the public APK would hand
+// platform-admin to anyone who downloads the app. This build config only
+// knows about DEVICE_KEY for that reason.
 //
 // project.findProperty() does NOT read local.properties (only gradle.properties
 // and -P flags do), so without this explicit fallback a plain release build
@@ -44,10 +50,10 @@ val serverUrl = (project.findProperty("SERVER_URL") as String?)
     ?: localProperty("SERVER_URL")
     ?: "https://api.magneetar.me"
 
-val apiKey = (project.findProperty("API_KEY") as String?)
+val deviceKey = (project.findProperty("DEVICE_KEY") as String?)
     ?.takeIf { it.isNotBlank() }
-    ?: System.getenv("MT_API_KEY")?.takeIf { it.isNotBlank() }
-    ?: localProperty("API_KEY")
+    ?: System.getenv("MT_DEVICE_KEY")?.takeIf { it.isNotBlank() }
+    ?: localProperty("DEVICE_KEY")
     ?: "changeme-set-in-env"
 
 val sentryDsn = (project.findProperty("SENTRY_DSN") as String?)
@@ -87,16 +93,20 @@ fun isReleaseTask(task: String): Boolean {
 
 val wantsRelease = gradle.startParameter.taskNames.any(::isReleaseTask)
 
-// Fail fast: a build that assembles a release APK MUST carry the real API
+// Fail fast: a build that assembles a release APK MUST carry the real DEVICE
 // key. Shipping the placeholder makes the server 401 every device request
 // (devices stay offline in the dashboard) — catch it at build time, not on a
 // user's phone. Check the explicitly requested task names AND the aggregate
 // tasks (build/assemble/bundle/publish) that transitively build the release
 // variant, so the guard can't be slipped past by an implied task.
-if (apiKey == "changeme-set-in-env" && wantsRelease) {
+//
+// The message deliberately steers away from the master key: DEVICE_KEY must be
+// the low-privilege server MT_DEVICE_KEY, NOT MT_API_KEY.
+if (deviceKey == "changeme-set-in-env" && wantsRelease) {
     throw GradleException(
-        "API_KEY is not configured. Add API_KEY to android-app/local.properties " +
-        "or pass -PAPI_KEY=<master key> (must match the server's MT_API_KEY)."
+        "DEVICE_KEY is not configured. Add DEVICE_KEY to android-app/local.properties " +
+        "or pass -PDEVICE_KEY=<device key> (must match the server's MT_DEVICE_KEY — " +
+        "the LOW-PRIVILEGE device key, NEVER the master MT_API_KEY)."
     )
 }
 
@@ -139,7 +149,7 @@ android {
         versionName = appVersion
 
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")
-        buildConfigField("String", "API_KEY", "\"$apiKey\"")
+        buildConfigField("String", "DEVICE_KEY", "\"$deviceKey\"")
         buildConfigField("String", "SENTRY_DSN", "\"$sentryDsn\"")
     }
 

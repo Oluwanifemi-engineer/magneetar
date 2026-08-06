@@ -250,12 +250,13 @@ async def register_device(
                 ),
             )
     else:
-        # Unowned-registration cap (F-07): the master API key is PUBLIC (it
-        # ships inside every APK), so a new unowned device row costs nothing
-        # to create — cap how many can exist so an attacker can't flood the
-        # devices table with junk. Account-linked registrations are bounded by
-        # the per-user device limit instead. Adoption of an existing unowned
-        # row never hits this (no new row is created).
+        # Unowned-registration cap (F-07): the low-privilege DEVICE key is
+        # PUBLIC (it ships inside every APK), so a new unowned device row
+        # costs nothing to create — cap how many can exist so an attacker
+        # can't flood the devices table with junk. Account-linked
+        # registrations are bounded by the per-user device limit instead.
+        # Adoption of an existing unowned row never hits this (no new row is
+        # created).
         if owner_id is None:
             unowned = db.execute("SELECT COUNT(*) as cnt FROM devices WHERE owner_id IS NULL").fetchone()["cnt"]
             if unowned >= settings.MAX_UNOWNED_DEVICES:
@@ -902,7 +903,7 @@ async def register_fcm_token(
     Security (F-06): this endpoint must never create device rows. The old
     code inserted a placeholder device (fingerprint='fcm_*') for ANY
     device_id, so anyone could pollute the devices table — and the shared
-    API key (public, embedded in every APK) let anyone do it with an
+    device key (public, embedded in every APK) let anyone do it with an
     arbitrary id. The device must ALREADY be registered: real devices
     authenticate with their per-device key/JWT (resolved_device_id is then
     their real id), and the fcm_tokens.device_id FK enforces existence.
@@ -911,8 +912,8 @@ async def register_fcm_token(
 
     device_id = resolved_device_id
 
-    # The shared API key (embedded in every APK — public) has NO principal, so
-    # it must not be able to attach a push token to an arbitrary device:
+    # The shared device key (embedded in every APK — public) has NO principal,
+    # so it must not be able to attach a push token to an arbitrary device:
     # with the old fallback, anyone with the key could register their own FCM
     # token under a victim's EXISTING device_id and receive the victim's theft
     # alerts (push hijacking). The only non-device id still accepted is the

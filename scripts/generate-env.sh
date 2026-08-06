@@ -28,6 +28,7 @@ print(secrets.token_hex(32))
 echo "🔐 Generating Magneetar secrets..."
 
 API_KEY=$(generate_secrets)
+DEVICE_KEY=$(generate_secrets)
 JWT_SECRET=$(generate_secrets)$(generate_secrets)
 ENCRYPTION_KEY=$(generate_secrets)
 
@@ -37,7 +38,17 @@ cat > "$ENV_FILE" << EOF
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Core Security
+# MT_API_KEY — the MASTER key (operator-only). Dashboard admin login + step-up.
+# NEVER put this in the APK.
 MT_API_KEY=${API_KEY}
+# MT_DEVICE_KEY — the LOW-PRIVILEGE device key embedded in the public APK.
+# Device endpoints only; extracting it from the APK must buy nothing.
+MT_DEVICE_KEY=${DEVICE_KEY}
+# MT_LEGACY_DEVICE_KEY — OPTIONAL. The PRE-split master key, accepted for
+# device-scope auth only, so APKs built before the key split (which embedded
+# the old master key) keep working until users upgrade. Remove once the
+# installed fleet has upgraded.
+# MT_LEGACY_DEVICE_KEY=
 MT_JWT_SECRET=${JWT_SECRET}
 MT_ENCRYPTION_KEY=${ENCRYPTION_KEY}
 
@@ -88,12 +99,14 @@ fi
 
 echo "✅ Generated: $ENV_FILE"
 echo ""
-echo "   API Key:         ${API_KEY:0:16}..."
-echo "   JWT Secret:      ${JWT_SECRET:0:16}..."
-echo "   Encryption Key:  ${ENCRYPTION_KEY:0:16}..."
+echo "   API Key (master): ${API_KEY:0:16}..."
+echo "   Device Key:       ${DEVICE_KEY:0:16}..."
+echo "   JWT Secret:       ${JWT_SECRET:0:16}..."
+echo "   Encryption Key:   ${ENCRYPTION_KEY:0:16}..."
 echo ""
 echo "   IMPORTANT: Save these credentials securely."
-echo "   The API key will be needed to connect the dashboard."
+echo "   - Master key (MT_API_KEY): dashboard admin login. Keep server-side."
+echo "   - Device key (MT_DEVICE_KEY): what the Android APK embeds (low privilege)."
 echo ""
 
 # Print docker info if requested

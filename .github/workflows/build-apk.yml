@@ -92,8 +92,11 @@ jobs:
         shell: bash
         run: |
           if [ "${RELEASE_SIGNING_AVAILABLE:-true}" = "true" ]; then
+            # DEVICE_KEY (NOT the master API_KEY!) — the APK must embed only
+            # the low-privilege device key. Baking MT_API_KEY into the APK
+            # would hand dashboard-admin to anyone who downloads it.
             ./gradlew assembleRelease --stacktrace --console=plain \
-              -PSERVER_URL="$SERVER_URL" -PAPI_KEY="$API_KEY" \
+              -PSERVER_URL="$SERVER_URL" -PDEVICE_KEY="$DEVICE_KEY" \
               -PKEYSTORE_PASS="$KEYSTORE_PASS" -PKEY_ALIAS="$KEY_ALIAS" -PKEY_ALIAS_PASS="$KEY_ALIAS_PASS" \
               > "$GITHUB_WORKSPACE/gradle-build.log" 2>&1 || {
                 echo "::error::Gradle release build FAILED (exit $?) — what went wrong:"
@@ -107,7 +110,7 @@ jobs:
             # No keystore secrets on a push: build the DEBUG variant — still a
             # full Kotlin compile + unit-test gate, artifact for testing only.
             ./gradlew assembleDebug --stacktrace --console=plain \
-              -PSERVER_URL="$SERVER_URL" -PAPI_KEY="$API_KEY" \
+              -PSERVER_URL="$SERVER_URL" -PDEVICE_KEY="$DEVICE_KEY" \
               > "$GITHUB_WORKSPACE/gradle-build.log" 2>&1 || {
                 echo "::error::Gradle debug build FAILED (exit $?) — what went wrong:"
                 grep -A 20 "What went wrong:" "$GITHUB_WORKSPACE/gradle-build.log" | sed 's/^/::error::  /' || true
@@ -120,7 +123,9 @@ jobs:
           tail -5 "$GITHUB_WORKSPACE/gradle-build.log"
         env:
           SERVER_URL: ${{ secrets.SERVER_URL }}
-          API_KEY: ${{ secrets.API_KEY }}
+          # GitHub secret DEVICE_KEY = server MT_DEVICE_KEY (low privilege).
+          # Add it in repo Settings → Secrets — it must NOT be the master key.
+          DEVICE_KEY: ${{ secrets.DEVICE_KEY }}
           KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_ALIAS_PASS: ${{ secrets.KEY_ALIAS_PASS }}

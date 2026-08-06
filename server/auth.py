@@ -146,22 +146,52 @@ def refresh_access_token(refresh_token: str) -> dict:
     }
 
 
+def _key_matches(candidate: str, expected: str) -> bool:
+    """Constant-time equality against a single expected key.
+
+    hmac.compare_digest runs in constant time for equal-length inputs, so a
+    timing side-channel can't help guess a key over many requests. A
+    TypeError (e.g. non-ASCII key) is treated as a mismatch — a clean reject,
+    never a 500.
+    """
+    if not expected:
+        return False
+    try:
+        return hmac.compare_digest(candidate, expected)
+    except TypeError:
+        return False
+
+
+def api_key_is_authorized(x_api_key: str) -> bool:
+    """True when x-api-key is a credential valid for DEVICE-SCOPE auth.
+
+    Accepts: the master key (operator bootstrap, back-compat), the
+    low-privilege device key (embedded in the public APK), or the legacy
+    pre-split master key (rotation grace for already-installed APKs).
+
+    IMPORTANT: this grants access to DEVICE endpoints only. Dashboard admin
+    login (routes/dashboard.py) and admin-mode step-up compare against the
+    master key ALONE, so the APK-embedded keys can never mint admin
+    credentials.
+    """
+    return (
+        _key_matches(x_api_key, settings.API_KEY)
+        or _key_matches(x_api_key, settings.DEVICE_KEY)
+        or _key_matches(x_api_key, settings.LEGACY_DEVICE_KEY)
+    )
+
+
 def verify_api_key(x_api_key: str = Header(...)) -> str:
-    """Verify the master API key. Returns the key if valid."""
+    """Verify an x-api-key for DEVICE-SCOPE auth (master, device, or legacy
+    device key). Returns the key if valid.
+
+    NOTE: this dependency gates device endpoints (register etc.). The
+    dashboard admin login and step-up paths are gated on the master key
+    alone, so a key extracted from the public APK can never reach them.
+    """
     if not settings.API_KEY:
         raise HTTPException(status_code=500, detail="API key not configured")
-    # Constant-time comparison. The master key is the bootstrap credential
-    # embedded in every device build, so a timing side-channel on the plain
-    # != comparison could in principle help an attacker guess it over many
-    # requests. hmac.compare_digest runs in constant time for equal-length
-    # inputs. (FastAPI enforces the header via Header(...), so x_api_key is
-    # always a str here.) A TypeError (e.g. non-ASCII key) is treated as a
-    # mismatch — a clean 401, never a 500.
-    try:
-        matches = hmac.compare_digest(x_api_key, settings.API_KEY)
-    except TypeError:
-        matches = False
-    if not matches:
+    if not api_key_is_authorized(x_api_key):
         raise HTTPException(status_code=401, detail="Invalid API key")
     return x_api_key
 
@@ -214,10 +244,10 @@ def require_dashboard_auth(
 ) -> str:
     """Dashboard endpoints require a valid dashboard/access JWT.
 
-    Security (F-02): the master API key is embedded in every sideloaded APK,
-    so it is NOT a secret and must never grant dashboard access. Accepting it
-    via an x-api-key header made anyone with an APK the platform admin. Only
-    JWTs minted by /api/auth/login or a user login are accepted here.
+    Security (F-02): the APK embeds a LOW-PRIVILEGE device key, not the
+    master key, so an extracted APK key must never grant dashboard access.
+    Accepting any x-api-key here would hand the platform to anyone with an
+    APK. Only JWTs minted by /api/auth/login or a user login are accepted.
     """
     if credentials:
         payload = decode_token(credentials.credentials)
@@ -307,8 +337,12 @@ def get_current_device_or_key(
             if row:
                 return row["id"]
 
-    # Method 3: Legacy shared API key
-    if x_api_key and x_api_key == settings.API_KEY:
+    # Method 3: shared x-api-key (master / device / legacy-device key).
+    # The returned 'api_key_user' identity is DEVICE-scope only — it is used
+    # by device routes (register, location, media, fcm, command poll) and is
+    # NEVER a dashboard/admin credential, which is minted exclusively by the
+    # master-key dashboard login.
+    if x_api_key and api_key_is_authorized(x_api_key):
         log_audit("api_key_auth", actor="api_key_user")
         return "api_key_user"
 
@@ -407,9 +441,10 @@ def get_current_user(
     Extract user_id from a JWT token. Dashboard/operator JWTs (subject
     'dashboard:<hash>') pass through so admin-only endpoints can detect them.
 
-    Security (F-02): the master API key is embedded in every APK and must not
-    grant user-route access. The x-api-key -> 'api_key_user' fallback has been
-    removed; only real JWTs are accepted.
+    Security (F-02): the APK embeds a LOW-PRIVILEGE device key, not the
+    master key, and shared keys must not grant user-route access. The
+    x-api-key -> 'api_key_user' fallback has been removed; only real JWTs
+    are accepted.
 
     Type check (v1.4): a `user:` subject alone is NOT enough — the 2FA
     challenge JWT (type '2fa') also carries a user: subject and must never

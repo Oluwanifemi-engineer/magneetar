@@ -43,7 +43,20 @@ class Settings:
     """Central configuration - reads from environment variables."""
 
     # ── Core Security ──────────────────────────────────────────────────────
+    # MASTER key — the operator's credential. Grants dashboard admin login
+    # and admin-mode step-up. NEVER embedded in the APK.
     API_KEY: str = os.environ.get("MT_API_KEY", "")
+    # DEVICE key — LOW-PRIVILEGE credential embedded in the public APK.
+    # Scoped to device endpoints (register, location, media, fcm, commands)
+    # ONLY; it must never mint dashboard/admin credentials. Distinct from the
+    # master key so extracting it from the APK buys nothing.
+    DEVICE_KEY: str = os.environ.get("MT_DEVICE_KEY", "")
+    # LEGACY device key — the PRE-split master key, accepted for DEVICE-scope
+    # auth only during the rotation grace period so already-installed APKs
+    # (which embedded the old master key) keep working until users upgrade.
+    # It grants no dashboard/admin access. Clear it once the installed fleet
+    # has upgraded.
+    LEGACY_DEVICE_KEY: str = os.environ.get("MT_LEGACY_DEVICE_KEY", "")
     JWT_SECRET: str = os.environ.get("MT_JWT_SECRET", "")
     ENCRYPTION_KEY: str = os.environ.get("MT_ENCRYPTION_KEY", "")
 
@@ -108,9 +121,10 @@ class Settings:
     # ── Limits ─────────────────────────────────────────────────────────────
     # Free-tier device allowance (default 1 — "free for one device").
     MAX_DEVICES_PER_USER: int = int(os.environ.get("MT_MAX_DEVICES", "1"))
-    # Cap on UNOWNED (not linked to any account) devices. The master API key
-    # ships inside every APK, so anyone can register a device; this bounds the
-    # storage-pollution surface so an attacker can't flood the devices table
+    # Cap on UNOWNED (not linked to any account) devices. The low-privilege
+    # device key ships inside every APK, so anyone can register a device; this
+    # bounds the storage-pollution surface so an attacker can't flood the
+    # devices table
     # (locations/heartbeats/media can only be uploaded to YOUR OWN registered
     # ids, but thousands of junk rows still bloat the DB and dashboards).
     # Default 250: generous enough for a real deployment's transiently-unlinked
@@ -189,6 +203,14 @@ class Settings:
 
         if not self.API_KEY or len(self.API_KEY) < 32:
             errors.append("MT_API_KEY must be at least 32 characters")
+
+        # The low-privilege device key is mandatory in production: the master
+        # key must never end up embedded in the public APK again.
+        if self.ENVIRONMENT == "production":
+            if not self.DEVICE_KEY or len(self.DEVICE_KEY) < 32:
+                errors.append("MT_DEVICE_KEY must be at least 32 characters (low-privilege device key for the APK)")
+            elif self.DEVICE_KEY == self.API_KEY:
+                errors.append("MT_DEVICE_KEY must differ from MT_API_KEY — the APK must not carry the master key")
 
         if not self.JWT_SECRET or len(self.JWT_SECRET) < 64:
             errors.append("MT_JWT_SECRET must be at least 64 characters")
@@ -295,6 +317,7 @@ class Settings:
         """Generate secure random secrets for initial setup."""
         return {
             "MT_API_KEY": secrets.token_hex(32),
+            "MT_DEVICE_KEY": secrets.token_hex(32),
             "MT_JWT_SECRET": secrets.token_hex(64),
             "MT_ENCRYPTION_KEY": secrets.token_hex(32),
         }

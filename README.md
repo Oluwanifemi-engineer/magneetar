@@ -4,7 +4,7 @@
 > Military-grade anti-theft tracking and live location circles for Android — track, protect, and recover your devices while keeping family, coworkers, and teams in sync.
 
 ![Status](https://img.shields.io/badge/status-production-green)
-![Tests](https://img.shields.io/badge/tests-339%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-395%20passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
 ![Kotlin](https://img.shields.io/badge/kotlin-Android-orange)
@@ -82,7 +82,9 @@ Edit `server/.env`:
 
 ```env
 # Required
-MT_API_KEY=your-secure-api-key-here
+MT_API_KEY=your-secure-api-key-here     # MASTER key — dashboard admin ONLY, never in the APK
+MT_DEVICE_KEY=your-device-key-here      # LOW-PRIVILEGE key — the only key embedded in the APK
+MT_LEGACY_DEVICE_KEY=                   # optional: pre-split master key, device-scope grace for old APKs
 
 # Alert Services (at least one for theft notifications)
 MT_ALERT_EMAIL=your@email.com      # Where alerts go
@@ -115,7 +117,7 @@ make validate      # full CI-equivalent gate: lint + typecheck + test + pre-comm
 make test-all      # everything — same as make test (alias kept for compatibility)
 ```
 
-> **300 backend tests + 133 dashboard tests** should pass. `make validate` runs
+> **395 backend tests + 173 dashboard tests** should pass. `make validate` runs
 > every gate that CI enforces, so a green local `make validate` predicts a green
 > GitHub Actions run.
 
@@ -205,7 +207,12 @@ All requests: x-device-key header (unique per device)
 
 1. **JWT Bearer token** — from device registration session
 2. **x-device-key** — unique per-device secret (recommended)
-3. **x-api-key** — legacy shared key (fallback only)
+3. **x-api-key** — shared key (fallback only): the low-privilege device key
+   (`MT_DEVICE_KEY`, the only key embedded in the APK) or the legacy
+   pre-split master key during the rotation grace window. The master key
+   itself (`MT_API_KEY`) is server-side only and grants **dashboard admin**
+   — it is deliberately never accepted for device-scope auth via APK paths
+   beyond the legacy grace key.
 
 ---
 
@@ -246,8 +253,11 @@ cd android-app
 ./gradlew assembleRelease
 
 # With custom server URL:
+# DEVICE_KEY = the server's MT_DEVICE_KEY (low-privilege). NEVER bake the
+# master MT_API_KEY into the APK — anyone who downloads the app could extract
+# it and get dashboard-admin.
 SERVER_URL=https://api.magneetar.me \
-API_KEY=your-api-key \
+DEVICE_KEY=your-device-key \
 ./gradlew assembleRelease
 ```
 

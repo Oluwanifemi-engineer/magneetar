@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — 2026-08-06
+
+### Security
+
+- **Master/device key split (critical fix)**: the master admin key was proven extractable from the public APK with a plain `strings` scan — it minted dashboard-admin JWTs, so anyone who sideloaded the app could view every user's locations/evidence and issue WIPE/LOCK to any device. The shared key is now split: `MT_API_KEY` (master, server-side only — dashboard `/api/auth/login` + step-up hard-gated to it alone), `MT_DEVICE_KEY` (low-privilege device key — the ONLY key embedded in APKs via `BuildConfig.DEVICE_KEY`, scoped to device endpoints), and `MT_LEGACY_DEVICE_KEY` (the pre-split master accepted for device-scope auth only, so installed APKs keep working during the grace window). Production startup now fails if `MT_DEVICE_KEY` is missing or equals the master key. Android build (`-PDEVICE_KEY`), CI (`DEVICE_KEY` secret), `build-release.sh`, and all docs updated. Master rotated in `server/.env`; old master demoted to legacy device scope. 14 new regression tests in `tests/test_device_key_separation.py`; full server suite **395 passed**.
+
 ## [Unreleased] — 2026-08-05
 
 ### Added

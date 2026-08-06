@@ -231,16 +231,18 @@ if [ -z "$MT_KEYSTORE_PASS" ] || [ -z "$MT_KEY_ALIAS" ] || [ -z "$MT_KEY_ALIAS_P
     err "Keystore credentials missing — add KEYSTORE_PASS / KEY_ALIAS / KEY_ALIAS_PASS to $ANDROID_DIR/local.properties (gitignored) or export MT_KEYSTORE_PASS etc."
 fi
 
-# Export MT_API_KEY from local.properties (gitignored) when not already set.
-# The release APK's API_KEY must match the server's MT_API_KEY or the server
-# rejects every device request with 401 (devices stay offline in the dashboard).
-if [ -z "${MT_API_KEY:-}" ] && [ -f "$ANDROID_DIR/local.properties" ]; then
-    export MT_API_KEY
-    MT_API_KEY=$(grep '^API_KEY=' "$ANDROID_DIR/local.properties" | head -1 | cut -d= -f2-)
-    if [ -n "$MT_API_KEY" ]; then
-        log "API key loaded from local.properties"
+# Export MT_DEVICE_KEY from local.properties (gitignored) when not already set.
+# SECURITY: the APK embeds the LOW-PRIVILEGE device key (server's MT_DEVICE_KEY),
+# NEVER the master MT_API_KEY — baking the master key into the public APK would
+# hand dashboard-admin to anyone who downloads it. build.gradle.kts resolves
+# BuildConfig.DEVICE_KEY from -PDEVICE_KEY / MT_DEVICE_KEY / local.properties.
+if [ -z "${MT_DEVICE_KEY:-}" ] && [ -f "$ANDROID_DIR/local.properties" ]; then
+    export MT_DEVICE_KEY
+    MT_DEVICE_KEY=$(grep '^DEVICE_KEY=' "$ANDROID_DIR/local.properties" | head -1 | cut -d= -f2-)
+    if [ -n "$MT_DEVICE_KEY" ]; then
+        log "Device key loaded from local.properties (low-privilege — never the master key)"
     else
-        err "MT_API_KEY not set and no API_KEY= line in local.properties — the built APK cannot talk to the server"
+        err "MT_DEVICE_KEY not set and no DEVICE_KEY= line in local.properties — the built APK cannot talk to the server"
     fi
 fi
 
