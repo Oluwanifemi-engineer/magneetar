@@ -75,9 +75,10 @@ describe('Download Page', () => {
     expect(screen.getByText(`v${CHECKSUM.version}`)).toBeInTheDocument();
     expect(screen.getByText('20.0 MB')).toBeInTheDocument();
 
-    // Two API calls: the download ticket (pre-warm) and the checksum — both
-    // carry an 8s abort signal so a hung network can't freeze the button.
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    // API calls: the download ticket (pre-warm), the checksum — both carry an
+    // 8s abort signal so a hung network can't freeze the button — plus the
+    // Footer's live /health version badge (rendered on this page).
+    expect(global.fetch).toHaveBeenCalledTimes(3);
     expect(global.fetch).toHaveBeenCalledWith(
       'https://api.magneetar.me/apk/ticket',
       expect.objectContaining({ signal: expect.any(AbortSignal) })

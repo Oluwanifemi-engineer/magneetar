@@ -6,9 +6,14 @@
 # ── Builder Stage ────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
-# Build argument for API URL (Next.js bakes NEXT_PUBLIC_* at build time)
+# Build arguments for API URL + app version (Next.js bakes NEXT_PUBLIC_* at
+# build time). The version is the landing page's fallback badge — the runtime
+# /health fetch shows the LIVE version, so this only matters before that fetch
+# resolves or when the API is unreachable.
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_APP_VERSION
+ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
 
 WORKDIR /app
 

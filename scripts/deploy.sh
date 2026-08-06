@@ -13,6 +13,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
+# ── Version wiring ─────────────────────────────────────────────────────────────
+# Export the repo release version so compose can bake it into the dashboard's
+# NEXT_PUBLIC_APP_VERSION fallback badge (${MT_APP_VERSION:-1.4.0} in
+# docker-compose.yml). Kept in sync with the APP_VERSION build arg for the server.
+MT_APP_VERSION="$(cat "$PROJECT_DIR/VERSION" 2>/dev/null || echo 1.4.0)"
+export MT_APP_VERSION
+echo "   📦 Releasing v${MT_APP_VERSION}"
+
 # ── Rollback helpers ───────────────────────────────────────────────────────────
 # Before rebuilding, tag the currently-running images so a failed health gate
 # can be rolled back with: bash scripts/rollback.sh  (or the manual commands

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Github } from 'lucide-react';
+import { useLiveServerInfo, statusDotClass, type ServerStatus } from './VersionBadge';
 
 const FOOTER_LINKS = [
   {
@@ -35,6 +36,8 @@ const FOOTER_LINKS = [
 ];
 
 export function Footer() {
+  // Live version + system status from the server /health endpoint.
+  const { version, status } = useLiveServerInfo();
   return (
     <footer className="relative border-t border-white/[0.06] bg-mag-panel/40">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#E91E8C]/30 to-transparent" />
@@ -73,10 +76,19 @@ export function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-3.5 h-9 rounded-lg border border-white/[0.08] bg-white/[0.03] text-[10px] font-mono font-bold tracking-wider text-white/50 hover:text-white hover:border-white/20 hover:bg-white/[0.06] transition-all"
+                title={
+                  status === 'online'
+                    ? `Live: api.magneetar.me reports online (v${version})`
+                    : status === 'offline'
+                      ? 'Live health check unreachable — see /health'
+                      : 'Checking live server status…'
+                }
               >
                 <span className="relative flex w-1.5 h-1.5">
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
-                  <span className="relative inline-flex rounded-full w-1.5 h-1.5 bg-emerald-400" />
+                  <span
+                    className={`absolute inline-flex h-full w-full rounded-full opacity-60 animate-ping ${statusDotClass(status)}`}
+                  />
+                  <span className={`relative inline-flex rounded-full w-1.5 h-1.5 ${statusDotClass(status)}`} />
                 </span>
                 ALL SYSTEMS OPERATIONAL
               </a>
@@ -112,7 +124,7 @@ export function Footer() {
             © {new Date().getFullYear()} Magneetar · BSL 1.1 (source-available)
           </span>
           <span className="text-[11px] font-mono text-white/25 tracking-wider">
-            v1.3.0 · BUILT FOR RECOVERY &amp; CONNECTION
+            v{version} · BUILT FOR RECOVERY &amp; CONNECTION
           </span>
         </div>
       </div>

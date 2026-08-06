@@ -2,9 +2,13 @@
 
 import Link from 'next/link';
 import { ArrowRight, ShieldCheck, Radar, MapPin, Camera, ChevronRight, Download, Check } from 'lucide-react';
+import { VersionBadge } from './VersionBadge';
 
+// Test count mirrors the server suite (pytest --collect-only) — kept in sync
+// on release; the version badge itself is live-fetched from /health so it can
+// never drift stale again.
 const HERO_STATS = [
-  { value: '267', label: 'automated tests' },
+  { value: '381', label: 'automated tests' },
   { value: '24/7', label: 'stealth tracking' },
   { value: 'AES-256', label: 'encrypted at rest' },
   { value: '3-layer', label: 'background persistence' },
@@ -24,16 +28,9 @@ export function Hero({ authed }: { authed: boolean }) {
       <div className="relative max-w-7xl mx-auto px-5 sm:px-8 grid lg:grid-cols-2 gap-14 lg:gap-10 items-center">
         {/* ─── Copy ─────────────────────────────────────────────────────── */}
         <div>
-          {/* Status badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-white/10 bg-white/[0.03] mb-7">
-            <span className="relative flex w-2 h-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
-              <span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-400" />
-            </span>
-            <span className="text-[11px] font-mono font-bold tracking-wider text-white/70">
-              v1.3.0 · PRODUCTION READY
-            </span>
-          </div>
+          {/* Status badge — version is fetched LIVE from the server /health,
+              with a build-time fallback, so it can never show a stale release */}
+          <VersionBadge />
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold tracking-tight text-white leading-[1.08]">
             Protect what you own.
