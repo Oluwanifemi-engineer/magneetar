@@ -16,10 +16,11 @@ jest.mock('next/link', () => {
 import DownloadPage from '@/app/download/page';
 
 const CHECKSUM = {
-  filename: 'magneetar-v1.3.0-release.apk',
-  version: '1.3.0',
+  // Mirrors the live /apk/checksum response for the v1.4.0 sideload build.
+  filename: 'Magneetar-v1.4.0-release.apk',
+  version: '1.4.0',
   sha256: 'a'.repeat(64),
-  size_bytes: 20971520, // 20 MB
+  size_bytes: 7493780, // 7.1 MB (sideload flavor)
 };
 
 const TICKET = {
@@ -73,7 +74,7 @@ describe('Download Page', () => {
       expect(screen.getByText(CHECKSUM.sha256)).toBeInTheDocument();
     });
     expect(screen.getByText(`v${CHECKSUM.version}`)).toBeInTheDocument();
-    expect(screen.getByText('20.0 MB')).toBeInTheDocument();
+    expect(screen.getByText('7.1 MB')).toBeInTheDocument();
 
     // API calls: the download ticket (pre-warm), the checksum — both carry an
     // 8s abort signal so a hung network can't freeze the button — plus the
