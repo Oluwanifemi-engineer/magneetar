@@ -27,7 +27,12 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 ANDROID_DIR="$PROJECT_DIR/android-app"
 BUILD_DIR="$ANDROID_DIR/app/build"
 KEYSTORE="$ANDROID_DIR/release.keystore"
-APK_DIR="$BUILD_DIR/outputs/apk/release"
+# Sideload flavor output — the APK distributed from app.magneetar.me/download
+# (keeps the full offline SMS relay). The Play Store AAB comes from the
+# `play` flavor (outputs/bundle/playRelease) which strips the SMS permissions.
+# NOTE: AGP nests APK outputs as apk/<flavor>/<buildType> but AAB outputs as
+# bundle/<flavor><BuildType> (camelCase, no separator).
+APK_DIR="$BUILD_DIR/outputs/apk/sideload/release"
 
 # Colors
 RED='\033[0;31m'
@@ -198,14 +203,17 @@ log "Build directory cleaned"
 
 header "Step 5/9 — Running Lint"
 
-# Run lint for the release variant (fails on errors, warns on warnings)
-./gradlew lintRelease --no-daemon 2>&1 | tail -10
+# Run lint across ALL variants (with flavors the per-variant tasks are
+# lintSideloadRelease/lintPlayRelease; the aggregate `lint` covers both and
+# fails the build on errors via the lintVital gate).
+./gradlew lint --no-daemon 2>&1 | tail -10
 
-LINT_REPORT="$ANDROID_DIR/app/build/reports/lint-results-release.html"
-if [ -f "$LINT_REPORT" ]; then
-    lint_errors=$(grep -oP '(\d+) errors' "$LINT_REPORT" 2>/dev/null | grep -oP '\d+' || echo "0")
-    lint_warnings=$(grep -oP '(\d+) warnings' "$LINT_REPORT" 2>/dev/null | grep -oP '\d+' || echo "0")
-    log "Lint: $lint_errors errors, $lint_warnings warnings"
+# Lint reports are per-variant; pick the first one that exists.
+LINT_REPORT=$(find "$ANDROID_DIR/app/build/reports" -maxdepth 1 -name 'lint-results-*.html' 2>/dev/null | head -1)
+if [ -n "$LINT_REPORT" ]; then
+    lint_errors=$(grep -oP '(\d+) errors' "$LINT_REPORT" 2>/dev/null | grep -oP '\d+' | head -1 || echo "0")
+    lint_warnings=$(grep -oP '(\d+) warnings' "$LINT_REPORT" 2>/dev/null | grep -oP '\d+' | head -1 || echo "0")
+    log "Lint: $lint_errors errors, $lint_warnings warnings ($LINT_REPORT)"
     if [ "$lint_errors" -gt 0 ]; then
         err "Lint errors found — fix before releasing. See: $LINT_REPORT"
     fi
@@ -246,26 +254,27 @@ if [ -z "${MT_DEVICE_KEY:-}" ] && [ -f "$ANDROID_DIR/local.properties" ]; then
     fi
 fi
 
-./gradlew assembleRelease --no-daemon 2>&1 | tail -10
+./gradlew assembleSideloadRelease --no-daemon 2>&1 | tail -10
 
-if [ ! -f "$APK_DIR/app-release.apk" ]; then
+if [ ! -f "$APK_DIR/app-sideload-release.apk" ]; then
     err "APK not produced at expected path"
 fi
-log "Release APK built"
+log "Sideload release APK built (full SMS relay)"
 
 # ── Step 6.5: Play-ready AAB ───────────────────────────────────────────────
 # Google Play requires new apps (and updates) to be uploaded as Android App
 # Bundles (AAB) — raw APK uploads are not accepted for new listings. The AAB
 # uses the same signing config; Play then generates per-device APKs from it.
-# Sideload distribution keeps using the APK above; Play submission uses this.
-./gradlew bundleRelease --no-daemon 2>&1 | tail -10
+# The `play` flavor strips the restricted SMS permissions (Play SMS policy),
+# so the AAB is Play-compliant while the sideload APK keeps the relay.
+./gradlew bundlePlayRelease --no-daemon 2>&1 | tail -10
 
-AAB_DIR="$ANDROID_DIR/app/build/outputs/bundle/release"
-if [ ! -f "$AAB_DIR/app-release.aab" ]; then
+AAB_DIR="$ANDROID_DIR/app/build/outputs/bundle/playRelease"
+if [ ! -f "$AAB_DIR/app-play-release.aab" ]; then
     warn "AAB not produced at $AAB_DIR — the Play Store submission needs it (raw APK uploads are rejected for new apps)"
 else
     AAB_NAME="Magneetar-v${VERSION_NAME}-b${VERSION_CODE}.aab"
-    cp "$AAB_DIR/app-release.aab" "$AAB_DIR/$AAB_NAME"
+    cp "$AAB_DIR/app-play-release.aab" "$AAB_DIR/$AAB_NAME"
     log "Play AAB built: $AAB_DIR/$AAB_NAME ($(du -sh "$AAB_DIR/$AAB_NAME" | cut -f1))"
 fi
 
@@ -275,7 +284,7 @@ header "Step 7/9 — Verifying APK Signature"
 
 APK_SIGNER="$ANDROID_HOME/build-tools/34.0.0/apksigner"
 if [ -f "$APK_SIGNER" ]; then
-    SIGNER_OUTPUT=$("$APK_SIGNER" verify --print-certs "$APK_DIR/app-release.apk" 2>&1 || true)
+    SIGNER_OUTPUT=$("$APK_SIGNER" verify --print-certs "$APK_DIR/app-sideload-release.apk" 2>&1 || true)
     if echo "$SIGNER_OUTPUT" | grep -q "CN=Magneetar"; then
         log "APK signature verified: release key"
     else
@@ -292,11 +301,11 @@ header "Step 8/9 — Packaging APK"
 
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 RENAMED_APK="Magneetar-v${VERSION_NAME}-b${VERSION_CODE}-${TIMESTAMP}.apk"
-cp "$APK_DIR/app-release.apk" "$APK_DIR/$RENAMED_APK"
+cp "$APK_DIR/app-sideload-release.apk" "$APK_DIR/$RENAMED_APK"
 log "Packaged: $RENAMED_APK ($(du -sh "$APK_DIR/$RENAMED_APK" | cut -f1))"
 
 # Also create a stable "latest" copy
-cp "$APK_DIR/app-release.apk" "$APK_DIR/Magneetar-latest.apk"
+cp "$APK_DIR/app-sideload-release.apk" "$APK_DIR/Magneetar-latest.apk"
 log "Latest APK: $APK_DIR/Magneetar-latest.apk"
 
 # ── Step 9: Upload (optional) ──────────────────────────────────────────────
@@ -349,7 +358,8 @@ header "📊 Build Report"
 
 echo -e "  ${BOLD}Version:${NC}     ${VERSION_NAME} (code ${VERSION_CODE})"
 echo -e "  ${BOLD}Duration:${NC}    ${BUILD_DURATION}s"
-echo -e "  ${BOLD}APK Size:${NC}    $(du -sh "$APK_DIR/app-release.apk" | cut -f1)"
+echo -e "  ${BOLD}APK Size:${NC}    $(du -sh "$APK_DIR/app-sideload-release.apk" | cut -f1)"
+echo -e "  ${BOLD}Play AAB:${NC}     $AAB_DIR/$AAB_NAME"
 echo -e "  ${BOLD}Output:${NC}      $APK_DIR/$RENAMED_APK"
 echo -e "  ${BOLD}Keystore:${NC}    $KEYSTORE"
 echo -e "  ${BOLD}ProGuard:${NC}    $ANDROID_DIR/app/proguard-rules.pro"

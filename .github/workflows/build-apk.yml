@@ -95,9 +95,11 @@ jobs:
             # DEVICE_KEY (NOT the master API_KEY!) — the APK must embed only
             # the low-privilege device key. Baking MT_API_KEY into the APK
             # would hand dashboard-admin to anyone who downloads it.
-            # bundleRelease produces the Play Store AAB (new apps must upload
-            # AAB, not raw APKs); assembleRelease keeps the sideload APK.
-            ./gradlew assembleRelease bundleRelease --stacktrace --console=plain \
+            # bundlePlayRelease produces the Play Store AAB (new apps must
+            # upload AAB, not raw APKs; the play flavor strips the restricted
+            # SMS permissions); assembleSideloadRelease keeps the sideload APK
+            # with the full offline SMS relay for the download page.
+            ./gradlew assembleSideloadRelease bundlePlayRelease --stacktrace --console=plain \
               -PSERVER_URL="$SERVER_URL" -PDEVICE_KEY="$DEVICE_KEY" \
               -PKEYSTORE_PASS="$KEYSTORE_PASS" -PKEY_ALIAS="$KEY_ALIAS" -PKEY_ALIAS_PASS="$KEY_ALIAS_PASS" \
               > "$GITHUB_WORKSPACE/gradle-build.log" 2>&1 || {
@@ -111,7 +113,7 @@ jobs:
           else
             # No keystore secrets on a push: build the DEBUG variant — still a
             # full Kotlin compile + unit-test gate, artifact for testing only.
-            ./gradlew assembleDebug --stacktrace --console=plain \
+            ./gradlew assembleSideloadDebug --stacktrace --console=plain \
               -PSERVER_URL="$SERVER_URL" -PDEVICE_KEY="$DEVICE_KEY" \
               > "$GITHUB_WORKSPACE/gradle-build.log" 2>&1 || {
                 echo "::error::Gradle debug build FAILED (exit $?) — what went wrong:"
@@ -174,11 +176,11 @@ jobs:
         with:
           name: Magneetar-apk
           path: |
-            android-app/app/build/outputs/apk/release/*.apk
-            android-app/app/build/outputs/apk/debug/*.apk
+            android-app/app/build/outputs/apk/sideload/release/*.apk
+            android-app/app/build/outputs/apk/sideload/debug/*.apk
           retention-days: 30
-          # A debug-only push legitimately has no release/*.apk — never fail
-          # the job over a missing artifact (the signature check already
+          # A debug-only push legitimately has no sideload/release/*.apk — never
+          # fail the job over a missing artifact (the signature check already
           # verified the APK that exists).
           if-no-files-found: warn
 
@@ -186,6 +188,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Magneetar-aab
-          path: android-app/app/build/outputs/bundle/release/*.aab
+          path: android-app/app/build/outputs/bundle/playRelease/*.aab
           retention-days: 30
           if-no-files-found: warn

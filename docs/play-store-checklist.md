@@ -124,16 +124,16 @@ Admin EMM declaration) — the same submission gates apply.
 - **Debug builds:** `src/debug/res/xml/network_security_config.xml` permits cleartext for all hosts so developers can hit local/LAN self-hosted servers over http. Release stays strict (standard source-set override; verified no leak).
 - **Note:** a custom `http://` LAN server URL in the app's login page now requires an explicit `<domain>` entry (or HTTPS).
 
-### C. Device Admin API — Google deprecation (REVIEW REQUIRED)
-- **Current:** `AdminReceiver` with `BIND_DEVICE_ADMIN` + policies `lock-task`, `wipe-data`, `force-lock`.
-- **Policy:** Google restricts **Device Admin apps to enterprise/EMM use cases**; consumer anti-theft
-  apps using Device Admin (esp. `wipe-data`) need an **Enterprise Mobility Management (EMM)** or
-  **BYOD** declaration, or the feature must be dropped for the consumer listing.
-- **Options (pick one):**
-  1. Declare the app as an EMM/BYOD device-management app in Play Console (Play Console → App content → Device management).
-  2. Remove `wipe-data` from `device_admin.xml` and rely on lock + app-level data wipe.
-  3. Ship consumer build without Device Admin; keep a separate EMM/enterprise build.
-- **Action:** confirm the intended Play Console declaration **before** first submission to avoid a rejection.
+### C. Device Admin API — decision made 2026-08-06
+- **Current:** `AdminReceiver` with `BIND_DEVICE_ADMIN` + policies `lock-task`, `wipe-data`, `force-lock` (both flavors).
+- **Decision:** keep Device Admin as-is for BOTH flavors and declare it honestly in the Play Console **Permissions Declaration** (feature: thief-resistant uninstall + remote lock/wipe during an armed theft response; user-consented at activation). The **"App content → Device management" declaration is NOT used** — research (2026-08-06) confirms it is for enterprise/MDM apps, triggers a rigorous manual review, and misdeclaring a consumer app risks account termination. The permissions declaration path is the right one for a consumer anti-theft app (precedent: Cerberus-class security apps ship Device Admin with disclosure).
+- **Fallback if rejected:** remove `wipe-data` from `device_admin.xml` (lock + app-level data wipe remain) — a one-line change.
+
+### C.2 SMS permissions — split builds implemented 2026-08-06
+- **Decision:** the Play Store build drops the restricted SMS/phone permissions; the sideload build keeps them.
+- **Implementation:** `sideload` / `play` product flavors (same applicationId, one codebase). `src/play/AndroidManifest.xml` removes `RECEIVE_SMS`, `SEND_SMS`, `READ_PHONE_STATE` via `tools:node="remove"`. Verified: the play merged manifest has ZERO SMS permission elements; the sideload manifest keeps all three. The app treats SMS as optional everywhere (denial never blocks onboarding; acks fall back to the network outbox) — no code changes required.
+- **Feature impact on Play:** the offline SMS command relay is unavailable in the Play build (network/FCM commands + the offline queue still work). The sideload APK on `/download` keeps the full relay.
+- **Artifacts:** `assembleSideloadRelease` → `app/build/outputs/apk/sideload/release/app-sideload-release.apk` (download page); `bundlePlayRelease` → `app/build/outputs/bundle/playRelease/app-play-release.aab` (Play upload). Both signed with the same release key, targetSdk 36.
 
 ### D. Restricted permissions — declaration form
 Play Console requires a **Permissions Declaration** for each of these (explain feature, user value, and how data is handled):
@@ -200,7 +200,8 @@ cd android-app && ./gradlew assembleRelease
 - [x] Backend 193 tests + Dashboard 74 tests + tsc clean
 - [x] compileSdk/targetSdk ≥ 35 (SDK 35, AGP 8.7.3, Gradle 8.12)
 - [x] Cleartext restricted to local hosts only (release strict, debug override)
-- [ ] Device Admin decision made (EMM declaration OR wipe-data removed)
+- [x] Device Admin decision made (permissions declaration, no EMM claim)
+- [x] SMS split builds implemented (play flavor without SMS, sideload with)
 - [x] `USE_EXACT_ALARM` removed; exact-alarm runtime flow implemented (`canScheduleExactAlarms()` + inexact fallback)
 - [x] In-app prominent disclosure implemented (background location) — screenshots still to capture
 - [ ] Prominent disclosure screenshots captured (background location, overlay)
