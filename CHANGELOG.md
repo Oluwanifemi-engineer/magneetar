@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — 2026-08-07
+
+### Performance & scale (deployed live)
+
+- **4 uvicorn workers (was 1)**: the 16-core host was running a single Python worker; `server/Dockerfile` now runs `--workers 4`, giving ~4× the CPU headroom for sentinel scoring, geofence checks, and WebSocket fan-out. Live-verified: 4× "Application startup complete" in the container.
+- **Redis realtime broadcast bus**: with multiple workers each holding their own in-memory WebSocket registry, cross-worker fan-out was impossible — broadcasts now publish to a shared `magneetar:ws` channel (`websocket_manager.py`) and every worker's subscriber delivers to its local connections (exactly-once). Falls back to direct local delivery without Redis or during hiccups, so dashboards never go dark (3s polling remains the safety net). New `redis` compose service + `MT_REDIS_URL`; deploy.sh ensures it's up (its `--no-deps` step never starts dependencies). Live-verified: **4 subscribers on the bus, zero reconnect storms, messages delivered exactly-once** (integration-tested against real Redis, incl. 5s-idle stability).
+- **Fix: Redis listener reconnect storm**: `pubsub.listen()` blocks on a socket read and the shared client's `socket_timeout=2` turned an idle channel into a `Timeout reading` every 2s, dropping the subscriber and breaking cross-worker fan-out. The long-lived listener now uses a dedicated connection with **no read timeout** (shared client keeps its short timeout for publishes). Verified against real Redis: subscriber survives idle, publishes delivered.
+- **In-memory telemetry rate limiting (`memory_rate_limit.py`)**: every location/heartbeat/media/command-poll ping did 4 rate-limit DB writes + commit on top of its own insert (~2/3 of hot-path write cost). The four telemetry checks (≥2s location spacing, 10/min heartbeats, 5/min media, 30/min command poll) now use a threaded sliding-window limiter — identical 429 semantics, zero DB writes. Security-sensitive limits (login/claim/step-up/APK ticket) stay DB-backed. e2e rate-limit test still green.
+- **WebSocket cap 100 → 250/worker** (`MT_MAX_WS_CONNECTIONS`): 4 workers now allow up to ~1,000 concurrent live dashboards instead of 100 — the old hard cap was the first ceiling hit under load.
+- **Leader lock (`leader_lock.py`)**: offline alerting, archive sweeps, and rate-limit cleanup all tick on 60s loops — with 4 workers they run 4× concurrently, so the first device crossing the offline threshold would have been **quadruple-SMS'd** (the alerts-table dedup row is only written *after* sending). A Redis `SETNX` + Lua compare-and-delete lock now ensures exactly one worker runs side-effect loops; without Redis the lock degrades to a no-op (single-worker semantics). Verified against real Redis: mutual exclusion, non-holder release safety, stale-token protection.
+
+### Dashboard location accuracy (operator's own position)
+
+- **"My location varies with browser" — diagnosed and fixed**: the operator's "YOU" marker, distance readout, and GET ROUTE all used raw `navigator.geolocation` — which is GPS on phones (3–15 m) but **IP/Wi-Fi-derived on desktop browsers (1–5 km+, sometimes 10–100 km off)**, with `enableHighAccuracy` a no-op on desktop. The map now: renders an **accuracy circle** scaled to `coords.accuracy`, gates distance/route features on an accuracy threshold (with an explicit reason when too coarse), shows a **banner when the fix looks IP-derived** (telling the operator to use a phone browser or move to a window), and surfaces a permission-denied banner instead of silently failing. All markers live-verified in the served bundle (`enableHighAccuracy`, `IP-derived`, accuracy gating present in `page-03d0af9d…`).
+
+### Deployed
+
+- **v1.4.0 perf+accuracy stack live**: server + dashboard images rebuilt (`3ee042d`, `a18aaaf`), DB backed up pre-deploy, health-gated. `/health` → `online · 1.4.0 · database true`; dashboard serving the new bundle; `wss://api.magneetar.me/ws/dashboard` handshake verified through the Cloudflare tunnel (anonymous connections correctly rejected with `4408 Authentication required` — the F-01 gate). Server suite **395/395**, dashboard **173/173**, flake8/black clean.
+- **Deploy reliability**: the first rollout attempt timed out at 25 min — root cause was first-time base-image pulls + the new `redis==5.2.1` pip install (155s) inside the build, not a script bug. Images are now cached; re-running `deploy.sh` completes in minutes.
+
+---
+
 ## [Unreleased] — 2026-08-06
 
 ### Play Store readiness
