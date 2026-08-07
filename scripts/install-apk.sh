@@ -12,7 +12,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-APK_PATH="$PROJECT_DIR/android-app/app/build/outputs/apk/release/app-release.apk"
+# The project builds two flavors: `sideload` (full SMS relay — this is the
+# installable APK) and `play` (SMS-stripped Play AAB). The old pre-flavor
+# path (apk/release/app-release.apk) no longer exists.
+APK_PATH="$PROJECT_DIR/android-app/app/build/outputs/apk/sideload/release/app-sideload-release.apk"
 PACKAGE_NAME="com.magneetar.app"
 
 # Colors
@@ -47,8 +50,8 @@ if [ ! -f "$APK_PATH" ]; then
     echo -e "${YELLOW}Building release APK first...${NC}"
     cd "$PROJECT_DIR/android-app"
     export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
-    export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk}"
-    ./gradlew assembleRelease --no-daemon
+    export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk}"
+    ./gradlew assembleSideloadRelease --no-daemon
     echo ""
 fi
 

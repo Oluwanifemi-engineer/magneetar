@@ -1,7 +1,7 @@
 # Magneetar — Strategic Roadmap
 
-**Version:** 2.0  
-**Last Updated:** 2026-07-29  
+**Version:** 3.0  
+**Last Updated:** 2026-08-07  
 **Status:** 🟢 Active Development  
 
 ---
@@ -12,7 +12,7 @@
 
 ---
 
-## Current Position (v1.0.0)
+## Current Position (v1.4.0)
 
 The Magneetar ecosystem is production-ready with:
 - **Android app** with stealth tracking, evidence capture, and remote commands
@@ -127,6 +127,66 @@ The Magneetar ecosystem is production-ready with:
 | 🟡 P1 | **White-label option** | Branded version for businesses (fleet tracking, school device protection) | 3 weeks |
 | 🟢 P2 | **API marketplace** | Public API for third-party integrations (home automation, insurance) | 4 weeks |
 | 🟢 P2 | **Hardware store** | Sell BLE tags + installation kits directly | Ongoing |
+
+---
+
+## 🚩 Milestone 7: Premium Product Features (2026-08-07)
+
+**Theme:** *"From a working system to a premium product"*
+
+Researched 2026-08-07 against the premium landscape (Google Find Hub, Apple
+Find My, Life360, Prey, Cerberus, mSpy). Key strategic finding: **Google's
+crowdsourced offline-finding network is closed to third-party apps** (certified
+hardware only), so Magneetar's private BLE find-network is the differentiator no
+competitor offers us for free. The privacy-hostile lessons of the market
+(mSpy-style hidden monitoring, Life360's location-data selling) are the brand
+we must never copy.
+
+### Phase A — Quick wins (weeks, high visible impact)
+
+| Priority | Feature | Details | Effort |
+|----------|---------|---------|-------|
+| 🔴 P0 | **Lost-Mode lock screen** | Push lock + "call this number / reward if found" overlay to the stolen phone's screen; drives good-Samaritan recovery | 1 week |
+| 🔴 P0 | **Recovery Dossier** | One-click police/insurer package: evidence PDF + location timeline + IMEI + theft case + Guardian sightings | 1 week |
+| 🔴 P0 | **Offline cell resolution (OpenCelliD)** | Bundle the Nigeria dump (MCC 621) for the existing `/cell-locate` endpoint — real fixes for offline stolen phones | 1 week |
+| 🟡 P1 | **Trip history & heatmap** | Persistent 30-day timeline, revisits, heatmap replay (free 7-day / paid 30-day lever) | 1 week |
+| 🟡 P1 | **Family/Team circles with roles** | Owner / co-admin / view-only (extends multi-user ownership) | 1 week |
+| 🟡 P1 | **Geofence automated actions** | Per-zone policy: leave home at 2am → auto siren + front capture + alert | 1 week |
+| 🟡 P1 | **Battery-smart tracking** | Adaptive cadence: stationary 60s / moving 3s / <15% battery drain-safe mode | 1 week |
+| 🟢 P2 | **Multi-language** | Yoruba, Hausa, Igbo, French, Swahili (app + dashboard) | 2 weeks |
+| 🟢 P2 | **In-app notification center** | Alert history with read/unread + channel traceability | 1 week |
+
+### Phase B — Differentiators (months, the premium leap)
+
+| Priority | Feature | Details | Effort | Dependencies |
+|----------|---------|---------|-------|--------------|
+| 🔴 P0 | **Magneetar Find Network** | Private crowdsourced BLE mesh: apps advertise rotating encrypted beacons; other installs report sightings via the existing Guardian sighting pipeline. Works when data/GPS are off; the on-ramp to hardware tags | 2-3 months | Guardian pipeline (exists), BLE permissions, on-device beacon code |
+| 🔴 P0 | **On-device edge Sentinel** | Scoring + auto-capture on the phone when offline (snatch motion, SIM removal, airplane-mode) — theft response that doesn't wait for a network round-trip | 1-2 months | Sentinel rules port to Kotlin; accelerometer access |
+| 🟡 P1 | **Zero-knowledge evidence** | Media encrypted at rest with per-device keys, decrypted only on the owner's dashboard (WebCrypto) | 1-2 months | Key management on device + server |
+| 🟡 P1 | **Paystack billing** | Free / Premium / Family tiers, card + direct debit, in-dashboard upgrade. Paystack is the standard for Nigerian SaaS | 2-4 weeks | `PLAN_DEVICE_LIMITS` exists; new billing endpoints + webhook |
+| 🟡 P1 | **NDPA compliance center** | Granular consent records, one-click data export, right-to-erasure, retention controls, plain-language "who can see what" | 2-4 weeks | — |
+
+### Phase C — Future & hardware
+
+| Priority | Feature | Details | Effort |
+|----------|---------|---------|-------|
+| 🟡 P1 | **Magneetar Tag (BLE)** | AirTag-class tracker riding the Magneetar Find Network (wallet, keys, bags) | 3 months + cert |
+| 🟡 P1 | **Wear OS companion** | Panic siren, last-known-location glance, lock from the wrist | 3 weeks |
+| 🟢 P2 | **UWB precision finding** | Direction + distance arrows on supported phones once the Find Network matures | 2 months |
+| 🟢 P2 | **Enterprise/B2B mode** | Org dashboard, bulk enrollment, fleet view, read-only law-enforcement dossier portal | 1-2 months |
+| 🟢 P2 | **Vehicle tracker module** | Embedded hardware one step past the tag (the architecture already anticipates it) | 3+ months |
+
+### Explicitly out of scope (brand protection)
+
+- ❌ mSpy-style hidden monitoring (message reading, keylogging, "surround" mic) — reputational poison, stalking liability
+- ❌ Selling or sharing location data (the Life360 crisis) — the trust position is the brand
+- ❌ Invisible operation for non-owner use — keep owner-consent sacred; publish an anti-stalking/ethics page
+
+### Recommended sequencing
+
+1. **Ship Phase A** — Lost Mode + Recovery Dossier + OpenCelliD + trip history (visible, demo-able, defense-friendly)
+2. **Bet on the Magneetar Find Network** — the only feature no big player offers us; Guardian already proves the sighting pipeline
+3. **Monetize early (Paystack)** so every later feature pays for itself
 
 ---
 
