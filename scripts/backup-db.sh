@@ -35,6 +35,13 @@ DB_PATH="/app/data/magneetar.db"  # inside the container (persisted volume)
 #   MT_RCLONE_REMOTE="mybackups:magneetar"
 RCLONE_REMOTE="${MT_RCLONE_REMOTE:-}"
 
+# Make a user-local rclone visible to cron (cron runs with a minimal PATH and
+# ~/.local/bin is not included). Idempotent; no-op when already on PATH.
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
