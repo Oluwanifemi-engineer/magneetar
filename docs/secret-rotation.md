@@ -205,6 +205,85 @@ was free; do NOT lose the new keystore password.
 - Existing registered device (`mt-14bddfeb`) kept heartbeating (JWT/
   device-key auth unaffected by the rotation).
 
+## 11. Executable checklist — retiring MT_LEGACY_DEVICE_KEY
+
+The legacy key exists ONLY as a grace credential for APKs installed before
+the master/device-key split (v1.4.0). Every day it stays, the old master
+(a key proven extractable from the public APK by `strings`) is a live
+device-scope credential. Retire it as soon as the fleet runs the new APK.
+
+> **Where the value lives**: `docker-compose.yml` carries it inline as
+> `MT_LEGACY_DEVICE_KEY` (server env block) — it is NOT only in `server/.env`.
+> Remove it from BOTH places.
+
+### Pre-flight gate (all must pass before touching the env)
+
+```bash
+# 1. The phone is on the new APK (installed from the download page, Play
+#    Protect paused) AND reporting recently:
+curl -s https://api.magneetar.me/health | jq .status          # online
+
+# 2. The phone's device row has a REAL device_key_hash (proves it registered
+#    with BuildConfig.DEVICE_KEY, not the legacy master). NULL hash = the
+#    device never presented a device key → do NOT retire yet.
+docker exec magneetar-server python3 - <<'PY'
+import sqlite3
+c = sqlite3.connect('/app/data/magneetar.db')
+for r in c.execute("SELECT id, device_key_hash, last_seen FROM devices WHERE owner_id IS NOT NULL"):
+    print(r[0], 'hash=', 'SET' if r[1] else 'NULL', 'last_seen=', r[2])
+PY
+
+# 3. That device's last_seen is within the last 5 minutes (heartbeating live
+#    on the current APK).
+
+# 4. Fresh backup so the rollback path is painless:
+bash scripts/backup-db.sh
+```
+
+### Action
+
+```bash
+# 5. Remove the variable from docker-compose.yml AND server/.env, then deploy:
+#      grep -n MT_LEGACY_DEVICE_KEY docker-compose.yml server/.env
+#    (delete the lines; keep MT_API_KEY + MT_DEVICE_KEY)
+bash scripts/deploy.sh
+```
+
+### Post-verification (prove the retirement took)
+
+```bash
+# 6. Server healthy + version unchanged:
+curl -s https://api.magneetar.me/health | jq '{status, version}'
+
+# 7. The PHONE still reports (it authenticates with the device key now):
+#    dashboard shows it online within 5 min — confirm last_seen advances.
+
+# 8. Negative test — the retired key must now be REJECTED for device scope:
+#    (throwaway device, deleted after)
+python scripts/device_simulator.py --server https://api.magneetar.me \
+  --api-key "$OLD_MASTER_KEY" --device-id "mt-$(openssl rand -hex 4)" --pings 1
+#    expect: ❌ Registration failed: 401
+
+# 9. The master key still works for dashboard login (MT_API_KEY unchanged):
+curl -s -X POST https://api.magneetar.me/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d "{\"api_key\":\"$MT_API_KEY\"}" | jq .token_type
+
+# 10. No leftover references in the running config:
+docker exec magneetar-server sh -c 'env | grep -c LEGACY_DEVICE_KEY'  # → 0
+```
+
+### Rollback (if the phone drops offline after retirement)
+
+```bash
+# The phone is still on the OLD APK → restore the grace key immediately:
+#   re-add MT_LEGACY_DEVICE_KEY to docker-compose.yml + server/.env with the
+#   previous value, then: bash scripts/deploy.sh
+# The predeploy image tag also still carries the old env for a fast revert:
+#   docker tag magneetar-server:predeploy magneetar-server:latest
+#   docker compose up -d --no-deps server
+```
+
 ## 8. Incident trigger — when to rotate
 
 - `MT_JWT_SECRET`: any suspicion that a token was forged or a signing key
