@@ -103,7 +103,7 @@ Admin EMM declaration) — the same submission gates apply.
 | # | Item | Evidence |
 |---|------|----------|
 | 1 | **Recovery capability proven end-to-end** | `bash scripts/recovery-drill.sh` — 12/12 steps PASS (register → link → theft detection → evidence case → community recovery launch → guardian opt-in → blurred nearby scan → sighting → owner notified → close → device recovered). |
-| 2 | **Full test suite green** | Backend **381 passed** (incl. 24 new user-security tests: 2FA lifecycle, password reset, email verification, unowned-device cap, evidence-retention purge) + flake8 clean. Dashboard **106 passed** across 14 suites (incl. login-2FA, Settings security panel, forgot/reset password) + TypeScript clean (`npx tsc --noEmit`). |
+| 2 | **Full test suite green** | Backend **400 passed** (incl. 2FA lifecycle, password reset, email verification, unowned-device cap, evidence-retention purge, device-key separation, write-queue batching) + flake8 clean. Dashboard **173 passed** across 14 suites + TypeScript clean (`npx tsc --noEmit`). |
 | 3 | **Privacy policy page** | `dashboard/src/app/privacy/page.tsx` — hosted at `/privacy`, linked from the landing footer (Legal column). Required by Play's User Data policy. |
 | 4 | **Data safety disclosures** | Backend stores only hashed secrets (bcrypt passwords, SHA-256 device keys, hashed IMEI/SIM). No PII sold or shared. |
 | 5 | **Self-hosted server model** | Users connect to their own server URL (default `https://api.magneetar.me`). No third-party data processors beyond user-selected alert providers (Twilio/WhatsApp/email) and optional Sentry. |
@@ -172,6 +172,73 @@ Complete with these answers:
 - **Scope note:** the deletion endpoints purge the SQLite store (consistent with all device routes). A PostgreSQL-backed deployment needs an equivalent purge path before the "permanent deletion" claim is fully true there. Follow-up: revoke the deleted account's access JWT (currently valid ≤24h; low impact since the WS cache is cleared).
 - **Play Console action:** document the paths in the "Data deletion" answers when filling the form.
 
+### J. Play Console — step-by-step submission walkthrough (2026-08-07 research)
+
+Policy facts researched 2026-08-07 from official Play/Android documentation:
+
+- **Target API:** all new apps and updates must target **API 36 (Android 16)**
+  from **Aug 31, 2026** (extension window to **Nov 1, 2026**). Magneetar
+  already ships `targetSdk 36` — ahead of the deadline.
+- **AAB mandatory:** Play accepts only **App Bundles for new apps** since 2021.
+  The Play AAB is built: `server/static/apk/magneetar-v1.4.0-play.aab`
+  (5,848,507 bytes, signed with the release key, targetSdk 36, **zero SMS
+  permissions** via the `play` flavor).
+- **SMS permissions:** the `play` flavor **removes** `RECEIVE_SMS`,
+  `SEND_SMS`, `READ_PHONE_STATE` — so the SMS permissions-declaration
+  exception is NOT needed for this submission. (If SMS is ever added back to
+  a Play build, Google allows it under the anti-theft / physical-safety
+  exception via the Permissions Declaration form — documented, not needed now.)
+- **Device admin:** `BIND_DEVICE_ADMIN` is a high-privilege permission —
+  declare it via the **Permissions Declaration form** (feature: thief-resistant
+  uninstall + remote lock/wipe, user-consented at activation). Do NOT use the
+  "App content → Device management" declaration (enterprise/MDM only —
+  misdeclaring risks account termination). Fallback if rejected: drop
+  `wipe-data` from `device_admin.xml`.
+- **Data Safety form fields** (map to section F): Location (Precise +
+  Approximate, collected in background, App Functionality, not shared), Photos
+  + Audio (captured only during an armed theft response, stored for the
+  owner's evidence case), Device/other IDs (Firebase instance id — linked to
+  the account), Security practices (TLS in transit, AES-256 at rest, data
+  deletion supported).
+
+Console flow (one-time, ~45 min):
+
+1. **Create app** (play.google.com/console → Create app): name Magneetar,
+   default language, **free**, declare ads: **No**.
+2. **App content (required before any release):**
+   - **Privacy policy:** URL of the live `/privacy` page
+     (e.g. `https://magneetar.me/privacy`) — must be publicly reachable.
+   - **Data safety:** answer per section F (location background = Yes,
+     photos/audio = Yes under "created by the user" + App Functionality,
+     device IDs = Yes; security practices: TLS + encryption at rest + data
+     deletion = Yes, documented at `/privacy`).
+   - **Permissions declaration:** add `ACCESS_BACKGROUND_LOCATION`,
+     `SCHEDULE_EXACT_ALARM`, `SYSTEM_ALERT_WINDOW`, and `BIND_DEVICE_ADMIN`
+     with per-permission feature/value explanations (sections C/E).
+   - **IARC content rating:** complete the questionnaire (violence none/mild;
+     location sharing + surveillance flags answered honestly → 18+).
+   - **Target audience & content:** 18+, no ads, no in-app purchases.
+   - **Account deletion:** answer the data-deletion section with the real
+     endpoints: account deletion in-app (Settings → Danger Zone) and web
+     (`DELETE /api/auth/user/account` + per-device `DELETE
+     /api/dashboard/devices/{id}`).
+3. **Store listing:** short description ≤80 chars (suggested: "Military-grade
+   anti-theft tracking — Sentinel AI theft detection & recovery"), full
+   description, icon, **feature graphic 1024×500**, **6–8 phone screenshots**
+   (incl. the background-location prominent-disclosure dialog — still to
+   capture), app category (Tools/Security).
+4. **Production track → Create release:** upload
+   `server/static/apk/magneetar-v1.4.0-play.aab`; Play derives the artifact
+   list; release notes mention anti-theft + recovery + evidence features.
+5. **Submit for review** — expect a manual review pass due to the
+   device-admin + background-location declarations; answer any questions
+   referencing this checklist and the security docs (`docs/security.md`).
+
+**Still to capture/produce before step 3:** prominent-disclosure screenshots;
+confirm `https://magneetar.me/privacy` is live; keystore backup off-machine
+(`android-app/release.keystore` + `local.properties` — both are required
+together and must live in a password manager/vault).
+
 ---
 
 ## 🚀 Release Build Commands
@@ -184,8 +251,8 @@ bash scripts/generate-env.sh
 bash scripts/recovery-drill.sh --server http://127.0.0.1:8001
 
 # 3. Full test suites
-cd server && ./venv/bin/python -m pytest tests/ -q          # 177 pass
-cd dashboard && npx tsc --noEmit && npx jest --silent        # tsc clean, 70 pass
+cd server && ./venv/bin/python -m pytest tests/ -q          # 400 pass
+cd dashboard && npx tsc --noEmit && npx jest --silent        # tsc clean, 173 pass
 
 # 4. Release APK (Android SDK required)
 cd android-app && ./gradlew assembleRelease
@@ -197,8 +264,8 @@ cd android-app && ./gradlew assembleRelease
 ## 📋 Final Gate Checklist (before hitting Upload)
 
 - [ ] Recovery drill 12/12 PASS (user-verified)
-- [x] Backend 193 tests + Dashboard 74 tests + tsc clean
-- [x] compileSdk/targetSdk ≥ 35 (SDK 35, AGP 8.7.3, Gradle 8.12)
+- [x] Backend 400 tests + Dashboard 173 tests + tsc clean
+- [x] compileSdk/targetSdk = 36 (API 36, AGP 8.10.1, Gradle 8.12) — meets the Aug 31 2026 Play deadline
 - [x] Cleartext restricted to local hosts only (release strict, debug override)
 - [x] Device Admin decision made (permissions declaration, no EMM claim)
 - [x] SMS split builds implemented (play flavor without SMS, sideload with)
