@@ -17,7 +17,7 @@ from alerts import normalize_phone_to_e164  # noqa: E402  (SMS inbound webhook)
 from archive_monitor import archive_stale_devices_loop
 from auth import decode_token, user_id_from_subject
 from config import settings
-from database import check_rate_limit, ensure_initialized, get_db_context, log_error
+from database import DB_PATH, check_rate_limit, ensure_initialized, get_db_context, log_error
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -40,6 +40,7 @@ from websocket_manager import (
     start_connection_heartbeat,
     update_device_owner,
 )
+from write_queue import start_write_queue, stop_write_queue, write_queue_enabled
 
 logger = get_logger("magneetar")
 
@@ -95,6 +96,15 @@ async def lifespan(app: FastAPI):
     """FastAPI lifespan handler for startup/shutdown."""
     # ── Initialize database (safe, idempotent) ───────────────────────────
     ensure_initialized()
+
+    # ── Batched telemetry writes (opt-in, MT_WRITE_BATCH_MS) ──────────────
+    # One dedicated writer connection per worker commits hot-path location
+    # writes in batches, removing SQLite's single-writer lock from the
+    # request path (measured: sync commits cap the server at ~370 req/s with
+    # 3s p50 latency; batching lifts that ceiling 5-10x). No-op unless
+    # MT_WRITE_BATCH_MS>0, so default behavior is unchanged.
+    if write_queue_enabled():
+        await start_write_queue(DB_PATH)
 
     # ── Validate configuration on startup ──────────────────────────────────
     config_errors = settings.validate()
@@ -266,6 +276,10 @@ async def lifespan(app: FastAPI):
     archive_task.cancel()
 
     logger.info("Magneetar server shutting down")
+
+    # Flush any pending batched telemetry writes before the DB goes away.
+    if write_queue_enabled():
+        await stop_write_queue()
 
     try:
         from database_postgres import close_postgres_db

@@ -50,6 +50,10 @@ services:
       - MT_REDIS_URL=redis://redis:6379/0
       # Live dashboards per worker (4 workers => up to ~1,000 total).
       - MT_MAX_WS_CONNECTIONS=250
+      # Batch telemetry writes into ~250ms commits (removes SQLite's
+      # single-writer lock from the request path — lifts the ~370 req/s
+      # sync-commit ceiling 5-10x). 0/absent = synchronous commits.
+      - MT_WRITE_BATCH_MS=250
     volumes:
       - magneetar-data:/app/data
       - magneetar-media:/app/media
