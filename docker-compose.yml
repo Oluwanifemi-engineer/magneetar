@@ -114,7 +114,10 @@ services:
     # NOTE: CF_TUNNEL_TOKEN in root .env is now DEPRECATED for this service —
     # the token-driven dashboard-managed ingress is no longer used. It is kept
     # in .env only for reference / rollback.
-    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    # --edge-ip-version 4: the host has no IPv6 route; without this,
+    # cloudflared keeps dialing IPv6 edge addresses, dropping the connection
+    # and canceling in-flight streams (pages hang / "connection closed").
+    command: tunnel --no-autoupdate --edge-ip-version 4 --config /etc/cloudflared/config.yml run
     volumes:
       - ~/.cloudflared/6c8892f6-598b-42cc-99c9-8350dd573671.json:/etc/cloudflared/credentials.json:ro
       - ./deploy/cloudflared/config.yml:/etc/cloudflared/config.yml:ro

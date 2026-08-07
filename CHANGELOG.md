@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-07
 
+### Fixed
+
+- **Cloudflare tunnel flapping ("cannot access the dashboard")**: the host has
+  no IPv6 route, so cloudflared kept dialing IPv6 edge addresses (`network is
+  unreachable`), dropping connections and canceling in-flight streams — pages
+  hung or refused to load while the server itself was healthy. The tunnel now
+  runs with `--edge-ip-version 4` and `protocol: http2` (TCP only, no QUIC/
+  IPv6). Live-verified: 0 tunnel errors, public `/health` and `/login` return
+  200, browser check clean.
+
+### Changed
+
+- **Dashboard operator position — tap-to-pin replaces "open on your phone"**:
+  in the real theft scenario the GPS phone is the one that was stolen, so the
+  old IP-derived accuracy gate telling the operator to open the dashboard on
+  their phone was a dead-end. The map now has a **PIN POSITION** button: the
+  operator taps the map to mark where they actually are (persisted in
+  localStorage); the pinned position beats the browser fix for distance and
+  OSRM routing; distance shows from any position with a fix-quality annotation
+  (e.g. `±1.5 km IP fix`) instead of being hidden; the IP-derived banner now
+  points to the pin. 173/173 dashboard tests, `tsc` clean, markers live-verified
+  in the served bundle (`page-c299eaac…`).
+
 ### Performance & scale (deployed live)
 
 - **4 uvicorn workers (was 1)**: the 16-core host was running a single Python worker; `server/Dockerfile` now runs `--workers 4`, giving ~4× the CPU headroom for sentinel scoring, geofence checks, and WebSocket fan-out. Live-verified: 4× "Application startup complete" in the container.

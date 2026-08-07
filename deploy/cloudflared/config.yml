@@ -16,6 +16,12 @@
 tunnel: 6c8892f6-598b-42cc-99c9-8350dd573671
 credentials-file: /etc/cloudflared/credentials.json
 
+# Force HTTP/2 transport: the default QUIC protocol keeps trying UDP/IPv6
+# edges on hosts without an IPv6 route, producing "network is unreachable"
+# dial failures and canceled streams (intermittent page hangs). TCP/HTTP2
+# is the most conservative, reliable transport for this network.
+protocol: http2
+
 ingress:
   # API — backend server (port 8000 inside the container)
   - hostname: api.magneetar.me

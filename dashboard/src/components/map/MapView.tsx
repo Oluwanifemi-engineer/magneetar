@@ -26,20 +26,47 @@ const MAP_TILE_ATTRIBUTION = MAP_TILE_URL
     ? '&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>';
 
-// ─── Operator location accuracy policy ────────────────────────────────────────
+// ─── Operator position policy ────────────────────────────────────────────────
 // The DEVICE marker comes from the tracked phone's GPS (server data). The
 // operator's own "YOU" position comes from navigator.geolocation, which varies
 // wildly by browser: mobile browsers use GPS (3-15m), desktop browsers fall
 // back to WiFi (~20-100m) or IP geolocation (1-100+ km) and ignore
-// enableHighAccuracy (no GPS hardware). Pretending an IP-derived position is
-// precise is dangerous for an anti-theft trailing tool, so the dashboard:
+// enableHighAccuracy (no GPS hardware). In the REAL theft scenario the phone
+// with GPS is the one that was stolen — telling the operator to "open the
+// dashboard on your phone" is impossible — so the honest answer is a MANUAL
+// PIN: the operator taps the map to say "I am here". The pinned position
+// always beats the browser fix for distance and routing.
 //   1. draws the browser-reported accuracy circle around the YOU marker
-//   2. shows a distance only when the position is trustworthy enough
-//   3. blocks OSRM routing unless accuracy is street-level
-//   4. tells the operator when they're on an IP-derived fix (open on phone)
-const USER_ACCURACY_DISTANCE_MAX = 1000; // metres — show "X away" only within this
-const USER_ACCURACY_NAVIGATION_MAX = 300; // metres — OSRM route only when this good
+//   2. distance shows from the effective position (pin > browser), annotated
+//      with fix quality when coarse
+//   3. OSRM routing is allowed from a pin, or from a browser fix whose
+//      reported accuracy is street-level
+//   4. flags IP-derived fixes and offers the pin instead of "use your phone"
+const USER_ACCURACY_DISTANCE_MAX = 1000; // metres — beyond this, annotate distance with fix quality
+const USER_ACCURACY_NAVIGATION_MAX = 300; // metres — OSRM route from browser fix only when this good
 const USER_ACCURACY_IP_FALLBACK = 5000; // metres — >= this is an IP-derived (desktop) fix
+const PINNED_STORAGE_KEY = 'mt_pinned_position';
+
+function loadPinnedPosition(): [number, number] | null {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(PINNED_STORAGE_KEY) : null;
+    if (!raw) return null;
+    const [lat, lng] = JSON.parse(raw);
+    if (typeof lat === 'number' && typeof lng === 'number') return [lat, lng];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function savePinnedPosition(pos: [number, number] | null) {
+  try {
+    if (pos) window.localStorage.setItem(PINNED_STORAGE_KEY, JSON.stringify(pos));
+    else window.localStorage.removeItem(PINNED_STORAGE_KEY);
+  } catch {
+    // localStorage unavailable (private mode) — the pin just won't survive reloads
+  }
+}
 
 function formatAccuracyMeters(m: number): string {
   return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
@@ -120,13 +147,21 @@ async function initIcons() {
 
 // ─── Map Controller — smooth follow & recenter ────────────────────────────
 
-function MapController() {
+function MapController({ pinning, onPin }: { pinning: boolean; onPin: (pos: [number, number]) => void }) {
   const map = useMap();
   const { followDevice, latestLocation, selectedDeviceId } = useStore();
   const prevCenter = useRef<string>('');
   const prevDevice = useRef<string | null>(null);
   const userInteracted = useRef(false);
   const interactionTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Pin mode: one map click places the operator's position.
+  useEffect(() => {
+    if (!pinning) return;
+    const handler = (e: any) => { onPin([e.latlng.lat, e.latlng.lng]); };
+    map.on('click', handler);
+    return () => { map.off('click', handler); };
+  }, [map, pinning, onPin]);
 
   useEffect(() => {
     const handler = () => {
@@ -171,9 +206,10 @@ function MapController() {
 
 // ─── Distance Overlay Component ─────────────────────────────────────────────
 
-function DistanceOverlay({ userPos, userAccuracy, deviceLat, deviceLng, offline, lastSeen }: {
+function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceLng, offline, lastSeen }: {
   userPos: [number, number] | null;
   userAccuracy: number | null;
+  userPinned: boolean;
   deviceLat: number;
   deviceLng: number;
   offline: boolean;
@@ -182,7 +218,10 @@ function DistanceOverlay({ userPos, userAccuracy, deviceLat, deviceLng, offline,
   const [distance, setDistance] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!userPos || offline || userAccuracy == null || userAccuracy > USER_ACCURACY_DISTANCE_MAX) {
+    // A distance is always useful from ANY position we have (pin or browser
+    // fix); a coarse fix is annotated, not hidden. Only a missing position
+    // (nothing pinned AND no browser fix) blocks the readout.
+    if (!userPos || offline) {
       setDistance(null);
       return;
     }
@@ -216,24 +255,20 @@ function DistanceOverlay({ userPos, userAccuracy, deviceLat, deviceLng, offline,
     );
   }
 
-  // Operator position too coarse to trust (browser IP fallback, no GPS): show
-  // an honest notice instead of a fabricated "X km away".
-  if (!userPos || userAccuracy == null || userAccuracy > USER_ACCURACY_DISTANCE_MAX) {
+  // No usable operator position (nothing pinned AND the browser has no fix):
+  // tell the operator HOW to set one — pinning is the honest fallback when
+  // the only "phone" with GPS is the one that was stolen.
+  if (!userPos) {
     return (
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000]">
         <div className="mag-panel px-4 py-2.5 flex items-center gap-2.5 animate-fade-in">
           <div className="w-2 h-2 rounded-full bg-mag-warning shadow-[0_0_10px_rgba(245,158,11,0.6)] animate-pulse-slow" />
           <span className="font-mono text-[10px] text-mag-warning font-bold uppercase tracking-wider">
-            LOCATION UNCERTAIN
+            SET YOUR POSITION
           </span>
           <div className="h-4 w-px bg-mag-border/40" />
           <span className="font-mono text-[10px] text-mag-text-dim font-bold">
-            {userAccuracy != null
-              ? `your fix is ±${formatAccuracyMeters(userAccuracy)}`
-              : 'your browser has no GPS fix'}
-          </span>
-          <span className="font-mono text-[9px] text-mag-text-dim/60 font-bold hidden md:inline">
-            open this dashboard on your phone for accurate distance
+            tap PIN POSITION, then tap the map where you are
           </span>
         </div>
       </div>
@@ -261,6 +296,11 @@ function DistanceOverlay({ userPos, userAccuracy, deviceLat, deviceLng, offline,
           {formatDistance(distance)}
         </span>
         <span className="font-mono text-[10px] text-mag-text-dim/60 font-bold">away</span>
+        {!userPinned && userAccuracy != null && userAccuracy > USER_ACCURACY_DISTANCE_MAX && (
+          <span className="font-mono text-[9px] text-mag-warning font-bold">
+            ±{formatAccuracyMeters(userAccuracy)} IP fix — pin your spot
+          </span>
+        )}
       </div>
     </div>
   );
@@ -367,13 +407,21 @@ export function MapView() {
   const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
   const [userGeoDenied, setUserGeoDenied] = useState(false);
   const [navigating, setNavigating] = useState(false);
+  // Pinned operator position — the operator taps the map to say "I am here".
+  // This is the PRIMARY source for a theft trail run from a laptop (no GPS)
+  // and always beats an IP-derived browser fix. Survives reloads.
+  const [userPinned, setUserPinned] = useState<[number, number] | null>(loadPinnedPosition);
+  const [pinning, setPinning] = useState(false);
 
-  // Operator position is usable for navigation only when the browser's own
-  // reported accuracy is street-level; routing from an IP-derived fix would
-  // send the operator to the wrong city.
+  // Effective operator position: pin wins over the browser fix.
+  const effectiveUserPos = userPinned ?? userPosition;
+  // Routing is safe from a pinned position (the operator chose the exact
+  // point), or from a browser fix whose reported accuracy is street-level.
+  // Routing from an IP-derived fix would send the operator to the wrong city.
   const userNavigationUsable =
-    !!userPosition && userAccuracy != null && userAccuracy <= USER_ACCURACY_NAVIGATION_MAX;
-  const userFixIsIpDerived = !!userPosition && userAccuracy != null && userAccuracy >= USER_ACCURACY_IP_FALLBACK;
+    !!userPinned || (!!userPosition && userAccuracy != null && userAccuracy <= USER_ACCURACY_NAVIGATION_MAX);
+  const userFixIsIpDerived =
+    !userPinned && !!userPosition && userAccuracy != null && userAccuracy >= USER_ACCURACY_IP_FALLBACK;
 
   // Path tracker state — the index is shared with the timeline slider so
   // scrubbing and playback stay in sync
@@ -422,13 +470,20 @@ export function MapView() {
     initIcons().then(() => setIconsReady(true));
   }, []);
 
+  // Place the operator's pinned position (from pin mode) and persist it.
+  const handlePin = useCallback((pos: [number, number]) => {
+    setUserPinned(pos);
+    savePinnedPosition(pos);
+    setPinning(false);
+  }, []);
+
   // Navigation handler
   const handleNavigate = useCallback(async () => {
-    if (!latestLocation || !userPosition || !userNavigationUsable) return;
+    if (!latestLocation || !effectiveUserPos || !userNavigationUsable) return;
     setNavigating(true);
     try {
       const route = await getOSRMRoute(
-        userPosition[0], userPosition[1],
+        effectiveUserPos[0], effectiveUserPos[1],
         latestLocation.lat, latestLocation.lng
       );
       setNavigationRoute(route);
@@ -437,7 +492,7 @@ export function MapView() {
     } finally {
       setNavigating(false);
     }
-  }, [latestLocation, userPosition, userNavigationUsable]);
+  }, [latestLocation, effectiveUserPos, userNavigationUsable]);
 
   // Clear route when device moves
   useEffect(() => {
@@ -477,13 +532,14 @@ export function MapView() {
             attribution={MAP_TILE_ATTRIBUTION}
           />
 
-          <MapController />
+          <MapController pinning={pinning} onPin={handlePin} />
 
           {/* Distance / offline overlay */}
-          {latestLocation && (userPosition || !deviceOnline) && (
+          {latestLocation && (effectiveUserPos || !deviceOnline) && (
             <DistanceOverlay
-              userPos={userPosition}
+              userPos={effectiveUserPos}
               userAccuracy={userAccuracy}
+              userPinned={!!userPinned}
               deviceLat={latestLocation.lat}
               deviceLng={latestLocation.lng}
               offline={!deviceOnline}
@@ -503,10 +559,10 @@ export function MapView() {
                   <line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
                 <div className="text-[10px] font-mono text-mag-text-dim font-bold leading-tight">
-                  <span className="text-mag-warning">YOUR LOCATION IS IP-DERIVED</span>
+                  <span className="text-mag-warning">NO GPS FIX (IP-DERIVED)</span>
                   <span className="block mt-0.5 text-mag-text-dim/70">
-                    ±{formatAccuracyMeters(userAccuracy!)} — no GPS fix. For precise
-                    tracking open this dashboard on your phone.
+                    ±{formatAccuracyMeters(userAccuracy!)}. Tap PIN POSITION and
+                    tap the map where you actually are — precise enough to trail.
                   </span>
                 </div>
               </div>
@@ -661,7 +717,7 @@ export function MapView() {
 
           {/* User accuracy circle — honest visualization of the browser's own
               reported fix quality (tiny on mobile GPS, huge on desktop IP). */}
-          {userPosition && userAccuracy != null && (
+          {!userPinned && userPosition && userAccuracy != null && (
             <Circle
               center={userPosition}
               radius={userAccuracy}
@@ -675,25 +731,31 @@ export function MapView() {
             />
           )}
 
-          {/* User Location Marker */}
-          {userPosition && iconsReady && userIcon && (
-            <Marker position={userPosition} icon={userIcon}>
+          {/* Operator marker — pinned position (preferred) or browser fix */}
+          {effectiveUserPos && iconsReady && userIcon && (
+            <Marker position={effectiveUserPos} icon={userIcon}>
               <Popup>
                 <div className="font-sans text-sm min-w-[160px]">
                   <div className="font-bold text-mag-secondary mb-1 flex items-center gap-1.5">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="10"/></svg>
-                    YOUR LOCATION
+                    {userPinned ? 'PINNED POSITION' : 'YOUR LOCATION'}
                   </div>
                   <div className="text-mag-text-dim font-mono text-[11px] font-bold">
-                    {userPosition[0].toFixed(6)}, {userPosition[1].toFixed(6)}
+                    {effectiveUserPos[0].toFixed(6)}, {effectiveUserPos[1].toFixed(6)}
                   </div>
-                  {userAccuracy != null && (
+                  {userPinned ? (
                     <div className="text-mag-text-dim/70 font-mono text-[10px] font-bold mt-1">
-                      Accuracy ±{formatAccuracyMeters(userAccuracy)}
-                      {userAccuracy > USER_ACCURACY_DISTANCE_MAX && (
-                        <span className="text-mag-warning"> — IP-based, not GPS</span>
-                      )}
+                      Set by you on the map — used for distance & route
                     </div>
+                  ) : (
+                    userAccuracy != null && (
+                      <div className="text-mag-text-dim/70 font-mono text-[10px] font-bold mt-1">
+                        Accuracy ±{formatAccuracyMeters(userAccuracy)}
+                        {userAccuracy > USER_ACCURACY_DISTANCE_MAX && (
+                          <span className="text-mag-warning"> — IP-based, not GPS</span>
+                        )}
+                      </div>
+                    )
                   )}
                 </div>
               </Popup>
@@ -782,10 +844,40 @@ export function MapView() {
 
       {/* ── Bottom Controls ──────────────────────────────────────────────── */}
       <div className="absolute bottom-4 left-4 right-4 z-[1000] flex items-end gap-3 pointer-events-none">
-        {/* Left: Follow/Trail/Path controls */}
+        {/* Left: Position / Follow / Trail controls */}
         <div className="pointer-events-auto space-y-2">
           {latestLocation && (
             <div className="mag-panel px-3 py-2 flex items-center gap-2">
+              <button
+                onClick={() => { setPinning(!pinning); }}
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-all',
+                  pinning
+                    ? 'border-mag-warning/60 text-mag-warning bg-mag-warning/10 animate-pulse'
+                    : userPinned
+                      ? 'border-mag-secondary/40 text-mag-secondary bg-mag-secondary/10'
+                      : 'border-mag-border/60 text-mag-text-dim hover:border-mag-border'
+                )}
+                title={
+                  pinning
+                    ? 'Tap the map to place your position'
+                    : userPinned
+                      ? 'Your position is pinned on the map'
+                      : 'Tap the map to mark where you are (use this when the browser has no GPS)'
+                }
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                {pinning ? 'TAP THE MAP…' : userPinned ? 'PINNED' : 'PIN POSITION'}
+              </button>
+              {userPinned && (
+                <button
+                  onClick={() => { setUserPinned(null); savePinnedPosition(null); }}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-mag-border/60 text-mag-text-dim hover:text-mag-danger hover:border-mag-danger/40 transition-all"
+                  title="Clear the pin and fall back to the browser position"
+                >
+                  USE GPS
+                </button>
+              )}
               <button
                 onClick={() => setFollowDevice(!followDevice)}
                 className={cn(
@@ -899,7 +991,7 @@ export function MapView() {
                   <button
                     onClick={handleNavigate}
                     disabled={!userPosition || !userNavigationUsable || navigating}
-                    title={!userNavigationUsable ? 'Your browser location fix is too imprecise to route from (±' + (userAccuracy != null ? formatAccuracyMeters(userAccuracy) : '?') + '). Open on your phone for GPS-accurate routing.' : undefined}
+                    title={!userNavigationUsable ? 'No usable position to route from — tap PIN POSITION and tap the map where you are.' : undefined}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono font-bold border border-mag-primary/40 text-mag-primary bg-mag-primary/8 hover:bg-mag-primary/15 transition-all disabled:opacity-40"
                   >
                     {navigating ? (
@@ -910,7 +1002,7 @@ export function MapView() {
                     ) : (
                       <>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                        {userNavigationUsable ? 'GET ROUTE' : 'NEED GPS FIX'}
+                        {userNavigationUsable ? 'GET ROUTE' : 'PIN YOUR POSITION'}
                       </>
                     )}
                   </button>
