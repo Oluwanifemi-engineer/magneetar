@@ -161,6 +161,37 @@ def _get_redis():
         return None
 
 
+_pubsub_client = None
+
+
+def _get_pubsub_client():
+    """Dedicated client for the long-lived broadcast listener.
+
+    Deliberately has NO socket_timeout: pubsub.listen() blocks on a socket
+    read, and with an idle channel a short socket_timeout (like the 2s on the
+    shared client) turns quiet periods into a TimeoutError reconnect storm.
+    A connection with no read timeout can idle indefinitely, which is exactly
+    what a subscriber needs."""
+    global _pubsub_client
+    if _pubsub_client is not None:
+        return _pubsub_client
+    url = os.environ.get("MT_REDIS_URL", "")
+    if not url:
+        return None
+    try:
+        import redis.asyncio as aioredis
+
+        _pubsub_client = aioredis.from_url(
+            url,
+            decode_responses=True,
+            socket_connect_timeout=5,
+            socket_timeout=None,  # idle channel must not time out
+        )
+        return _pubsub_client
+    except Exception:  # pragma: no cover - env-dependent
+        return None
+
+
 def _resolve_scope_owner(message: dict):
     """Attach the recipient owner scope to a broadcast message so ANY worker's
     subscriber can filter its local connections without a shared in-memory
@@ -257,12 +288,13 @@ async def redis_broadcast_listener():
     """Per-worker background task: forward shared-channel messages to this
     worker's local WebSocket connections. Self-heals on disconnects; exits
     silently when Redis is not configured (single-worker mode)."""
-    r = _get_redis()
-    if r is None:
+    conn = _get_pubsub_client()
+    if conn is None:
         return
     while True:
+        pubsub = None
         try:
-            pubsub = r.pubsub()
+            pubsub = conn.pubsub()
             await pubsub.subscribe(REDIS_CHANNEL)
             async for msg in pubsub.listen():
                 if msg.get("type") != "message":
@@ -290,6 +322,12 @@ async def redis_broadcast_listener():
         except Exception as e:  # pragma: no cover - reconnection path
             logger.warning(f"Redis listener disconnected — reconnecting: {e}")
             await asyncio.sleep(2)
+        finally:
+            if pubsub is not None:
+                try:
+                    await pubsub.aclose()
+                except Exception:
+                    pass
 
 
 def remove_websocket(ws: WebSocket):
