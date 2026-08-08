@@ -83,7 +83,9 @@ class MagneetarMessagingService : FirebaseMessagingService() {
                 requestBuilder.addHeader("x-device-key", deviceKey)
                 Log.d(TAG, "Registering FCM with device key auth")
             } else {
-                requestBuilder.addHeader("x-api-key", deviceKey)
+                // Use the shared API key (BuildConfig.DEVICE_KEY contains the shared key
+                // when no per-device key is set)
+                requestBuilder.addHeader("x-api-key", BuildConfig.DEVICE_KEY)
                 Log.d(TAG, "Registering FCM with shared API key")
             }
 

@@ -443,6 +443,9 @@ class TrackingService : Service() {
                         apply()
                     }
 
+                    // Register FCM token for push notifications
+                    scope.launch { registerFcmToken() }
+
                     // If the user is signed in but the server still did not
                     // link us (e.g. device limit hit at the time, or a
                     // transient token hiccup), fire a best-effort claim now.
@@ -552,6 +555,36 @@ class TrackingService : Service() {
             }
         } catch (e: Exception) {
             // Non-breaking by design.
+        }
+    }
+
+    /**
+     * Register the FCM token with the server for push notifications.
+     * Called after device registration to ensure push alerts (theft, SIM change,
+     * device offline) can be delivered to the device.
+     */
+    private suspend fun registerFcmToken() {
+        try {
+            val token = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
+            if (token.isNullOrEmpty()) {
+                android.util.Log.w("TrackingService", "FCM token is empty, skipping registration")
+                return
+            }
+
+            val body = JSONObject().apply {
+                put("fcm_token", token)
+                put("device_id", deviceId)
+                put("platform", "android")
+            }.toString().toRequestBody(JSON)
+
+            val response = post("/api/device/fcm-token", body)
+            if (response != null) {
+                android.util.Log.d("TrackingService", "FCM token registered for device $deviceId")
+            } else {
+                android.util.Log.w("TrackingService", "FCM token registration failed")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TrackingService", "FCM token registration error: ${e.message}")
         }
     }
 
