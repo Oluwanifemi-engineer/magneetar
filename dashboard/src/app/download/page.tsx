@@ -25,6 +25,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { APK_DOWNLOAD_URL, APK_CHECKSUM_URL } from '@/lib/utils';
+import { Reveal } from '@/hooks/useScrollReveal';
 
 type ChecksumInfo = {
   filename: string;
@@ -102,6 +103,12 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function SkeletonBlock({ className = '' }: { className?: string }) {
+  return (
+    <div className={`animate-pulse bg-white/[0.04] rounded-xl ${className}`} />
+  );
+}
+
 export default function DownloadPage() {
   const [authed, setAuthed] = useState(false);
   const [checksum, setChecksum] = useState<ChecksumInfo | null>(null);
@@ -110,6 +117,7 @@ export default function DownloadPage() {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [ticketError, setTicketError] = useState(false);
   const [minting, setMinting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const serverUrl = sessionStorage.getItem('mt_server_url');
@@ -148,7 +156,7 @@ export default function DownloadPage() {
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
       .then((data: ChecksumInfo) => { if (!cancelled) setChecksum(data); })
       .catch(() => { if (!cancelled) setChecksumError(true); })
-      .finally(() => clearTimeout(timer));
+      .finally(() => { clearTimeout(timer); setLoading(false); });
     return () => { cancelled = true; controller.abort(); };
   }, []);
 
@@ -210,6 +218,26 @@ export default function DownloadPage() {
 
         {/* ═══ Download Section ═══ */}
         <section className="mt-16 premium-card p-8 sm:p-10 relative">
+          {loading && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <SkeletonBlock className="w-14 h-14 rounded-2xl" />
+                <div className="space-y-2">
+                  <SkeletonBlock className="w-48 h-5" />
+                  <SkeletonBlock className="w-32 h-3" />
+                </div>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <SkeletonBlock className="w-8 h-8 rounded-lg" />
+                    <SkeletonBlock className="w-32 h-4" />
+                  </div>
+                ))}
+              </div>
+              <SkeletonBlock className="w-full sm:w-auto h-14 rounded-2xl" />
+            </div>
+          )}
           {/* Decorative gradient orb */}
           <div className="absolute -top-32 -right-32 w-64 h-64 rounded-full bg-gradient-to-br from-[#E91E8C]/20 to-[#06B6D4]/20 blur-[80px] pointer-events-none" />
 
@@ -294,7 +322,7 @@ export default function DownloadPage() {
         <div className="divider-premium my-16" />
 
         {/* ═══ Install Steps ═══ */}
-        <section>
+        <Reveal>
           <div className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight">
               How to <span className="text-gradient-primary">install</span>
@@ -317,10 +345,10 @@ export default function DownloadPage() {
               </div>
             ))}
           </div>
-        </section>
+        </Reveal>
 
         {/* ═══ OEM Battery Notes ═══ */}
-        <section className="mt-20">
+        <Reveal delay={100} className="mt-20">
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel mb-4">
               <BatteryCharging size={14} className="text-[#06B6D4]" />
@@ -349,10 +377,10 @@ export default function DownloadPage() {
               </div>
             ))}
           </div>
-        </section>
+        </Reveal>
 
         {/* ═══ Features Section ═══ */}
-        <section className="mt-20">
+        <Reveal delay={200} className="mt-20">
           <div className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight">
               What Magneetar <span className="text-gradient-primary">gives you</span>
@@ -374,10 +402,10 @@ export default function DownloadPage() {
               </div>
             ))}
           </div>
-        </section>
+        </Reveal>
 
         {/* ═══ Verify Section ═══ */}
-        <section className="mt-20 glass-panel rounded-2xl p-6">
+        <Reveal delay={300} className="mt-20 glass-panel rounded-2xl p-6">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
               <div className="text-[10px] font-mono text-white/30 tracking-widest font-bold mb-2">SHA-256 CHECKSUM</div>
@@ -395,10 +423,10 @@ export default function DownloadPage() {
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
-        </section>
+        </Reveal>
 
         {/* ═══ CTA Section ═══ */}
-        <section className="mt-20 text-center">
+        <Reveal delay={400} className="mt-20 text-center">
           <div className="premium-card p-12 relative overflow-hidden">
             {/* Decorative gradient */}
             <div className="absolute inset-0 bg-gradient-to-br from-[#E91E8C]/[0.08] via-transparent to-[#06B6D4]/[0.08] pointer-events-none" />
@@ -416,7 +444,7 @@ export default function DownloadPage() {
               </Link>
             </div>
           </div>
-        </section>
+        </Reveal>
       </main>
 
       <Footer />

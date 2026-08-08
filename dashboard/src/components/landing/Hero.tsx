@@ -49,25 +49,24 @@ export function Hero({ authed }: { authed: boolean }) {
             {authed ? (
               <Link
                 href="/dashboard"
-                className="group inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl text-[13px] font-bold uppercase tracking-wider bg-gradient-to-r from-[#E91E8C] to-[#06B6D4] text-white shadow-xl shadow-[#E91E8C]/25 hover:shadow-[#E91E8C]/40 hover:brightness-110 transition-all duration-200 active:scale-[0.97]"
+                className="btn-premium group inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl text-[13px] font-bold uppercase tracking-wider text-white"
               >
                 <ShieldCheck size={16} />
                 Open Command Center
-                <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
               </Link>
             ) : (
               <>
                 <Link
                   href="/signup"
-                  className="group relative inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl text-[13px] font-bold uppercase tracking-wider bg-gradient-to-r from-[#E91E8C] to-[#06B6D4] text-white shadow-xl shadow-[#E91E8C]/25 hover:shadow-[#E91E8C]/40 hover:brightness-110 transition-all duration-200 active:scale-[0.97] overflow-hidden"
+                  className="btn-premium group inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl text-[13px] font-bold uppercase tracking-wider text-white"
                 >
-                  <span className="absolute inset-y-0 -left-full w-1/2 bg-white/15 blur-md animate-shimmer" />
                   Get Started Free
-                  <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
+                  <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
                 </Link>
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-[13px] font-bold uppercase tracking-wider border border-white/12 text-white/70 hover:text-white hover:bg-white/[0.05] hover:border-white/25 transition-all duration-200"
+                  className="glass-panel inline-flex items-center gap-2 px-7 py-4 rounded-2xl text-[13px] font-bold uppercase tracking-wider text-white/70 hover:text-white transition-all duration-300"
                 >
                   Sign In
                 </Link>
@@ -75,7 +74,7 @@ export function Hero({ authed }: { authed: boolean }) {
             )}
             <Link
               href="/download"
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-[13px] font-bold uppercase tracking-wider border border-emerald-400/25 text-emerald-300 hover:bg-emerald-400/[0.06] hover:border-emerald-400/40 hover:shadow-[0_0_24px_rgba(34,197,94,0.12)] transition-all duration-200 active:scale-[0.97]"
+              className="glass-panel inline-flex items-center gap-2 px-7 py-4 rounded-2xl text-[13px] font-bold uppercase tracking-wider text-[#22C55E]/80 hover:text-[#22C55E] hover:border-[#22C55E]/30 transition-all duration-300"
             >
               <Download size={15} />
               Download APK
@@ -106,9 +105,9 @@ export function Hero({ authed }: { authed: boolean }) {
         {/* ─── Live Dashboard Mockup ────────────────────────────────────── */}
         <div className="relative">
           {/* Glow behind panel */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-[#E91E8C]/15 via-transparent to-[#06B6D4]/15 rounded-3xl blur-2xl pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-tr from-[#E91E8C]/15 via-transparent to-[#06B6D4]/15 rounded-3xl blur-3xl pointer-events-none" />
 
-          <div className="relative rounded-2xl border border-white/10 bg-[#0d0d14]/90 backdrop-blur-xl shadow-2xl shadow-black/60 overflow-hidden">
+          <div className="relative rounded-2xl glass-panel overflow-hidden">
             {/* Window chrome */}
             <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
               <span className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]" />

@@ -108,13 +108,13 @@ export function Features() {
       <div className="max-w-7xl mx-auto px-5 sm:px-8">
         {/* Section header */}
         <div className="max-w-2xl mx-auto text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/[0.03] mb-5">
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-white/50">CAPABILITIES</span>
+          <div className="badge-premium mb-5">
+            CAPABILITIES
           </div>
           <h2 className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight text-white">
             One command center for <span className="text-gradient-cyan">what matters</span>
           </h2>
-          <p className="mt-4 text-white/45 leading-relaxed">
+          <p className="mt-4 text-white/40 leading-relaxed">
             Protect the devices you own and stay close to the people you love — from silent background
             tracking and forensic-grade evidence to live circles that keep everyone in sync.
           </p>
@@ -125,20 +125,20 @@ export function Features() {
           {FEATURES.map((feature) => (
             <div
               key={feature.title}
-              className="group card-glow relative rounded-2xl border border-white/[0.07] bg-white/[0.02] backdrop-blur-xl p-6 overflow-hidden"
+              className="premium-card spotlight relative p-7 overflow-hidden cursor-default"
+              onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                e.currentTarget.style.setProperty('--mouse-x', `${((e.clientX - rect.left) / rect.width) * 100}%`);
+                e.currentTarget.style.setProperty('--mouse-y', `${((e.clientY - rect.top) / rect.height) * 100}%`);
+              }}
             >
-              {/* Hover tint */}
               <div
-                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-                style={{ background: `radial-gradient(ellipse at top, ${feature.accent}10 0%, transparent 60%)` }}
-              />
-              <div
-                className="relative w-11 h-11 rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300"
+                className="w-12 h-12 rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300"
               >
-                <feature.icon size={20} style={{ color: feature.accent }} />
+                <feature.icon size={22} style={{ color: feature.accent }} />
               </div>
-              <h3 className="relative text-white font-bold text-[15px] tracking-tight">{feature.title}</h3>
-              <p className="relative mt-2 text-[13px] leading-relaxed text-white/40">{feature.description}</p>
+              <h3 className="text-white font-bold text-[15px] tracking-tight">{feature.title}</h3>
+              <p className="mt-2.5 text-[13px] leading-relaxed text-white/40">{feature.description}</p>
             </div>
           ))}
         </div>
