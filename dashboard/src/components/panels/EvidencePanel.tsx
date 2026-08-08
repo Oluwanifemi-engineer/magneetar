@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { cn, formatTimestamp } from '@/lib/utils';
-import { ClipboardList, AlertTriangle, FileText, Loader } from 'lucide-react';
+import { ClipboardList, AlertTriangle, FileText, Loader, ShieldCheck } from 'lucide-react';
+import { EvidenceSkeleton } from '@/components/ui/Skeleton';
 
 export function EvidencePanel() {
   const { selectedDeviceId } = useStore();
@@ -54,7 +55,9 @@ export function EvidencePanel() {
 
       {/* Evidence Summary */}
       <div className="bg-mag-surface/40 border border-mag-border/40 rounded-xl p-4">
-        {evidence?.case_id ? (
+        {loading && !evidence ? (
+          <EvidenceSkeleton />
+        ) : evidence?.case_id ? (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
               <div>
@@ -95,11 +98,13 @@ export function EvidencePanel() {
             )}
           </div>
         ) : (
-          <div className="text-center py-4">
-            <AlertTriangle size={24} className="mx-auto text-mag-text-dim/20 mb-2" />
-            <div className="text-mag-text-dim/50 text-sm font-bold">No active evidence case.</div>
-            <div className="text-mag-text-dim/30 text-xs font-mono mt-1">
-              Evidence is automatically created when theft is detected.
+          <div className="text-center py-6">
+            <div className="w-12 h-12 rounded-2xl bg-mag-surface/40 border border-mag-border/30 flex items-center justify-center mx-auto mb-3">
+              <ShieldCheck size={20} className="text-mag-accent/40" />
+            </div>
+            <div className="text-mag-text-dim/60 text-sm font-bold mb-1">No active evidence case</div>
+            <div className="text-mag-text-dim/35 text-xs font-mono leading-relaxed max-w-[240px] mx-auto">
+              Evidence is automatically created when theft is detected. All location data, photos, and audio are cryptographically chained for forensic integrity.
             </div>
           </div>
         )}

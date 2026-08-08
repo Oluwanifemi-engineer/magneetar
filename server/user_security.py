@@ -467,6 +467,11 @@ async def reset_password(req: ResetPasswordRequest, request: Request):
     if not _consume_email_token("password_reset_tokens", user["id"], req.token):
         raise HTTPException(status_code=401, detail="Invalid or expired reset token")
 
+    # Validate password strength before hashing (same rules as registration)
+    from user_auth import _validate_password_strength
+
+    _validate_password_strength(req.new_password)
+
     new_hash = hash_password(req.new_password)
     with get_db_context() as conn:
         conn.execute("UPDATE users SET password_hash=? WHERE id=?", (new_hash, user["id"]))

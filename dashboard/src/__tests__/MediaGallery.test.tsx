@@ -51,6 +51,15 @@ jest.mock('lucide-react', () => {
   };
 });
 
+jest.mock('@/components/ui/Toast', () => ({
+  useToast: () => ({ toast: jest.fn() }),
+  ToastProvider: ({ children }: any) => children,
+}));
+
+jest.mock('@/components/ui/Skeleton', () => ({
+  MediaSkeleton: () => null,
+}));
+
 jest.mock('@/lib/utils', () => ({
   cn: (...args: any[]) => args.filter(Boolean).join(' '),
   formatTimestamp: (v: any) => v || '—',

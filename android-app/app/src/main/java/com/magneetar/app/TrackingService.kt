@@ -10,6 +10,14 @@ import androidx.core.content.ContextCompat
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import kotlinx.coroutines.tasks.await
 import android.os.*
 import android.provider.Settings
 import android.telephony.TelephonyManager
@@ -31,6 +39,13 @@ class TrackingService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private lateinit var locationManager: LocationManager
     private lateinit var connectivityManager: android.net.ConnectivityManager
+    /** Google Play Services fused provider — fuses GPS + WiFi + cell for
+     *  dramatically better accuracy (3-15m vs 500m-5km from raw NETWORK) and
+     *  faster GPS lock (satellite prediction from WiFi/cell data). Null when
+     *  Google Play Services is unavailable (rare — most Android devices have it). */
+    private var fusedClient: FusedLocationProviderClient? = null
+    private var fusedCallback: LocationCallback? = null
+    private var useFusedProvider = false
     private var wakeLock: android.os.PowerManager.WakeLock? = null
 
     private val client = OkHttpClient.Builder()
@@ -616,6 +631,61 @@ class TrackingService : Service() {
         // Get initial battery
         updateDeviceState()
 
+        // ── Try Google Play Services FusedLocationProvider first ──────────
+        // The fused provider combines GPS + WiFi + cell tower data for
+        // dramatically better accuracy (3-15m vs 500m-5km from raw
+        // LocationManager NETWORK_PROVIDER) and faster GPS lock (3-5s
+        // via satellite prediction from WiFi/cell data vs 30-60s cold
+        // start). Falls back to raw LocationManager on devices without
+        // Google Play Services (very rare — mostly Amazon Fire tablets).
+        try {
+            val apiAvailability = GoogleApiAvailability.getInstance()
+            val resultCode = apiAvailability.isGooglePlayServicesAvailable(this)
+            if (resultCode == com.google.android.gms.common.ConnectionResult.SUCCESS) {
+                fusedClient = LocationServices.getFusedLocationProviderClient(this)
+                useFusedProvider = true
+                android.util.Log.i("TrackingService", "Using Google Play Services FusedLocationProvider")
+
+                val locationRequest = LocationRequest.Builder(
+                    Priority.PRIORITY_HIGH_ACCURACY, LOCATION_INTERVAL_MS
+                ).apply {
+                    setMinUpdateIntervalMillis(LOCATION_INTERVAL_MS / 2)
+                    setWaitForAccurateLocation(false)
+                }.build()
+
+                val callback = object : LocationCallback() {
+                    override fun onLocationResult(result: LocationResult) {
+                        val location = result.lastLocation ?: return
+                        updateDeviceState()
+                        val filtered = locationFilter.update(
+                            LocationFilter.Fix(
+                                lat = location.latitude,
+                                lng = location.longitude,
+                                accuracyMeters = location.accuracy,
+                                timestampMs = location.time,
+                                provider = location.provider ?: "fused",
+                            )
+                        )
+                        if (filtered != null) {
+                            scope.launch { reportLocation(location, filtered) }
+                        }
+                    }
+                }
+                fusedCallback = callback
+                fusedClient?.requestLocationUpdates(locationRequest, callback, Looper.getMainLooper())
+
+                // Also check if location settings need user attention
+                checkLocationSettings()
+                return
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("TrackingService", "FusedLocationProvider unavailable, falling back to LocationManager: ${e.message}")
+            useFusedProvider = false
+            fusedClient = null
+        }
+
+        // ── Fallback: raw LocationManager ────────────────────────────────
+        android.util.Log.i("TrackingService", "Falling back to raw LocationManager")
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 updateDeviceState()
@@ -654,6 +724,28 @@ class TrackingService : Service() {
             )
         } catch (e: SecurityException) {
             e.printStackTrace()
+        }
+    }
+
+    /**
+     * Check if the device's location mode is high-accuracy. If not, the user
+     * should enable it for best tracking results. Best-effort — never blocks
+     * tracking on failure (some OEMs restrict this API).
+     */
+    private fun checkLocationSettings() {
+        try {
+            val locationRequest = LocationRequest.Builder(
+                Priority.PRIORITY_HIGH_ACCURACY, LOCATION_INTERVAL_MS
+            ).build()
+            val settingsRequest = com.google.android.gms.location.LocationSettingsRequest.Builder()
+                .addLocationRequest(locationRequest)
+                .setAlwaysShow(true)
+                .build()
+            LocationServices.getSettingsClient(this)
+                .checkLocationSettings(settingsRequest)
+                .addOnFailureListener { /* User can choose to enable or ignore */ }
+        } catch (e: Exception) {
+            // Non-fatal — the fused provider still works, just less accurately
         }
     }
 
@@ -831,6 +923,8 @@ class TrackingService : Service() {
             delay(HEARTBEAT_INTERVAL_MS)
         }
     }
+
+
 
     /**
      * Flush the OfflineOutbox: deliver queued command acks and captured
@@ -1017,10 +1111,12 @@ class TrackingService : Service() {
                     ackCommand(id, "executed")
                 }
                 "lock" -> {
-                    if (lockDevice()) ackCommand(id, "executed") else ackCommand(id, "failed")
+                    if (lockDevice()) ackCommand(id, "executed")
+                    else ackFailed(id, "Device Admin not active — go to Settings > Security > Device Admin and enable Magneetar")
                 }
                 "alarm" -> {
-                    if (triggerAlarm()) ackCommand(id, "executed") else ackCommand(id, "failed")
+                    if (triggerAlarm()) ackCommand(id, "executed")
+                    else ackFailed(id, "Alarm audio failed — check that the device is not in Silent mode")
                 }
                 "wipe" -> {
                     // Wipe is destructive: require active device-admin, ack
@@ -1030,10 +1126,10 @@ class TrackingService : Service() {
                         ackCommand(id, "executed")
                         wipeDevice()
                     } else {
-                        ackCommand(id, "failed")
+                        ackFailed(id, "Device Admin not active — wipe requires Admin permission")
                     }
                 }
-                else -> ackCommand(id, "failed")
+                else -> ackFailed(id, "Unknown command: '$command'")
             }
 
             // Offline command relay: when the command arrived over SMS, also
@@ -1097,11 +1193,11 @@ class TrackingService : Service() {
     }
 
     /** Best-effort 'failed' ack — the honesty contract: never leave a command stuck. */
-    private suspend fun ackFailed(id: Int) {
-        try { ackCommand(id, "failed") } catch (e2: Exception) { e2.printStackTrace() }
+    private suspend fun ackFailed(id: Int, reason: String? = null) {
+        try { ackCommand(id, "failed", reason) } catch (e2: Exception) { e2.printStackTrace() }
     }
 
-    private suspend fun ackCommand(id: Int, status: String) {
+    private suspend fun ackCommand(id: Int, status: String, failureReason: String? = null) {
         // At-most-once memory: record the definitive outcome BEFORE the network
         // attempt, so a lost ack can never turn into a re-execution (the next
         // poll re-acks the recorded status instead of running the command
@@ -1111,6 +1207,9 @@ class TrackingService : Service() {
 
         val body = JSONObject().apply {
             put("status", status)
+            if (failureReason != null && status == "failed") {
+                put("failure_reason", failureReason)
+            }
         }.toString().toRequestBody(JSON)
         val code = postCode("/api/device/commands/$id/ack", body)
         // Queue the outbox ONLY on genuine delivery failures — a network error
@@ -1209,11 +1308,17 @@ class TrackingService : Service() {
         // Send 5 rapid location updates. Each one is fed through the same
         // Kalman filter as the live stream so a burst can't inject a raw
         // 500m network teleport — the fused position is what gets reported.
-        val mainLooper = Looper.getMainLooper()
+        // When the fused provider is available, request a single accurate fix
+        // (which uses GPS + WiFi + cell); otherwise fall back to raw
+        // LocationManager with a single-update request for a fresh fix.
         for (i in 1..5) {
             try {
-                locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                val best = freshFixOrLastKnown(mainLooper)
+                val best = if (useFusedProvider && fusedClient != null) {
+                    freshFusedFix()
+                } else {
+                    locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                    freshFixOrLastKnown(Looper.getMainLooper())
+                }
                 if (best != null) {
                     val filtered = locationFilter.update(
                         LocationFilter.Fix(
@@ -1221,7 +1326,7 @@ class TrackingService : Service() {
                             lng = best.longitude,
                             accuracyMeters = best.accuracy,
                             timestampMs = best.time,
-                            provider = best.provider ?: "gps",
+                            provider = best.provider ?: if (useFusedProvider) "fused" else "gps",
                         )
                     )
                     if (filtered != null) {
@@ -1230,6 +1335,35 @@ class TrackingService : Service() {
                 }
             } catch (e: Exception) {}
             delay(1_000)
+        }
+    }
+
+    /**
+     * Request a single fresh fix from the FusedLocationProvider (GPS + WiFi
+     * + cell fusion). Falls back to raw LocationManager if the fused client
+     * is unavailable. The fused fix is typically 3-15m accurate vs 500m-5km
+     * from a raw NETWORK_PROVIDER fix.
+     */
+    @SuppressLint("MissingPermission")
+    private suspend fun freshFusedFix(): Location? {
+        val client = fusedClient ?: return freshFixOrLastKnown(Looper.getMainLooper())
+        return try {
+            val deferred = CompletableDeferred<Location?>()
+            val callback = object : LocationCallback() {
+                override fun onLocationResult(result: LocationResult) {
+                    deferred.complete(result.lastLocation)
+                }
+            }
+            val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 0)
+                .setMaxUpdates(1)
+                .setDurationMillis(2000)
+                .build()
+            client.requestLocationUpdates(request, callback, Looper.getMainLooper())
+            val result = withTimeoutOrNull(2500L) { deferred.await() }
+            client.removeLocationUpdates(callback)
+            result ?: client.lastLocation.await() ?: freshFixOrLastKnown(Looper.getMainLooper())
+        } catch (e: Exception) {
+            freshFixOrLastKnown(Looper.getMainLooper())
         }
     }
 
@@ -1263,12 +1397,19 @@ class TrackingService : Service() {
             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
         }
         try {
-            locationManager.requestSingleUpdate(LocationManager.GPS_PROVIDER, listener, mainLooper)
-            locationManager.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, listener, mainLooper)
+            // Request GPS first for highest accuracy, then network as fallback.
+            // The first fix to arrive completes the deferred.
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                locationManager.requestSingleUpdate(LocationManager.GPS_PROVIDER, listener, mainLooper)
+            }
+            if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                locationManager.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, listener, mainLooper)
+            }
         } catch (e: SecurityException) {
             return bestLastKnown()
         }
         return try {
+            // Wait up to 900ms for a fresh fix; fall back to last-known.
             withTimeoutOrNull(900L) { deferred.await() } ?: bestLastKnown()
         } catch (e: Exception) {
             bestLastKnown()
@@ -1295,49 +1436,65 @@ class TrackingService : Service() {
 
     // ── Siren / Alarm ─────────────────────────────────────────────────────────
 
-    /** Returns true when the alarm was started successfully. */
+    /**
+     * Returns true when the alarm was started successfully.
+     *
+     * Tries USAGE_ALARM first (loudest, bypasses Do Not Disturb), then
+     * falls back to USAGE_NOTIFICATION_RINGTONE for Chinese OEMs that block
+     * USAGE_ALARM from background apps. The dual-tone siren (800Hz + 1200Hz)
+     * is more attention-grabbing than a single tone.
+     */
     private fun triggerAlarm(): Boolean {
         var track: android.media.AudioTrack? = null
-        // Play max volume alarm through media stream
         return try {
             val audioManager = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
-            audioManager.setStreamVolume(
-                android.media.AudioManager.STREAM_MUSIC,
-                audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC),
-                0
-            )
-            // Create a short loud tone using AudioTrack
             val sampleRate = 44100
-            val duration = 5.0 // 5 seconds
+            val duration = 5.0
             val numSamples = (sampleRate * duration).toInt()
             val samples = ShortArray(numSamples)
             for (i in 0 until numSamples) {
                 val t = i.toDouble() / sampleRate
-                // Square wave at 1000Hz for maximum loudness
-                samples[i] = if ((t * 1000).toInt() % 2 == 0) Short.MAX_VALUE else Short.MIN_VALUE
+                // Dual-tone siren (800Hz + 1200Hz) for maximum annoyance
+                val tone800 = kotlin.math.sin(2.0 * Math.PI * 800 * t)
+                val tone1200 = kotlin.math.sin(2.0 * Math.PI * 1200 * t)
+                samples[i] = ((tone800 + tone1200) * 0.5 * Short.MAX_VALUE).toInt().toShort()
             }
-            track = android.media.AudioTrack(
-                android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build(),
-                android.media.AudioFormat.Builder()
-                    .setEncoding(android.media.AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(sampleRate)
-                    .setChannelMask(android.media.AudioFormat.CHANNEL_OUT_MONO)
-                    .build(),
-                numSamples * 2,
-                android.media.AudioTrack.MODE_STATIC,
-                android.media.AudioTrack.WRITE_BLOCKING
+
+            // Try USAGE_ALARM first (bypasses DND), fallback to RINGTONE stream
+            val usages = listOf(
+                android.media.AudioAttributes.USAGE_ALARM to android.media.AudioManager.STREAM_ALARM,
+                android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE to android.media.AudioManager.STREAM_RING,
             )
-            track!!.write(samples, 0, numSamples)
-            track!!.play()
-            true  // Track will play and then stop naturally after 5 seconds
+            for ((usage, stream) in usages) {
+                try {
+                    audioManager.setStreamVolume(stream, audioManager.getStreamMaxVolume(stream), 0)
+                    track = android.media.AudioTrack(
+                        android.media.AudioAttributes.Builder()
+                            .setUsage(usage)
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build(),
+                        android.media.AudioFormat.Builder()
+                            .setEncoding(android.media.AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(sampleRate)
+                            .setChannelMask(android.media.AudioFormat.CHANNEL_OUT_MONO)
+                            .build(),
+                        numSamples * 2,
+                        android.media.AudioTrack.MODE_STATIC,
+                        android.media.AudioTrack.WRITE_BLOCKING
+                    )
+                    track!!.write(samples, 0, numSamples)
+                    track!!.play()
+                    return true
+                } catch (e: Exception) {
+                    try { track?.release() } catch (_: Exception) {}
+                    track = null
+                }
+            }
+            false
         } catch (e: Exception) {
             e.printStackTrace()
             false
         } finally {
-            // Release the track after playback finishes (5s later, non-blocking)
             val t = track
             if (t != null) {
                 scope.launch {

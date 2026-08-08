@@ -7,6 +7,40 @@ import { cn, openGoogleMapsDirections, formatDistance, formatDuration, isOnline,
 import { getOSRMRoute, NavigationRoute } from '@/services/navigation';
 import type { Location } from '@/types';
 
+// ─── Reverse Geocoding ─────────────────────────────────────────────────────
+// Converts lat/lng to a human-readable street address using Nominatim
+// (OpenStreetMap's free geocoder). Caches results to avoid hammering the
+// free API. This is what makes the map "real-world navigatable" — the
+// operator sees "14 Broad St, Lagos" not just "6.5244, 3.3792".
+const geocodeCache = new Map<string, string>();
+const GEOCODE_CACHE_MAX = 50;
+
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  if (geocodeCache.has(key)) return geocodeCache.get(key)!;
+  try {
+    const resp = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+      { headers: { 'Accept-Language': 'en' } }
+    );
+    if (!resp.ok) throw new Error(`Geocoder ${resp.status}`);
+    const data = await resp.json();
+    const addr = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    // Shorten: take the first two comma-separated parts (street + city)
+    const parts = addr.split(',').map((s: string) => s.trim());
+    const short = parts.slice(0, Math.min(3, parts.length)).join(', ');
+    // Evict oldest entry when cache is full
+    if (geocodeCache.size >= GEOCODE_CACHE_MAX) {
+      const firstKey = geocodeCache.keys().next().value;
+      if (firstKey) geocodeCache.delete(firstKey);
+    }
+    geocodeCache.set(key, short);
+    return short;
+  } catch {
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  }
+}
+
 // ─── Map tiles ──────────────────────────────────────────────────────────────
 // MapTiler gives noticeably better Africa/Nigeria coverage than pure OSM
 // (Carto's dark_all tiles — Nigerian building polygons show as black blocks).
@@ -25,6 +59,10 @@ const MAP_TILE_ATTRIBUTION = MAP_TILE_URL
   : MAPTILER_KEY
     ? '&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>';
+
+// Satellite view tiles — Esri World Imagery (free, no key needed)
+const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const SATELLITE_ATTRIBUTION = '&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Source: Esri, Maxar, Earthstar Geographics';
 
 // ─── Operator position policy ────────────────────────────────────────────────
 // The DEVICE marker comes from the tracked phone's GPS (server data). The
@@ -277,6 +315,38 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
 
   if (!distance) return null;
 
+  // When the operator's position is IP-derived (desktop browser, no GPS),
+  // the distance is meaningless — it's measuring from a random IP location,
+  // not from where the operator actually is. Show a different overlay that
+  // makes this clear and promotes PIN POSITION.
+  if (!userPinned && userAccuracy != null && userAccuracy > USER_ACCURACY_IP_FALLBACK) {
+    return (
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] max-w-lg">
+        <div className="mag-panel px-4 py-3 animate-fade-in">
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-2 h-2 rounded-full bg-mag-primary shadow-[0_0_10px_rgba(233,30,140,0.6)]" />
+            <span className="font-mono text-[10px] text-mag-primary font-bold uppercase tracking-wider">DEVICE TRACKED</span>
+            <div className="h-3 w-px bg-mag-border/40" />
+            <span className="font-mono text-[10px] text-mag-accent font-bold">{formatDistance(distance)} away (approx)</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-mag-warning shrink-0 mt-0.5">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <div className="text-[10px] font-mono text-mag-text-dim leading-relaxed">
+              <span className="text-mag-warning font-bold">Your browser position is IP-derived (±{formatAccuracyMeters(userAccuracy!)})</span>
+              — desktop browsers have no GPS. The distance above is approximate.
+              <span className="text-mag-text font-bold"> Tap PIN POSITION below, then tap the map where you actually are</span>
+              for an accurate distance and turn-by-turn route to your device.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000]">
       <div className="mag-panel px-4 py-2.5 flex items-center gap-4 animate-fade-in">
@@ -407,6 +477,8 @@ export function MapView() {
   const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
   const [userGeoDenied, setUserGeoDenied] = useState(false);
   const [navigating, setNavigating] = useState(false);
+  const [showSatellite, setShowSatellite] = useState(false);
+  const [deviceAddress, setDeviceAddress] = useState<string | null>(null);
   // Pinned operator position — the operator taps the map to say "I am here".
   // This is the PRIMARY source for a theft trail run from a laptop (no GPS)
   // and always beats an IP-derived browser fix. Survives reloads.
@@ -463,6 +535,17 @@ export function MapView() {
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
+
+  // Reverse geocode device position when it changes — show a street address
+  // instead of raw coordinates for real-world navigability.
+  useEffect(() => {
+    if (!latestLocation) return;
+    let cancelled = false;
+    reverseGeocode(latestLocation.lat, latestLocation.lng).then((addr) => {
+      if (!cancelled) setDeviceAddress(addr);
+    });
+    return () => { cancelled = true; };
+  }, [latestLocation?.lat, latestLocation?.lng]);
 
   // Initialize Leaflet icons and map
   useEffect(() => {
@@ -525,12 +608,28 @@ export function MapView() {
           zoomDelta={0.5}
           wheelPxPerZoomLevel={60}
         >
-          {/* Dark map tiles — MapTiler (better Nigeria coverage) or Carto fallback */}
-          <TileLayer
-            url={MAP_TILE_URL_RESOLVED}
-            maxZoom={19}
-            attribution={MAP_TILE_ATTRIBUTION}
-          />
+          {/* Map tiles — dark (default) or satellite view */}
+          {showSatellite ? (
+            <>
+              <TileLayer
+                url={SATELLITE_TILE_URL}
+                maxZoom={18}
+                attribution={SATELLITE_ATTRIBUTION}
+              />
+              {/* Semi-transparent dark overlay for satellite so UI text is readable */}
+              <TileLayer
+                url={MAP_TILE_URL_RESOLVED}
+                maxZoom={19}
+                opacity={0.3}
+              />
+            </>
+          ) : (
+            <TileLayer
+              url={MAP_TILE_URL_RESOLVED}
+              maxZoom={19}
+              attribution={MAP_TILE_ATTRIBUTION}
+            />
+          )}
 
           <MapController pinning={pinning} onPin={handlePin} />
 
@@ -547,27 +646,7 @@ export function MapView() {
             />
           )}
 
-          {/* Operator position quality banner — desktop browsers report
-              IP-derived fixes (kilometres off, no GPS). Tell the operator
-              instead of letting them trust a bogus pin. */}
-          {userFixIsIpDerived && (
-            <div className="absolute top-3 right-3 z-[1000] max-w-xs">
-              <div className="mag-panel px-3 py-2 flex items-start gap-2 animate-fade-in">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-mag-warning shrink-0 mt-0.5">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                  <line x1="12" y1="9" x2="12" y2="13"/>
-                  <line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
-                <div className="text-[10px] font-mono text-mag-text-dim font-bold leading-tight">
-                  <span className="text-mag-warning">NO GPS FIX (IP-DERIVED)</span>
-                  <span className="block mt-0.5 text-mag-text-dim/70">
-                    ±{formatAccuracyMeters(userAccuracy!)}. Tap PIN POSITION and
-                    tap the map where you actually are — precise enough to trail.
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* IP-derived warning is now shown in the DistanceOverlay component */}
 
           {/* Location permission denied — distance/routing can't work at all */}
           {userGeoDenied && (
@@ -678,11 +757,16 @@ export function MapView() {
           {latestLocation && iconsReady && deviceIcon && (
             <Marker position={[latestLocation.lat, latestLocation.lng]} icon={deviceIcon}>
               <Popup>
-                <div className="font-sans text-sm min-w-[180px]">
+                <div className="font-sans text-sm min-w-[220px]">
                   <div className="font-bold text-mag-primary mb-2 flex items-center gap-1.5">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/><path d="M2 12h20"/></svg>
                     DEVICE LOCATION
                   </div>
+                  {deviceAddress && (
+                    <div className="text-mag-text text-xs font-bold mb-2 leading-tight">
+                      📍 {deviceAddress}
+                    </div>
+                  )}
                   <div className="space-y-1 text-mag-text-dim">
                     <div className="flex justify-between">
                       <span className="font-mono text-[11px] font-bold">Latitude</span>
@@ -901,6 +985,19 @@ export function MapView() {
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 4-8"/></svg>
                 TRAIL
+              </button>
+              {/* Satellite view toggle */}
+              <button
+                onClick={() => setShowSatellite(!showSatellite)}
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-all',
+                  showSatellite
+                    ? 'border-mag-accent/40 text-mag-accent bg-mag-accent/10'
+                    : 'border-mag-border/60 text-mag-text-dim hover:border-mag-border'
+                )}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"/></svg>
+                {showSatellite ? 'MAP' : 'SAT'}
               </button>
             </div>
           )}

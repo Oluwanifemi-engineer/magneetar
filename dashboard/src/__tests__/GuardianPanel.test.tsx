@@ -30,10 +30,20 @@ jest.mock('lucide-react', () => ({
   Send: () => null,
   Bell: () => null,
   X: () => null,
+  Heart: () => null,
 }));
 
 jest.mock('@/lib/utils', () => ({
   cn: (...args: any[]) => args.filter(Boolean).join(' '),
+}));
+
+jest.mock('@/components/ui/Toast', () => ({
+  useToast: () => ({ toast: jest.fn() }),
+  ToastProvider: ({ children }: any) => children,
+}));
+
+jest.mock('@/components/ui/Skeleton', () => ({
+  GuardianSkeleton: () => null,
 }));
 
 // ─── Mock API ─────────────────────────────────────────────────────────────
@@ -176,7 +186,7 @@ describe('GuardianPanel Component', () => {
 
   it('shows no-device state when nothing is selected', async () => {
     await renderPanel();
-    expect(screen.getByText('Select a device from the sidebar.')).toBeInTheDocument();
+    expect(screen.getByText('Select a device')).toBeInTheDocument();
   });
 
   it('toggles guardian mode on', async () => {

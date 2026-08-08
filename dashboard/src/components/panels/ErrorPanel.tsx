@@ -4,10 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { ErrorLogEntry } from '@/types';
-import { AlertTriangle, Bug, CheckCircle, XCircle, ChevronDown, ChevronUp, RefreshCw, Clock, Server, Wifi } from 'lucide-react';
+import { AlertTriangle, Bug, CheckCircle, XCircle, ChevronDown, ChevronUp, RefreshCw, Clock, Server, Wifi, ShieldCheck } from 'lucide-react';
+import { ErrorSkeleton } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 
 export function ErrorPanel() {
   const { isConnected } = useStore();
+  const { toast } = useToast();
   const [errors, setErrors] = useState<ErrorLogEntry[]>([]);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
@@ -43,9 +46,11 @@ export function ErrorPanel() {
     try {
       const api = getAPI();
       await api.resolveError(errorId);
+      toast('Error marked as resolved', 'success');
       fetchErrors();
     } catch (e: any) {
       setErrorMessage(e.message || 'Failed to resolve error');
+      toast(e.message || 'Failed to resolve error', 'error');
     }
   };
 
@@ -114,19 +119,22 @@ export function ErrorPanel() {
 
       {/* Loading */}
       {loading && errors.length === 0 && (
-        <div className="py-12 text-center">
-          <div className="animate-spin w-6 h-6 border-2 border-mag-primary/30 border-t-mag-primary rounded-full mx-auto mb-3" />
-          <div className="text-[10px] font-mono text-mag-text-dim/40 font-bold tracking-wider">LOADING ERRORS...</div>
-        </div>
+        <ErrorSkeleton />
       )}
 
       {/* Empty State */}
       {!loading && errors.length === 0 && (
         <div className="py-12 text-center">
-          <CheckCircle size={32} className="mx-auto text-mag-accent/50 mb-3" />
-          <div className="text-sm font-bold text-mag-text-dim/60 mb-1">All Clear</div>
-          <div className="text-[10px] font-mono text-mag-text-dim/40">
-            No {showUnresolvedOnly ? 'unresolved ' : ''}errors found
+          <div className="w-14 h-14 rounded-2xl bg-mag-accent/10 border border-mag-accent/20 flex items-center justify-center mx-auto mb-3">
+            <ShieldCheck size={24} className="text-mag-accent/60" />
+          </div>
+          <div className="text-sm font-bold text-mag-text-dim/60 mb-1">
+            {showUnresolvedOnly ? 'All resolved' : 'All clear'}
+          </div>
+          <div className="text-[10px] font-mono text-mag-text-dim/35 leading-relaxed max-w-[200px] mx-auto">
+            {showUnresolvedOnly
+              ? 'All errors have been resolved. Toggle the filter to see the full history.'
+              : 'No errors recorded. The server is running smoothly.'}
           </div>
         </div>
       )}

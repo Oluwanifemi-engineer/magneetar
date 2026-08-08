@@ -5,7 +5,9 @@ import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { cn, getCommandLabel, isDestructiveCommand, formatTimestamp, stepUpPasswordHint } from '@/lib/utils';
 import { CommandButton, type CommandTone } from '@/components/ui/CommandButton';
-import { Radio, Camera, Webcam, Mic, LocateFixed, Lock, Siren, AlertTriangle, CheckCircle2, Trash2, X, MessageSquareText } from 'lucide-react';
+import { Radio, Camera, Webcam, Mic, LocateFixed, Lock, Siren, AlertTriangle, CheckCircle2, Trash2, X, MessageSquareText, Zap } from 'lucide-react';
+import { CommandSkeleton } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 import type { CommandType } from '@/types';
 
 // NOTE: buttons send the WIRE command name, which must match what the server
@@ -33,6 +35,7 @@ const COMMANDS: {
 
 export function CommandPanel() {
   const { commands, setCommands, selectedDeviceId, devices } = useStore();
+  const { toast } = useToast();
   const selectedDevice = devices.find(d => d.id === selectedDeviceId);
   // Offline Command Relay: when the device is offline (no data) but the owner
   // enabled SMS commands, every issued command is ALSO texted to the phone and
@@ -77,9 +80,11 @@ export function CommandPanel() {
       }
       setDeleteTarget(null);
       setDeletePassword('');
+      toast('Command deleted', 'success');
       await fetchCommands();
     } catch (e: any) {
       setDeleteError(e?.message || 'Failed to delete command');
+      toast(e?.message || 'Failed to delete command', 'error');
     } finally {
       setDeleting(false);
     }
@@ -135,10 +140,13 @@ export function CommandPanel() {
       const api = getAPI();
       await api.issueCommand(selectedDeviceId, command, params, password);
       setLastSent(command);
+      toast(`${getCommandLabel(command)} command sent`, 'success');
       setTimeout(() => setLastSent(''), 3000);
       await fetchCommands();
     } catch (e: any) {
-      setCommandError(e?.message || 'Command failed — check the server connection');
+      const msg = e?.message || 'Command failed — check the server connection';
+      setCommandError(msg);
+      toast(msg, 'error');
       console.error('Command failed:', e);
     } finally {
       setSending(null);
@@ -338,8 +346,14 @@ export function CommandPanel() {
 
         <div className="space-y-1.5 max-h-48 overflow-y-auto">
           {commands.length === 0 ? (
-            <div className="text-mag-text-dim/40 text-xs font-mono text-center py-4">
-              No commands sent yet.
+            <div className="text-center py-8">
+              <div className="w-12 h-12 rounded-2xl bg-mag-surface/40 border border-mag-border/30 flex items-center justify-center mx-auto mb-3">
+                <Zap size={18} className="text-mag-text-dim/20" />
+              </div>
+              <div className="text-mag-text-dim/50 text-xs font-bold mb-1">No commands sent yet</div>
+              <div className="text-mag-text-dim/30 text-[10px] font-mono leading-relaxed max-w-[200px] mx-auto">
+                Use the buttons above to ping, capture, lock, or alarm your device. Commands are delivered the next time the device checks in.
+              </div>
             </div>
           ) : (
             commands.slice(0, 10).map((cmd) => (
@@ -361,12 +375,20 @@ export function CommandPanel() {
                   <div className="font-mono text-[10px] text-mag-text-dim/50">
                     {formatTimestamp(cmd.issued_at)}
                   </div>
-                  {cmd.status === 'failed' && cmd.failure_reason && (
+                  {cmd.status === 'failed' && (
                     <div
                       className="mt-1 font-mono text-[9px] text-mag-danger/90 leading-snug"
-                      title="Why this capture failed — fix the cause and retry."
+                      title="Why this command failed — fix the cause and retry."
                     >
-                      {cmd.failure_reason}
+                      {cmd.failure_reason || (
+                        // Helpful fallback reasons based on command type
+                        cmd.command === 'lock' ? 'Device Admin may not be active — enable in phone Settings > Security'
+                        : cmd.command === 'alarm' ? 'Device may be in Silent mode'
+                        : cmd.command === 'wipe' ? 'Device Admin required for factory reset'
+                        : cmd.command === 'capture_photo' || cmd.command === 'capture_photo_front' ? 'Camera may not be available — re-arm the capture service'
+                        : cmd.command === 'capture_audio' ? 'Microphone may not be available — check permission settings'
+                        : 'Command could not be executed on the device'
+                      )}
                     </div>
                   )}
                 </div>

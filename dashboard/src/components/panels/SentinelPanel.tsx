@@ -2,7 +2,9 @@
 
 import { useStore } from '@/store/useStore';
 import { cn, relativeTime } from '@/lib/utils';
-import { Shield, AlertTriangle, Battery, Wifi, MapPin, Clock } from 'lucide-react';
+import { Shield, AlertTriangle, Battery, Wifi, MapPin, Clock, Smartphone } from 'lucide-react';
+// Smartphone may not exist in older lucide-react versions — fall back to Shield
+import { SentinelSkeleton } from '@/components/ui/Skeleton';
 
 export function SentinelPanel() {
   const { devices, selectedDeviceId, latestLocation } = useStore();
@@ -10,13 +12,15 @@ export function SentinelPanel() {
 
   if (!device) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 px-4">
-        <Shield size={28} className="mx-auto text-mag-text-dim/20 mb-3" />
-        <div className="text-mag-text-dim/50 text-sm font-bold">
-          No device selected.
+      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-mag-surface/40 border border-mag-border/30 flex items-center justify-center mb-4">
+          <Smartphone size={24} className="text-mag-text-dim/25" />
         </div>
-        <div className="text-mag-text-dim/30 text-xs font-mono mt-1">
-          Select a device from the sidebar.
+        <div className="text-mag-text-dim/60 text-sm font-bold mb-1">
+          No device selected
+        </div>
+        <div className="text-mag-text-dim/35 text-xs font-mono leading-relaxed max-w-[200px]">
+          Select a device from the sidebar to view its threat assessment and security status.
         </div>
       </div>
     );

@@ -59,6 +59,11 @@ jest.mock('@/components/ui/CoordDisplay', () => ({
   CoordDisplay: () => <div data-testid="coord-display" />,
 }));
 
+jest.mock('@/components/ui/Toast', () => ({
+  useToast: () => ({ toast: jest.fn() }),
+  ToastProvider: ({ children }: any) => children,
+}));
+
 // ─── Mock API ─────────────────────────────────────────────────────────────
 let mockUpdateCalls: any[] = [];
 let mockSmsUpdateCalls: any[] = [];

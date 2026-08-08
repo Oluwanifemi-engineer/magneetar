@@ -5,7 +5,9 @@ import { createPortal } from 'react-dom';
 import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { cn, formatTimestamp, locationTimestamp, stepUpPasswordHint } from '@/lib/utils';
-import { Camera, Music, Play, Pause, X, ChevronLeft, Trash2, ShieldCheck, Lock } from 'lucide-react';
+import { Camera, Music, Play, Pause, X, ChevronLeft, Trash2, ShieldCheck, Lock, ImageOff } from 'lucide-react';
+import { MediaSkeleton } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 
 /**
  * Media management — viewing plus deletion of captured evidence.
@@ -17,6 +19,7 @@ import { Camera, Music, Play, Pause, X, ChevronLeft, Trash2, ShieldCheck, Lock }
  */
 export function MediaGallery() {
   const { media, setMedia, selectedDeviceId } = useStore();
+  const { toast } = useToast();
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [itemData, setItemData] = useState<any>(null);
   const [playing, setPlaying] = useState(false);
@@ -105,9 +108,13 @@ export function MediaGallery() {
     setDeleteOpen(false);
     setSelectedIds(new Set());
     if (failed.length === 0) {
-      setDeleted(ids.length > 1 ? `${ids.length} items deleted` : 'Media deleted');
+      const msg = ids.length > 1 ? `${ids.length} items deleted` : 'Media deleted';
+      setDeleted(msg);
+      toast(msg, 'success');
     } else {
-      setDeleted(`${ids.length - failed.length}/${ids.length} deleted · ${failed.length} failed (rate-limited?)`);
+      const msg = `${ids.length - failed.length}/${ids.length} deleted · ${failed.length} failed (rate-limited?)`;
+      setDeleted(msg);
+      toast(msg, 'warning');
     }
     setTimeout(() => setDeleted(''), 4000);
     await fetchMedia();
@@ -221,11 +228,13 @@ export function MediaGallery() {
           )}
 
           {media.length === 0 ? (
-            <div className="text-center py-8">
-              <Camera size={28} className="mx-auto text-mag-text-dim/20 mb-3" />
-              <div className="text-mag-text-dim/50 text-sm font-bold">No media captured.</div>
-              <div className="text-mag-text-dim/30 text-xs font-mono mt-1">
-                Use the Commands tab to capture.
+            <div className="text-center py-10">
+              <div className="w-14 h-14 rounded-2xl bg-mag-surface/40 border border-mag-border/30 flex items-center justify-center mx-auto mb-3">
+                <ImageOff size={22} className="text-mag-text-dim/20" />
+              </div>
+              <div className="text-mag-text-dim/60 text-sm font-bold mb-1">No media captured</div>
+              <div className="text-mag-text-dim/35 text-xs font-mono leading-relaxed max-w-[220px] mx-auto">
+                Use the <span className="text-mag-primary/60 font-bold">Commands</span> tab to capture photos and audio remotely. All media is stored as evidence with cryptographic integrity.
               </div>
             </div>
           ) : (

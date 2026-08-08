@@ -170,6 +170,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -225,6 +226,14 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation(platform("com.google.firebase:firebase-bom:33.0.0"))
     implementation("com.google.firebase:firebase-messaging-ktx")
+
+    // Google Play Services Location — FusedLocationProviderClient fuses
+    // GPS + WiFi + cell tower data for dramatically better accuracy
+    // (3-15m vs 500m-5km from raw LocationManager NETWORK_PROVIDER) and
+    // faster GPS lock (3-5s vs 30-60s via satellite prediction).
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    // Coroutine extensions for Google Play Services Tasks (await())
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
 
     // Sentry crash reporting
     implementation("io.sentry:sentry-android:7.14.0")

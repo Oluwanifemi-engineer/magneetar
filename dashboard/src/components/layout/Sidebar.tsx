@@ -8,6 +8,7 @@ import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { ClaimDeviceModal } from '@/components/devices/ClaimDeviceModal';
 import { stepUpPasswordHint } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Smartphone, BarChart3, FileText, BookOpen, Copy, Battery, MapPin, Link2, Trash2, X, AlertTriangle } from 'lucide-react';
+import { SidebarSkeleton } from '@/components/ui/Skeleton';
 
 function sentinelLevel(score: number): string {
   if (score >= 70) return 'HIGH';
@@ -199,7 +200,9 @@ export function Sidebar() {
 
           {/* ─── Device List ────────────────────────────────────────────────── */}
           <div className="flex-1 overflow-y-auto overscroll-contain">
-            {devices.length === 0 ? (
+            {!isConnected ? (
+              <SidebarSkeleton />
+            ) : devices.length === 0 ? (
               <div className="p-6 text-center">
                 <Smartphone size={22} className="mx-auto text-mag-text-dim/15 mb-3" />
                 <div className="text-mag-text-dim/40 text-sm font-bold">

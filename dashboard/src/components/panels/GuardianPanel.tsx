@@ -12,12 +12,15 @@ import {
   Send,
   Bell,
   X,
+  Heart,
 } from 'lucide-react';
 import {
   GuardianProfile,
   RecoveryRequest,
   NearbyRecoveryRequest,
 } from '@/types';
+import { GuardianSkeleton } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 
 /**
  * Guardian Network panel — community recovery for stolen devices.
@@ -30,6 +33,7 @@ import {
  */
 export function GuardianPanel() {
   const { devices, selectedDeviceId, latestLocation } = useStore();
+  const { toast } = useToast();
   const device = devices.find(d => d.id === selectedDeviceId);
   const isStolen = device?.is_stolen === true;
 
@@ -91,7 +95,9 @@ export function GuardianPanel() {
       const api = getAPI();
       const req = await api.launchRecovery(device.id, undefined);
       setRequests(prev => [req, ...prev.filter(r => r.id !== req.id)]);
-      setMsg('Recovery request launched — guardians near the last known location will see it.');
+      const msg = 'Recovery request launched — guardians near the last known location will see it.';
+      setMsg(msg);
+      toast(msg, 'success');
     } catch (e: any) {
       setErr(e?.message || 'Failed to launch recovery request');
     } finally {
@@ -109,7 +115,9 @@ export function GuardianPanel() {
       setRequests(prev =>
         prev.map(r => (r.id === requestId ? { ...r, status: 'closed' as const } : r))
       );
-      setMsg(res.message || 'Recovery request closed — device marked recovered.');
+      const msg = res.message || 'Recovery request closed — device marked recovered.';
+      setMsg(msg);
+      toast(msg, 'success');
     } catch (e: any) {
       setErr(e?.message || 'Failed to close recovery request');
     } finally {
@@ -130,7 +138,9 @@ export function GuardianPanel() {
         handle: optHandle,
       });
       setProfile(prof);
-      setMsg(prof.opted_in ? 'You are now a Guardian.' : 'Guardian mode off.');
+      const msg = prof.opted_in ? 'You are now a Guardian.' : 'Guardian mode off.';
+      setMsg(msg);
+      toast(msg, 'success');
     } catch (e: any) {
       setErr(e?.message || 'Failed to update guardian profile');
     } finally {
@@ -184,7 +194,9 @@ export function GuardianPanel() {
         lng,
         note: sightingNote || undefined,
       });
-      setMsg(`Sighting reported as "${res.guardian_handle}". The owner will be notified.`);
+      const msg = `Sighting reported as "${res.guardian_handle}". The owner will be notified.`;
+      setMsg(msg);
+      toast(msg, 'success');
       setActiveNearby(null);
     } catch (e: any) {
       setErr(e?.message || 'Failed to report sighting');
@@ -221,7 +233,7 @@ export function GuardianPanel() {
       )}
 
       {loading ? (
-        <div className="text-mag-text-dim/40 text-xs font-mono text-center py-6">Loading…</div>
+        <GuardianSkeleton />
       ) : (
         <>
           {/* ── Owner: launch / track recovery ─────────────────────────── */}
@@ -232,8 +244,12 @@ export function GuardianPanel() {
             </div>
 
             {!device ? (
-              <div className="text-mag-text-dim/40 text-xs font-mono text-center py-4">
-                Select a device from the sidebar.
+              <div className="text-center py-6">
+                <div className="w-10 h-10 rounded-xl bg-mag-surface/40 border border-mag-border/30 flex items-center justify-center mx-auto mb-2">
+                  <Radar size={16} className="text-mag-text-dim/25" />
+                </div>
+                <div className="text-mag-text-dim/50 text-xs font-bold">Select a device</div>
+                <div className="text-mag-text-dim/30 text-[10px] font-mono mt-1">Choose a device from the sidebar to manage recovery.</div>
               </div>
             ) : isStolen && !activeRequest ? (
               <button
@@ -260,10 +276,16 @@ export function GuardianPanel() {
                 </button>
               </div>
             ) : (
-              <div className="text-mag-text-dim/50 text-[11px]">
-                {requests.length === 0
-                  ? 'No recovery requests. When a device is marked stolen you can launch a community search.'
-                  : 'Your device is not currently stolen.'}
+              <div className="text-center py-4">
+                <Heart size={20} className="mx-auto text-mag-text-dim/15 mb-2" />
+                <div className="text-mag-text-dim/50 text-[11px] font-bold">
+                  {requests.length === 0 ? 'No recovery requests yet' : 'Device is secure'}
+                </div>
+                <div className="text-mag-text-dim/30 text-[10px] font-mono mt-1 leading-relaxed max-w-[220px] mx-auto">
+                  {requests.length === 0
+                    ? 'When a device is marked stolen, you can launch a community recovery request to get help from nearby guardians.'
+                    : 'Your device is not currently stolen. No recovery action needed.'}
+                </div>
               </div>
             )}
 

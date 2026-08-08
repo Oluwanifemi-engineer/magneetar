@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 280" fill="none">
+  <!-- Background -->
+  <rect width="800" height="280" rx="16" fill="#0d0d14" stroke="#f59e0b" stroke-width="1" stroke-opacity="0.2"/>
+
+  <!-- Title -->
+  <text x="400" y="28" text-anchor="middle" fill="#fbbf24" font-family="monospace" font-size="11" font-weight="bold" letter-spacing="0.15em">PLAY PROTECT BYPASS — 3 TAPS</text>
+
+  <!-- Step 1: Play Store Profile -->
+  <g transform="translate(30, 45)">
+    <!-- Phone frame -->
+    <rect width="220" height="200" rx="12" fill="#111" stroke="#333" stroke-width="1"/>
+    <rect x="80" y="4" width="60" height="4" rx="2" fill="#333"/>
+
+    <!-- Status bar -->
+    <text x="16" y="22" fill="#666" font-family="monospace" font-size="8">9:41</text>
+    <text x="190" y="22" fill="#666" font-family="monospace" font-size="8">⚡ 87%</text>
+
+    <!-- Play Store header -->
+    <rect x="0" y="30" width="220" height="36" fill="#1a1a2e"/>
+    <text x="16" y="52" fill="#fff" font-family="sans-serif" font-size="12" font-weight="bold">Play Store</text>
+    <!-- Profile avatar -->
+    <circle cx="196" cy="48" r="12" fill="#E91E8C"/>
+    <text x="196" y="52" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="10" font-weight="bold">M</text>
+
+    <!-- Menu dropdown -->
+    <rect x="140" y="68" width="76" height="120" rx="8" fill="#1e1e30" stroke="#444" stroke-width="0.5"/>
+    <text x="152" y="86" fill="#fff" font-family="sans-serif" font-size="8">Google Account</text>
+    <line x1="148" y1="94" x2="208" y2="94" stroke="#333" stroke-width="0.5"/>
+    <text x="152" y="110" fill="#fbbf24" font-family="monospace" font-size="8" font-weight="bold">▸ Play Protect</text>
+    <text x="152" y="126" fill="#888" font-family="sans-serif" font-size="7">Manage apps</text>
+    <text x="152" y="140" fill="#888" font-family="sans-serif" font-size="7">Payments</text>
+    <text x="152" y="154" fill="#888" font-family="sans-serif" font-size="7">Settings</text>
+
+    <!-- Arrow indicator -->
+    <polygon points="136,105 144,100 144,110" fill="#fbbf24"/>
+
+    <!-- Step label -->
+    <rect x="0" y="180" width="220" height="20" fill="#fbbf24" fill-opacity="0.1" rx="4"/>
+    <text x="110" y="194" text-anchor="middle" fill="#fbbf24" font-family="monospace" font-size="10" font-weight="bold">① Profile → Play Protect</text>
+  </g>
+
+  <!-- Arrow between steps -->
+  <g transform="translate(260, 140)">
+    <line x1="0" y1="0" x2="40" y2="0" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4 3"/>
+    <polygon points="40,-5 50,0 40,5" fill="#fbbf24"/>
+  </g>
+
+  <!-- Step 2: Play Protect Settings -->
+  <g transform="translate(310, 45)">
+    <!-- Phone frame -->
+    <rect width="220" height="200" rx="12" fill="#111" stroke="#333" stroke-width="1"/>
+    <rect x="80" y="4" width="60" height="4" rx="2" fill="#333"/>
+
+    <!-- Status bar -->
+    <text x="16" y="22" fill="#666" font-family="monospace" font-size="8">9:41</text>
+    <text x="190" y="22" fill="#666" font-family="monospace" font-size="8">⚡ 87%</text>
+
+    <!-- Play Protect header -->
+    <rect x="0" y="30" width="220" height="36" fill="#1a1a2e"/>
+    <text x="16" y="48" fill="#fff" font-family="sans-serif" font-size="11" font-weight="bold">Play Protect</text>
+    <!-- Gear icon -->
+    <circle cx="196" cy="48" r="12" fill="none" stroke="#888" stroke-width="1.5"/>
+    <circle cx="196" cy="48" r="4" fill="none" stroke="#888" stroke-width="1.5"/>
+
+    <!-- Settings content -->
+    <rect x="12" y="76" width="196" height="56" rx="8" fill="#1e1e30"/>
+    <text x="24" y="96" fill="#fff" font-family="sans-serif" font-size="9" font-weight="bold">Scan apps with Play Protect</text>
+    <text x="24" y="112" fill="#888" font-family="sans-serif" font-size="7">Scans installed apps for harmful behavior</text>
+
+    <!-- Toggle switch (OFF) -->
+    <rect x="170" y="84" width="32" height="18" rx="9" fill="#333" stroke="#555" stroke-width="0.5"/>
+    <circle cx="180" cy="93" r="7" fill="#888"/>
+
+    <!-- Warning callout -->
+    <rect x="12" y="140" width="196" height="32" rx="6" fill="#fbbf24" fill-opacity="0.1" stroke="#fbbf24" stroke-width="0.5" stroke-opacity="0.3"/>
+    <text x="24" y="156" fill="#fbbf24" font-family="monospace" font-size="8" font-weight="bold">⚠️ Turn this OFF temporarily</text>
+    <text x="24" y="166" fill="#fbbf24" font-family="sans-serif" font-size="7" fill-opacity="0.7">We turn it back ON in step 3</text>
+
+    <!-- Step label -->
+    <rect x="0" y="180" width="220" height="20" fill="#fbbf24" fill-opacity="0.1" rx="4"/>
+    <text x="110" y="194" text-anchor="middle" fill="#fbbf24" font-family="monospace" font-size="10" font-weight="bold">② Toggle OFF scan</text>
+  </g>
+
+  <!-- Arrow between steps -->
+  <g transform="translate(540, 140)">
+    <line x1="0" y1="0" x2="40" y2="0" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4 3"/>
+    <polygon points="40,-5 50,0 40,5" fill="#fbbf24"/>
+  </g>
+
+  <!-- Step 3: Install + Re-enable -->
+  <g transform="translate(590, 45)">
+    <!-- Phone frame -->
+    <rect width="200" height="200" rx="12" fill="#111" stroke="#333" stroke-width="1"/>
+    <rect x="70" y="4" width="60" height="4" rx="2" fill="#333"/>
+
+    <!-- Status bar -->
+    <text x="16" y="22" fill="#666" font-family="monospace" font-size="8">9:41</text>
+    <text x="170" y="22" fill="#666" font-family="monospace" font-size="8">⚡ 87%</text>
+
+    <!-- Success state -->
+    <rect x="0" y="30" width="200" height="36" fill="#065f46"/>
+    <circle cx="24" cy="48" r="10" fill="#10b981"/>
+    <text x="24" y="52" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="12">✓</text>
+    <text x="42" y="52" fill="#fff" font-family="sans-serif" font-size="10" font-weight="bold">Installed!</text>
+
+    <!-- Re-enable prompt -->
+    <rect x="12" y="76" width="176" height="44" rx="8" fill="#1e1e30"/>
+    <text x="24" y="94" fill="#10b981" font-family="monospace" font-size="8" font-weight="bold">✅ NOW: Turn scan back ON</text>
+    <text x="24" y="108" fill="#888" font-family="sans-serif" font-size="7">Go back to Play Protect settings</text>
+
+    <!-- Toggle (ON) -->
+    <rect x="154" y="84" width="32" height="18" rx="9" fill="#10b981"/>
+    <circle cx="174" cy="93" r="7" fill="#fff"/>
+
+    <!-- App working -->
+    <rect x="12" y="128" width="176" height="40" rx="8" fill="#10b981" fill-opacity="0.1" stroke="#10b981" stroke-width="0.5" stroke-opacity="0.3"/>
+    <text x="100" y="148" text-anchor="middle" fill="#10b981" font-family="sans-serif" font-size="9" font-weight="bold">🛡️ Magneetar is protecting</text>
+    <text x="100" y="160" text-anchor="middle" fill="#10b981" font-family="sans-serif" font-size="7" fill-opacity="0.7">Your phone stays safe</text>
+
+    <!-- Step label -->
+    <rect x="0" y="180" width="200" height="20" fill="#10b981" fill-opacity="0.1" rx="4"/>
+    <text x="100" y="194" text-anchor="middle" fill="#10b981" font-family="monospace" font-size="10" font-weight="bold">③ Install → Re-enable</text>
+  </g>
+
+  <!-- Bottom note -->
+  <text x="400" y="270" text-anchor="middle" fill="#666" font-family="monospace" font-size="8">Only pause scanning for this one install — never leave it off. The block is not a virus flag.</text>
+</svg>

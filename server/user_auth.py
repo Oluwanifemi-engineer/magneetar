@@ -3,6 +3,7 @@ Magneetar User Authentication Endpoints
 Registration, login, and user management.
 """
 
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -35,6 +36,54 @@ from user_security import issue_2fa_challenge, login_requires_2fa
 router = APIRouter()
 
 
+def _validate_password_strength(password: str) -> None:
+    """Enforce minimum password complexity at registration and password
+    reset. Catches the most dangerous weak passwords (single chars, all-
+    digits, common dictionary words) without being so strict that Nigerian
+    users on feature phones can't pick something memorable.
+
+    Rules (OWASP-aligned):
+    - Minimum 8 characters
+    - At least one letter (a-z / A-Z)
+    - At least one digit or special character
+    - Not in a short blocklist of trivially guessable passwords
+    """
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if not re.search(r"[a-zA-Z]", password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one letter")
+    if not re.search(r"[0-9\W]", password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain at least one digit or special character",
+        )
+    # Block the 20 most commonly breached passwords (per Have I Been Pwned)
+    _trivial = {
+        "password",
+        "12345678",
+        "qwerty123",
+        "letmein1",
+        "welcome1",
+        "monkey123",
+        "dragon123",
+        "master123",
+        "login123",
+        "abc12345",
+        "password1",
+        "admin123",
+        "passw0rd",
+        "iloveyou1",
+        "sunshine1",
+        "princess1",
+        "football1",
+        "charlie1",
+        "shadow123",
+        "trustno1",
+    }
+    if password.lower() in _trivial:
+        raise HTTPException(status_code=400, detail="Password is too common — choose a more unique password")
+
+
 @router.post("/api/auth/register", response_model=TokenResponse)
 async def register_user(req: UserRegisterRequest, request: Request):
     """Register a new user account."""
@@ -56,6 +105,9 @@ async def register_user(req: UserRegisterRequest, request: Request):
         settings.RATE_REGISTER_WINDOW_MINUTES,
     ):
         raise HTTPException(status_code=429, detail="Too many registration attempts")
+
+    # Validate password strength before hashing (never hash a weak password)
+    _validate_password_strength(req.password)
 
     # Check if email already exists
     with get_db_context() as db:

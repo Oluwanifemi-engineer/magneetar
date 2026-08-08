@@ -6,6 +6,7 @@ import { cn, relativeTime, formatCoordinate, deviceDisplayName, stepUpPasswordHi
 import { BellRing, MapPin, LocateFixed, Navigation, ExternalLink, Save, Check, Trash2, X, Pencil, MessageSquareText } from 'lucide-react';
 import { CoordDisplay } from '@/components/ui/CoordDisplay';
 import { getAPI } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 
 // All toggleable alert types, mirroring server alerts.ALL_ALERT_TYPES. The
 // emergency types (theft, SIM change, factory reset) always deliver and are
@@ -28,6 +29,7 @@ const ALL_CHANNELS = ['email', 'whatsapp', 'sms', 'push'];
 
 export function DevicePanel() {
   const { devices, selectedDeviceId, latestLocation, setDevices, selectDevice } = useStore();
+  const { toast } = useToast();
   const device = devices.find(d => d.id === selectedDeviceId);
 
   // Alert recipient settings state (per-device override of global defaults)
@@ -127,6 +129,7 @@ export function DevicePanel() {
     setNameError('');
     try {
       await getAPI().updateDeviceAlias(device.id, alias);
+      toast('Device renamed', 'success');
       // Refresh the device list so the sidebar + header pick up the new name
       const { devices: freshDevices } = await getAPI().getDevices();
       setDevices(freshDevices);
@@ -148,6 +151,7 @@ export function DevicePanel() {
       setSmsPhone(res.sms_phone || '');
       setSmsEnabled(res.sms_commands_enabled);
       setSmsSaved(true);
+      toast('SMS relay settings saved', 'success');
       // Refresh the device list so the stored relay settings stay in sync
       try {
         const { devices: freshDevices } = await getAPI().getDevices();
@@ -176,6 +180,7 @@ export function DevicePanel() {
         quiet_hours_end: quietEnd,
       });
       setSaved(true);
+      toast('Alert settings saved', 'success');
       // Refresh the device list so the stored recipients stay in sync
       try {
         const { devices: freshDevices } = await getAPI().getDevices();
@@ -208,13 +213,15 @@ export function DevicePanel() {
 
   if (!device) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 px-4">
-        <MapPin size={28} className="mx-auto text-mag-text-dim/20 mb-3" />
-        <div className="text-mag-text-dim/50 text-sm font-bold">
-          No device selected.
+      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-mag-surface/40 border border-mag-border/30 flex items-center justify-center mb-4">
+          <MapPin size={24} className="text-mag-text-dim/25" />
         </div>
-        <div className="text-mag-text-dim/30 text-xs font-mono mt-1">
-          Select a device from the sidebar.
+        <div className="text-mag-text-dim/60 text-sm font-bold mb-1">
+          No device selected
+        </div>
+        <div className="text-mag-text-dim/35 text-xs font-mono leading-relaxed max-w-[200px]">
+          Select a device from the sidebar to view its details, location, alert settings, and capture status.
         </div>
       </div>
     );
@@ -534,8 +541,14 @@ export function DevicePanel() {
       </div>
 
       {!latestLocation && (
-        <div className="text-mag-text-dim/30 text-[10px] font-mono text-center py-4">
-          No location data available yet.
+        <div className="text-center py-6">
+          <div className="w-10 h-10 rounded-xl bg-mag-surface/30 border border-mag-border/20 flex items-center justify-center mx-auto mb-2">
+            <MapPin size={16} className="text-mag-text-dim/20" />
+          </div>
+          <div className="text-mag-text-dim/40 text-[11px] font-bold">No location data yet</div>
+          <div className="text-mag-text-dim/25 text-[10px] font-mono mt-1">
+            Location will appear once the device reports its first GPS fix.
+          </div>
         </div>
       )}
 

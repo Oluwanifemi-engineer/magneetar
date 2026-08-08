@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { useDevices } from '@/hooks/useDevices';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { ToastProvider } from '@/components/ui/Toast';
 
 export default function DashboardLayout({
   children,
@@ -69,6 +70,7 @@ export default function DashboardLayout({
   }
 
   return (
+    <ToastProvider>
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Ambient aurora — same design language as the auth pages */}
       <div className="fixed -top-40 -left-40 w-[560px] h-[560px] rounded-full bg-mag-primary/[0.05] blur-[130px] animate-aurora pointer-events-none z-0" />
@@ -84,5 +86,6 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+    </ToastProvider>
   );
 }

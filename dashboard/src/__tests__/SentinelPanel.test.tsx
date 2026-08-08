@@ -28,6 +28,7 @@ jest.mock('lucide-react', () => ({
   Wifi: () => null,
   MapPin: () => null,
   Clock: () => null,
+  Smartphone: () => null,
 }));
 
 jest.mock('@/lib/utils', () => ({
@@ -50,8 +51,7 @@ describe('SentinelPanel Component', () => {
 
   it('shows empty state when no device is selected', () => {
     render(<SentinelPanel />);
-    expect(screen.getByText('No device selected.')).toBeInTheDocument();
-    expect(screen.getByText('Select a device from the sidebar.')).toBeInTheDocument();
+    expect(screen.getByText('No device selected')).toBeInTheDocument();
   });
 
   it('renders threat assessment section for selected device', () => {

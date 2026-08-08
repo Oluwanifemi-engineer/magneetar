@@ -408,7 +408,10 @@ def verify_password(password: str, password_hash: str) -> bool:
         salt = parts[1]
         h = parts[2]
         check = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 600000)
-        return check.hex() == h
+        # Constant-time comparison: hmac.compare_digest prevents timing
+        # side-channels where an attacker measures response time to guess
+        # the hash character-by-character.
+        return hmac.compare_digest(check.hex(), h)
     except Exception:
         return False
 

@@ -50,6 +50,7 @@ jest.mock('lucide-react', () => {
     Trash2: noop,
     X: noop,
     MessageSquareText: noop,
+    Zap: noop,
   };
 });
 
@@ -59,6 +60,11 @@ jest.mock('@/lib/utils', () => ({
   getCommandLabel: (cmd: string) => cmd.toUpperCase(),
   formatTimestamp: () => '2024-01-01 12:00:00',
   stepUpPasswordHint: () => 'the master API key (API-key mode)',
+}));
+
+jest.mock('@/components/ui/Toast', () => ({
+  useToast: () => ({ toast: jest.fn() }),
+  ToastProvider: ({ children }: any) => children,
 }));
 
 jest.mock('@/components/ui/CommandButton', () => ({
@@ -136,7 +142,7 @@ describe('CommandPanel Component', () => {
 
   it('shows empty state when no commands in history', () => {
     render(<CommandPanel />);
-    expect(screen.getByText('No commands sent yet.')).toBeInTheDocument();
+    expect(screen.getByText('No commands sent yet')).toBeInTheDocument();
   });
 
   it('renders command history when commands exist', () => {
