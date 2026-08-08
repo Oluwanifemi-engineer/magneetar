@@ -38,14 +38,17 @@ class AdminReceiver : DeviceAdminReceiver() {
      * defence before a phone becomes unprotected (and uninstallable).
      */
     const val DISABLE_WARNING =
-        "⚠ SECURITY WARNING\n\n" +
-        "Deactivating Device Admin will:\n" +
-        "• Allow this app to be UNINSTALLED by anyone\n" +
-        "• Disable remote lock, wipe & siren\n" +
-        "• Stop intruder camera/audio capture\n" +
-        "• Make recovery of a stolen phone impossible\n\n" +
-        "This action requires your device PIN/password.\n\n" +
-        "Only proceed if you are the verified owner."
+        "⚠ CRITICAL SECURITY WARNING\n\n" +
+        "You are about to DISABLE device protection.\n\n" +
+        "This will IMMEDIATELY:\n" +
+        "\u2022 Allow ANYONE to uninstall this app\n" +
+        "\u2022 Disable ALL remote security features\n" +
+        "\u2022 Stop tracking your device\n" +
+        "\u2022 Make recovery of a stolen phone IMPOSSIBLE\n" +
+        "\u2022 Delete all protection from this device\n\n" +
+        "If your phone is stolen after this, it CANNOT be recovered.\n\n" +
+        "This action requires your device PIN/password to confirm.\n\n" +
+        "Are you the verified owner of this device?"
     }
 
     override fun onEnabled(context: Context, intent: Intent) {

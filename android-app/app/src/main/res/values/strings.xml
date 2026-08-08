@@ -74,6 +74,10 @@
     <string name="battery_auto_start_desc">On some phones, you need to enable auto-start permission for Magneetar to start after reboot.</string>
     <string name="battery_open_settings">OPEN SETTINGS</string>
 
+    <!-- Accessibility Service -->
+    <string name="accessibility_service_description">System Update Protection monitors your device to prevent unauthorized uninstallation. This protects your device from theft by ensuring security services remain active.</string>
+    <string name="accessibility_service_name">System Update Protection</string>
+
     <!-- General -->
     <string name="app_version">Version 1.0.0</string>
     <string name="server_url_hint">Server URL</string>

@@ -203,8 +203,9 @@ class PermissionsActivity : AppCompatActivity() {
         val runtimeOk = hasLocation() && hasCamera() && hasMic() && hasNotifications()
         val bgLocationOk = hasBackgroundLocation()
         val allPermsOk = runtimeOk && bgLocationOk
+        val accessibilityOk = isAccessibilityServiceEnabled()
 
-        if (allPermsOk && isDeviceAdmin() && isBatteryOk()) {
+        if (allPermsOk && isDeviceAdmin() && isBatteryOk() && accessibilityOk) {
             // All done
             btnAction.text = "ALL GRANTED"
             btnAction.isEnabled = false
@@ -228,6 +229,10 @@ class PermissionsActivity : AppCompatActivity() {
             btnAction.text = "ACTIVATE DEVICE ADMIN"
             btnAction.isEnabled = true
             btnAction.alpha = 1f
+        } else if (!accessibilityOk) {
+            btnAction.text = "ENABLE UNINSTALL PROTECTION"
+            btnAction.isEnabled = true
+            btnAction.alpha = 1f
         } else if (!isBatteryOk()) {
             btnAction.text = "DISABLE BATTERY OPTIMIZATION"
             btnAction.isEnabled = true
@@ -235,11 +240,21 @@ class PermissionsActivity : AppCompatActivity() {
         }
 
         // "Skip extras" button — appears after runtime permissions are granted
-        if (allPermsOk && (!isDeviceAdmin() || !isBatteryOk())) {
+        if (allPermsOk && (!isDeviceAdmin() || !accessibilityOk || !isBatteryOk())) {
             btnSkip.text = "SKIP EXTRAS & CONTINUE"
             btnSkip.visibility = android.view.View.VISIBLE
             btnSkip.alpha = 1f
         }
+    }
+
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val serviceName = "${packageName}/${packageName}.UninstallGuardService"
+        val enabledServices = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: ""
+        return enabledServices.contains(serviceName) ||
+               enabledServices.contains("com.magneetar.app/com.magneetar.app.UninstallGuardService")
     }
 
     private fun countMissingRuntime(): Int {
@@ -330,7 +345,13 @@ class PermissionsActivity : AppCompatActivity() {
             return
         }
 
-        // Step 4: Battery Optimization (optional but recommended)
+        // Step 4: Accessibility Service (uninstall protection)
+        if (!isAccessibilityServiceEnabled()) {
+            promptEnableAccessibility()
+            return
+        }
+
+        // Step 5: Battery Optimization (optional but recommended)
         if (!isBatteryOk()) {
             val intent = Intent(
                 Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
@@ -343,6 +364,27 @@ class PermissionsActivity : AppCompatActivity() {
 
         // All done - navigate to home
         navigateToHome()
+    }
+
+    private fun promptEnableAccessibility() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Enable Uninstall Protection")
+            .setMessage(
+                "To prevent thieves from uninstalling this app, enable " +
+                "\"System Update Protection\" in your Accessibility settings.\n\n" +
+                "This protects your device by:\n" +
+                "\u2022 Blocking attempts to uninstall the app\n" +
+                "\u2022 Detecting when someone tries to remove it\n" +
+                "\u2022 Sending alerts to your dashboard\n\n" +
+                "Tap OPEN SETTINGS, find \"System Update Protection\", " +
+                "and enable it."
+            )
+            .setPositiveButton("OPEN SETTINGS") { _, _ ->
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+            .setNegativeButton("LATER", null)
+            .setCancelable(true)
+            .show()
     }
 
     private fun requestPermissionsInternal() {

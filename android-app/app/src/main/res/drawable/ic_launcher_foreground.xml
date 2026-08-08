@@ -5,20 +5,50 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <!--
-      Bold solid M — white, thick rounded letterform with a down-dipping V,
-      matching the web brand mark.
+      SHARP ANGULAR M LOGO — Geometric, fintech-style with crisp corners.
 
-      GEOMETRY (verified): the ink bounding box (stroke 12, round caps extend
-      half the width) is x[28,80] y[32,76] — centre exactly (54,54), the
-      adaptive-icon viewport centre. Previous path (M40,69L40,37L60,61L80,37L80,69)
-      had its centre at (60,53): 6 units RIGHT — a visible horizontal shift on
-      the launcher. All ink stays within the 66dp safe zone (worst distance ~30 < 33).
+      This is a bold, architectural M with:
+      - Sharp 90-degree corners (no curves)
+      - Thick vertical pillars
+      - Angular V-shape in the center
+      - Clean, modern aesthetic
+
+      The design uses pure straight lines (L commands) for maximum sharpness.
     -->
+
+    <!-- Main M shape - sharp angular with thick pillars -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="
+            M 28,76
+            L 28,32
+            L 38,32
+            L 38,68
+            L 54,44
+            L 70,68
+            L 70,32
+            L 80,32
+            L 80,76
+            L 70,76
+            L 70,56
+            L 54,76
+            L 38,56
+            L 38,76
+            Z
+        " />
+
+    <!-- Optional: Inner accent line for depth (thinner stroke effect) -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="12"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M34,70L34,38L54,66L74,38L74,70" />
+        android:strokeWidth="1.5"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="miter"
+        android:pathData="
+            M 30,74
+            L 30,34
+            L 54,58
+            L 78,34
+            L 78,74
+        " />
 </vector>
