@@ -7,10 +7,10 @@
     </linearGradient>
   </defs>
 
-  <!-- Magenta tile background -->
+  <!-- Magenta gradient tile with rounded corners (squircle) -->
   <rect width="120" height="120" rx="27" fill="url(#mg-bg)"/>
 
-  <!-- Clean capital M — sharp edges, straight lines only -->
-  <path d="M 30,90 L 30,30 L 42,30 L 42,72 L 60,48 L 78,72 L 78,30 L 90,30 L 90,90 L 78,90 L 78,66 L 60,90 L 42,66 L 42,90 Z"
+  <!-- Bold capital M — Moniepoint-style fintech aesthetic -->
+  <path d="M 24,80 L 24,28 L 38,28 L 38,64 L 54,40 L 70,64 L 70,28 L 84,28 L 84,80 L 70,80 L 70,54 L 54,80 L 38,54 L 38,80 Z"
         fill="#FFFFFF"/>
 </svg>
