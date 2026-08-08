@@ -32,19 +32,20 @@ class AdminReceiver : DeviceAdminReceiver() {
         private const val TAG = "MagneetarAdmin"
         private val JSON = "application/json".toMediaType()
 
-        /**
-         * The warning shown in the SYSTEM dialog when someone tries to
-         * deactivate Magneetar as a device admin. This is the last line of
-         * defence before a phone becomes unprotected (and uninstallable).
-         */
-        const val DISABLE_WARNING =
-            "⚠ Magneetar anti-theft protection\n\n" +
-            "Deactivating Device Admin will:\n" +
-            "• Allow this app to be UNINSTALLED by anyone\n" +
-            "• Disable remote lock, wipe & siren\n" +
-            "• Stop intruder camera/audio capture\n" +
-            "• Make recovery of a stolen phone impossible\n\n" +
-            "Only proceed if you are the verified owner."
+    /**
+     * The warning shown in the SYSTEM dialog when someone tries to
+     * deactivate Magneetar as a device admin. This is the last line of
+     * defence before a phone becomes unprotected (and uninstallable).
+     */
+    const val DISABLE_WARNING =
+        "⚠ SECURITY WARNING\n\n" +
+        "Deactivating Device Admin will:\n" +
+        "• Allow this app to be UNINSTALLED by anyone\n" +
+        "• Disable remote lock, wipe & siren\n" +
+        "• Stop intruder camera/audio capture\n" +
+        "• Make recovery of a stolen phone impossible\n\n" +
+        "This action requires your device PIN/password.\n\n" +
+        "Only proceed if you are the verified owner."
     }
 
     override fun onEnabled(context: Context, intent: Intent) {

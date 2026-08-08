@@ -1,327 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#0A0A0A"
-    android:fillViewport="true">
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="32dp">
 
-    <RelativeLayout
-        android:layout_width="match_parent"
+    <!-- Minimal covert UI - looks like a system app -->
+    <TextView
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:padding="24dp">
+        android:text="System Services"
+        android:textColor="#F5F5F5"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif-medium"
+        android:layout_marginBottom="16dp" />
 
-        <!-- Logo -->
-        <LinearLayout
-            android:id="@+id/header_container"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:gravity="center"
-            android:orientation="vertical">
+    <TextView
+        android:id="@+id/tv_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Services Active"
+        android:textColor="#00FF88"
+        android:textSize="14sp"
+        android:fontFamily="sans-serif"
+        android:layout_marginBottom="8dp" />
 
-            <ImageView
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:src="@drawable/ic_launcher_foreground"
-                android:contentDescription="@string/app_name"
-                android:importantForAccessibility="no" />
+    <!-- Last sync time (subtle) -->
+    <TextView
+        android:id="@+id/tv_last_sync"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#404040"
+        android:textSize="11sp"
+        android:fontFamily="sans-serif"
+        android:layout_marginBottom="24dp" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/app_name"
-                android:textColor="#F5F5F5"
-                android:textSize="22sp"
-                android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
+    <!-- Device ID (very subtle - looks like a system identifier) -->
+    <TextView
+        android:id="@+id/tv_device_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#303030"
+        android:textSize="10sp"
+        android:fontFamily="monospace"
+        android:layout_marginBottom="32dp" />
 
-        </LinearLayout>
+    <!-- Minimal footer - hint for settings access -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="v1.4.0"
+        android:textColor="#202020"
+        android:textSize="10sp"
+        android:fontFamily="sans-serif" />
 
-        <!-- Protection status card -->
-        <LinearLayout
-            android:id="@+id/protection_card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/header_container"
-            android:layout_marginTop="28dp"
-            android:background="@drawable/btn_surface"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:padding="24dp">
-
-            <TextView
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:gravity="center"
-                android:text="✓"
-                android:textColor="#00FF88"
-                android:textSize="28sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/home_protected"
-                android:textColor="#F5F5F5"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="@string/home_protected_desc"
-                android:textColor="#606060"
-                android:textSize="13sp"
-                android:textAlignment="center"
-                android:fontFamily="sans-serif" />
-
-        </LinearLayout>
-
-        <!-- Uninstall protection status -->
-        <TextView
-            android:id="@+id/tv_uninstall_status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/protection_card"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/btn_surface"
-            android:gravity="center_vertical"
-            android:padding="16dp"
-            android:textColor="#FFB800"
-            android:textSize="13sp"
-            android:fontFamily="sans-serif-mono" />
-
-        <!-- Activate device admin button (hidden when protected) -->
-        <Button
-            android:id="@+id/btn_activate_admin"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_below="@id/tv_uninstall_status"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/btn_secondary"
-            android:text="Activate Device Admin — Uninstall Protection"
-            android:textColor="#C0C0C0"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.1"
-            android:fontFamily="sans-serif-medium"
-            android:visibility="gone"
-            android:stateListAnimator="@null" />
-
-        <!-- Connection status -->
-        <TextView
-            android:id="@+id/tv_connection_status"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_below="@id/btn_activate_admin"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/btn_surface"
-            android:gravity="center_vertical"
-            android:paddingLeft="16dp"
-            android:paddingRight="16dp"
-            android:textColor="#00FF88"
-            android:textSize="13sp"
-            android:fontFamily="sans-serif-mono" />
-
-        <!-- Battery optimization status -->
-        <TextView
-            android:id="@+id/tv_battery_opt_status"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_below="@id/tv_connection_status"
-            android:layout_marginTop="4dp"
-            android:background="@drawable/btn_surface"
-            android:gravity="center_vertical"
-            android:paddingLeft="16dp"
-            android:paddingRight="16dp"
-            android:textColor="#FFB800"
-            android:textSize="13sp"
-            android:fontFamily="sans-serif-mono" />
-
-        <!-- Remote capture armed status -->
-        <TextView
-            android:id="@+id/tv_capture_status"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_below="@id/tv_battery_opt_status"
-            android:layout_marginTop="4dp"
-            android:background="@drawable/btn_surface"
-            android:gravity="center_vertical"
-            android:paddingLeft="16dp"
-            android:paddingRight="16dp"
-            android:textColor="#00FF88"
-            android:textSize="13sp"
-            android:fontFamily="sans-serif-mono" />
-
-        <!-- Device pairing info (tap to copy) -->
-        <LinearLayout
-            android:id="@+id/device_pairing_card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/tv_capture_status"
-            android:layout_marginTop="4dp"
-            android:background="@drawable/btn_surface"
-            android:clickable="true"
-            android:focusable="true"
-            android:orientation="vertical"
-            android:padding="14dp">
-
-            <TextView
-                android:id="@+id/tv_pairing_device_id"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="#00D9FF"
-                android:textSize="12sp"
-                android:fontFamily="sans-serif-mono" />
-
-            <TextView
-                android:id="@+id/tv_pairing_code"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:textColor="#00FF88"
-                android:textSize="12sp"
-                android:fontFamily="sans-serif-mono" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Tap to copy — use on the dashboard to link this phone to your account"
-                android:textColor="#606060"
-                android:textSize="10sp"
-                android:fontFamily="sans-serif" />
-
-        </LinearLayout>
-
-        <!-- Arm / disarm remote capture toggle -->
-        <Button
-            android:id="@+id/btn_toggle_capture"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_below="@id/device_pairing_card"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/btn_secondary"
-            android:text="Disarm Remote Capture"
-            android:textColor="#C0C0C0"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.15"
-            android:fontFamily="sans-serif-medium"
-            android:stateListAnimator="@null" />
-
-        <!-- Offline SMS commands status (no-internet control) -->
-        <TextView
-            android:id="@+id/tv_sms_status"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_below="@id/btn_toggle_capture"
-            android:layout_marginTop="4dp"
-            android:background="@drawable/btn_surface"
-            android:gravity="center_vertical"
-            android:paddingLeft="16dp"
-            android:paddingRight="16dp"
-            android:textColor="#606060"
-            android:textSize="13sp"
-            android:fontFamily="sans-serif-mono" />
-
-        <!-- Offline SMS commands toggle (opt-in; needs the SMS permission) -->
-        <Button
-            android:id="@+id/btn_toggle_sms"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_below="@id/tv_sms_status"
-            android:layout_marginTop="4dp"
-            android:background="@drawable/btn_secondary"
-            android:text="Enable Offline SMS Commands"
-            android:textColor="#C0C0C0"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.15"
-            android:fontFamily="sans-serif-medium"
-            android:stateListAnimator="@null" />
-
-        <!-- OEM warning -->
-        <TextView
-            android:id="@+id/tv_oem_warning"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/btn_toggle_sms"
-            android:layout_marginTop="12dp"
-            android:background="#15FFB800"
-            android:padding="14dp"
-            android:textColor="#FFB800"
-            android:textSize="12sp"
-            android:lineSpacingExtra="4dp"
-            android:fontFamily="sans-serif"
-            android:visibility="gone" />
-
-        <!-- Auto-start button -->
-        <Button
-            android:id="@+id/btn_auto_start"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_below="@id/tv_oem_warning"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/btn_secondary"
-            android:text="Enable Auto-Start"
-            android:textColor="#C0C0C0"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.15"
-            android:fontFamily="sans-serif-medium"
-            android:visibility="gone"
-            android:stateListAnimator="@null" />
-
-        <!-- Optimize battery button -->
-        <Button
-            android:id="@+id/btn_optimize_battery"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_below="@id/btn_auto_start"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/btn_secondary"
-            android:text="Disable Battery Optimization"
-            android:textColor="#C0C0C0"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.15"
-            android:fontFamily="sans-serif-medium"
-            android:stateListAnimator="@null" />
-
-        <!-- Open dashboard button -->
-        <Button
-            android:id="@+id/btn_open_dashboard"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_below="@id/btn_optimize_battery"
-            android:layout_marginTop="24dp"
-            android:background="@drawable/btn_primary"
-            android:text="@string/home_open_dashboard"
-            android:textColor="#0A0A0A"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.2"
-            android:fontFamily="sans-serif-medium"
-            android:stateListAnimator="@null" />
-
-        <!-- Footer -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/btn_open_dashboard"
-            android:layout_marginTop="32dp"
-            android:layout_marginBottom="32dp"
-            android:text="@string/app_version"
-            android:textColor="#303030"
-            android:textSize="11sp"
-            android:textAlignment="center"
-            android:fontFamily="sans-serif" />
-
-    </RelativeLayout>
-
-</ScrollView>
+</LinearLayout>

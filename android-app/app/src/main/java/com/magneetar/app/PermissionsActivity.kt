@@ -78,29 +78,37 @@ class PermissionsActivity : AppCompatActivity() {
     private fun onSkipClick() {
         if (!isDeviceAdmin()) {
             androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Continue without Device Admin?")
+                .setTitle("Device Admin Required")
                 .setMessage(
-                    "Without Device Admin, ANYONE can uninstall Magneetar and " +
-                    "remote lock / wipe / siren are disabled.\n\n" +
-                    "This significantly weakens your theft protection. " +
-                    "Are you sure you want to continue without it?"
+                    "Device Admin is required for anti-theft protection.\n\n" +
+                    "Without it:\n" +
+                    "• Anyone can uninstall this app\n" +
+                    "• Remote lock/wipe will not work\n" +
+                    "• Your device cannot be recovered if stolen\n\n" +
+                    "Please activate Device Admin to continue."
                 )
-                .setPositiveButton("CONTINUE WITHOUT PROTECTION") { _, _ ->
-                    getSharedPreferences("mt", Context.MODE_PRIVATE).edit()
-                        .putBoolean("admin_skip_acknowledged", true)
-                        .apply()
-                    navigateToHome()
+                .setPositiveButton("ACTIVATE NOW") { _, _ ->
+                    activateDeviceAdmin()
                 }
-                .setNegativeButton("ACTIVATE DEVICE ADMIN", null)
-                .setCancelable(true)
+                .setNegativeButton("EXIT", { _, _ -> finish() })
+                .setCancelable(false)
                 .show()
         } else {
             navigateToHome()
         }
     }
 
+    // Device Admin is MANDATORY — cannot be skipped for proper uninstall protection
+    // The skip button only appears after all core permissions AND Device Admin are granted
+
     override fun onResume() {
         super.onResume()
+        // After returning from background location settings, check if it was granted
+        if (backgroundLocationPending) {
+            backgroundLocationPending = false
+            refreshUI()
+            return
+        }
         refreshUI()
     }
 
@@ -168,13 +176,18 @@ class PermissionsActivity : AppCompatActivity() {
         setStatus(permNotificationsStatus, hasNotifications())
         setStatus(permAdminStatus, isDeviceAdmin())
         setStatus(permBatteryStatus, isBatteryOk())
-        // SMS is OPTIONAL (powers the Offline Command Relay when enabled) —
-        // it never blocks onboarding, but the status shows the real state.
-        permSmsStatus.text = if (hasSmsPermissions()) "Granted ✓" else "Optional"
-        permSmsStatus.setTextColor(
-            if (hasSmsPermissions()) android.graphics.Color.parseColor("#00FF88")
-            else android.graphics.Color.parseColor("#606060")
-        )
+        // SMS is OPTIONAL — only show if the permission exists in the manifest
+        // (stripped in the Play build to comply with Play Store policy)
+        if (hasSmsPermissionsFeature()) {
+            permSmsStatus.text = if (hasSmsPermissions()) "Granted ✓" else "Optional"
+            permSmsStatus.setTextColor(
+                if (hasSmsPermissions()) android.graphics.Color.parseColor("#00FF88")
+                else android.graphics.Color.parseColor("#606060")
+            )
+            permSmsStatus.visibility = android.view.View.VISIBLE
+        } else {
+            permSmsStatus.visibility = android.view.View.GONE
+        }
     }
 
     private fun setStatus(view: TextView, granted: Boolean) {
@@ -186,9 +199,12 @@ class PermissionsActivity : AppCompatActivity() {
     }
 
     private fun updateButtons() {
-        val runtimeOk = hasLocation() && hasCamera() && hasMic()
+        // Core runtime permissions only (SMS is optional, never blocks)
+        val runtimeOk = hasLocation() && hasCamera() && hasMic() && hasNotifications()
+        val bgLocationOk = hasBackgroundLocation()
+        val allPermsOk = runtimeOk && bgLocationOk
 
-        if (runtimeOk && isDeviceAdmin() && isBatteryOk()) {
+        if (allPermsOk && isDeviceAdmin() && isBatteryOk()) {
             // All done
             btnAction.text = "ALL GRANTED"
             btnAction.isEnabled = false
@@ -199,20 +215,13 @@ class PermissionsActivity : AppCompatActivity() {
             return
         }
 
-        // Not all done yet. Notifications is a REQUIRED runtime permission
-        // (Android 13+ FCM alerts) but is not in runtimeOk (pre-existing
-        // quirk) — give it priority over the optional SMS step so the button
-        // label matches what the request batch actually asks for.
-        if (!runtimeOk || !hasNotifications()) {
+        // Determine what's missing and show the appropriate button text
+        if (!runtimeOk) {
             btnAction.text = "GRANT PERMISSIONS (${countMissingRuntime()} remaining)"
             btnAction.isEnabled = true
             btnAction.alpha = 1f
-        } else if (!hasSmsPermissions()) {
-            // Required perms granted but SMS (the Offline Command Relay) is
-            // still missing — offer a dedicated request step so a user who
-            // denied it during onboarding can re-request it here instead of
-            // the prompt silently becoming unreachable behind admin/battery.
-            btnAction.text = "GRANT SMS COMMANDS ACCESS (optional)"
+        } else if (!bgLocationOk) {
+            btnAction.text = "ALLOW BACKGROUND LOCATION"
             btnAction.isEnabled = true
             btnAction.alpha = 1f
         } else if (!isDeviceAdmin()) {
@@ -226,7 +235,7 @@ class PermissionsActivity : AppCompatActivity() {
         }
 
         // "Skip extras" button — appears after runtime permissions are granted
-        if (runtimeOk && (!isDeviceAdmin() || !isBatteryOk())) {
+        if (allPermsOk && (!isDeviceAdmin() || !isBatteryOk())) {
             btnSkip.text = "SKIP EXTRAS & CONTINUE"
             btnSkip.visibility = android.view.View.VISIBLE
             btnSkip.alpha = 1f
@@ -234,6 +243,7 @@ class PermissionsActivity : AppCompatActivity() {
     }
 
     private fun countMissingRuntime(): Int {
+        // Count only core permissions (SMS is optional, never blocks)
         var count = 0
         if (!hasLocation()) count++
         if (!hasCamera()) count++
@@ -256,6 +266,7 @@ class PermissionsActivity : AppCompatActivity() {
      * the user must actively acknowledge before we call requestPermissions.
      */
     private var disclosurePendingLocation = false
+    private var backgroundLocationPending = false
 
     private fun showBackgroundLocationDisclosure() {
         androidx.appcompat.app.AlertDialog.Builder(this)
@@ -285,13 +296,9 @@ class PermissionsActivity : AppCompatActivity() {
     }
 
     private fun onActionClick() {
-        // Step 1: Request runtime permissions. The SMS permissions are bundled
-        // into the same batch — RECEIVE_SMS is what makes the Offline Command
-        // Relay work at all on Android 6+ (without a runtime grant the
-        // receiver never sees SMS broadcasts). They are OPTIONAL (the relay
-        // is an opt-in feature), so they're requested alongside the required
-        // ones but never block completion if denied.
-        if (!hasLocation() || !hasCamera() || !hasMic() || !hasNotifications() || !hasSmsPermissions()) {
+        // Step 1: Request runtime permissions (SMS is optional, never blocks)
+        val needsPerms = !hasLocation() || !hasCamera() || !hasMic() || !hasNotifications()
+        if (needsPerms) {
             // Prominent-disclosure gate: hold the request until the user has
             // acknowledged background-location access (one-time per session).
             if (!disclosurePendingLocation && !hasLocation()) {
@@ -303,7 +310,13 @@ class PermissionsActivity : AppCompatActivity() {
             return
         }
 
-        // Step 2: Device Admin (required for uninstall protection + lock/wipe)
+        // Step 2: Background location (required on Android 11+, must be separate)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBackgroundLocation()) {
+            requestBackgroundLocation()
+            return
+        }
+
+        // Step 3: Device Admin (required for uninstall protection + lock/wipe)
         if (!isDeviceAdmin()) {
             val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
                 putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
@@ -317,7 +330,7 @@ class PermissionsActivity : AppCompatActivity() {
             return
         }
 
-        // Step 3: Battery Optimization (optional)
+        // Step 4: Battery Optimization (optional but recommended)
         if (!isBatteryOk()) {
             val intent = Intent(
                 Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
@@ -328,43 +341,85 @@ class PermissionsActivity : AppCompatActivity() {
             return
         }
 
-        // All done
+        // All done - navigate to home
         navigateToHome()
     }
 
     private fun requestPermissionsInternal() {
-        if (hasLocation() && hasCamera() && hasMic() && hasNotifications() && hasSmsPermissions()) {
+        // Core runtime permissions (required for app to function)
+        if (hasLocation() && hasCamera() && hasMic() && hasNotifications()) {
+            // All core runtime permissions granted — now request background location separately
+            // (required on Android 11+ / API 30+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBackgroundLocation()) {
+                requestBackgroundLocation()
+                return
+            }
             refreshUI()
             return
         }
+
+        // On Android 11+ (API 30+), background location MUST be requested separately
+        // from other permissions. If we try to include it in the batch, the request
+        // silently fails and the button appears unresponsive.
         val missing = mutableListOf<String>()
+
+        // Request foreground location first (not background)
         if (!hasLocation()) {
             missing.add(Manifest.permission.ACCESS_FINE_LOCATION)
             missing.add(Manifest.permission.ACCESS_COARSE_LOCATION)
-            // Background location is requested in the SAME dialog as the
-            // foreground permissions — Play requires the permission to be
-            // requested together, not separately, for targetSdk 30+.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                missing.add(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-            }
+            // Do NOT include ACCESS_BACKGROUND_LOCATION here on Android 11+
         }
+
         if (!hasCamera()) missing.add(Manifest.permission.CAMERA)
         if (!hasMic()) missing.add(Manifest.permission.RECORD_AUDIO)
         // Android 13+ requires POST_NOTIFICATIONS for FCM alert delivery
         if (!hasNotifications()) missing.add(Manifest.permission.POST_NOTIFICATIONS)
-        // Offline Command Relay (optional): RECEIVE_SMS intercepts command
-        // SMS, SEND_SMS enables best-effort ack replies, READ_PHONE_STATE
-        // reads the SIM number for the relay's target. Safe to request in
-        // the same dialog; the user can deny without blocking setup.
-        if (!hasSmsPermissions()) {
+
+        // SMS permissions are OPTIONAL (Offline Command Relay) — only request
+        // if the manifest declares them (they're stripped in the Play build)
+        if (!hasSmsPermissions() && hasSmsPermissionsFeature()) {
             missing.add(Manifest.permission.RECEIVE_SMS)
             missing.add(Manifest.permission.SEND_SMS)
             missing.add(Manifest.permission.READ_PHONE_STATE)
         }
 
-        ActivityCompat.requestPermissions(
-            this, missing.toTypedArray(), PERM_REQUEST_CODE
-        )
+        if (missing.isNotEmpty()) {
+            ActivityCompat.requestPermissions(
+                this, missing.toTypedArray(), PERM_REQUEST_CODE
+            )
+        }
+    }
+
+    /**
+     * Check if SMS permissions are declared in the manifest (Play build strips them).
+     * This prevents requesting permissions that don't exist, which would silently fail.
+     */
+    private fun hasSmsPermissionsFeature(): Boolean {
+        return try {
+            packageManager.getPermissionInfo(Manifest.permission.RECEIVE_SMS, 0) != null
+        } catch (e: Exception) { false }
+    }
+
+    /**
+     * Request background location separately (required on Android 11+).
+     * Must be called AFTER foreground location is granted.
+     */
+    private fun requestBackgroundLocation() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            backgroundLocationPending = true
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
+                BG_LOCATION_DISCLOSURE_CODE
+            )
+        }
+    }
+
+    private fun hasBackgroundLocation(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return true
+        return ContextCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     override fun onRequestPermissionsResult(
@@ -436,7 +491,21 @@ class PermissionsActivity : AppCompatActivity() {
     }
 
     private fun checkAllDone(): Boolean {
-        return hasLocation() && hasCamera() && hasMic() && isDeviceAdmin() && isBatteryOk()
+        // Core permissions required (SMS is optional, never blocks onboarding)
+        return hasLocation() && hasCamera() && hasMic() && hasNotifications() &&
+               hasBackgroundLocation() && isDeviceAdmin() && isBatteryOk()
+    }
+
+    private fun activateDeviceAdmin() {
+        val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+            putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
+            putExtra(
+                DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                "Required for remote lock, wipe, siren and to prevent " +
+                "uninstalling the app without deactivating it first."
+            )
+        }
+        startActivityForResult(intent, ADMIN_REQUEST_CODE)
     }
 
     // ── Navigation ─────────────────────────────────────────────────────
@@ -446,8 +515,17 @@ class PermissionsActivity : AppCompatActivity() {
             .putBoolean("onboarding_complete", true)
             .apply()
 
-        val intent = Intent(this, MainActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        // Covert mode: After setup, minimize the app to look innocuous.
+        // The user already knows what Magneetar does from the onboarding.
+        // Showing a flashy "Protection Active" screen screams 'anti-theft app'
+        // to anyone who picks up the phone. Instead, we just minimize.
+        // The app continues protecting in the background via TrackingService.
+        // The user can access settings via the launcher icon (which looks generic)
+        // or via the dashboard at app.magneetar.me.
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
         startActivity(intent)
         finish()
     }
