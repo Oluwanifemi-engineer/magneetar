@@ -5,32 +5,12 @@
       <stop offset="45%" stop-color="#E91E8C"/>
       <stop offset="100%" stop-color="#8B0A5E"/>
     </linearGradient>
-    <radialGradient id="mg-glow" cx="0.5" cy="0.3" r="0.85">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.42"/>
-      <stop offset="55%" stop-color="#FFFFFF" stop-opacity="0.08"/>
-      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="mg-m" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FFFFFF"/>
-      <stop offset="100%" stop-color="#F3D3E6"/>
-    </linearGradient>
   </defs>
 
-  <!-- Magenta tile (the dashboard/login aurora colour) -->
+  <!-- Magenta tile background -->
   <rect width="120" height="120" rx="27" fill="url(#mg-bg)"/>
-  <rect width="120" height="120" rx="27" fill="url(#mg-glow)"/>
 
-  <!-- Hairline inner ring -->
-  <rect x="5.5" y="5.5" width="109" height="109" rx="23" fill="none" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="1.5"/>
-
-  <!-- Soft drop shadow under the M (polished depth) -->
-  <path d="M27 90 L27 40 L60 84 L93 40 L93 90"
-        stroke="#5C0740" stroke-opacity="0.35" stroke-width="17"
-        stroke-linecap="round" stroke-linejoin="round" fill="none"
-        transform="translate(0 3)"/>
-
-  <!-- Bold solid M — white, thick rounded letterform with a down-dipping V -->
-  <path d="M27 88 L27 38 L60 82 L93 38 L93 88"
-        stroke="url(#mg-m)" stroke-width="17"
-        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Clean capital M — sharp edges, straight lines only -->
+  <path d="M 30,90 L 30,30 L 42,30 L 42,72 L 60,48 L 78,72 L 78,30 L 90,30 L 90,90 L 78,90 L 78,66 L 60,90 L 42,66 L 42,90 Z"
+        fill="#FFFFFF"/>
 </svg>

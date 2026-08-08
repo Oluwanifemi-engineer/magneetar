@@ -234,9 +234,9 @@ export default function LoginPage() {
               <div className="w-9 h-9 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center overflow-hidden">
                 <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
                   <path
-                    d="M27 88L27 38L60 82L93 38L93 88"
+                    d="M30,90 L30,30 L42,30 L42,72 L60,48 L78,72 L78,30 L90,30 L90,90 L78,90 L78,66 L60,90 L42,66 L42,90 Z"
                     stroke="url(#login-grad)"
-                    strokeWidth="17"
+                    fill="currentColor"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
@@ -430,7 +430,7 @@ export default function LoginPage() {
             <Link href="/" className="lg:hidden inline-flex items-center gap-2.5 mb-10">
               <div className="w-9 h-9 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center overflow-hidden">
                 <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
-                  <path d="M27 88L27 38L60 82L93 38L93 88" stroke="url(#mob-grad)" strokeWidth="17" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M30,90 L30,30 L42,30 L42,72 L60,48 L78,72 L78,30 L90,30 L90,90 L78,90 L78,66 L60,90 L42,66 L42,90 Z" stroke="url(#mob-grad)" fill="currentColor"  />
                   <defs>
                     <linearGradient id="mob-grad" x1="27" y1="38" x2="93" y2="88">
                       <stop offset="0%" stopColor="#FFFFFF" />

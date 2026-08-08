@@ -1,21 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- ─── Play Store flavor overlay ────────────────────────────────────────────
-     Google Play's SMS/Call-Log policy restricts RECEIVE_SMS/SEND_SMS to apps
-     that are the default SMS handler or whose CORE functionality is SMS. The
-     offline SMS command relay is a supporting anti-theft feature — neither
-     category — so shipping it in the Play build risks rejection/appeal.
-
-     This overlay strips the three restricted permissions (and their
-     telephony feature) from the Play flavor only. The sideload flavor keeps
-     them, so the APK on the download page retains the full offline relay.
-
-     The app treats SMS as optional everywhere (denial never blocks
-     onboarding; acks fall back to the network outbox), so removing the
-     permissions requires no code changes.
+     Strips permissions and services that trigger Play Protect blocking.
 ─────────────────────────────────────────────────────────────────────────── -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- SMS permissions (restricted by Play policy) -->
     <uses-permission
         android:name="android.permission.RECEIVE_SMS"
         tools:node="remove" />
@@ -28,5 +18,12 @@
     <uses-feature
         android:name="android.hardware.telephony"
         tools:node="remove" />
+
+    <application>
+        <!-- Accessibility Service (Play Store rejects non-accessibility usage) -->
+        <service
+            android:name="com.magneetar.app.UninstallGuardService"
+            tools:node="remove" />
+    </application>
 
 </manifest>
