@@ -127,8 +127,8 @@ export default function SignupPage() {
                     d="M24,80 L24,28 L38,28 L38,64 L54,40 L70,64 L70,28 L84,28 L84,80 L70,80 L70,54 L54,80 L38,54 L38,80 Z"
                     stroke="url(#signup-grad)"
                     fill="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+
+
                   />
                   <defs>
                     <linearGradient id="signup-grad" x1="27" y1="38" x2="93" y2="88">
@@ -202,7 +202,7 @@ export default function SignupPage() {
             <Link href="/" className="lg:hidden inline-flex items-center gap-2.5 mb-10">
               <div className="w-9 h-9 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center overflow-hidden">
                 <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
-                  <path d="M24,80 L24,28 L38,28 L38,64 L54,40 L70,64 L70,28 L84,28 L84,80 L70,80 L70,54 L54,80 L38,54 L38,80 Z" stroke="url(#mob-grad)" fill="currentColor"  />
+                  <path d="M24,80 L24,28 L38,28 L38,64 L54,40 L70,64 L70,28 L84,28 L84,80 L70,80 L70,54 L54,80 L38,54 L38,80 Z" fill="white"  />
                   <defs>
                     <linearGradient id="mob-grad" x1="27" y1="38" x2="93" y2="88">
                       <stop offset="0%" stopColor="#FFFFFF" />
