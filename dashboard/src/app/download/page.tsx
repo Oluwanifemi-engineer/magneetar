@@ -16,6 +16,12 @@ import {
   MapPin,
   Camera,
   ChevronRight,
+  Navigation,
+  Lock,
+  Trash2,
+  Mic,
+  Shield,
+  Users,
 } from 'lucide-react';
 import { APK_DOWNLOAD_URL, APK_CHECKSUM_URL } from '@/lib/utils';
 
@@ -198,15 +204,15 @@ export default function DownloadPage() {
             {/* Feature checklist */}
             <div className="grid sm:grid-cols-2 gap-3 mb-6">
               {[
-                { icon: '📍', text: 'Real-time GPS tracking' },
-                { icon: '🔒', text: 'Remote lock & alarm' },
-                { icon: '🗑️', text: 'Remote wipe (factory reset)' },
-                { icon: '📸', text: 'Photo & audio evidence capture' },
-                { icon: '🛡️', text: 'Sentinel theft detection' },
-                { icon: '👥', text: 'Guardian Network recovery' },
+                { icon: Navigation, text: 'Real-time GPS tracking' },
+                { icon: Lock, text: 'Remote lock & alarm' },
+                { icon: Trash2, text: 'Remote wipe (factory reset)' },
+                { icon: Camera, text: 'Photo & audio evidence capture' },
+                { icon: Shield, text: 'Sentinel theft detection' },
+                { icon: Users, text: 'Guardian Network recovery' },
               ].map((f) => (
-                <div key={f.text} className="flex items-center gap-2 text-[12px] text-white/60">
-                  <span className="text-base">{f.icon}</span>
+                <div key={f.text} className="flex items-center gap-2.5 text-[12px] text-white/60">
+                  <f.icon size={14} className="text-[#06B6D4]/80" />
                   <span>{f.text}</span>
                 </div>
               ))}
