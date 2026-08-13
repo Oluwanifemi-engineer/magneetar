@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Stale dev artifacts removed**: `backups/dev-artifacts-2026-08-12/`
   (two old v1.0 APKs + a dev SQLite dump) deleted; scheduled
   `backups/magneetar_*.db.gz` / media archives untouched.
+- **Real Firebase client values purged from git history**: the values were
+  committed in v1.0.0 (`ded841b`) and existed in the public repo until
+  scrubbed to a placeholder (`60e9e31`). History rewritten with
+  `git filter-repo --replace-text` (all values → placeholders, 160 commits
+  preserved, verified 0 matches in every ref + raw object scan) and
+  force-pushed. All stale worktrees/reflogs pruned and objects garbage
+  collected locally so no trace remains on disk.
 
 ### Fixed (2026-08-13 — full customer-journey QA pass)
 
