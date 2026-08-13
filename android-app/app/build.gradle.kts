@@ -221,7 +221,7 @@ sentry {
 dependencies {
     implementation("androidx.core:core-ktx:1.13.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:5.4.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation(platform("com.google.firebase:firebase-bom:33.0.0"))
