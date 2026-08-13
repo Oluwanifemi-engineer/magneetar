@@ -43,6 +43,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   preserved, verified 0 matches in every ref + raw object scan) and
   force-pushed. All stale worktrees/reflogs pruned and objects garbage
   collected locally so no trace remains on disk.
+- **FCM push fixed in production (deploy round)**: `MT_FIREBASE_KEY` points
+  to `./firebase-key.json` (container path `/app/firebase-key.json`) but the
+  compose mount provided a different filename — firebase-admin never
+  initialized, so push alerts silently did nothing. The mount now provides
+  the real gitignored service-account key at the loaded path.
+- **Production deployed (2026-08-13)**: server + dashboard images rebuilt
+  and rolled out via docker compose. Live checks confirm: `/metrics` returns
+  401 to anonymous callers, the dead API-docs links are gone from the
+  dashboard footer, the FCM key is mounted, and the server starts with no
+  config warnings.
 
 ### Fixed (2026-08-13 — full customer-journey QA pass)
 

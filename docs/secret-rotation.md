@@ -343,3 +343,44 @@ docker exec magneetar-server sh -c 'env | grep -c LEGACY_DEVICE_KEY'  # → 0
   from `config.py`, `auth.py`, `generate-env.sh`, README, and this runbook.
   Installed APKs still presenting the old master key can no longer
   authenticate — the fleet must run the new APK.
+
+## 11. Firebase client API key — restriction + rotation (2026-08-13)
+
+**What happened**: the real `google-services.json` values (project id
+`magneetar-ecf5e`, Android API key, app id) were committed to the PUBLIC repo
+in v1.0.0 and existed in history until scrubbed to a placeholder in `60e9e31`.
+On 2026-08-13 the history was rewritten with `git filter-repo --replace-text`
+(all values → placeholders) and force-pushed; local refs, reflogs and stale
+worktrees were pruned so no trace remains on disk either.
+
+**Why the key is still sensitive-in-public**: it is a *client* API key — it
+ships inside every downloadable APK, so it can never be truly secret. The
+control that matters is **restriction**, not secrecy.
+
+### 11a. Restrict the key (do this regardless of rotation)
+
+1. Google Cloud Console → **APIs & Services → Credentials** → the Android API
+   key (`AIzaSyDfAXt…` or its replacement).
+2. Edit → **Application restrictions → Android apps** → add package
+   `com.magneetar.app` and the release signing **SHA-1**:
+   ```bash
+   keytool -list -v -keystore android-app/release.keystore \
+     -alias <KEY_ALIAS> -storepass <KEYSTORE_PASS> | grep SHA1
+   ```
+   (credentials come from the `MT_KEYSTORE_PASS` / `MT_KEY_ALIAS` env vars
+   used by the release build — see `android-app/app/build.gradle.kts`.)
+3. **API restrictions**: restrict to the Firebase services actually used
+   (FCM, Firebase Installations) — never “don’t restrict key”.
+
+### 11b. Rotate (if you want the old value dead)
+
+1. Firebase Console → **Project settings → Your apps** → the Android app →
+   **Rotate key** (or create a new key in Google Cloud and replace it here).
+2. Download the refreshed `google-services.json` and update **all** of:
+   - `backups/google-services.json.real` (local, gitignored — used for local
+     release builds; `cp` it to `android-app/app/google-services.json`),
+   - the `GOOGLE_SERVICES_JSON` GitHub Actions secret,
+   - rebuild + re-upload the APK (old APKs keep the old key — fine once the
+     key is restricted to package+SHA-1).
+3. No server change: the server never sees the client key (`MT_FIREBASE_KEY`
+   is the separate service-account JSON used for FCM).
