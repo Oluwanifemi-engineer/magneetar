@@ -58,9 +58,12 @@ services:
       - magneetar-data:/app/data
       - magneetar-media:/app/media
       - ./server/static/apk:/app/static/apk
-      # Firebase service-account JSON for FCM push alerts (MT_FIREBASE_KEY in
-      # server/.env must point to the CONTAINER path /app/firebase-service-account.json).
-      - ./server/firebase-service-account.json:/app/firebase-service-account.json:ro
+      # Firebase service-account JSON for FCM push alerts. server/.env sets
+      # MT_FIREBASE_KEY=./firebase-key.json, which (WORKDIR=/app) resolves to
+      # the container path /app/firebase-key.json — so the REAL gitignored
+      # service-account key must be mounted there. (Previously the mount used a
+      # different filename, so FCM push silently never initialized in prod.)
+      - ./server/firebase-key.json:/app/firebase-key.json:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
