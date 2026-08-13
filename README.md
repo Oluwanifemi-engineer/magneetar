@@ -181,39 +181,48 @@ crontab -e
 
 ## Security Architecture
 
+### Three auth worlds (who authenticates how)
+
+| World | Credential | How it's presented | Scope |
+|---|---|---|---|
+| **Dashboard (web)** | Email/password (+2FA) | Login → JWT `type=dashboard` | The user's own account + shared devices |
+| **Consumer's phone (app)** | Device key `MT_DEVICE_KEY` (embedded in APK) | `x-api-key` on register → device JWT `type=device`, then `Authorization: Bearer` | Device routes only (location, commands, media) |
+| **Operator/admin** | Master key `MT_API_KEY` (server-side only) | `{ "api_key": … }` to `/api/auth/login` | Admin login + step-up |
+
 ### Device Key Authentication
 
-Each Android device generates its own 256-bit key on first launch:
+Since **v1.4.0** the shared **low-privilege device key** (`MT_DEVICE_KEY`) is
+embedded in every APK as `BuildConfig.DEVICE_KEY`. The app presents it only
+once, at registration, to obtain a device JWT:
 
 ```
-Device generates: device_key = random_32_bytes_hex()
+App boot → POST /api/device/register { x-api-key: <MT_DEVICE_KEY> }
                   ↓
-Stored in: app-private SharedPreferences (never in APK)
+Server verifies key, stores SHA-256 hash, issues device JWT (24h) + refresh (90d)
                   ↓
-Registration: POST /api/device/register { device_key }
-                  ↓
-Server stores: SHA-256(device_key) (never the raw key!)
-                  ↓
-All requests: x-device-key header (unique per device)
+All subsequent calls: Authorization: Bearer <device-jwt>
 ```
 
 **Why this is secure:**
-- ✅ Each device has a **unique** key
-- ✅ Key is **generated at runtime** — not compiled into the APK
-- ✅ Server stores **only SHA-256 hash** — DB breach can't leak keys
-- ✅ Compromising **one device doesn't affect others**
-- ✅ Backward compatible — existing JWT auth still works
+- ✅ The key is **device-scope only** — `x-api-key` can never authenticate
+  dashboard or account routes (F-02, regression-tested in `test_api.py`), so
+  a public APK can't hand anyone the admin panel
+- ✅ Server stores **only SHA-256 hashes** — a DB breach can't leak keys
+- ✅ The master key (`MT_API_KEY`) is **never** embedded anywhere
+- ✅ A per-device unique key (`x-device-key`) is also accepted for
+  re-registration/recovery flows
 
-### Auth Methods (in priority order)
+### Auth Methods for device routes (in priority order)
 
 1. **JWT Bearer token** — from device registration session
-2. **x-device-key** — unique per-device secret (recommended)
-3. **x-api-key** — shared key (fallback only): the low-privilege device key
-   (`MT_DEVICE_KEY`, the only key embedded in the APK) or the legacy
-   pre-split master key during the rotation grace window. The master key
-   itself (`MT_API_KEY`) is server-side only and grants **dashboard admin**
-   — it is deliberately never accepted for device-scope auth via APK paths
-   beyond the legacy grace key.
+2. **x-device-key** — unique per-device secret (reinstall recovery)
+3. **x-api-key** — shared key: the low-privilege device key
+   (`MT_DEVICE_KEY`), the only key embedded in the APK
+
+### Third-party integrations
+
+Scoped per-account API keys for developers/integrators are designed but not
+yet shipped — see `docs/developer-api.md`.
 
 ---
 
@@ -232,12 +241,13 @@ All requests: x-device-key header (unique per device)
 | `POST /api/dashboard/command` | Dashboard | Issue remote command |
 | `GET /api/dashboard/errors` | Dashboard | View server errors |
 
-| `https://api.magneetar.me/docs` | Swagger UI — interactive API explorer |
-| `https://api.magneetar.me/redoc` | ReDoc — clean, searchable API reference |
+Full auto-generated OpenAPI docs are available **locally** in development:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
 
-Full auto-generated OpenAPI docs:
-- **Swagger UI**: `https://api.magneetar.me/docs`
-- **ReDoc**: `https://api.magneetar.me/redoc`
+They are deliberately **disabled in production** (docs_url=None) to reduce the
+public attack surface; the live API is documented by this README and the
+endpoint tables above.
 
 ---
 

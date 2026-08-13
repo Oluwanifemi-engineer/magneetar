@@ -53,6 +53,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   401 to anonymous callers, the dead API-docs links are gone from the
   dashboard footer, the FCM key is mounted, and the server starts with no
   config warnings.
+- **Developer API spec written** (`docs/developer-api.md`): per-account,
+  scoped, revocable API keys (`mtk_live_…`) for third-party integrations —
+  design only, not yet implemented. Includes data model, scopes, auth flow,
+  endpoints, test plan, and rollout order.
+- **README auth docs corrected**: the device-key section now reflects the
+  v1.4 split (shared low-privilege key embedded in the APK, hashed at rest,
+  device-scope only), adds a “three auth worlds” reference table, and removes
+  the dead production `/docs` / `/redoc` links (docs are local-only; the
+  production surface was reduced in this round).
 
 ### Fixed (2026-08-13 — full customer-journey QA pass)
 
