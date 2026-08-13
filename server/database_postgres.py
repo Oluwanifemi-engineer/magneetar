@@ -245,6 +245,24 @@ class PostgresDatabase:
                     CREATE INDEX IF NOT EXISTS idx_device_shares_device ON device_shares(device_id);
                     CREATE INDEX IF NOT EXISTS idx_device_shares_grantee ON device_shares(grantee_user_id);
 
+                    -- Developer API keys (docs/developer-api.md) — parity with
+                    -- the SQLite api_keys table.
+                    CREATE TABLE IF NOT EXISTS api_keys (
+                        id TEXT PRIMARY KEY,
+                        user_id TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        key_prefix TEXT NOT NULL UNIQUE,
+                        key_hash TEXT NOT NULL,
+                        scopes TEXT NOT NULL DEFAULT 'devices:read',
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        last_used_at TIMESTAMPTZ,
+                        expires_at TIMESTAMPTZ,
+                        revoked_at TIMESTAMPTZ
+                    );
+
+                    CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
+                    CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(key_prefix);
+
                     CREATE TABLE IF NOT EXISTS guardian_profiles (
                         user_id TEXT PRIMARY KEY,
                         opted_in BOOLEAN DEFAULT TRUE,

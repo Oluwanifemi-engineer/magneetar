@@ -188,6 +188,34 @@ export interface UserProfile {
   totp_enabled: boolean;
 }
 
+// ─── Developer API Keys (docs/developer-api.md) ─────────────────────────────
+
+// Scope set a developer key may carry. The key's effective rights are ALWAYS
+// intersected with the owning account's own RBAC rights server-side — a
+// viewer-shared device stays read-only even through a devices:write key.
+export type ApiKeyScope =
+  | 'devices:read'
+  | 'devices:write'
+  | 'alerts:read'
+  | 'media:read';
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  scopes: ApiKeyScope[];
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+}
+
+// Full key returned EXACTLY ONCE at creation — the server stores only the
+// 12-char prefix + SHA-256 hash, so a lost response can't be recovered.
+export interface ApiKeyCreated extends ApiKey {
+  key: string;
+}
+
 // ─── Map ─────────────────────────────────────────────────────────────────────
 
 export interface MapState {

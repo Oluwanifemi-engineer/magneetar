@@ -5,7 +5,8 @@ import { createPortal } from 'react-dom';
 import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { UserProfile } from '@/types';
-import { X, Trash2, ShieldAlert, ShieldCheck, Crown, ArrowUpRight, Smartphone, Mail, RefreshCw } from 'lucide-react';
+import { X, Trash2, ShieldAlert, ShieldCheck, Crown, ArrowUpRight, Smartphone, Mail, RefreshCw, KeyRound, Plus, Copy, Check, Ban, RotateCcw } from 'lucide-react';
+import { ApiKey, ApiKeyCreated, ApiKeyScope } from '@/types';
 
 const PLAN_LABELS: Record<string, string> = {
   free: 'FREE',
@@ -27,6 +28,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileUnavailable, setProfileUnavailable] = useState(false);
+
+  // ── Developer API keys panel state ──────────────────────────────────────
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [apiKeysLoading, setApiKeysLoading] = useState(false);
+  const [showCreateKey, setShowCreateKey] = useState(false);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyScopes, setNewKeyScopes] = useState<ApiKeyScope[]>(['devices:read']);
+  const [createdKey, setCreatedKey] = useState<ApiKeyCreated | null>(null);
+  const [keyPassword, setKeyPassword] = useState('');
+  const [keyMsg, setKeyMsg] = useState('');
+  const [keyError, setKeyError] = useState('');
+  const [keyBusy, setKeyBusy] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
 
   // ── Security panel state (2FA + email verification) ─────────────────────
   const [twoFaStep, setTwoFaStep] = useState<'idle' | 'setup'>('idle');
@@ -146,6 +160,102 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       setSecurityError(e.message || 'Could not send the verification email');
     } finally {
       setSecurityBusy(false);
+    }
+  };
+
+  // ── Developer API keys handlers ─────────────────────────────────────────
+  const ALL_SCOPES: { value: ApiKeyScope; label: string }[] = [
+    { value: 'devices:read', label: 'devices:read — view devices & locations' },
+    { value: 'devices:write', label: 'devices:write — issue commands' },
+    { value: 'alerts:read', label: 'alerts:read — alert history' },
+    { value: 'media:read', label: 'media:read — evidence media (owner)' },
+  ];
+
+  const loadApiKeys = async () => {
+    setApiKeysLoading(true);
+    setKeyError('');
+    try {
+      const res = await getAPI().getApiKeys();
+      setApiKeys(res.api_keys.filter((k) => !k.revoked_at));
+    } catch (e: any) {
+      setKeyError(e.message || 'Could not load API keys');
+    } finally {
+      setApiKeysLoading(false);
+    }
+  };
+
+  const toggleScope = (scope: ApiKeyScope) => {
+    setNewKeyScopes((prev) =>
+      prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]
+    );
+  };
+
+  const createApiKey = async () => {
+    setKeyBusy(true);
+    setKeyError('');
+    setKeyMsg('');
+    try {
+      if (!newKeyName.trim()) throw new Error('Give the key a name');
+      if (!keyPassword) throw new Error('Enter your account password to confirm');
+      if (newKeyScopes.length === 0) throw new Error('Select at least one scope');
+      const res = await getAPI().createApiKey({
+        name: newKeyName.trim(),
+        scopes: newKeyScopes,
+        password: keyPassword,
+      });
+      setCreatedKey(res);
+      setApiKeys((prev) => [res, ...prev]);
+      setKeyPassword('');
+    } catch (e: any) {
+      setKeyError(e.message || 'Could not create the key');
+    } finally {
+      setKeyBusy(false);
+    }
+  };
+
+  const revokeApiKey = async (keyId: string) => {
+    setKeyBusy(true);
+    setKeyError('');
+    setKeyMsg('');
+    try {
+      if (!keyPassword) throw new Error('Enter your account password to confirm');
+      if (!window.confirm('Revoke this API key immediately? Every request using it will stop working.')) return;
+      await getAPI().revokeApiKey(keyId, keyPassword);
+      setApiKeys((prev) => prev.filter((k) => k.id !== keyId));
+      setKeyPassword('');
+      setKeyMsg('API key revoked.');
+    } catch (e: any) {
+      setKeyError(e.message || 'Could not revoke the key');
+    } finally {
+      setKeyBusy(false);
+    }
+  };
+
+  const rotateApiKey = async (keyId: string) => {
+    setKeyBusy(true);
+    setKeyError('');
+    setKeyMsg('');
+    try {
+      if (!keyPassword) throw new Error('Enter your account password to confirm');
+      const res = await getAPI().rotateApiKey(keyId, keyPassword);
+      setCreatedKey(res);
+      setApiKeys((prev) => prev.filter((k) => k.id !== keyId).concat(res));
+      setKeyPassword('');
+    } catch (e: any) {
+      setKeyError(e.message || 'Could not rotate the key');
+    } finally {
+      setKeyBusy(false);
+    }
+  };
+
+  const copyFullKey = async () => {
+    if (!createdKey) return;
+    try {
+      await navigator.clipboard.writeText(createdKey.key);
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 2000);
+    } catch {
+      // Clipboard unavailable — the key stays visible for manual copy.
     }
   };
 
@@ -429,6 +539,164 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Developer API keys (user accounts only — for third-party integrations) */}
+        {authMode === 'user' && (
+          <div className="bg-mag-surface/30 border border-mag-border/30 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold">
+                <KeyRound size={12} />
+                Developer API Keys
+              </div>
+              <button
+                onClick={() => {
+                  setShowCreateKey((v) => !v);
+                  setCreatedKey(null);
+                  setKeyError('');
+                  setKeyMsg('');
+                  if (!apiKeys.length && !apiKeysLoading) loadApiKeys();
+                }}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-mag-border/40 text-[9px] font-mono font-bold text-mag-accent hover:text-emerald-300 hover:border-mag-accent/40 transition-all"
+              >
+                <Plus size={9} />
+                {apiKeys.length ? 'MANAGE' : 'CREATE KEY'}
+              </button>
+            </div>
+
+            <div className="text-[9px] font-mono text-mag-text-dim/50 leading-relaxed">
+              Scoped keys for external integrations (scripts, resellers, custom dashboards). Keys
+              can never exceed your account&apos;s own access — a viewer-shared device stays read-only
+              through a key too.
+            </div>
+
+            {keyMsg && (
+              <div className="text-[10px] font-mono text-emerald-300/90 bg-emerald-500/[0.06] border border-emerald-500/20 rounded-lg px-3 py-2 leading-relaxed">
+                {keyMsg}
+              </div>
+            )}
+            {keyError && (
+              <div className="text-[10px] font-mono text-red-400/90 bg-red-500/[0.06] border border-red-500/20 rounded-lg px-3 py-2 leading-relaxed" role="alert">
+                {keyError}
+              </div>
+            )}
+
+            {showCreateKey && (
+              <div className="space-y-3 animate-fade-in rounded-lg border border-mag-border/20 p-3">
+                {/* Full key — shown exactly once */}
+                {createdKey && (
+                  <div className="space-y-2 bg-mag-bg/60 border border-emerald-500/30 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-mono text-emerald-300 font-bold uppercase tracking-wider">
+                        New key — copy it now, it won&apos;t be shown again
+                      </span>
+                      <button
+                        onClick={copyFullKey}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-emerald-500/40 text-[9px] font-mono font-bold text-emerald-300 hover:bg-emerald-500/10 transition-all"
+                      >
+                        {copiedKey ? <Check size={9} /> : <Copy size={9} />}
+                        {copiedKey ? 'COPIED' : 'COPY'}
+                      </button>
+                    </div>
+                    <div className="text-[10px] font-mono text-mag-text font-bold break-all select-all leading-relaxed">
+                      {createdKey.key}
+                    </div>
+                    <div className="text-[9px] font-mono text-mag-text-dim/50">
+                      Prefix <span className="text-mag-text-dim/80">{createdKey.key_prefix}…</span> ·
+                      scopes {createdKey.scopes.join(', ')}
+                    </div>
+                  </div>
+                )}
+
+                <input
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="Key name (e.g. reseller-sync)"
+                  className={stepupInputClass}
+                />
+
+                <div className="space-y-1.5">
+                  {ALL_SCOPES.map((s) => (
+                    <label
+                      key={s.value}
+                      className="flex items-center gap-2 cursor-pointer text-[10px] font-mono text-mag-text-dim/70 hover:text-mag-text transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={newKeyScopes.includes(s.value)}
+                        onChange={() => toggleScope(s.value)}
+                        className="accent-[#06B6D4]"
+                      />
+                      {s.label}
+                    </label>
+                  ))}
+                </div>
+
+                <input
+                  type="password"
+                  value={keyPassword}
+                  onChange={(e) => setKeyPassword(e.target.value)}
+                  placeholder="Account password (confirm action)"
+                  autoComplete="current-password"
+                  className={stepupInputClass}
+                />
+                <button
+                  onClick={createApiKey}
+                  disabled={keyBusy}
+                  className="w-full py-2 rounded-lg bg-mag-accent/90 hover:bg-mag-accent disabled:opacity-50 text-white text-[10px] font-mono font-bold uppercase tracking-wider transition-all"
+                >
+                  {keyBusy ? 'CREATING...' : 'Create Key'}
+                </button>
+              </div>
+            )}
+
+            {apiKeysLoading && (
+              <div className="text-[9px] font-mono text-mag-text-dim/50 animate-pulse">Loading keys…</div>
+            )}
+
+            {apiKeys.length > 0 && (
+              <div className="space-y-2">
+                {apiKeys.map((k) => (
+                  <div
+                    key={k.id}
+                    className="rounded-lg border border-mag-border/20 p-3 space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-[11px] font-mono text-mag-text font-bold truncate">
+                        {k.name}
+                      </div>
+                      <div className="text-[9px] font-mono text-mag-text-dim/50">
+                        {k.key_prefix}…
+                      </div>
+                    </div>
+                    <div className="text-[9px] font-mono text-mag-text-dim/50 break-all">
+                      {k.scopes.join(' · ')}
+                      {k.expires_at && ` · expires ${new Date(k.expires_at).toLocaleDateString()}`}
+                      {k.last_used_at && ` · used ${new Date(k.last_used_at).toLocaleDateString()}`}
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => rotateApiKey(k.id)}
+                        disabled={keyBusy}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-mag-border/40 text-[9px] font-mono font-bold text-mag-text-dim/70 hover:text-mag-accent transition-all disabled:opacity-50"
+                      >
+                        <RotateCcw size={9} />
+                        Rotate
+                      </button>
+                      <button
+                        onClick={() => revokeApiKey(k.id)}
+                        disabled={keyBusy}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-mag-danger/30 text-[9px] font-mono font-bold text-mag-danger/80 hover:text-mag-danger transition-all disabled:opacity-50"
+                      >
+                        <Ban size={9} />
+                        Revoke
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

@@ -1,8 +1,20 @@
-# Third-Party Developer API — Scoped API Keys (Spec)
+# Third-Party Developer API — Scoped API Keys
 
-**Status**: design proposal (not yet implemented)
+**Status**: ✅ **implemented (v1.6)** — backend + tests + dashboard UI live
 **Owner**: core team
 **Depends on**: v1.4.0 key split (master / device), existing RBAC + step-up infra
+
+> Implementation status:
+> - Backend: `server/routes/api_keys.py` (management + `/api/v1` data surface),
+>   `auth.get_api_key_actor` + `require_api_key_scope`, `api_keys` table in
+>   `database.py`/`database_postgres.py`, key cleanup on account deletion.
+> - Tests: `server/tests/test_api_keys.py` (28 cases — creation, scope
+>   enforcement, RBAC intersection, step-up, rotation, revocation, rate
+>   limits, wipe rejection).
+> - Dashboard: Settings → Developer API Keys (create / copy-once / rotate /
+>   revoke with password step-up).
+> - Rollout order §10 items 1-3 are done; item 4 (Android) is intentionally
+>   untouched. Remaining future work: per-key usage metering + billing.
 
 ---
 

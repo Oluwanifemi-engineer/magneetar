@@ -45,8 +45,13 @@ from models import (
 )
 
 # Shared device helpers live in routes/devices.py; importing them here is
-# cycle-safe (devices.py never imports routes/dashboard).
-from routes.devices import _user_exists  # noqa: E402
+# cycle-safe (devices.py never imports routes/dashboard). Module-level (NOT
+# function-local) on purpose: test_e2e/test_sim_change evict routes.* from
+# sys.modules at import time, and a function-local import would resolve the
+# post-eviction module at request time — whose `settings` is a fresh config
+# singleton, so monkeypatched limits (e.g. MAX_DEVICES_PER_USER) and other
+# config mutations would silently not apply (order-dependent flakes).
+from routes.devices import _enforce_device_limit, _user_exists  # noqa: E402
 
 logger = get_logger("magneetar")
 
@@ -414,8 +419,6 @@ async def claim_device_by_pairing(
         raise HTTPException(status_code=403, detail="Device already linked to another account")
 
     if existing_owner != user_id:
-        from routes.devices import _enforce_device_limit
-
         _enforce_device_limit(db, user_id)
 
     db.execute("UPDATE devices SET owner_id=? WHERE id=?", (user_id, req.device_id))

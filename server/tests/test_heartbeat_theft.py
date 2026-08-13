@@ -126,9 +126,7 @@ def test_heartbeat_admin_inactive_does_not_activate_theft_and_updates_last_seen(
         cases = conn.execute(
             "SELECT COUNT(*) FROM evidence_cases WHERE device_id=?", (DEVICE_ADMIN_INACTIVE,)
         ).fetchone()[0]
-        cmds = conn.execute(
-            "SELECT COUNT(*) FROM commands WHERE device_id=?", (DEVICE_ADMIN_INACTIVE,)
-        ).fetchone()[0]
+        cmds = conn.execute("SELECT COUNT(*) FROM commands WHERE device_id=?", (DEVICE_ADMIN_INACTIVE,)).fetchone()[0]
     assert cases == 0
     assert cmds == 0
 
@@ -169,9 +167,7 @@ def test_auto_activate_theft_mode_requires_threshold_score():
     assert row["is_stolen"] == 1
 
     with database.get_db_context() as conn:
-        cases = conn.execute(
-            "SELECT COUNT(*) FROM evidence_cases WHERE device_id=?", (DEVICE_THRESHOLD,)
-        ).fetchone()[0]
+        cases = conn.execute("SELECT COUNT(*) FROM evidence_cases WHERE device_id=?", (DEVICE_THRESHOLD,)).fetchone()[0]
         cmds = conn.execute(
             "SELECT COUNT(*) FROM commands WHERE device_id=? AND status='pending'", (DEVICE_THRESHOLD,)
         ).fetchone()[0]

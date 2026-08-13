@@ -1,4 +1,4 @@
-import { Device, Location, Command, MediaItem, MediaDetail, ErrorLogResponse, GuardianProfile, RecoveryRequest, NearbyRecoveryRequest, UserProfile, Geofence, GeofenceAutoAction, DeviceShare, ShareRole } from '@/types';
+import { Device, Location, Command, MediaItem, MediaDetail, ErrorLogResponse, GuardianProfile, RecoveryRequest, NearbyRecoveryRequest, UserProfile, Geofence, GeofenceAutoAction, DeviceShare, ShareRole, ApiKey, ApiKeyCreated, ApiKeyScope } from '@/types';
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -446,6 +446,43 @@ class MagneetarAPI {
 
   async deleteAccount(): Promise<{ status: string; message: string; devices_removed: number }> {
     return this.request('/api/auth/user/account', 'DELETE');
+  }
+
+  // ── Developer API Keys (docs/developer-api.md) ──────────────────────────
+  // Per-account, scoped, revocable keys for third-party integrations. ALL
+  // management endpoints require the account password (step-up): a stolen
+  // dashboard session alone can never mint or destroy long-lived credentials.
+
+  /** List the caller's keys — prefix + metadata only (never the full key). */
+  async getApiKeys(): Promise<{ api_keys: ApiKey[] }> {
+    return this.request('/api/account/api-keys');
+  }
+
+  /**
+   * Create a scoped key. The FULL key is returned exactly once in `key` —
+   * show it to the user immediately, because the server stores only the
+   * prefix + hash and cannot recover it later.
+   */
+  async createApiKey(data: {
+    name: string;
+    scopes: ApiKeyScope[];
+    password: string;
+    expires_at?: string | null;
+  }): Promise<ApiKeyCreated> {
+    return this.request('/api/account/api-keys', 'POST', data);
+  }
+
+  /** Revoke a key immediately (step-up password). */
+  async revokeApiKey(keyId: string, password: string): Promise<{ status: string; id: string }> {
+    return this.request(`/api/account/api-keys/${keyId}`, 'DELETE', { password });
+  }
+
+  /**
+   * Rotate a key: the old one dies instantly, a fresh one with the same
+   * name/scopes/expiry is returned (full key shown exactly once).
+   */
+  async rotateApiKey(keyId: string, password: string): Promise<ApiKeyCreated> {
+    return this.request(`/api/account/api-keys/${keyId}/rotate`, 'POST', { password });
   }
 
   // ── Guardian Network (community recovery) ────────────────────────────────

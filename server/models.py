@@ -440,6 +440,94 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+# ─── Developer API Keys (docs/developer-api.md) ──────────────────────────────
+
+
+class ApiKeyCreateRequest(BaseModel):
+    """Create a scoped developer API key (step-up gated).
+
+    scopes defaults to read-only devices:read; a key is ALWAYS intersected
+    with the owning account's own rights (a viewer-shared device stays
+    read-only through the key too). expires_at (ISO-8601, optional) makes the
+    key self-destruct — NULL = never.
+    """
+
+    name: str = Field(..., min_length=1, max_length=100)
+    scopes: list[str] = Field(default_factory=lambda: ["devices:read"])
+    expires_at: Optional[str] = Field(None, max_length=40)
+    # Step-up: the account password is re-verified (rate-limited) so a stolen
+    # dashboard session alone cannot mint long-lived credentials.
+    password: str = Field(..., max_length=200)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v):
+        v = v.strip()
+        if not v:
+            raise ValueError("name cannot be blank")
+        return v
+
+    @field_validator("scopes")
+    @classmethod
+    def validate_scopes(cls, v):
+        from auth import VALID_API_KEY_SCOPES
+
+        if not v:
+            raise ValueError("At least one scope is required")
+        if not all(isinstance(s, str) for s in v):
+            raise ValueError("scopes must be strings")
+        unknown = set(v) - VALID_API_KEY_SCOPES
+        if unknown:
+            raise ValueError(f"Unknown scopes: {sorted(unknown)}")
+        # Dedupe, preserving order.
+        return list(dict.fromkeys(v))
+
+    @field_validator("expires_at")
+    @classmethod
+    def validate_expires(cls, v):
+        from datetime import datetime, timezone
+
+        if v is None:
+            return v
+        try:
+            parsed = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        except ValueError:
+            raise ValueError("expires_at must be an ISO-8601 timestamp (e.g. 2027-01-01T00:00:00Z)")
+        if parsed < datetime.now(timezone.utc):
+            raise ValueError("expires_at must be in the future")
+        return v
+
+
+class ApiKeyActionRequest(BaseModel):
+    """Revoke/rotate a key — step-up password re-authenticates the caller."""
+
+    password: str = Field(..., max_length=200)
+
+
+class ApiKeyCreateResponse(BaseModel):
+    id: str
+    name: str
+    # The FULL key — returned exactly once at creation, never stored.
+    key: str
+    key_prefix: str
+    scopes: list[str]
+    created_at: str
+    expires_at: Optional[str] = None
+
+
+class ApiKeyListItem(BaseModel):
+    """Listed keys expose prefix + metadata only — never the hash or the key."""
+
+    id: str
+    name: str
+    key_prefix: str
+    scopes: list[str]
+    created_at: Optional[str] = None
+    last_used_at: Optional[str] = None
+    expires_at: Optional[str] = None
+    revoked_at: Optional[str] = None
+
+
 class PlanUpdateRequest(BaseModel):
     """Admin-only: set a user's plan tier (manual upgrade path until
     self-serve payments land)."""

@@ -414,6 +414,11 @@ from routes.user_data import router as user_data_router  # noqa: E402
 
 app.include_router(user_data_router)
 
+# Developer API keys (management + /api/v1 data surface, docs/developer-api.md)
+from routes.api_keys import router as api_keys_router  # noqa: E402
+
+app.include_router(api_keys_router)
+
 
 # ─── Request Timeout Middleware ───────────────────────────────────────────
 

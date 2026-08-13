@@ -14,6 +14,10 @@ const mockSetupTwoFactor = jest.fn<(...args: any[]) => any>();
 const mockEnableTwoFactor = jest.fn<(...args: any[]) => any>();
 const mockDisableTwoFactor = jest.fn<(...args: any[]) => any>();
 const mockResendVerification = jest.fn<(...args: any[]) => any>();
+const mockGetApiKeys = jest.fn<(...args: any[]) => any>();
+const mockCreateApiKey = jest.fn<(...args: any[]) => any>();
+const mockRevokeApiKey = jest.fn<(...args: any[]) => any>();
+const mockRotateApiKey = jest.fn<(...args: any[]) => any>();
 
 jest.mock('@/store/useStore', () => ({
   useStore: jest.fn((selector: any) => {
@@ -33,6 +37,10 @@ jest.mock('@/lib/api', () => ({
     enableTwoFactor: mockEnableTwoFactor,
     disableTwoFactor: mockDisableTwoFactor,
     resendVerificationEmail: mockResendVerification,
+    getApiKeys: mockGetApiKeys,
+    createApiKey: mockCreateApiKey,
+    revokeApiKey: mockRevokeApiKey,
+    rotateApiKey: mockRotateApiKey,
   }),
 }));
 
@@ -52,6 +60,12 @@ jest.mock('lucide-react', () => {
     Smartphone: stub('Smartphone'),
     Mail: stub('Mail'),
     RefreshCw: stub('RefreshCw'),
+    KeyRound: stub('KeyRound'),
+    Plus: stub('Plus'),
+    Copy: stub('Copy'),
+    Check: stub('Check'),
+    Ban: stub('Ban'),
+    RotateCcw: stub('RotateCcw'),
   };
 });
 
@@ -84,6 +98,7 @@ describe('SettingsModal — portal + danger zone', () => {
     mockEnableTwoFactor.mockResolvedValue({ status: 'ok', totp_enabled: true });
     mockDisableTwoFactor.mockResolvedValue({ status: 'ok', totp_enabled: false });
     mockResendVerification.mockResolvedValue({ status: 'ok', message: 'Verification email sent', delivered: true });
+    mockGetApiKeys.mockResolvedValue({ api_keys: [] });
     sessionStorage.clear();
   });
 

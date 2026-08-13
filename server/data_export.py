@@ -308,6 +308,7 @@ class DataExportService:
 
             # Delete user data
             conn.execute("DELETE FROM guardian_profiles WHERE user_id=?", (user_id,))
+            conn.execute("DELETE FROM api_keys WHERE user_id=?", (user_id,))
             conn.execute("DELETE FROM recovery_requests WHERE owner_id=?", (user_id,))
             conn.execute(
                 "DELETE FROM fcm_tokens WHERE device_id IN (SELECT id FROM devices WHERE owner_id=?)", (user_id,)

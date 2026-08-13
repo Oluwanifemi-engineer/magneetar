@@ -510,6 +510,38 @@ def init_db(db_path: str = None):
         CREATE INDEX IF NOT EXISTS idx_device_shares_device ON device_shares(device_id);
         CREATE INDEX IF NOT EXISTS idx_device_shares_grantee ON device_shares(grantee_user_id);
 
+        -- ─── Developer API Keys (docs/developer-api.md) ───────────────────
+        -- Per-account, scoped, revocable keys for third-party integrations
+        -- (resellers, alerting scripts, custom dashboards). The full key is
+        -- shown EXACTLY once at creation and never stored: only its SHA-256
+        -- hash + a 12-char prefix (indexed lookup) live here. scopes is a
+        -- comma-separated subset of {devices:read, devices:write,
+        -- alerts:read, media:read}; a key is always intersected with the
+        -- owning account's own RBAC rights (viewer-shared devices stay
+        -- read-only through the key too). revoked_at is a soft-revoke
+        -- (checked on every request); expires_at NULL = never.
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            key_prefix TEXT NOT NULL UNIQUE,
+            key_hash TEXT NOT NULL,
+            scopes TEXT NOT NULL DEFAULT 'devices:read',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_used_at TIMESTAMP,
+            expires_at TIMESTAMP,
+            revoked_at TIMESTAMP
+            -- NOTE: no FOREIGN KEY on user_id (same precedent as
+            -- guardian_profiles) — the shared-DB test fixtures wipe the users
+            -- table without an ordering dependency, and a key whose account
+            -- was deleted is already rejected at auth time (the account must
+            -- exist and be active). Account deletion removes keys explicitly
+            -- (data_export.delete_user_data).
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
+        CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(key_prefix);
+
         -- ─── Guardian Network (community recovery) ─────────────────────────
         -- Users who opted in to help recover other people's stolen devices.
         CREATE TABLE IF NOT EXISTS guardian_profiles (
@@ -943,6 +975,7 @@ def ensure_initialized() -> bool:
         "heartbeats",
         "geofences",
         "device_shares",  # Milestone 2 P1 — family sharing
+        "api_keys",  # Developer API keys (docs/developer-api.md)
         "guardian_profiles",
         "recovery_requests",
         "recovery_sightings",

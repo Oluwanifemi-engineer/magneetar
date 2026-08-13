@@ -12,7 +12,14 @@ from typing import Optional
 
 import jwt
 from config import settings
-from database import check_rate_limit, log_audit
+
+# Module-level imports ONLY — under full-suite collection test_e2e evicts
+# database/auth from sys.modules and re-imports them with ITS env. A
+# function-local `from database import ...` in a dependency would resolve the
+# post-eviction module (different DB_PATH), so the lookup would hit a
+# different DB than the one the app's routes write to (the documented
+# full-suite order hazard — see routes/dashboard.py _verify_stepup_password).
+from database import check_rate_limit, get_db_context, log_audit
 from fastapi import Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from memory_rate_limit import check_memory_rate_limit
@@ -306,6 +313,145 @@ def check_command_poll_rate_limit(device_id: str) -> bool:
     In-memory (memory_rate_limit) — hot path (every command poll).
     """
     return check_memory_rate_limit(f"command_poll:{device_id}", settings.RATE_COMMAND_POLL_PER_MINUTE, 60)
+
+
+# ─── Developer API Keys (docs/developer-api.md) ─────────────────────────────
+# Per-account, scoped, revocable keys for third-party integrations. The key
+# format is mtk_<env>_<32 url-safe chars>; only a 12-char prefix + SHA-256 hash
+# are stored. The key actor resolves to the OWNING ACCOUNT, so every existing
+# RBAC/share rule applies automatically (a viewer-shared device stays
+# read-only through the key too). Keys are a DATA-PLANE credential: they are
+# never accepted on /api/auth/*, dashboard, metrics, or key-management routes.
+
+VALID_API_KEY_SCOPES = frozenset({"devices:read", "devices:write", "alerts:read", "media:read"})
+
+
+class ApiKeyActor:
+    """A successfully authenticated developer API key.
+
+    Carries the owning account id + granted scopes so data routes can treat
+    the key as that user (filtered by scopes and per-device share roles).
+    """
+
+    __slots__ = ("user_id", "scopes", "key_prefix")
+
+    def __init__(self, user_id: str, scopes: list, key_prefix: str):
+        self.user_id = user_id
+        self.scopes = scopes
+        self.key_prefix = key_prefix
+
+    def has_scope(self, scope: str) -> bool:
+        return scope in self.scopes
+
+    @property
+    def subject(self) -> str:
+        """Audit identity: 'key:<prefix>' — never the raw key."""
+        return f"key:{self.key_prefix}"
+
+
+def generate_api_key(env: str = "live") -> str:
+    """Mint a new developer API key: mtk_<env>_<32 url-safe chars>.
+
+    token_urlsafe(24) yields 32 url-safe characters. The full key is shown to
+    the creator EXACTLY once — the server stores only the prefix + hash.
+    """
+    if env not in ("live", "test"):
+        env = "live"
+    return f"mtk_{env}_{secrets.token_urlsafe(24)}"
+
+
+def get_api_key_actor(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+) -> ApiKeyActor:
+    """Authenticate a developer API key presented as `Authorization: Bearer
+    mtk_...` and resolve it to its owning account + scopes.
+
+    Lookup is by the 12-char prefix (indexed), then a constant-time SHA-256
+    comparison against the stored hash — the raw key is never stored, logged,
+    or compared in plaintext. Rejects: missing/malformed keys, revoked keys,
+    expired keys, and keys whose owning account was deleted/deactivated.
+
+    Security (F-02 family): this dependency is used ONLY by the /api/v1/*
+    developer surface. Dashboard/auth/metrics/key-management routes use their
+    own JWT-only dependencies, so a leaked developer key can never reach
+    them — exactly like the APK-embedded device key can never mint dashboard
+    credentials.
+    """
+    if not credentials:
+        raise HTTPException(status_code=401, detail="API key required")
+    presented = credentials.credentials or ""
+    if not presented.startswith("mtk_"):
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    prefix = presented[:12]
+    key_hash = hash_device_key(presented)
+
+    with get_db_context() as conn:
+        row = conn.execute(
+            "SELECT id, user_id, key_hash, scopes, expires_at, revoked_at FROM api_keys WHERE key_prefix=?",
+            (prefix,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=401, detail="Invalid API key")
+        # Constant-time comparison — a timing side-channel must never help
+        # guess a 32-char key from many requests.
+        if not hmac.compare_digest(row["key_hash"], key_hash):
+            raise HTTPException(status_code=401, detail="Invalid API key")
+        if row["revoked_at"]:
+            raise HTTPException(status_code=401, detail="API key has been revoked")
+        if row["expires_at"]:
+            try:
+                if datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc):
+                    raise HTTPException(status_code=401, detail="API key has expired")
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=401, detail="Invalid API key")
+        # The owning account must still exist and be active — a key must not
+        # outlive the account that issued it.
+        user = conn.execute("SELECT is_active FROM users WHERE id=?", (row["user_id"],)).fetchone()
+        if not user or not user["is_active"]:
+            raise HTTPException(status_code=401, detail="Account no longer active")
+
+        scopes = [s for s in (row["scopes"] or "").split(",") if s in VALID_API_KEY_SCOPES]
+
+        # Per-key rate limit (120 req/min) — a leaked or shared key cannot
+        # hammer the data plane. DB-backed like the other alert/command
+        # limiters; checked BEFORE the request does any work.
+        if not check_rate_limit(f"apikey:{prefix}", "apikey", 120, 1):
+            raise HTTPException(status_code=429, detail="API key rate limit exceeded")
+
+        # Best-effort last-used stamp + audit. Wrapped in try/except so a
+        # failure to record usage never fails the request.
+        try:
+            conn.execute(
+                "UPDATE api_keys SET last_used_at=? WHERE id=?",
+                (datetime.now(timezone.utc).isoformat(), row["id"]),
+            )
+            conn.commit()
+            log_audit("api_key_used", actor=f"key:{prefix}")
+        except Exception:
+            pass
+
+    return ApiKeyActor(row["user_id"], scopes, prefix)
+
+
+def require_api_key_scope(scope: str):
+    """Dependency factory: authenticate a developer key AND require a scope.
+
+    Usage: `actor: ApiKeyActor = Depends(require_api_key_scope("devices:read"))`
+    Raises 403 when the key lacks the scope (least privilege: a key can never
+    exceed its granted scopes, and scopes are intersected with the owning
+    account's own rights by each data route).
+    """
+
+    def _dependency(actor: ApiKeyActor = Depends(get_api_key_actor)) -> ApiKeyActor:
+        if not actor.has_scope(scope):
+            raise HTTPException(
+                status_code=403,
+                detail=f"API key lacks the '{scope}' scope",
+            )
+        return actor
+
+    return _dependency
 
 
 # ─── Device Key Authentication ────────────────────────────────────────────────

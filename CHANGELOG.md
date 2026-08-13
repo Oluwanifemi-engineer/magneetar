@@ -53,10 +53,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   401 to anonymous callers, the dead API-docs links are gone from the
   dashboard footer, the FCM key is mounted, and the server starts with no
   config warnings.
-- **Developer API spec written** (`docs/developer-api.md`): per-account,
-  scoped, revocable API keys (`mtk_live_…`) for third-party integrations —
-  design only, not yet implemented. Includes data model, scopes, auth flow,
-  endpoints, test plan, and rollout order.
+- **Developer API keys shipped** (`docs/developer-api.md` — spec →
+  implementation): per-account, scoped, revocable API keys
+  (`mtk_live_<32>`, shown once at creation, SHA-256 at rest,
+  prefix-indexed lookup, constant-time compare) for third-party
+  integrations.
+  - **Backend**: new `api_keys` table (SQLite + Postgres parity; no FK per
+    the `guardian_profiles` precedent, cascade cleanup on account
+    deletion for GDPR completeness); `auth.py` gains `ApiKeyActor`,
+    `get_api_key_actor`, key generation, and a scope helper; new
+    `routes/api_keys.py` — account CRUD (`POST/GET/DELETE /api/account/api-keys`,
+    password step-up gated for create/revoke) plus the developer surface
+    (`GET /api/v1/devices` with per-device locations and alerts, scoped by
+    the key's scope set which can never exceed the account's own RBAC
+    rights). Registered in `main.py`.
+  - **Dashboard UI**: Settings modal gains an API Keys panel (list with
+    scopes + last-used, create with inline reveal-once, revoke with
+    confirm) for user accounts.
+  - **Tests**: 28 new in `test_api_keys.py` — key lifecycle, step-up
+    gating, scope enforcement (`devices:read` can't write), revocation
+    kills access instantly, prefix lookup, audit rows, and the
+    never-exceeds-account-RBAC rule (viewer-shared devices stay
+    read-only even with a `devices:write` key).
+  - **Docs**: README developer quickstart + `docs/developer-api.md` status
+    updated (implemented; remaining follow-ups: rate-limit dashboards,
+    dashboard-scope keys, usage metering).
+- **Pre-existing full-suite order flake fixed at its root cause**: the
+  claim-by-pairing route in `routes/dashboard.py` imported
+  `_enforce_device_limit` function-locally — after `test_sim_change.py`
+  evicts `config`/`routes.*` from `sys.modules` at import time, the
+  claim call resolved the post-eviction module (fresh `settings`,
+  `MAX_DEVICES_PER_USER=3`) while the test monkeypatched the pre-eviction
+  config to 1 — so the per-user device limit was silently not enforced in
+  full-suite runs. Moved to the module-level import (the pattern this very
+  file documents at its header); full suite now **535 passed, 0 failed**.
 - **README auth docs corrected**: the device-key section now reflects the
   v1.4 split (shared low-privilege key embedded in the APK, hashed at rest,
   device-scope only), adds a “three auth worlds” reference table, and removes

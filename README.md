@@ -221,8 +221,28 @@ All subsequent calls: Authorization: Bearer <device-jwt>
 
 ### Third-party integrations
 
-Scoped per-account API keys for developers/integrators are designed but not
-yet shipped — see `docs/developer-api.md`.
+Scoped per-account **developer API keys** (`mtk_…`) for external
+integrations — alerting scripts, resellers, custom dashboards. Keys are
+created in the dashboard (Settings → Developer API Keys) with a password
+step-up, carry explicit scopes (`devices:read`, `devices:write`,
+`alerts:read`, `media:read`), and are **intersected with your account's own
+RBAC rights** — a viewer-shared device stays read-only through a key too.
+
+```
+# List devices (scope: devices:read)
+curl -s https://api.magneetar.me/api/v1/devices \
+  -H "Authorization: Bearer mtk_live_…"
+
+# Issue a command (scope: devices:write, role admin/owner)
+curl -s -X POST https://api.magneetar.me/api/v1/devices/<id>/commands \
+  -H "Authorization: Bearer mtk_live_…" \
+  -d '{"command": "alarm"}'
+```
+
+Security properties: the server stores only a 12-char prefix + SHA-256 hash
+(the full key is shown once at creation), keys are per-key rate-limited, and
+`wipe` is deliberately unavailable through keys (it requires the dashboard
+step-up password). Full spec: `docs/developer-api.md`.
 
 ---
 
