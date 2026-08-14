@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### Dual-host deploy verification (2026-08-14)
+
+- `deploy.sh` now verifies **both** public dashboard hostnames
+  (magneetar.me + app.magneetar.me) serve the same build after every
+  deploy, comparing the chunk-hash of each host's HTML and failing loudly
+  on divergence. A security re-check claimed magneetar.me was serving a
+  stale build — not reproducible (single origin, byte-identical content,
+  no-store HTML, network-first SW) — but the deploy-time gap was real.
+
 ### APK ticket semantics + stat single-sourcing (2026-08-14)
 
 - **Tampered APK tickets now get a clean 403** — `/apk/download`
