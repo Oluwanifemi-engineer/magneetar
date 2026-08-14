@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/jest-globals';
 
 // next/link requires a router context in tests — render a plain anchor instead.
@@ -33,6 +33,12 @@ function fetchMock() {
     const url = typeof input === 'string' ? input : String(input);
     if (url.includes('/apk/ticket')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(TICKET) });
+    }
+    if (url.includes('/apk/download')) {
+      // The APK bytes — the click path fetches the file and downloads it as
+      // a blob (no navigation), so the mock must support blob()/ok like a
+      // real FileResponse.
+      return Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob(['APK-BYTES'])) });
     }
     return Promise.resolve({ ok: true, json: () => Promise.resolve(CHECKSUM) });
   }) as unknown as typeof fetch;
@@ -88,6 +94,44 @@ describe('Download Page', () => {
     await waitFor(() => {
       expect(screen.getByText(/unavailable/i)).toBeInTheDocument();
     });
+  });
+
+  it('downloads the APK as a blob without navigating (regression: old flow used window.location.href, which some browsers treated as a page refresh)', async () => {
+    // jsdom has no URL.createObjectURL — the blob path needs it to download.
+    const createObjectURL = jest.fn(() => 'blob:mock-apk');
+    const revokeObjectURL = jest.fn();
+    Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, writable: true });
+    Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, writable: true });
+
+    render(<DownloadPage />);
+    // Wait for the pre-minted ticket so the click has a valid fallback URL.
+    const link = screen.getByRole('link', { name: /download magneetar/i });
+    await waitFor(() => {
+      expect(link).toHaveAttribute('href', expect.stringContaining('api.magneetar.me/apk/download?expires='));
+    });
+
+    // Spy on anchor clicks so the jsdom navigation doesn't actually run.
+    // NOTE: use fireEvent (not link.click()) — spying on prototype.click
+    // swallows the native dispatch, which would keep React's onClick from
+    // ever firing.
+    const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    fireEvent.click(link);
+
+    await waitFor(() => {
+      // The blob download path created an <a download="…apk"> and clicked it
+      // (the old flow navigated via window.location.href instead, which some
+      // browsers treated as a page refresh — no download). The mint + fetch +
+      // blob chain is async, so wait for the download anchor specifically.
+      const apkDownloadClicked = clickSpy.mock.instances.some(
+        (inst) => (inst as unknown as HTMLAnchorElement)?.download?.includes('.apk')
+      );
+      expect(apkDownloadClicked).toBe(true);
+    });
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalled();
+
+    clickSpy.mockRestore();
   });
 
 });

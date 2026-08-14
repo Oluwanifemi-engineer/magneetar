@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### Download button + version fixes (2026-08-14)
+
+- **APK download button fixed**: the /download page downloaded by navigating
+  the whole page to the signed APK URL (`window.location.href`) — browsers
+  and webviews that don't honor `Content-Disposition: attachment` treated
+  that as a page reload, so the button "acted like a refresh" and never
+  downloaded. It now fetches the APK and triggers a blob download via an
+  `<a download>` (the same proven pattern as the PDF/CSV exports) — no
+  navigation at all, works in every browser/webview. The pre-minted href is
+  kept for open-in-new-tab / long-press. Regression test added.
+- **Deploy build args restored**: the earlier deploy rounds rebuilt the
+  images with plain `docker build` (no compose args), so the server's
+  `/VERSION` fell back to 1.0.0 and the dashboard lost
+  `NEXT_PUBLIC_API_URL`. Effects: /health reported v1.0.0, the APK was
+  served as `Magneetar-v1.0.0-release.apk`, and the landing page's live
+  status badge fell back to `http://localhost:8000/health` (dead + CSP
+  error on user devices). Rebuilt via `docker compose build` so the args
+  apply: /health now reports **v1.4.1**, the APK serves as
+  `Magneetar-v1.4.1-release.apk`, and the badge shows ACTIVE against
+  api.magneetar.me.
+- Verified live: ticket mint → download 200 with
+  `Content-Disposition: attachment; filename="Magneetar-v1.4.1-release.apk"`
+  (7.5 MB real APK bytes); headless-Chrome click test shows the new button
+  never navigates/refreshes; dashboard suite 198/198.
+
 ### Dev environment overhaul (2026-08-14 — docker dev stack + cleanup)
 
 - **New `docker-compose.dev.yml`** — a proper, one-command dev environment

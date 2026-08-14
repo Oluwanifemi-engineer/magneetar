@@ -207,6 +207,49 @@ export default function DownloadPage() {
     try { await navigator.clipboard.writeText(checksum.sha256); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
   };
 
+  const handleDownload = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // Never navigate: some browsers/webviews treat a cross-origin navigation
+    // to an attachment URL as a page reload instead of a download (the old
+    // `window.location.href` here made the button "act like a refresh" on
+    // those devices). A blob download never navigates — same proven pattern
+    // as the PDF/CSV exports (lib/api.ts). The anchor's href stays for
+    // open-in-new-tab / long-press, which uses the server's native
+    // Content-Disposition download.
+    e.preventDefault();
+    if (minting) return;
+    setMinting(true);
+    setTicketError(false);
+    try {
+      // Prefer a freshly minted ticket; fall back to the pre-minted href only
+      // while it is still within its 10-minute TTL, so a transient re-mint
+      // failure never dead-ends on the server's 403 "Missing or expired
+      // download ticket" response.
+      const fresh = await mintTicket();
+      const target = pickDownloadUrl(fresh, downloadUrl);
+      if (!target) { setTicketError(true); return; }
+      setDownloadUrl(target);
+
+      const res = await fetch(target);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      // Same display name /apk/download hands the browser (checksum.filename
+      // comes from the live /apk/checksum endpoint).
+      const filename = checksum?.filename || 'Magneetar-release.apk';
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      setTicketError(true);
+    } finally {
+      setMinting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
       {/* Ambient background */}
@@ -321,21 +364,7 @@ export default function DownloadPage() {
             <a
               href={downloadUrl ?? '#'}
               aria-disabled={minting || !downloadUrl}
-              onClick={(e) => {
-                e.preventDefault();
-                if (minting) return;
-                setMinting(true);
-                setTicketError(false);
-                mintTicket().then((url) => {
-                  // Prefer the fresh ticket; fall back to the pre-minted href
-                  // only while it is still within its 10-minute TTL, so a
-                  // transient re-mint failure never dead-ends the user on the
-                  // server's 403 "Missing or expired download ticket" page.
-                  const target = pickDownloadUrl(url, downloadUrl);
-                  if (target) { setDownloadUrl(target); window.location.href = target; }
-                  else { setTicketError(true); }
-                }).finally(() => setMinting(false));
-              }}
+              onClick={handleDownload}
               className={`btn-premium group inline-flex items-center justify-center gap-3 w-full sm:w-auto px-10 py-5 rounded-2xl text-[14px] font-bold uppercase tracking-wider text-white ${minting ? 'opacity-70 cursor-wait' : ''}`}
             >
               <Download size={18} className={`transition-transform group-hover:translate-y-0.5 ${minting ? 'animate-bounce' : ''}`} />
