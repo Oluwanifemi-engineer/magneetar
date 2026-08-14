@@ -30,6 +30,9 @@ export default function SignupPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
+  // Mount-once prefill: adding serverUrl to the deps would re-fill the field
+  // whenever the user clears it to type a custom URL (fighting the input).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!serverUrl) setServerUrl('https://api.magneetar.me');
   }, []);

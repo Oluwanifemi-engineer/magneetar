@@ -578,6 +578,9 @@ export function MapView() {
 
   // Reverse geocode device position when it changes — show a street address
   // instead of raw coordinates for real-world navigability.
+  // Deps are the primitive coords on purpose: the location object identity
+  // changes on EVERY ping (battery/timestamp/etc.) and re-geocoding then
+  // would waste calls; re-run only when lat/lng actually move.
   useEffect(() => {
     if (!latestLocation) return;
     let cancelled = false;
@@ -585,6 +588,8 @@ export function MapView() {
       if (!cancelled) setDeviceAddress(addr);
     });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the primitive
+    // coord deps above are deliberate (see comment above the hook)
   }, [latestLocation?.lat, latestLocation?.lng]);
 
   // Initialize Leaflet icons and map

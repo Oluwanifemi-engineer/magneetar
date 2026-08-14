@@ -26,6 +26,10 @@ export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  // Latest message handler, kept in a ref so connect() (defined above
+  // handleMessage) always dispatches to the current implementation without a
+  // stale closure or a useCallback dep on a later-declared value.
+  const handleMessageRef = useRef<((message: WebSocketMessage) => void) | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
 
   const connect = useCallback(() => {
@@ -54,7 +58,7 @@ export function useWebSocket() {
       ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-          handleMessage(message);
+          handleMessageRef.current?.(message);
         } catch (e) {
           console.error('[WebSocket] Failed to parse message:', e);
         }
@@ -84,6 +88,11 @@ export function useWebSocket() {
     } catch (e) {
       console.error('[WebSocket] Failed to connect:', e);
     }
+    // NOTE: the onmessage handler dispatches through handleMessageRef (below),
+    // not handleMessage directly — handleMessage is declared AFTER this
+    // callback, so referencing it in the deps array here would be a TDZ
+    // ReferenceError (and the exhaustive-deps lint still passes because refs
+    // are exempt).
   }, [isConnected, serverUrl, apiKey]);
 
   const handleMessage = useCallback((message: WebSocketMessage) => {
@@ -213,6 +222,12 @@ export function useWebSocket() {
         console.log('[WebSocket] Unknown message type:', type);
     }
   }, [addAlert, applyCommandAck]);
+
+  // Sync the ref with the latest handler identity (changes only when the
+  // stable zustand actions change — i.e. effectively never).
+  useEffect(() => {
+    handleMessageRef.current = handleMessage;
+  }, [handleMessage]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {

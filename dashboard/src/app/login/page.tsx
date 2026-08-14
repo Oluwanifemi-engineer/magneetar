@@ -62,7 +62,10 @@ export default function LoginPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Pre-fill server URL
+  // Pre-fill server URL — mount-once by design: if serverUrl were a dep, the
+  // guard would re-fill the field the moment the user clears it to type a
+  // custom URL (fighting the input).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!serverUrl) setServerUrl('https://api.magneetar.me');
   }, []);
