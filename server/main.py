@@ -485,15 +485,20 @@ async def access_log_middleware(request: Request, call_next):
     """
     response = await call_next(request)
     if request.url.path != "/health":  # keep health-check polling out of logs
+        extra_data = {
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+        }
+        # In-app self-updater marks its own APK pulls (checksum/ticket/
+        # download) so an upgrade can be told apart from a web download in
+        # the logs — the G1 signal that a device self-updated.
+        client = request.headers.get("X-Magneetar-Client", "")
+        if client:
+            extra_data["client"] = client
         logger.info(
             "access",
-            extra={
-                "extra_data": {
-                    "method": request.method,
-                    "path": request.url.path,
-                    "status": response.status_code,
-                }
-            },
+            extra={"extra_data": extra_data},
         )
     return response
 

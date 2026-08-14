@@ -170,7 +170,9 @@ class AppUpdaterService : Service() {
     }
 
     private fun fetchChecksum(): Pair<String, Long> {
-        return client.newCall(Request.Builder().url("$SERVER/apk/checksum").get().build())
+        return client.newCall(Request.Builder().url("$SERVER/apk/checksum").get()
+            .header("X-Magneetar-Client", "app-updater")
+            .build())
             .execute().use { resp ->
                 if (resp.code !in 200..299) throw IllegalStateException("checksum request failed (${resp.code})")
                 val json = JSONObject(resp.body?.string() ?: "{}")
@@ -179,7 +181,9 @@ class AppUpdaterService : Service() {
     }
 
     private fun fetchTicket(): String {
-        return client.newCall(Request.Builder().url("$SERVER/apk/ticket").get().build())
+        return client.newCall(Request.Builder().url("$SERVER/apk/ticket").get()
+            .header("X-Magneetar-Client", "app-updater")
+            .build())
             .execute().use { resp ->
                 if (resp.code !in 200..299) throw IllegalStateException("ticket request failed (${resp.code})")
                 JSONObject(resp.body?.string() ?: "{}").optString("url", "")
@@ -188,7 +192,9 @@ class AppUpdaterService : Service() {
 
     private fun download(url: String, target: File): Long {
         target.delete()
-        return client.newCall(Request.Builder().url(url).get().build())
+        return client.newCall(Request.Builder().url(url).get()
+            .header("X-Magneetar-Client", "app-updater")
+            .build())
             .execute().use { resp ->
                 if (resp.code !in 200..299) throw IllegalStateException("download failed (${resp.code})")
                 val body = resp.body ?: throw IllegalStateException("empty download response")

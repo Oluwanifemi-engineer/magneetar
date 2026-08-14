@@ -1754,6 +1754,23 @@ class TestApkChecksum:
         assert hashlib.sha256(dl.content).hexdigest() == data["sha256"]
         assert len(dl.content) == data["size_bytes"]
 
+    def test_updater_pulls_are_marked_in_the_access_log(self, caplog):
+        """The in-app self-updater tags its own checksum/ticket/download
+        calls with X-Magneetar-Client: app-updater, so a device that
+        self-updated is distinguishable from a web download in the logs
+        (the G1 signal that the updater actually ran)."""
+        import logging
+
+        with caplog.at_level(logging.INFO, logger="magneetar"):
+            client.get("/apk/checksum", headers={"X-Magneetar-Client": "app-updater"})
+            client.get("/apk/checksum")
+
+        access = [r for r in caplog.records if r.getMessage() == "access"]
+        marked = [r for r in access if getattr(r, "extra_data", {}).get("client") == "app-updater"]
+        plain = [r for r in access if "client" not in getattr(r, "extra_data", {})]
+        assert len(marked) == 1, "updater call must be marked"
+        assert len(plain) == 1, "plain call must stay unmarked"
+
     def test_download_requires_valid_ticket(self):
         """F-05 gating: /apk/download without a valid signed ticket never
         serves bytes. Since 2026-08-11 a missing/expired ticket is redirected
