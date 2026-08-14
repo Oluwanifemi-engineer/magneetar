@@ -1,10 +1,14 @@
 # Magneetar — Play Store Readiness Verdict (honest, evidence-backed)
 
-**Date:** 2026-08-12 · **Version audited:** v1.4.1 (versionCode 7)
-**Answer:** The product is **~85% submission-ready**. Nothing structural blocks
-Play review — but there are 4 concrete gaps that must close before hitting
-Upload, and the currently-built AAB is stale. This document is the honest
-"where we stand" — every claim below was verified live this session.
+**Date:** 2026-08-14 · **Version audited:** v1.4.2 (versionCode 8)
+**Answer:** The product is **~85% submission-ready** — and that is no longer
+enough. Per the **owner decision 2026-08-14 (ADR-0006)**, Play production
+submission is **GATED on real-world validation + user approval**
+(`docs/REAL_WORLD_VALIDATION_PLAN.md`). The technical readiness below still
+holds; it just does not trigger an upload anymore — G1 (sideload/download-page
+validation with real users) and G2 (Play closed testing with tester sign-off)
+must pass first. The 4 original gaps below are still real and still worth
+closing, but they no longer gate the *submission decision*.
 
 ---
 

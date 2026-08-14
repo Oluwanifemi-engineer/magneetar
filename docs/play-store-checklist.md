@@ -310,6 +310,13 @@ cd android-app && ./gradlew assembleRelease
 
 ## 📋 Final Gate Checklist (before hitting Upload)
 
+> **2026-08-14 (ADR-0006):** Upload is additionally gated on the real-world
+> validation program (`docs/REAL_WORLD_VALIDATION_PLAN.md`) — G1 (real users,
+> real devices, ≥2 weeks, drill 12/12, ≥80% approval) then G2 (closed testing,
+> ≥12 testers, 14 days, tester sign-off). Do not upload until both pass.
+
+- [ ] **Real-world validation G1 passed** (documented exit per the plan)
+- [ ] **Closed-testing cohort signed off (G2)**
 - [ ] Recovery drill 12/12 PASS (user-verified)
 - [x] Backend 454 tests + Dashboard 177 tests + tsc clean (re-verified 2026-08-12)
 - [x] compileSdk/targetSdk = 36 (API 36, AGP 8.10.1, Gradle 8.12) — meets the Aug 31 2026 Play deadline

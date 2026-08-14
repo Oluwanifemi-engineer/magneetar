@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### Product decision — Play submission gated on real-world validation (2026-08-14)
+
+- **Owner decision (ADR-0006): no Play Store production submission until
+  Magneetar has been fully tested in the real world, against real-world
+  conditions, and approved by users.** Two gates replace "~85% ready →
+  upload": **G1** — real users run the v1.4.2 play-clean build as their
+  daily driver on ≥6 devices / ≥4 OEMs (incl. Transsion + a no-network-
+  provider regression device) for ≥2 weeks, with a documented exit (recovery
+  drill 12/12, no silent-tracking-death, ≥80% user approval); **G2** — Play
+  closed testing with ≥12 active testers for 14 days and an explicit tester
+  sign-off (which also satisfies Play's own production-access rule), then a
+  staged rollout.
+- **New artifacts**: `docs/adr/0006-play-submission-gated-on-real-world-
+  validation.md` (the decision) and `docs/REAL_WORLD_VALIDATION_PLAN.md`
+  (the program — device matrix, conditions, feedback loop, exit criteria).
+- **Docs re-aligned**: `DISTRIBUTION_PLAN.md` (submission sequence now Phase
+  0-gated; download page is the PRIMARY channel during validation),
+  `PLAY_READINESS_VERDICT.md` (technical readiness stands, but no longer
+  triggers upload), `play-store-checklist.md` (final gate), `roadmap.md`
+  (Milestone 1 + next actions). Play Console prep work (screenshots, forms,
+  listing) continues in parallel — only Upload/Submit waits.
+
 ### v1.4.2 deployed to production (2026-08-14)
 
 - **Server + dashboard rolled out via `scripts/deploy.sh`** (DB backed up

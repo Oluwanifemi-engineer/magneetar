@@ -38,7 +38,7 @@ The Magneetar ecosystem is production-ready with:
 | Priority | Task | Details | Effort |
 |----------|------|---------|--------|
 | 🔴 P0 | **Setup FCM push notifications** | ✅ Scripted via `scripts/firebase-setup.sh` — requires manual `firebase login` auth, then automates project creation + config download | 1 hour |
-| 🔴 P0 | **Android release to Play Store** | Generate production signing key, create Play Store listing, submit for review | 1 week |
+| 🔴 P0 | **Android release to Play Store** | Generate production signing key, create Play Store listing, submit for review | 1 week | 🔒 **GATED (ADR-0006)** — production submission blocked until real-world validation + user approval pass (docs/REAL_WORLD_VALIDATION_PLAN.md) |
 | 🔴 P0 | **ProGuard audit** | Verify no critical code is stripped in release builds; test release APK on 5+ device models | 2 days |
 | 🟡 P1 | **Crash reporting** | Integrate Sentry or Firebase Crashlytics into the Android app | 2 days |
 | 🟡 P1 | **Analytics** | Add anonymous usage analytics (crash-free rate, active devices, command success rate) | 3 days |
@@ -46,7 +46,8 @@ The Magneetar ecosystem is production-ready with:
 
 ### Deliverables
 - [ ] Firebase FCM configured and verified with end-to-end push test
-- [ ] Release APK signed with production key, uploaded to Google Play Console
+- [x] Release APK signed with production key, ready for upload (v1.4.2 AAB built + verified 2026-08-14)
+- [ ] **Real-world validation passed** (G1 — docs/REAL_WORLD_VALIDATION_PLAN.md) then uploaded to Google Play Console (ADR-0006 gate)
 - [ ] Crash reporting operational with 48h of data
 - [ ] Performance benchmarks documented
 
@@ -238,10 +239,16 @@ we must never copy.
 
 ## Immediate Next Actions
 
+> **2026-08-14 (ADR-0006):** Play production submission is gated on real-world
+> validation + user approval. Play account/listing prep may proceed in
+> parallel, but the Upload/Submit action waits for `docs/REAL_WORLD_VALIDATION_PLAN.md`.
+
+- [ ] **Week 1:** Start the real-world validation program — assemble the device
+      matrix (≥6 devices / ≥4 OEMs), recruit ≥5 real users, install the
+      v1.4.2 play-clean APK from magneetar.me/download
 - [ ] **Week 1:** Setup Firebase — run `bash scripts/firebase-setup.sh`
-- [ ] **Week 1:** Install APK on 5+ device models — run `bash scripts/install-apk.sh` per device
-- [ ] **Week 1:** Document findings in `docs/TEST_PLAN.md`
-- [ ] **Week 2:** Create Google Play Developer account ($25 one-time fee)
+- [ ] **Week 1:** Document findings in `docs/REAL_WORLD_VALIDATION_PLAN.md` (per-device pass/fail records)
+- [ ] **Week 2:** Create Google Play Developer account ($25 one-time fee) — prep only
 - [ ] **Week 2:** Prepare store listing (screenshots, description, privacy policy)
 - [ ] **Week 2:** Generate production signing key (separate from dev keystore)
 - [ ] **Week 3:** Submit first release to Play Store (closed track)
