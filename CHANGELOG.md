@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### GDPR account deletion FK crash — fixed (2026-08-14)
+
+- **Account deletion 500'd for any user with push enabled**: the GDPR
+  right-to-erasure endpoint (`DELETE /api/user/account` →
+  `data_export.delete_user_data`) used an ad-hoc per-device cleanup that
+  deleted the device row while `fcm_tokens` rows still referenced it —
+  `FOREIGN KEY constraint failed` 500 for every account whose device had
+  registered an FCM push token (found by live E2E during the onboarding
+  audit). It now delegates per-device cleanup to
+  `delete_device_cascade` — the same tested permanent-deletion path the
+  app-facing endpoint (`DELETE /api/auth/user/account`) already uses —
+  which removes locations, media, commands, alerts, evidence, heartbeats,
+  geofences, device_shares, fcm_tokens, error_log, and recovery
+  requests + sightings before the device row. Guardian-sighting cleanup
+  was also reordered (sightings before requests) to satisfy the FK chain.
+  The deletion response now reports per-table totals incl. `fcm_tokens`.
+- **Regression test**: `test_gdpr_delete_account_with_fcm_token_registered`
+  pins the exact scenario (register user → device → FCM token via the real
+  endpoint → GDPR delete) and asserts the device + token are reported
+  deleted.
+- **Test-infra fix**: `data_export` binds `database` at module level but
+  was missing from both `test_e2e` and `test_sim_change` module-eviction
+  lists, and the route imported it lazily — so under full-suite collection
+  it resolved a stale pre-eviction database module and the delete ran
+  against the wrong DB. `routes/user_data.py` now imports
+  `data_export_service`/`get_db_context`/`log_audit` at module level
+  (same convention as `user_auth.py`), and `data_export` was added to
+  both eviction lists.
+
 ### Download button + version fixes (2026-08-14)
 
 - **APK download button fixed**: the /download page downloaded by navigating

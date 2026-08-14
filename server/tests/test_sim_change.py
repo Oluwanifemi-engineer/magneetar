@@ -58,6 +58,7 @@ for mod_name in list(sys.modules.keys()):
         or mod_name == "user_auth"
         or mod_name == "evidence_pdf"
         or mod_name == "database_postgres"
+        or mod_name == "data_export"
         or mod_name == "archive_monitor"
         or mod_name == "offline_monitor"
         or mod_name == "user_security"

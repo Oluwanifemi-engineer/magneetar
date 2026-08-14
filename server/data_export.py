@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from config import settings
-from database import get_db_context
+from database import delete_device_cascade, get_db_context
 from encryption import decrypt_location_row
 
 logger = logging.getLogger(__name__)
@@ -279,40 +279,46 @@ class DataExportService:
             for device in devices:
                 device_id = device["id"]
 
-                # Delete related data
-                for table in ["locations", "commands", "alerts", "evidence_cases", "heartbeats", "geofences"]:
-                    result = conn.execute(f"DELETE FROM {table} WHERE device_id=?", (device_id,))
-                    deleted_counts[table] = deleted_counts.get(table, 0) + result.rowcount
+                # Count rows first so the response still reports per-table totals.
+                for table in (
+                    "locations",
+                    "commands",
+                    "alerts",
+                    "evidence_cases",
+                    "heartbeats",
+                    "geofences",
+                    "media",
+                    "fcm_tokens",
+                ):
+                    deleted_counts[table] = (
+                        deleted_counts.get(table, 0)
+                        + conn.execute(f"SELECT COUNT(*) FROM {table} WHERE device_id=?", (device_id,)).fetchone()[0]
+                    )
 
-                # Delete media files from disk
-                media_rows = conn.execute(
-                    "SELECT file_path FROM media WHERE device_id=?",
-                    (device_id,),
-                ).fetchall()
-
-                try:
-                    from media_store import delete_media_file
-
-                    for row in media_rows:
-                        if row["file_path"]:
-                            delete_media_file(row["file_path"])
-                except Exception:
-                    pass
-
-                conn.execute("DELETE FROM media WHERE device_id=?", (device_id,))
-                deleted_counts["media"] += len(media_rows)
-
-                # Delete device
-                conn.execute("DELETE FROM devices WHERE id=?", (device_id,))
+                # Cascade-delete the device and ALL related data (locations,
+                # media, commands, alerts, evidence, heartbeats, geofences,
+                # device_shares, fcm_tokens, error_log, recovery requests +
+                # sightings) — the same permanent-deletion path used by
+                # user_auth.delete_user_account. Child rows are removed before
+                # the device row so FK constraints never fire: the old ad-hoc
+                # loop deleted the device while fcm_tokens/device_shares rows
+                # still referenced it, 500-ing account deletion for any user
+                # who had registered a push token.
+                delete_device_cascade(conn, device_id)
                 deleted_counts["devices"] += 1
 
-            # Delete user data
+            # Delete user data. Guardian sightings reference the user (not a
+            # device) and recovery requests owned by the user must have their
+            # sightings removed first to satisfy the FK chain.
+            conn.execute("DELETE FROM recovery_sightings WHERE guardian_id=?", (user_id,))
+            conn.execute(
+                "DELETE FROM recovery_sightings WHERE request_id IN "
+                "(SELECT id FROM recovery_requests WHERE owner_id=?)",
+                (user_id,),
+            )
             conn.execute("DELETE FROM guardian_profiles WHERE user_id=?", (user_id,))
             conn.execute("DELETE FROM api_keys WHERE user_id=?", (user_id,))
             conn.execute("DELETE FROM recovery_requests WHERE owner_id=?", (user_id,))
-            conn.execute(
-                "DELETE FROM fcm_tokens WHERE device_id IN (SELECT id FROM devices WHERE owner_id=?)", (user_id,)
-            )
             conn.execute("DELETE FROM password_reset_tokens WHERE user_id=?", (user_id,))
             conn.execute("DELETE FROM email_verify_tokens WHERE user_id=?", (user_id,))
 

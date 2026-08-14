@@ -7,11 +7,26 @@ import logging
 from typing import Optional
 
 from auth import get_current_user
+from data_export import data_export_service
+from database import get_db_context, log_audit
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from user_security import _require_user_actor
 
 logger = logging.getLogger(__name__)
+
+# NOTE: data_export / get_db_context / log_audit are imported at MODULE level
+# (not inside the handlers) on purpose. data_export does `from database import
+# get_db_context` at its own module level, so a lazy `from data_export import
+# data_export_service` inside a handler would resolve whichever database
+# module is current at request time — under full-suite test collection
+# (test_e2e / test_sim_change evict modules from sys.modules) that is a
+# DIFFERENT module instance than the one main/app bound at import, so
+# deletion/export would run against the wrong DB (same bug class as the
+# evidence PDF / step-up password evictions documented in routes/dashboard.py
+# and the user_auth bindings). Module-level import binds it alongside main;
+# both eviction lists must include data_export so it re-imports fresh with
+# main in every era.
 
 router = APIRouter()
 
@@ -43,8 +58,6 @@ async def export_user_data(
     """Export all user data (GDPR data portability)."""
     _require_user_actor(user_id)
 
-    from data_export import data_export_service
-
     if format == "zip":
         zip_path = data_export_service.create_zip_export(user_id)
         if zip_path:
@@ -72,8 +85,6 @@ async def export_device_data(
     """Export data for a specific device."""
     _require_user_actor(user_id)
 
-    from data_export import data_export_service
-
     export_data = data_export_service.export_device_data(device_id, user_id)
     if "error" in export_data:
         raise HTTPException(status_code=404, detail=export_data["error"])
@@ -98,7 +109,6 @@ async def delete_user_account(
     # Verify password if provided
     if req.password:
         from auth import check_password_verify_rate_limit, verify_password
-        from database import get_db_context
 
         if not check_password_verify_rate_limit(user_id):
             raise HTTPException(status_code=429, detail="Too many verification attempts")
@@ -112,8 +122,6 @@ async def delete_user_account(
         if not user or not verify_password(req.password, user["password_hash"]):
             raise HTTPException(status_code=401, detail="Invalid password")
 
-    from data_export import data_export_service
-
     # Get client IP for audit
     forwarded = request.headers.get("X-Forwarded-For", "")
     cf_ip = request.headers.get("CF-Connecting-IP", "")
@@ -122,8 +130,6 @@ async def delete_user_account(
     )
 
     result = data_export_service.delete_user_data(user_id, confirm=True)
-
-    from database import log_audit
 
     log_audit(
         "account_deleted",
