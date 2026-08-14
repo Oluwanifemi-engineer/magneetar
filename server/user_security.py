@@ -165,25 +165,38 @@ def _verify_stepup_password(user_id: str, password) -> None:
 # ─── Transactional email (reset/verify links) ───────────────────────────────
 
 
+def _redact_email_tokens(text: str) -> str:
+    """Strip single-use credentials from an email body before it can reach
+    any log. The reset/verify links carry `token=<raw>` — that value alone
+    can reset an account, so it must never be written to logs even at DEBUG
+    (a log reader must not become a password-reset oracle).
+    """
+    import re
+
+    return re.sub(r"token=[A-Za-z0-9_-]{8,}", "token=REDACTED", text)
+
+
 async def send_transactional_email(to: str, subject: str, text: str) -> bool:
     """Send a non-alert email (password reset, verification) via SendGrid.
 
     Returns False when SendGrid is not configured — the flow degrades
-    gracefully (tokens still issued + logged) exactly like the alert engine.
+    gracefully (tokens still issued, delivery honestly reported as False)
+    exactly like the alert engine. The raw reset/verify token is NEVER
+    logged: the body is only emitted at DEBUG with the token redacted, so
+    production logs carry recipient + subject and nothing an attacker could
+    use to take over an account.
     """
     if not settings.SENDGRID_API_KEY:
-        # No provider configured: the link can't be emailed, so log the FULL
-        # body (it contains the single-use, short-lived reset/verify link).
-        # Without this the link is unrecoverable — an operator on a
-        # self-hosted deployment (or pre-SendGrid production) could never
-        # retrieve a reset link, and the feature would be a dead end.
+        # Delivery failed / no provider: warn with metadata only — never the
+        # body, which contains the single-use reset/verify link. Emitting the
+        # full text at WARNING used to print the raw token to logs (anyone
+        # with log access could reset any account).
         logger.warning(
-            "Transactional email NOT sent to %s — MT_SENDGRID_KEY not configured. "
-            "Delivering via logs instead (subject=%s):\n%s",
+            "Transactional email NOT sent to %s — MT_SENDGRID_KEY not configured (subject=%s)",
             to,
             subject,
-            text,
         )
+        logger.debug("Transactional email body (tokens redacted):\n%s", _redact_email_tokens(text))
         return False
     try:
         async with httpx.AsyncClient() as client:

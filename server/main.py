@@ -7,7 +7,9 @@ All API endpoints have been extracted into route modules under routes/.
 import asyncio
 import hashlib
 import hmac
+import logging
 import os
+import re
 import time
 import traceback as tb
 from contextlib import asynccontextmanager
@@ -43,6 +45,36 @@ from websocket_manager import (
 from write_queue import start_write_queue, stop_write_queue, write_queue_enabled
 
 logger = get_logger("magneetar")
+
+
+class _TokenRedactingFilter(logging.Filter):
+    """Strip query-string credentials from any uvicorn log record.
+
+    uvicorn logs WebSocket handshakes through its own loggers with the full
+    request line — the dashboard's realtime token travels as `?token=<JWT>`
+    in the WS URL, so those INFO lines write live bearer credentials to
+    disk. `--no-access-log` (Dockerfile) only silences uvicorn's HTTP access
+    log; the websocket protocol logs its own "accepted"/"closed" lines
+    with the path + query string. This filter rewrites the record so the
+    emitted text carries `token=[REDACTED]` instead, attached to every
+    uvicorn logger so the guard holds whichever one emits.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        if "token=" in msg:
+            record.msg = re.sub(r"token=[^&\s\"]{8,}", "token=[REDACTED]", msg)
+            record.args = ()
+        return True
+
+
+def _install_credential_log_filter() -> None:
+    filt = _TokenRedactingFilter()
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        logging.getLogger(name).addFilter(filt)
+
+
+_install_credential_log_filter()
 
 
 # ── Version (single source of truth) ─────────────────────────────────────────

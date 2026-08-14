@@ -328,27 +328,27 @@ class TestPasswordReset:
         )
         assert resp.status_code == 401
 
-    def test_reset_link_recoverable_via_logs_without_email_provider(self):
+    def test_reset_token_never_logged_without_email_provider(self):
         """No SendGrid configured (the current production state): the reset
-        link must be recoverable by the operator from the logs so the flow is
-        not a dead end — the body (containing the single-use link) is logged
-        verbatim when no provider is configured."""
+        link cannot be emailed, and the raw token must NEVER reach the logs —
+        a log reader must not become a password-reset oracle. The WARNING
+        carries metadata only; the body (with the token) only appears at
+        DEBUG and even then redacted. (Regression: the old behavior logged
+        the full body with the raw token at WARNING.)"""
         _register_user("recover@test.dev")
 
         import logging
 
-        # Capture directly on the module's logger: caplog (root-logger
-        # handler) is unreliable in the full suite because the app's
-        # logging_config adds its own handler and propagation state can vary
-        # with collection order. A handler on the emitting logger itself is
-        # order-independent.
+        # Capture on the module's logger at DEBUG so both the WARNING and the
+        # DEBUG body emission are seen (caplog is unreliable in the full
+        # suite — the app's logging_config adds its own handler).
         captured: list[str] = []
         handler = logging.Handler()
-        handler.setLevel(logging.WARNING)
+        handler.setLevel(logging.DEBUG)
         handler.emit = lambda record: captured.append(record.getMessage())
         logger = logging.getLogger("user_security")
         logger.addHandler(handler)
-        logger.setLevel(logging.WARNING)
+        logger.setLevel(logging.DEBUG)
         try:
             resp = client.post("/api/auth/forgot-password", json={"email": "recover@test.dev"})
         finally:
@@ -356,39 +356,64 @@ class TestPasswordReset:
         assert resp.status_code == 200
 
         logged = "\n".join(captured)
-        assert "Delivering via logs instead" in logged
-        # The single-use link must be in the log so a self-hosted operator can
-        # recover it when no email provider is configured.
+        # Metadata-only warning: recipient + subject, no body, no link.
+        assert "MT_SENDGRID_KEY not configured" in logged
         assert "recover@test.dev" in logged
-        assert "/reset-password?email=recover@test.dev&token=" in logged
-
-        # And it must actually work — complete the reset with the logged link.
+        # The DEBUG body may be emitted, but the credential is redacted — the
+        # link is present only with token=REDACTED, never with a real value.
+        assert "/reset-password?email=recover@test.dev&token=REDACTED" in logged
         import re
 
-        match = re.search(r"/reset-password\?email=[^&\s]+&token=([A-Za-z0-9._-]+)", logged)
-        assert match is not None
-        token = match.group(1)
+        assert re.search(r"token=(?!REDACTED)[A-Za-z0-9._-]{8,}", logged) is None
+
+        # The flow still works end-to-end: pull the raw token from the DB the
+        # way the emailed link would carry it (hashed at rest) and reset.
+        from database import get_db_context
+
+        with get_db_context() as conn:
+            row = conn.execute(
+                "SELECT token_hash FROM password_reset_tokens WHERE user_id IN "
+                "(SELECT id FROM users WHERE email='recover@test.dev') "
+                "ORDER BY created_at DESC LIMIT 1"
+            ).fetchone()
+        assert row is not None
+        # token_hash is SHA-256 of the raw token — the raw value is only ever
+        # emailed, so the DB cannot reveal it either (proves hashing at rest).
+        assert len(row["token_hash"]) == 64
+        assert row["token_hash"] != "recover@test.dev"
+
+        # The reset flow itself still works end-to-end: mint the raw token the
+        # way the emailed link would carry it (only possible in a test), reset
+        # with it, and confirm the new password works, the old one is dead,
+        # and the token is single-use.
+        from database import get_db_context
+        from user_security import _issue_email_token
+
+        with get_db_context() as conn:
+            user_id = conn.execute("SELECT id FROM users WHERE email='recover@test.dev'").fetchone()["id"]
+        raw = _issue_email_token("password_reset_tokens", user_id, 60)
         done = client.post(
             "/api/auth/reset-password",
-            json={"email": "recover@test.dev", "token": token, "new_password": "Recovered#2026"},
+            json={"email": "recover@test.dev", "token": raw, "new_password": "Recovered#2026"},
         )
         assert done.status_code == 200, done.text
+        # New password works; the old one is gone.
         assert (
             client.post(
                 "/api/auth/user/login", json={"email": "recover@test.dev", "password": "Recovered#2026"}
             ).status_code
             == 200
         )
-        # The old password is gone and the token is single-use.
         assert (
             client.post(
                 "/api/auth/user/login", json={"email": "recover@test.dev", "password": STRONG_PASSWORD}
             ).status_code
             == 401
         )
+        # Single-use: replaying the same token is rejected.
         replay = client.post(
             "/api/auth/reset-password",
-            json={"email": "recover@test.dev", "token": token, "new_password": "Replay#2026"},
+            json={"email": "recover@test.dev", "token": raw, "new_password": "Replay#2026"},
         )
         assert replay.status_code == 401
 

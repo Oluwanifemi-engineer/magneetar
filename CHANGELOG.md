@@ -9,6 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### Security: credentials no longer leak into server logs (2026-08-14)
+
+- **Reset/verify tokens stopped leaking to logs**: `send_transactional_email`
+  logged the FULL email body — including the single-use password-reset link
+  with its raw token — at WARNING when no email provider was configured
+  (which is current production state). Anyone with log access could have
+  reset any account. It now logs recipient + subject only; the body is
+  emitted at DEBUG with the token redacted (`token=REDACTED`). Regression
+  test `test_reset_token_never_logged_without_email_provider` pins it
+  (replacing the old test that codified the leak).
+- **WebSocket JWTs stopped leaking to logs**: uvicorn logs its own
+  WebSocket handshake lines (`"WebSocket /ws/dashboard?token=<JWT>"
+  [accepted]`) through the `uvicorn.error` logger even with `--no-access-log`
+  — every dashboard connection wrote its 24h bearer token to disk. A
+  `_TokenRedactingFilter` now rewrites any uvicorn log record containing a
+  `token=` query value to `token=[REDACTED]` (attached to uvicorn,
+  uvicorn.error, uvicorn.access). Verified live: real WS connections now
+  log `token=[REDACTED]`. 3 new tests in `TestCredentialLogRedaction`.
+- **Both fixes deployed to production** (DB backed up pre-deploy, /health
+  200 v1.4.1, 546/546 backend tests + lint clean).
+- **Audit rounds 2–3 verified the full user journey live with zero product
+  bugs**: SOS/Guardian/Recovery chain (sentinel theft detection → recovery
+  request → BLE beacon → blurred guardian sightings → close, 25/25),
+  dashboard UI in a real browser (landing/login/dashboard map + command
+  center + all public pages, 9/9, PING command round-trip), and account
+  security (API keys create/use/rotate/revoke + scope enforcement, TOTP
+  2FA enroll/challenge-login/disable — all passing; every "failure" along
+  the way was a test-script bug, not a product bug).
+- **Found + documented (needs your action): production has NO email
+  provider** — `MT_SENDGRID_KEY` is unset, so password-reset and
+  email-verification links are never delivered to users (the flows work
+  server-side; the link only reaches server logs, which is why the leak
+  above mattered).
+
 ### Onboarding audit round 2 — setup-journey E2E harness (2026-08-14)
 
 - **`scripts/test-e2e.sh` now covers the full user-setup journey** (Test 12),

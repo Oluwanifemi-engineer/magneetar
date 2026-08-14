@@ -1502,3 +1502,61 @@ class TestValidateOptional:
 
         warnings = config.settings.validate_optional()
         assert any("not valid JSON" in w for w in warnings)
+
+
+class TestCredentialLogRedaction:
+    """The uvicorn log filter (main._TokenRedactingFilter) that stops
+    ?token=<JWT> WebSocket URLs from landing in logs.
+
+    uvicorn logs WS handshakes itself (the websocket protocol's
+    "accepted"/"closed" lines include the full path + query string), so the
+    dashboard's realtime bearer token would be written to disk on every
+    connection — this is the regression guard for that leak.
+    """
+
+    @staticmethod
+    def _record(msg, args):
+        import logging
+
+        return logging.LogRecord(
+            name="uvicorn.error",
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=1,
+            msg=msg,
+            args=args,
+            exc_info=None,
+        )
+
+    def test_redacts_token_in_websocket_line(self):
+        from main import _TokenRedactingFilter
+
+        filt = _TokenRedactingFilter()
+        record = self._record(
+            '%s - "WebSocket %s" [accepted]',
+            ("127.0.0.1:1234", "/ws/dashboard?token=eyJhbGciOiJIUzI1NiJ9.payload.signature"),
+        )
+        assert filt.filter(record) is True
+        formatted = record.getMessage()
+        assert "token=[REDACTED]" in formatted
+        assert "eyJhbGciOiJIUzI1NiJ9" not in formatted
+        assert '127.0.0.1:1234 - "WebSocket /ws/dashboard?token=[REDACTED]" [accepted]' == formatted
+
+    def test_redacts_token_alongside_other_params(self):
+        from main import _TokenRedactingFilter
+
+        filt = _TokenRedactingFilter()
+        record = self._record(
+            '%s - "WebSocket %s" [accepted]',
+            ("127.0.0.1:1234", "/ws/dashboard?token=SECRETVALUE123&x=1"),
+        )
+        filt.filter(record)
+        assert "token=[REDACTED]&x=1" in record.getMessage()
+
+    def test_leaves_clean_lines_untouched(self):
+        from main import _TokenRedactingFilter
+
+        filt = _TokenRedactingFilter()
+        record = self._record("Application startup complete.", ())
+        assert filt.filter(record) is True
+        assert record.getMessage() == "Application startup complete."
