@@ -73,7 +73,7 @@ table per device, or keep one big matrix with columns per slot.
 
 | # | Date | Device | Reported by | Symptom | Triage | Resolution | Status |
 |---|---|---|---|---|---|---|---|
-| 1 | 2026-08-14 | TBD | Tester | “App not installed” after granting permissions — install never completes | Likely (a) signature conflict with an older build on the phone, (b) interrupted download (checksum mismatch), or (c) Play Protect quietly blocking | Diagnosing — fix steps added to the download page FAQ; see the install decision tree below | 🔴 OPEN |
+| 1 | 2026-08-14 | TBD | Tester | “App not installed” after granting permissions — install never completes | Server logs: full 200 download at 14:51:38 UTC (v1.4.2 bytes, ticket-valid) → download side CLEAN; install-side cause. Prime suspects: (a) old Magneetar app still installed (deleting APK files ≠ uninstalling the app; signature change refuses the update), (b) Play Protect quietly blocking BIND_DEVICE_ADMIN, (c) truncated/saved-as-wrong-type file | Fix steps added to download-page FAQ; see install decision tree below | 🔴 OPEN |
 
 **Install decision tree (for “App not installed”):**
 1. Was Magneetar installed on this phone before? → Uninstall the old app
