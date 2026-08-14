@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### APK ticket semantics + stat single-sourcing (2026-08-14)
+
+- **Tampered APK tickets now get a clean 403** — `/apk/download`
+  distinguishes failure intent: a bare link (no signature) self-heals to
+  the download page (302), a present-but-forged signature is rejected with
+  a 403 JSON body (a redirect would mask the tampering), and a
+  genuine-but-expired signature still self-heals (302).
+- **Single-sourced product stats** — the verifiable claims (381 automated
+  tests · 24/7 stealth tracking · SHA-256 evidence chain) now live in one
+  module (`@/lib/productStats.ts`) shared by the landing hero and login
+  page, so they can never render different values again.
+- Fixed a latent test-isolation bug the new 403 path exposed (e2e's
+  sys.modules eviction made a function-local ticket-signer import use a
+  different JWT secret than the app's route).
+
 ### Login page integrity fixes (2026-08-14)
 
 - **Fabricated social proof removed** — the login page showed fake avatars,
