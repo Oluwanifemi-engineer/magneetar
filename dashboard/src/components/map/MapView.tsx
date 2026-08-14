@@ -588,8 +588,7 @@ export function MapView() {
       if (!cancelled) setDeviceAddress(addr);
     });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the primitive
-    // coord deps above are deliberate (see comment above the hook)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- coord deps are deliberate: re-geocode only when lat/lng actually move (see comment above the hook)
   }, [latestLocation?.lat, latestLocation?.lng]);
 
   // Initialize Leaflet icons and map

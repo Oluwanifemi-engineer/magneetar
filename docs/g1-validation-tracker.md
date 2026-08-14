@@ -73,19 +73,31 @@ table per device, or keep one big matrix with columns per slot.
 
 | # | Date | Device | Reported by | Symptom | Triage | Resolution | Status |
 |---|---|---|---|---|---|---|---|
-| 1 | 2026-08-14 | TBD | Tester | “App not installed” after granting permissions — install never completes | Server logs: full 200 download at 14:51:38 UTC (v1.4.2 bytes, ticket-valid) → download side CLEAN; install-side cause. Prime suspects: (a) old Magneetar app still installed (deleting APK files ≠ uninstalling the app; signature change refuses the update), (b) Play Protect quietly blocking BIND_DEVICE_ADMIN, (c) truncated/saved-as-wrong-type file | Fix steps added to download-page FAQ; see install decision tree below | 🔴 OPEN |
+| 1 | 2026-08-14 | Samsung SM-A037F (Galaxy A03s, real fleet phone) | Tester | “App not installed” after granting permissions — install never completes | **Download side CLEAN** — server delivered full 200 at 14:51:38 UTC; served bytes = verified v1.4.2 (checksum ca4c400d…); APK valid (zipaligned, v2-signed, minSdk 24, no ABI split). **Signature change theory DISPROVEN** — every build since v1.1.0 shares one key (release.keystore cert 024cbb34…; verified against v1.4.0 APK + current build + keystore). Device already ran v1.4.1 fine (same key/minSdk) → installs work on this phone. Server DB: device last heartbeat **07:20 UTC** (right when the swap was attempted) → phone went silent then. Prime suspects, all phone-state: (a) **leftover/zombie package** — Magneetar's own uninstall protection (device admin + accessibility guard) can abort the uninstall mid-way, leaving a stale package entry that makes every new install fail with plain “App not installed”; (b) Samsung's OEM “App security” scanner (separate from Play Protect) silently blocking a BIND_DEVICE_ADMIN sideload; (c) “Install unknown apps” grant missing for the app/browser actually opening the APK | Fix steps corrected in download-page FAQ (deactivate Device Admin + accessibility BEFORE uninstall; adb as decisive path); `scripts/install-apk.sh` upgraded to a diagnostic installer (prints exact adb failure + detects leftover installs); see decision tree below | 🔴 OPEN — awaiting `adb install` output for the definitive INSTALL_FAILED_* code |
 
-**Install decision tree (for “App not installed”):**
-1. Was Magneetar installed on this phone before? → Uninstall the old app
-   (Settings → Apps → Magneetar → Uninstall), then install the new APK. A
-   change of signing key (old keystore vs release.keystore) makes Android
-   refuse the update with exactly this error.
-2. Is the SHA-256 of the downloaded file identical to the checksum shown on
-   the download page? → If not, the download was truncated; download again.
-3. Is Play Protect on? → Pause “Scan apps with Play Protect” (Settings →
-   Security → App security), install, then re-enable.
-4. Still failing? Record the EXACT error wording + Android version and open
-   a new issue row here — this is what G1 is for.
+**Install decision tree (for “App not installed”) — evidence-updated 2026-08-14:**
+
+Established: served bytes = verified APK; APK valid; ALL builds share one
+signing key (024cbb34…) → a “signature conflict with an older build” is NOT
+the cause here. The phone (Samsung SM-A037F) installed v1.4.1 fine before.
+The failure is phone-state, in this order:
+
+1. **Leftover/zombie install (most likely).** Magneetar actively resists
+   uninstall (device admin + accessibility guard). A normal “Settings →
+   Apps → Magneetar → Uninstall” may be greyed out or bounce home, and an
+   interrupted attempt can leave a stale package that blocks new installs.
+   → Deactivate first: Settings → Security → Device admin apps → Magneetar
+   → Deactivate; Settings → Accessibility → “System Update Protection” →
+   OFF. THEN uninstall. Definitive: `adb uninstall com.magneetar.app`
+   (one USB cable + PC), then `adb install magneetar-v1.4.2-release.apk`.
+2. **OEM scanner (Samsung “App security” is separate from Play Protect).**
+   Pause BOTH during install, then re-enable.
+3. **“Install unknown apps” grant.** The app/browser opening the APK needs
+   Settings → Apps → <browser> → Install unknown apps → Allow.
+4. Still failing? `adb install` prints the real INSTALL_FAILED_* code —
+   record it verbatim + Android version (`adb shell getprop
+   ro.build.version.release`) + `adb shell pm list packages | grep -i
+   magneetar` (is it really gone?) and reopen this issue row.
 
 ## 6. Server-side signals (checked at exit)
 

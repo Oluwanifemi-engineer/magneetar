@@ -125,7 +125,7 @@ const INSTALL_FAQ = [
   },
   {
     q: 'Android says “App not installed”',
-    a: 'Three usual causes, in order: (1) An older Magneetar build is already on the phone, signed with a different key — uninstall the old Magneetar first (Settings → Apps → Magneetar → Uninstall), then install again. (2) The download was interrupted or incomplete — compare the file\'s SHA-256 with the checksum in the Verify section below, then download again. (3) Play Protect quietly blocked the install — temporarily pause “Scan apps with Play Protect” in Settings → Security, install, then turn it back on.',
+    a: 'The downloaded file is fine (it\'s checksum-verified on this page) — the phone is refusing to install over a previous Magneetar, and Magneetar protects itself from removal, so an old install can linger invisibly. Remove it properly, in order: (1) Settings → Security → Device admin apps → Magneetar → Deactivate. (2) Settings → Accessibility → turn OFF “System Update Protection”. (3) Now Settings → Apps → Magneetar → Uninstall. If the app still won\'t uninstall or you can\'t find it, use a PC with adb: adb uninstall com.magneetar.app, then adb install <downloaded.apk> — adb prints the exact reason if anything else is wrong. Also pause Play Protect (and Samsung\'s separate “App security”) during install, and make sure the file is the full 7.5 MB (compare SHA-256 below).',
   },
 ];
 
