@@ -20,8 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   New config: `MT_RESEND_KEY`, optional `MT_RESEND_FROM`. 3 regression tests
   cover the Resend path, HTTP-failure handling, and that SendGrid stays
   preferred when both keys are set. Suite 549 passed, lint clean.
-  Deployment: set `MT_RESEND_KEY` in `server/.env` and rebuild — pending
-  the key value.
+  Deployment: `MT_RESEND_KEY` set in `server/.env` and deployed — live
+  verification shows `email_delivered=True` on a real reset flow (Resend
+  accepted + delivered to the account owner). `MT_RESEND_API_KEY` is also
+  accepted as an alias for the same variable.
 
 ### Security: credentials no longer leak into server logs (2026-08-14)
 

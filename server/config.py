@@ -73,7 +73,9 @@ class Settings:
     # the automatic fallback when SendGrid is not configured, and as the
     # primary when only this key is set. Trial accounts can only deliver to
     # the account owner's verified email until a sending domain is added.
-    RESEND_API_KEY: str = os.environ.get("MT_RESEND_KEY", "")
+    # Both MT_RESEND_KEY (documented) and MT_RESEND_API_KEY (natural alias)
+    # are accepted.
+    RESEND_API_KEY: str = os.environ.get("MT_RESEND_KEY") or os.environ.get("MT_RESEND_API_KEY", "")
     # Optional verified sender for Resend ("Magneetar <alerts@magneetar.me>").
     # Defaults to Resend's onboarding@resend.dev test sender.
     RESEND_FROM: str = os.environ.get("MT_RESEND_FROM", "")
