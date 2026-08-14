@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### Login page integrity fixes (2026-08-14)
+
+- **Fabricated social proof removed** — the login page showed fake avatars,
+  an invented 4.9-star rating, and "TRUSTED BY 1,200+ DEVICE OWNERS" with
+  zero users behind them (same violation as the download page claims).
+  Replaced with verifiable stats: 381 automated tests · 24/7 stealth
+  tracking · SHA-256 evidence chain.
+- **Mockup honestly labelled** — the command-center graphic no longer claims
+  "LIVE / Pixel 8 · Online"; it reads "DEMO / Pixel 8 · Demo device", matching
+  the landing hero's honest-signal labelling. Locked in the LoginPage test.
+
 ### Security re-scan fixes (2026-08-14)
 
 - **Fabricated adoption claims removed** — the download page's "10K+ Active
