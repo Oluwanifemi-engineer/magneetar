@@ -1,6 +1,7 @@
 # Third-Party Developer API — Scoped API Keys
 
-**Status**: ✅ **implemented (v1.6)** — backend + tests + dashboard UI live
+**Status**: ✅ **implemented + deployed to production (v1.6, 2026-08-14)** —
+backend + tests + dashboard UI live, rolling out on api.magneetar.me
 **Owner**: core team
 **Depends on**: v1.4.0 key split (master / device), existing RBAC + step-up infra
 

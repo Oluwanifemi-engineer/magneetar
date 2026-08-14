@@ -53,8 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   401 to anonymous callers, the dead API-docs links are gone from the
   dashboard footer, the FCM key is mounted, and the server starts with no
   config warnings.
-- **Developer API keys shipped** (`docs/developer-api.md` — spec →
-  implementation): per-account, scoped, revocable API keys
+- **Developer API keys shipped and deployed** (`docs/developer-api.md` —
+  spec → implementation → production): per-account, scoped, revocable API keys
   (`mtk_live_<32>`, shown once at creation, SHA-256 at rest,
   prefix-indexed lookup, constant-time compare) for third-party
   integrations.
@@ -78,6 +78,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Docs**: README developer quickstart + `docs/developer-api.md` status
     updated (implemented; remaining follow-ups: rate-limit dashboards,
     dashboard-scope keys, usage metering).
+  - **Live-verified (scratch server, 11/11 checks)**: register → step-up key
+    creation → key listed → device linked + location pushed → `/api/v1/devices`
+    + locations via key → `devices:read` key rejected on commands (403) →
+    revoke → revoked key dead (401) → raw device key rejected on
+    `/api/account/api-keys` (401).
+  - **Deployed to production (2026-08-14)**: server + dashboard images
+    rebuilt and rolled out; prod DB backed up pre-deploy; `api_keys` table
+    migrated in place; live gates confirmed (anon `/api/account/api-keys` and
+    `/api/v1/devices` → 401, `/metrics` gate intact, `/health` 200).
 - **Pre-existing full-suite order flake fixed at its root cause**: the
   claim-by-pairing route in `routes/dashboard.py` imported
   `_enforce_device_limit` function-locally — after `test_sim_change.py`
