@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### Onboarding audit round 2 — setup-journey E2E harness (2026-08-14)
+
+- **`scripts/test-e2e.sh` now covers the full user-setup journey** (Test 12),
+  verified live against production (42/42 passing, self-cleaning):
+  - Account registration + first-launch device registration (auto-link),
+    device visible in the owner's dashboard.
+  - **Pairing-code linking**: a second user claims an ownerless phone with
+    the code the app displays (first 8 hex of SHA-256(device_key)); wrong
+    codes are rejected 403; each user sees only their own devices (RBAC
+    isolation).
+  - **Command round-trip**: issue alarm from the dashboard → device polls
+    and receives it → acks execution → dashboard shows `executed`.
+  - **Evidence photo**: device uploads a JPEG → visible in the dashboard
+    media list → file fetch returns a real JPEG whose bytes round-trip
+    byte-for-byte with matching SHA-256.
+  - **RBAC negatives**: a non-owner is 403'd from another account's
+    commands, media, and live location.
+  - **GDPR deletion** of both accounts (re-verifies the FK fix).
+- **Fixed the suite's own account leak**: Test 9.5 registered two
+  `test.local` accounts that were never deleted — every run polluted the
+  users table. Test 11 now GDPR-deletes them, so repeated runs leave zero
+  rows (verified: prod device table back to its 2 real devices after runs).
+- No product bugs found this round — every flow in the setup chain
+  (download → install → register → pair → command → media → dashboard
+  visibility → deletion) works against production.
+
 ### GDPR account deletion FK crash — fixed (2026-08-14)
 
 - **Account deletion 500'd for any user with push enabled**: the GDPR

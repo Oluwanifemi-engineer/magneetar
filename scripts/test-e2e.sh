@@ -344,6 +344,202 @@ for CLEANUP_DID in "$DEVICE_ID" "$CLAIM_DEVICE_ID"; do
         fi
     fi
 done
+# The claim/other accounts from Test 9.5 are GDPR-deleted so repeated runs
+# never pollute the users table (their devices cascade away with them).
+for CLEANUP_TOKEN in "$CLAIM_USER_TOKEN" "$OTHER_TOKEN"; do
+    if [[ -n "${CLEANUP_TOKEN:-}" ]]; then
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$SERVER_URL/api/user/account" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $CLEANUP_TOKEN" \
+            -d '{"confirm": true}')
+        if [[ "$STATUS" == "200" ]]; then
+            echo -e "  ${GREEN}✓${NC} GDPR-deleted Test 9.5 account"
+        else
+            echo -e "  ${YELLOW}⊘${NC} GDPR cleanup of Test 9.5 account returned HTTP $STATUS"
+        fi
+    fi
+done
+echo ""
+
+# ─── Test 12: User Setup Journey (pairing, commands, media, RBAC, GDPR) ────────
+# The full new-user onboarding chain, end-to-end: account → device → pair a
+# second user → command round-trip → evidence photo → RBAC isolation → GDPR
+# deletion. Every account created here is permanently deleted at the end, so
+# repeated runs never pollute the users table.
+
+echo -e "${CYAN}12. User Setup Journey${NC}"
+TS="$(date +%s)-$$"
+SETUP_PASS="Str0ng-Setup-Pass-$(date +%s)"
+U1_EMAIL="e2e-setup-a-${TS}@test.local"
+U2_EMAIL="e2e-setup-b-${TS}@test.local"
+D1_ID="setup-dev-a-${TS}"
+D2_ID="setup-dev-b-${TS}"
+D1_KEY="setup-device-key-a-${TS}"
+D2_KEY="setup-device-key-b-${TS}"
+
+# 12.1 — Account A registers and auto-links its device (app's first-launch flow)
+U1_RESP=$(curl -s -w "\n%{http_code}" -X POST "$SERVER_URL/api/auth/register" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\": \"$U1_EMAIL\", \"password\": \"$SETUP_PASS\", \"display_name\": \"Setup User A\"}")
+STATUS=$(echo "$U1_RESP" | tail -1)
+BODY=$(echo "$U1_RESP" | head -n -1)
+assert_status "POST /api/auth/register (user A)" "200" "$STATUS"
+U1_TOKEN=$(echo "$BODY" | python3 -c "import sys, json; print(json.load(sys.stdin)['token'])" 2>/dev/null || echo "")
+
+D1_RESP=$(curl -s -w "\n%{http_code}" -X POST "$SERVER_URL/api/device/register" \
+    -H "Content-Type: application/json" \
+    -H "x-api-key: $API_KEY" \
+    -H "Authorization: Bearer $U1_TOKEN" \
+    -d "{\"device_id\": \"$D1_ID\", \"fingerprint\": \"fp-setup-a-${TS}\", \"model\": \"Pixel 8\", \"os_version\": \"Android 14\", \"app_version\": \"1.4.1\", \"device_key\": \"$D1_KEY\"}")
+STATUS=$(echo "$D1_RESP" | tail -1)
+BODY=$(echo "$D1_RESP" | head -n -1)
+assert_status "POST /api/device/register (auto-linked)" "200" "$STATUS"
+D1_TOKEN=$(echo "$BODY" | python3 -c "import sys, json; print(json.load(sys.stdin)['token'])" 2>/dev/null || echo "")
+
+# 12.2 — Pairing code: user B claims an ownerless device with the code
+# shown on the phone (first 8 hex chars of SHA-256(device_key)).
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$SERVER_URL/api/device/register" \
+    -H "Content-Type: application/json" \
+    -H "x-api-key: $API_KEY" \
+    -d "{\"device_id\": \"$D2_ID\", \"fingerprint\": \"fp-setup-b-${TS}\", \"model\": \"Samsung A54\", \"os_version\": \"Android 14\", \"app_version\": \"1.4.1\", \"device_key\": \"$D2_KEY\"}")
+assert_status "POST /api/device/register (ownerless)" "200" "$STATUS"
+
+U2_RESP=$(curl -s -w "\n%{http_code}" -X POST "$SERVER_URL/api/auth/register" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\": \"$U2_EMAIL\", \"password\": \"$SETUP_PASS\", \"display_name\": \"Setup User B\"}")
+STATUS=$(echo "$U2_RESP" | tail -1)
+BODY=$(echo "$U2_RESP" | head -n -1)
+assert_status "POST /api/auth/register (user B)" "200" "$STATUS"
+U2_TOKEN=$(echo "$BODY" | python3 -c "import sys, json; print(json.load(sys.stdin)['token'])" 2>/dev/null || echo "")
+
+PAIR_CODE=$(printf '%s' "$D2_KEY" | sha256sum | cut -c1-8)
+PAIR_RESP=$(curl -s -w "\n%{http_code}" -X POST "$SERVER_URL/api/dashboard/devices/claim-by-pairing" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $U2_TOKEN" \
+    -d "{\"device_id\": \"$D2_ID\", \"pairing_code\": \"$PAIR_CODE\"}")
+STATUS=$(echo "$PAIR_RESP" | tail -1)
+assert_status "POST /api/dashboard/devices/claim-by-pairing" "200" "$STATUS"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$SERVER_URL/api/dashboard/devices/claim-by-pairing" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $U2_TOKEN" \
+    -d "{\"device_id\": \"$D2_ID\", \"pairing_code\": \"00000000\"}")
+assert_status "Wrong pairing code rejected" "403" "$STATUS"
+
+# 12.3 — Ownership boundaries: each user sees only their own device.
+if curl -s "$SERVER_URL/api/dashboard/devices" -H "Authorization: Bearer $U2_TOKEN" \
+    | python3 -c "import sys, json; d=json.load(sys.stdin)['devices']; sys.exit(0 if any(x['id']=='$D2_ID' for x in d) and not any(x['id']=='$D1_ID' for x in d) else 1)" 2>/dev/null; then
+    echo -e "  ${GREEN}✓${NC} User B sees own device only (RBAC isolation)"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${NC} RBAC isolation broken (device list wrong)"
+    FAIL=$((FAIL + 1))
+fi
+TOTAL=$((TOTAL + 1))
+
+# 12.4 — Command round-trip: issue alarm → device polls → acks → dashboard shows executed
+CMD_RESP=$(curl -s -w "\n%{http_code}" -X POST "$SERVER_URL/api/dashboard/command" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $U1_TOKEN" \
+    -d "{\"device_id\": \"$D1_ID\", \"command\": \"alarm\", \"params\": \"\", \"priority\": 5}")
+STATUS=$(echo "$CMD_RESP" | tail -1)
+BODY=$(echo "$CMD_RESP" | head -n -1)
+assert_status "POST /api/dashboard/command (alarm)" "200" "$STATUS"
+CMD_ID=$(echo "$BODY" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('command_id', d.get('id', 0)))" 2>/dev/null || echo "0")
+
+if curl -s "$SERVER_URL/api/device/commands/$D1_ID" -H "Authorization: Bearer $D1_TOKEN" \
+    | python3 -c "import sys, json; d=json.load(sys.stdin)['commands']; sys.exit(0 if any(c['id']==$CMD_ID and c['command']=='alarm' for c in d) else 1)" 2>/dev/null; then
+    echo -e "  ${GREEN}✓${NC} Device polls and receives the alarm command"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${NC} Device poll did not return the pending command"
+    FAIL=$((FAIL + 1))
+fi
+TOTAL=$((TOTAL + 1))
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$SERVER_URL/api/device/commands/$CMD_ID/ack" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $D1_TOKEN" \
+    -d '{"status": "executed"}')
+assert_status "POST /api/device/commands/{id}/ack" "200" "$STATUS"
+
+if curl -s "$SERVER_URL/api/dashboard/commands/$D1_ID" -H "Authorization: Bearer $U1_TOKEN" \
+    | python3 -c "import sys, json; d=json.load(sys.stdin)['commands']; sys.exit(0 if any(c['id']==$CMD_ID and c['status']=='executed' for c in d) else 1)" 2>/dev/null; then
+    echo -e "  ${GREEN}✓${NC} Dashboard shows command as executed"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${NC} Dashboard command status not executed"
+    FAIL=$((FAIL + 1))
+fi
+TOTAL=$((TOTAL + 1))
+
+# 12.5 — Evidence photo: upload, list, fetch, integrity (magic bytes + sha256)
+JPEG_B64='/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='
+MED_RESP=$(curl -s -w "\n%{http_code}" -X POST "$SERVER_URL/api/device/media" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $D1_TOKEN" \
+    -d "{\"device_id\": \"$D1_ID\", \"type\": \"photo\", \"data_b64\": \"$JPEG_B64\", \"lat\": 6.5244, \"lng\": 3.3792}")
+STATUS=$(echo "$MED_RESP" | tail -1)
+BODY=$(echo "$MED_RESP" | head -n -1)
+assert_status "POST /api/device/media (photo)" "200" "$STATUS"
+MEDIA_ID=$(echo "$BODY" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('media_id', d.get('id', 0)))" 2>/dev/null || echo "0")
+
+if curl -s "$SERVER_URL/api/dashboard/media/$D1_ID" -H "Authorization: Bearer $U1_TOKEN" \
+    | python3 -c "import sys, json; d=json.load(sys.stdin)['media']; sys.exit(0 if any(str(x['id'])=='$MEDIA_ID' for x in d) else 1)" 2>/dev/null; then
+    echo -e "  ${GREEN}✓${NC} Photo visible in dashboard media list"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${NC} Photo missing from dashboard media list"
+    FAIL=$((FAIL + 1))
+fi
+TOTAL=$((TOTAL + 1))
+
+curl -s "$SERVER_URL/api/dashboard/media/file/$MEDIA_ID" -H "Authorization: Bearer $U1_TOKEN" -o /tmp/e2e-media.json
+if python3 - /tmp/e2e-media.json "$JPEG_B64" <<'PY'
+import base64, hashlib, json, sys
+d = json.load(open(sys.argv[1]))
+raw = base64.b64decode(d["data_b64"])
+up = base64.b64decode(sys.argv[2])
+if not raw.startswith(b"\xff\xd8"): sys.exit(1)          # real JPEG magic
+if d["sha256_hash"] != hashlib.sha256(raw).hexdigest(): sys.exit(1)  # row hash
+if raw != up: sys.exit(1)                                  # byte-for-byte round-trip
+PY
+then
+    echo -e "  ${GREEN}✓${NC} Media file: real JPEG, sha256 matches, byte-for-byte round-trip"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${NC} Media file integrity check failed"
+    FAIL=$((FAIL + 1))
+fi
+TOTAL=$((TOTAL + 1))
+rm -f /tmp/e2e-media.json
+
+# 12.6 — RBAC negatives: user B must be locked out of A's device entirely
+for RBAC in "command|POST|/api/dashboard/command|{\"device_id\": \"$D1_ID\", \"command\": \"alarm\", \"priority\": 5}" \
+            "media|GET|/api/dashboard/media/$D1_ID|" \
+            "location|GET|/api/dashboard/locations/$D1_ID/live|"; do
+    NAME="${RBAC%%|*}"; REST="${RBAC#*|}"; METHOD="${REST%%|*}"; REST="${REST#*|}"; URL="${REST%%|*}"; DATA="${REST#*|}"
+    if [[ -n "$DATA" ]]; then
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X "$METHOD" "$SERVER_URL$URL" \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $U2_TOKEN" -d "$DATA")
+    else
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SERVER_URL$URL" \
+            -H "Authorization: Bearer $U2_TOKEN")
+    fi
+    assert_status "User B blocked from A's $NAME (403)" "403" "$STATUS"
+done
+
+# 12.7 — GDPR right-to-erasure: both accounts (and their devices) are gone
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$SERVER_URL/api/user/account" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $U1_TOKEN" \
+    -d '{"confirm": true}')
+assert_status "GDPR delete user A" "200" "$STATUS"
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$SERVER_URL/api/user/account" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $U2_TOKEN" \
+    -d '{"confirm": true}')
+assert_status "GDPR delete user B" "200" "$STATUS"
 echo ""
 
 # ─── Summary ──────────────────────────────────────────────────────────────────
