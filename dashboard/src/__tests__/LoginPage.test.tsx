@@ -53,6 +53,15 @@ describe('Login Page', () => {
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
     // Server URL is prefilled after mount
     expect(await screen.findByDisplayValue('https://api.magneetar.me')).toBeInTheDocument();
+
+    // Integrity: no fabricated adoption claims (fake avatars, "1,200+"
+    // owners, invented star ratings) — the mockup is labelled DEMO and the
+    // stats are the verifiable ones.
+    expect(screen.queryByText(/TRUSTED BY 1,200\+ DEVICE OWNERS/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('4.9')).not.toBeInTheDocument();
+    expect(screen.getByText('Pixel 8 · Demo device')).toBeInTheDocument();
+    expect(screen.getByText('DEMO')).toBeInTheDocument();
+    expect(screen.getByText('381')).toBeInTheDocument();
   });
 
   it('switches to API key mode and back', async () => {

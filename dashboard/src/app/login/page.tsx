@@ -16,7 +16,6 @@ import {
   Globe,
   Eye,
   EyeOff,
-  Star,
   Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -37,8 +36,6 @@ const TICKER_LINES = [
   'GEOFENCE OK · SAFE ZONE ACTIVE',
   'SIM UNCHANGED · THEFT MODE ARMED',
 ];
-
-const AVATARS = ['JD', 'AK', 'MT', 'RS'];
 
 export default function LoginPage() {
   const { setCredentials, setConnected } = useStore();
@@ -269,9 +266,11 @@ export default function LoginPage() {
                 <span className="ml-3 text-[9px] font-mono text-white/30 tracking-widest font-bold">
                   MAGNEETAR — COMMAND CENTER
                 </span>
-                <span className="ml-auto flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-mag-accent/10 border border-mag-accent/20">
-                  <Radar size={9} className="text-mag-accent" />
-                  <span className="text-[8px] font-mono font-bold tracking-wider text-mag-accent">LIVE</span>
+                {/* Honest-signal: this is a mockup, not live telemetry — the
+                    label keeps a fabricated "LIVE" claim off the page. */}
+                <span className="ml-auto flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/[0.06] border border-white/10">
+                  <Radar size={9} className="text-amber-300" />
+                  <span className="text-[8px] font-mono font-bold tracking-wider text-amber-200">DEMO</span>
                 </span>
               </div>
 
@@ -365,7 +364,7 @@ export default function LoginPage() {
                 <span className="absolute inline-flex h-full w-full rounded-full bg-mag-accent opacity-60 animate-ping" />
                 <span className="relative inline-flex rounded-full w-2 h-2 bg-mag-accent" />
               </span>
-              <span className="text-[10px] font-mono font-bold text-white/70">Pixel 8 · Online</span>
+              <span className="text-[10px] font-mono font-bold text-white/70">Pixel 8 · Demo device</span>
             </div>
             <div className="absolute -bottom-4 -left-3 sm:-left-6 px-3.5 py-2 rounded-xl border border-white/10 bg-mag-panel/95 backdrop-blur-xl shadow-xl shadow-black/50 animate-float-slow flex items-center gap-2" style={{ animationDelay: '-2.5s' }}>
               <span className="w-4 h-4 rounded-full bg-mag-accent/15 border border-mag-accent/30 flex items-center justify-center">
@@ -375,30 +374,19 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* ─── Social proof */}
-          <div className="flex items-center gap-4 animate-fade-slide" style={{ animationDelay: '0.2s' }}>
-            <div className="flex -space-x-2.5">
-              {AVATARS.map((initials, i) => (
-                <div
-                  key={initials}
-                  className="w-8 h-8 rounded-full border-2 border-mag-bg bg-gradient-to-br from-mag-primary/35 to-mag-secondary/35 flex items-center justify-center text-[9px] font-mono font-bold text-white/80"
-                  style={{ zIndex: AVATARS.length - i }}
-                >
-                  {initials}
-                </div>
-              ))}
-            </div>
-            <div>
-              <div className="flex items-center gap-0.5 text-[#F5B93E]">
-                {[0, 1, 2, 3, 4].map((s) => (
-                  <Star key={s} size={11} fill="currentColor" strokeWidth={0} />
-                ))}
-                <span className="ml-1.5 text-[10px] font-mono font-bold text-white/60">4.9</span>
+          {/* ─── Verifiable signals (no fabricated adoption numbers — the
+              project shows real counts only when real users exist) */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 animate-fade-slide" style={{ animationDelay: '0.2s' }}>
+            {[
+              { value: '381', label: 'automated tests' },
+              { value: '24/7', label: 'stealth tracking' },
+              { value: 'SHA-256', label: 'evidence chain' },
+            ].map((stat) => (
+              <div key={stat.label} className="flex items-baseline gap-1.5">
+                <span className="text-sm font-bold font-mono text-white">{stat.value}</span>
+                <span className="text-[10px] font-mono font-bold tracking-wider text-white/35 uppercase">{stat.label}</span>
               </div>
-              <div className="mt-0.5 text-[10px] font-mono font-bold tracking-wider text-white/35">
-                TRUSTED BY 1,200+ DEVICE OWNERS
-              </div>
-            </div>
+            ))}
           </div>
 
           {/* Footer strip */}
