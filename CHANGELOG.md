@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### Security re-scan fixes (2026-08-14)
+
+- **Fabricated adoption claims removed** — the download page's "10K+ Active
+  users / 25K+ Devices protected / 94% Recovery rate" were placeholders with
+  no counter behind them, contradicting the landing page's "EVERY CLAIM ON
+  THIS PAGE IS VERIFIABLE" promise. Replaced with claims verifiable on the
+  page itself: 24/7 stealth tracking, SHA-256 checksum-verified APK, and the
+  free 1-device plan. Real counters will return only when real users exist.
+- **Verifiable counters** — `AnimatedCounter` rendered `0` on first paint
+  (SSR showed "SHA-0-bit") and counted up over 2s, so screenshots caught
+  mid-animation values that looked like two different deployed builds. It now
+  renders the true value immediately (381 tests · 24/7 · SHA-256-bit ·
+  3-layer); only a fade-in reveal remains, which never changes the digits.
+- **`/health` no longer leaks uptime (F-08)** — uptime revealed deploy
+  timing to anyone polling the public endpoint. Removed from the public
+  response; it remains available to operators via the admin-gated
+  `/api/metrics` (`magneetar_uptime_seconds`). `deploy.sh` freshness gate now
+  reads the container's own start time (docker inspect) instead of public
+  uptime; `reliability-test.sh` updated to match.
+- **Live Agent-Mode verification pass** — anonymous WebSocket connect closes
+  with frame `4408 "Authentication required"`; `/apk/download` enforces the
+  signed ticket (302 missing/tampered, 200 on valid); served APK is
+  non-debuggable v1.4.3 (versionCode 9) with no embedded `mtk_*` keys (only
+  `SERVER_URL` + `VERSION_NAME`). Repo == production on all audited routes.
+
 ### In-app self-updater + v1.4.3 release (2026-08-14)
 
 - **In-app self-update** (`AppUpdaterService` + `AppUpdater`) — the "update
