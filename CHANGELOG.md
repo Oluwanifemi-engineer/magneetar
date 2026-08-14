@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### Android: session tokens now encrypted at rest (2026-08-14)
+
+- **The app's session credentials are no longer stored in plaintext**: the
+  24h access JWT and the 90-day refresh token lived in plain
+  SharedPreferences (`mt.xml`) — readable by anyone with root on a stolen
+  device, granting a full 90-day account session (locate/wipe other linked
+  devices, read recovery data). Added `TokenVault`, an AndroidKeyStore-backed
+  AES-256-GCM vault: the key never leaves the device (hardware-backed on
+  modern phones), so a prefs-file extraction yields only ciphertext. All 10
+  read/write sites (SignIn, SignUp, TrackingService, MainActivity,
+  GuardianBeaconScanner) now route through the vault; legacy plaintext
+  tokens are transparently migrated on first read and the plaintext copies
+  deleted. Degradation is graceful (Keystore key lost → sign-in screen,
+  never a crash), and the key survives app updates while remaining
+  usable on a locked screen (required by background tracking). Also
+  redacted the recovery beacon token in a debug log line. Verified:
+  both build flavors compile clean.
+
 ### Resend email provider (2026-08-14)
 
 - **Transactional email now has a real provider path**: password-reset and

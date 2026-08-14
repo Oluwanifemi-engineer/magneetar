@@ -132,15 +132,15 @@ class SignUpActivity : AppCompatActivity() {
                     val token = jsonResponse.getString("token")
                     val refreshToken = jsonResponse.optString("refresh_token", "")
 
-                    // Save credentials
+                    // Save credentials. Session tokens are stored encrypted
+                    // (Keystore-backed) — never plaintext on disk.
                     with(getSharedPreferences("mt", Context.MODE_PRIVATE).edit()) {
                         putString("server_url", serverUrl)
-                        putString("user_token", token)
-                        putString("user_refresh_token", refreshToken)
                         putString("user_email", email)
                         putString("auth_method", "user")
                         apply()
                     }
+                    TokenVault.save(this@SignUpActivity, token, refreshToken)
 
                     // Best-effort: link this device to the signed-in account so
                     // it shows up in the dashboard immediately.

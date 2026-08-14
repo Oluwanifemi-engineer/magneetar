@@ -26,7 +26,7 @@ class MainActivity : AppCompatActivity() {
         // Read state
         val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
         val onboardingComplete = prefs.getBoolean("onboarding_complete", false)
-        val userToken = prefs.getString("user_token", "") ?: ""
+        val userToken = TokenVault.accessToken(this)
         val adminSkipped = prefs.getBoolean("admin_skip_acknowledged", false)
 
         // Re-assert the hard uninstall block whenever we're device owner — a

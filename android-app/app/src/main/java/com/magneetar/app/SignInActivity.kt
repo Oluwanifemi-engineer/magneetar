@@ -149,15 +149,15 @@ class SignInActivity : AppCompatActivity() {
                     val token = jsonResponse.getString("token")
                     val refreshToken = jsonResponse.optString("refresh_token", "")
 
-                    // Save credentials
+                    // Save credentials. Session tokens are stored encrypted
+                    // (Keystore-backed) — never plaintext on disk.
                     with(getSharedPreferences("mt", Context.MODE_PRIVATE).edit()) {
                         putString("server_url", serverUrl)
-                        putString("user_token", token)
-                        putString("user_refresh_token", refreshToken)
                         putString("user_email", email)
                         putString("auth_method", "user")
                         apply()
                     }
+                    TokenVault.save(this@SignInActivity, token, refreshToken)
 
                     // Best-effort: link this device to the signed-in account so
                     // it shows up in the dashboard immediately.
@@ -232,11 +232,12 @@ class SignInActivity : AppCompatActivity() {
                     val refreshToken = jsonResponse.optString("refresh_token", "")
 
                     with(getSharedPreferences("mt", Context.MODE_PRIVATE).edit()) {
-                        putString("user_token", token)
-                        putString("user_refresh_token", refreshToken)
                         putString("auth_method", "user")
                         apply()
                     }
+                    // Session tokens are stored encrypted (Keystore-backed) —
+                    // never plaintext on disk.
+                    TokenVault.save(this@SignInActivity, token, refreshToken)
 
                     // Best-effort: link this device to the signed-in account.
                     scope.launch { DeviceLinker.linkToAccount(this@SignInActivity, serverUrl, token) }

@@ -108,8 +108,7 @@ class GuardianBeaconScanner : Service() {
 
     /** GET /api/guardian/profile with the user token — opted_in gate. */
     private suspend fun guardianOptedIn(): Boolean {
-        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
-        val userToken = prefs.getString("user_token", "") ?: ""
+        val userToken = TokenVault.accessToken(this)
         if (userToken.isEmpty()) return false
         val request = Request.Builder()
             .url("${BuildConfig.SERVER_URL}/api/guardian/profile")
@@ -263,8 +262,7 @@ class GuardianBeaconScanner : Service() {
      * account token. Only real opted-in accounts pass the server gate.
      */
     private suspend fun reportSighting(token: String) {
-        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
-        val userToken = prefs.getString("user_token", "") ?: ""
+        val userToken = TokenVault.accessToken(this)
         if (userToken.isEmpty()) return // no signed-in account -> cannot report
 
         val (lat, lng) = lastKnownLocation() ?: run {
@@ -287,7 +285,7 @@ class GuardianBeaconScanner : Service() {
         try {
             client.newCall(request).execute().use { resp ->
                 if (resp.code in 200..299) {
-                    Log.d(TAG, "Sighting reported for token $token")
+                    Log.d(TAG, "Sighting reported for token ${token.take(6)}...")
                 } else {
                     // 403 = not opted in, 429 = rate limit, 400/404 = closed
                     // request. All are expected non-errors — log quietly.

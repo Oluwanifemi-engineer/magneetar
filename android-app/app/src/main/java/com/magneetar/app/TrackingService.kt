@@ -308,8 +308,7 @@ class TrackingService : Service() {
             try {
                 delay(6 * 60 * 60 * 1000L) // first pass after 6h, then every 6h
                 if (ensureFreshUserToken()) {
-                    val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
-                    val token = prefs.getString("user_token", "") ?: ""
+                    val token = TokenVault.accessToken(this)
                     if (token.isNotEmpty()) {
                         DeviceLinker.linkToAccount(this, SERVER, token)
                     }
@@ -357,12 +356,12 @@ class TrackingService : Service() {
      * to unlinked operation exactly as before.
      */
     private suspend fun ensureFreshUserToken(): Boolean {
-        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
-        val userToken = prefs.getString("user_token", "") ?: ""
+        // Tokens live in the Keystore-backed vault, not plaintext prefs.
+        val userToken = TokenVault.accessToken(this)
         if (userToken.isNotEmpty() && jwtExpiryMs(userToken) - System.currentTimeMillis() > 15 * 60 * 1000L) {
             return true
         }
-        val refreshToken = prefs.getString("user_refresh_token", "") ?: ""
+        val refreshToken = TokenVault.refreshToken(this)
         if (refreshToken.isEmpty()) return false
         return try {
             val body = JSONObject().apply { put("refresh_token", refreshToken) }.toString().toRequestBody(JSON)
@@ -371,10 +370,7 @@ class TrackingService : Service() {
                 val json = JSONObject(response)
                 val newToken = json.optString("token").takeIf { it.isNotEmpty() } ?: return false
                 val newRefresh = json.optString("refresh_token").takeIf { it.isNotEmpty() } ?: refreshToken
-                prefs.edit()
-                    .putString("user_token", newToken)
-                    .putString("user_refresh_token", newRefresh)
-                    .apply()
+                TokenVault.save(this, newToken, newRefresh)
                 true
             } else {
                 false
@@ -427,7 +423,7 @@ class TrackingService : Service() {
             // The token expires after 24h — refresh it first so an expired
             // token can never silently degrade this registration to ownerless.
             ensureFreshUserToken()
-            val userToken = getSharedPreferences("mt", Context.MODE_PRIVATE).getString("user_token", "") ?: ""
+            val userToken = TokenVault.accessToken(this)
             val extraHeaders = if (userToken.isNotEmpty()) {
                 mapOf("Authorization" to "Bearer $userToken")
             } else {
