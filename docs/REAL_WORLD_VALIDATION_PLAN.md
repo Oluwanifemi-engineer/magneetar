@@ -151,6 +151,11 @@ monitoring cadence from §5).
 
 ## 5. Sentry crash visibility (recommended for G1)
 
+> **Status: wired but NOT yet enabled (2026-08-14)** — the build config is
+> complete and inert (no DSN configured), so no build is affected. Enable
+> whenever ready by following the steps below; until then G1 relies on server
+> `error_log` + `last_seen` monitoring + the feedback forms.
+
 Server `error_log` + feedback forms catch what people notice; Sentry catches
 what they don't — every uncaught Java/Kotlin crash, with device model, OS
 version, breadcrumbs, and a readable stack trace, reported automatically.
