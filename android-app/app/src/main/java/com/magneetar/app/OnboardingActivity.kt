@@ -14,6 +14,11 @@ class OnboardingActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_onboarding)
 
+        // The footer version must reflect the actual build (BuildConfig), not a
+        // stale literal — it used to be hardcoded "Version 1.0.0" forever.
+        findViewById<android.widget.TextView>(R.id.tv_version).text =
+            getString(R.string.app_version, BuildConfig.VERSION_NAME)
+
         findViewById<android.widget.Button>(R.id.btn_get_started).setOnClickListener {
             startActivity(Intent(this, SignUpActivity::class.java))
         }

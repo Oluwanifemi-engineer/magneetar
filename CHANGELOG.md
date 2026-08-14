@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### Android v1.4.2 stability batch (2026-08-14)
+
+- **Onboarding footer showed a stale version forever** ("Version 1.0.0" was
+  hardcoded): `R.string.app_version` is now a format string and both
+  `OnboardingActivity` and the first-launch path in `MainActivity` render
+  `BuildConfig.VERSION_NAME` — every new user now sees the real build.
+- **Tracking service crash-looped on devices without a "network" location
+  provider**: `requestLocationUpdates` throws
+  `IllegalArgumentException("provider network does not exist")` on AOSP/
+  emulator images and devices with Google location services disabled — the
+  crash-restart loop left tracking silently dead. The service now checks
+  `getProvider(...)` before requesting each provider and never lets a
+  location-provider issue kill tracking (also fixes an endless-restart
+  variant in the guardian beacon scanner's last-known-location lookup).
+- **Uninstall guard was blocking the app's own setup/update dialogs**: the
+  accessibility guard engaged on ANY Settings window whose text mentioned
+  "Magneetar" — including the battery-optimization prompt (bounced the user
+  home and made the permission un-grantable), the precise-location change
+  dialog, and the package-installer Install confirmation for the app's own
+  APK updates. The guard now engages only on genuine app-management
+  surfaces (`InstalledAppDetails`, `ManageApplications`,
+  `DeviceAdminSettings`); `DeviceAdminAdd` (admin activation during
+  onboarding) is deliberately excluded.
+- Version bumped to **1.4.2** (versionCode 8); `docker-compose.yml`
+  `APP_VERSION` updated to match.
+
+### Test suite — Resend env leak fixed (2026-08-14)
+
+- **`tests/conftest.py` never stripped the new Resend credentials**: it
+  blanks real provider keys (`MT_TWILIO_*`, `MT_SENDGRID_KEY`, …) so tests
+  never hit live APIs, but the Resend round added `MT_RESEND_KEY` without
+  adding it to the strip list. With the production key in `server/.env`,
+  `send_transactional_email` took the REAL Resend delivery path during
+  tests — every register/forgot-password made a live resend.com call, and
+  `test_reset_token_never_logged_without_email_provider` failed (the
+  no-provider WARNING it pins never fired). `MT_RESEND_KEY` +
+  `MT_RESEND_API_KEY` are now stripped like the rest. Suite back to
+  **549 passed, 4 skipped**.
+
 ### Android: session tokens now encrypted at rest (2026-08-14)
 
 - **The app's session credentials are no longer stored in plaintext**: the

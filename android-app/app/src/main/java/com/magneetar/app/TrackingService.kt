@@ -786,14 +786,26 @@ class TrackingService : Service() {
             // which crashed with "Can't create handler inside thread...". Passing
             // the main looper explicitly makes the call thread-safe.
             val mainLooper = Looper.getMainLooper()
-            locationManager.requestLocationUpdates(
-                LocationManager.GPS_PROVIDER, LOCATION_INTERVAL_MS, 0f, listener, mainLooper
-            )
-            locationManager.requestLocationUpdates(
-                LocationManager.NETWORK_PROVIDER, LOCATION_INTERVAL_MS, 0f, listener, mainLooper
-            )
-        } catch (e: SecurityException) {
-            e.printStackTrace()
+            // Only request providers that actually exist on this device. Some
+            // devices (AOSP/emulator images, devices with Google location
+            // services disabled) have NO "network" provider — requesting it
+            // throws IllegalArgumentException("provider network does not
+            // exist"), which crashed the tracking service in an endless
+            // restart loop (tracking silently dead for the owner).
+            if (locationManager.getProvider(LocationManager.GPS_PROVIDER) != null) {
+                locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER, LOCATION_INTERVAL_MS, 0f, listener, mainLooper
+                )
+            }
+            if (locationManager.getProvider(LocationManager.NETWORK_PROVIDER) != null) {
+                locationManager.requestLocationUpdates(
+                    LocationManager.NETWORK_PROVIDER, LOCATION_INTERVAL_MS, 0f, listener, mainLooper
+                )
+            }
+        } catch (e: Exception) {
+            // Never let a location-provider issue kill tracking — degrade to
+            // whatever providers do exist instead of crashing the service.
+            android.util.Log.w("TrackingService", "Location updates failed to start: ${e.message}")
         }
     }
 

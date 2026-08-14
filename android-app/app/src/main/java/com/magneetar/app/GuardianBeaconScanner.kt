@@ -314,8 +314,11 @@ class GuardianBeaconScanner : Service() {
                 ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
                 ?: return null
             loc.latitude to loc.longitude
-        } catch (e: SecurityException) {
-            Log.w(TAG, "location permission revoked mid-run: ${e.message}")
+        } catch (e: Exception) {
+            // Permission revoked mid-run, or a provider that doesn't exist on
+            // this device (getLastKnownLocation throws for missing providers
+            // on some API levels) — never crash the scan loop.
+            Log.w(TAG, "location lookup failed: ${e.message}")
             null
         }
     }

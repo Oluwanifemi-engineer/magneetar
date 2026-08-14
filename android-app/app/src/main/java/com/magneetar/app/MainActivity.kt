@@ -38,6 +38,12 @@ class MainActivity : AppCompatActivity() {
             // First launch → show onboarding directly
             setContentView(R.layout.activity_onboarding)
             setupOnboardingButtons()
+            // Footer version must reflect the actual build (BuildConfig), not
+            // the raw format placeholder or a stale literal.
+            try {
+                findViewById<android.widget.TextView>(R.id.tv_version)?.text =
+                    getString(R.string.app_version, BuildConfig.VERSION_NAME)
+            } catch (_: Exception) {}
         } else if (userToken.isEmpty() || !hasAllPermissions() ||
                    (!hasDeviceAdmin() && !adminSkipped)
         ) {

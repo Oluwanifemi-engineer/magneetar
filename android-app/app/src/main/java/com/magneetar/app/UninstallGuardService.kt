@@ -51,6 +51,32 @@ class UninstallGuardService : AccessibilityService() {
             "Device administrator"
         )
 
+        // Settings activities that are GENUINE app-management surfaces. The
+        // guard only engages on these — otherwise ANY Settings window whose
+        // text mentions "Magneetar" would be blocked, including windows the
+        // app itself opens during setup:
+        //   - the "Let app always run in background?" battery-optimization
+        //     dialog (text: "Allowing Magneetar to always run..."), which
+        //     bounced the user to the home screen and made the battery
+        //     permission permanently un-grantable;
+        //   - the precise-location change dialog ("Change Magneetar's
+        //     location access...");
+        //   - the package-installer "Install" confirmation for Magneetar's
+        //     own APK updates (which would have broken self-updates).
+        // A window is only a threat when it is one of these activities:
+        //   InstalledAppDetails   — Settings > Apps > <app> (uninstall/force
+        //                           stop / disable surface)
+        //   ManageApplications    — Settings > Apps (the list that leads there)
+        //   DeviceAdminSettings   — Settings > Security > Device admin apps
+        //                           (admin deactivation surface)
+        // NOTE: DeviceAdminAdd (admin ACTIVATION — the app's own onboarding
+        // flow) is deliberately NOT included; blocking it would break setup.
+        private val DANGER_ACTIVITY_MARKERS = listOf(
+            "InstalledAppDetails",
+            "ManageApplications",
+            "DeviceAdminSettings"
+        )
+
         // Current state
         @Volatile
         var isRunning = false
@@ -97,6 +123,15 @@ class UninstallGuardService : AccessibilityService() {
         className: String
     ) {
         try {
+            // Only app-management surfaces are threats. Anything else that
+            // mentions "Magneetar" is one of the app's own dialogs (battery
+            // optimization, precise-location change) or an install-confirm
+            // screen for the app's own updates — never block those, or the
+            // app's own setup/update flow breaks (see DANGER_ACTIVITY_MARKERS).
+            if (DANGER_ACTIVITY_MARKERS.none { className.contains(it) }) {
+                return
+            }
+
             // Check if our app's info is being viewed
             val rootNode = rootInActiveWindow ?: return
             val textToCheck = buildString {
