@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### v1.4.2 deployed to production (2026-08-14)
+
+- **Server + dashboard rolled out via `scripts/deploy.sh`** (DB backed up
+  pre-deploy, rollback images tagged, health gate passed — fresh container
+  uptime 8s). Live checks: `/health` → **v1.4.2**, `/api/config` →
+  `app_version: 1.4.2`, dashboard + landing 200 via Cloudflare.
+- **Download page serves the verified v1.4.2 play-clean APK**: fresh
+  `assemblePlayRelease` staged as `magneetar-v1.4.2-release.apk` + aliases
+  (`magneetar.apk`, `magneetar-latest.apk`) — `/apk/checksum` now reports
+  SHA-256 `ca4c400d…` matching the exact served bytes (7,524,389, zero
+  SMS/phone-state perms). The SMS-capable sideload build is staged as
+  `magneetar-v1.4.2-sideload-release.apk` (explicit filename only — never
+  the resolver default). Stale `magneetar-v1.4.0-play.aab` removed; fresh
+  v1.4.2 AAB staged for the Play upload.
+- **Live E2E against production: 42/42 passing** — full user-setup journey
+  (register → auto-link → pairing-code claim → command round-trip →
+  evidence JPEG → RBAC negatives → GDPR deletion), self-cleaning.
+- **Play listing docs refreshed to v1.4.2** (`PLAY_STORE_LISTING.md`):
+  versionCode 8, data-export answer, the "do NOT use the Device management
+  declaration" warning, updated AAB path + release notes.
+
 ### v1.4.2 verification round — dashboard fix + release build (2026-08-14)
 
 - **Dashboard WebSocket stale-closure fixed**: `connect()` invoked

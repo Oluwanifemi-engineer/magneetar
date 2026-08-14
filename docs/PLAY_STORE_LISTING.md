@@ -1,6 +1,6 @@
 # Magneetar — Play Console Listing (copy-paste ready)
 
-**Date:** 2026-08-12 · **Build to upload:** v1.4.1 AAB (versionCode 7)
+**Date:** 2026-08-14 · **Build to upload:** v1.4.2 AAB (versionCode 8)
 **Assets:** `docs/play-assets/feature-graphic-1024x500.png`,
 `docs/play-assets/icon-512.png`
 
@@ -64,8 +64,9 @@ Works on Android 7.0 (API 24) and up.
 | **Device or other IDs** | **Yes** — Firebase instance ID (push delivery). Not shared |
 | **App activity** — app interactions / in-app search history | **No** |
 | **App info and performance** — crash logs / diagnostics | **No** (Sentry optional, off by default) |
-| **Security practices** | Data **encrypted in transit** (TLS); account secrets **hashed** (bcrypt) and **encrypted** (AES-256-GCM); **TOTP 2FA** available; **data deletion** supported (device + account, from the dashboard) |
+| **Security practices** | Data **encrypted in transit** (TLS); account secrets **hashed** (bcrypt) and **encrypted** (AES-256-GCM); **TOTP 2FA** available; **data deletion** supported (device + account, from the dashboard); deleted rows purged by the 90-day retention sweep |
 | Data can be deleted on request | **Yes** — `Delete Device` and `Delete Account` are in the dashboard (two-step confirm); documented at `/privacy` |
+| Does the app allow data export? | **Yes** — evidence/recovery PDF generation + read API access |
 
 ---
 
@@ -90,6 +91,12 @@ Declare each with its feature rationale (paste these verbatim):
 4. **`SYSTEM_ALERT_WINDOW`** — *The theft-deterrent full-screen overlay
    (alarm + lock notice) shown during an armed theft response. The app shows
    an on-device rationale and links to Settings for the grant.*
+
+> **Do NOT tick the "App content → Device management" declaration** — it is
+> for enterprise/MDM apps, triggers a rigorous manual review, and
+> misdeclaring a consumer app risks account termination. `BIND_DEVICE_ADMIN`
+> belongs in the **Permissions declaration** above (Cerberus-class precedent
+> ships Device Admin with honest disclosure).
 
 ---
 
@@ -116,11 +123,14 @@ Declare each with its feature rationale (paste these verbatim):
 ## 6. Production release
 
 1. Upload `android-app/app/build/outputs/bundle/playRelease/app-play-release.aab`
-   (freshly built 2026-08-12, `versionName 1.4.1`, `versionCode 7`, signed
-   with the release keystore, play flavor = **zero** SMS/phone-state perms).
-2. **Release notes:** "SIM-change detection, remote lock/wipe, evidence
-   capture with SHA-256 chain of custody, Guardian recovery network,
-   geofencing, background theft detection."
+   (freshly built 2026-08-14, `versionName 1.4.2`, `versionCode 8`, signed
+   with the release keystore — SHA-256 `02:4C:BB:34…0A:7F`, play flavor =
+   **zero** SMS/phone-state perms; also staged at
+   `server/static/apk/magneetar-v1.4.2-play.aab`).
+2. **Release notes:** "Session tokens encrypted at rest, SIM-change
+   detection, remote lock/wipe, evidence capture with SHA-256 chain of
+   custody, Guardian recovery network, geofencing, background theft
+   detection."
 3. **Rollout:** start at 10% staged rollout; watch for policy questions.
 4. Expect a **manual review** (device admin + background location). Have
    `docs/PLAY_READINESS_VERDICT.md` + `docs/security.md` ready to paste into
