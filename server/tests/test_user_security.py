@@ -357,7 +357,7 @@ class TestPasswordReset:
 
         logged = "\n".join(captured)
         # Metadata-only warning: recipient + subject, no body, no link.
-        assert "MT_SENDGRID_KEY not configured" in logged
+        assert "no email provider configured" in logged
         assert "recover@test.dev" in logged
         # The DEBUG body may be emitted, but the credential is redacted — the
         # link is present only with token=REDACTED, never with a real value.
@@ -459,3 +459,118 @@ class TestEmailVerification:
 
         # Single use — the same token cannot verify twice.
         assert client.post("/api/auth/verify-email", json={"token": raw}).status_code == 401
+
+
+class TestResendTransactionalEmail:
+    """send_transactional_email falls back to Resend when SendGrid is unset
+    (the current production state), and still never leaks tokens or the body
+    when no provider at all is configured."""
+
+    def test_uses_resend_when_sendgrid_unset(self, monkeypatch):
+        import asyncio
+
+        import user_security
+        from user_security import send_transactional_email
+
+        monkeypatch.setattr(config.settings, "SENDGRID_API_KEY", "")
+        monkeypatch.setattr(config.settings, "RESEND_API_KEY", "re_test123456")
+
+        calls = {}
+
+        class FakeAsyncClient:
+            def __init__(self, *a, **k):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def post(self, url, headers=None, json=None, timeout=None):
+                calls["url"] = url
+                calls["headers"] = headers
+                calls["json"] = json
+
+                class Resp:
+                    status_code = 200
+                    text = ""
+
+                return Resp()
+
+        monkeypatch.setattr(user_security.httpx, "AsyncClient", FakeAsyncClient)
+
+        ok = asyncio.run(send_transactional_email("owner@test.dev", "Reset", "reset body"))
+        assert ok is True
+        assert calls["url"] == "https://api.resend.com/emails"
+        assert calls["headers"]["Authorization"] == "Bearer re_test123456"
+        assert calls["headers"]["Content-Type"] == "application/json"
+        assert calls["json"]["to"] == ["owner@test.dev"]
+        assert calls["json"]["subject"] == "Reset"
+        assert calls["json"]["text"] == "reset body"
+        assert "onboarding@resend.dev" in calls["json"]["from"]
+
+    def test_resend_http_error_returns_false(self, monkeypatch):
+        import asyncio
+
+        import user_security
+        from user_security import send_transactional_email
+
+        monkeypatch.setattr(config.settings, "SENDGRID_API_KEY", "")
+        monkeypatch.setattr(config.settings, "RESEND_API_KEY", "re_test123456")
+
+        class FakeAsyncClient:
+            def __init__(self, *a, **k):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def post(self, url, headers=None, json=None, timeout=None):
+                class Resp:
+                    status_code = 401
+                    text = '{"message": "invalid api key"}'
+
+                return Resp()
+
+        monkeypatch.setattr(user_security.httpx, "AsyncClient", FakeAsyncClient)
+
+        assert asyncio.run(send_transactional_email("owner@test.dev", "Reset", "body")) is False
+
+    def test_sendgrid_still_preferred_when_both_configured(self, monkeypatch):
+        import asyncio
+
+        import user_security
+        from user_security import send_transactional_email
+
+        monkeypatch.setattr(config.settings, "SENDGRID_API_KEY", "SG.test123")
+        monkeypatch.setattr(config.settings, "RESEND_API_KEY", "re_test123456")
+
+        calls = {}
+
+        class FakeAsyncClient:
+            def __init__(self, *a, **k):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def post(self, url, headers=None, json=None, timeout=None):
+                calls["url"] = url
+
+                class Resp:
+                    status_code = 202
+                    text = ""
+
+                return Resp()
+
+        monkeypatch.setattr(user_security.httpx, "AsyncClient", FakeAsyncClient)
+
+        assert asyncio.run(send_transactional_email("owner@test.dev", "Reset", "body")) is True
+        assert calls["url"] == "https://api.sendgrid.com/v3/mail/send"

@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### Resend email provider (2026-08-14)
+
+- **Transactional email now has a real provider path**: password-reset and
+  email-verification links were never delivered in production because no
+  email provider was configured (`MT_SENDGRID_KEY` unset; the flow only
+  reached server logs). Added a **Resend** provider: `send_transactional_email`
+  now tries SendGrid → Resend → (metadata-only log), and `email_service`
+  (alert templates) has the same SendGrid → Resend → SMTP → log chain.
+  New config: `MT_RESEND_KEY`, optional `MT_RESEND_FROM`. 3 regression tests
+  cover the Resend path, HTTP-failure handling, and that SendGrid stays
+  preferred when both keys are set. Suite 549 passed, lint clean.
+  Deployment: set `MT_RESEND_KEY` in `server/.env` and rebuild — pending
+  the key value.
+
 ### Security: credentials no longer leak into server logs (2026-08-14)
 
 - **Reset/verify tokens stopped leaking to logs**: `send_transactional_email`

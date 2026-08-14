@@ -69,6 +69,14 @@ class Settings:
 
     # ── Alert Services ─────────────────────────────────────────────────────
     SENDGRID_API_KEY: str = os.environ.get("MT_SENDGRID_KEY", "")
+    # Resend (resend.com) — alternate transactional email provider. Used as
+    # the automatic fallback when SendGrid is not configured, and as the
+    # primary when only this key is set. Trial accounts can only deliver to
+    # the account owner's verified email until a sending domain is added.
+    RESEND_API_KEY: str = os.environ.get("MT_RESEND_KEY", "")
+    # Optional verified sender for Resend ("Magneetar <alerts@magneetar.me>").
+    # Defaults to Resend's onboarding@resend.dev test sender.
+    RESEND_FROM: str = os.environ.get("MT_RESEND_FROM", "")
     TERMII_API_KEY: str = os.environ.get("MT_TERMII_KEY", "")
     TWILIO_SID: str = os.environ.get("MT_TWILIO_SID", "")
     TWILIO_AUTH_TOKEN: str = os.environ.get("MT_TWILIO_AUTH_TOKEN", "")

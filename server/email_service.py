@@ -1,10 +1,12 @@
 """
 Magneetar Email Service
-Complete email integration with SendGrid, fallback to SMTP, and logging.
+Complete email integration with SendGrid, fallback to Resend, SMTP, and
+logging.
 
 Features:
 - SendGrid primary (transactional + alerts)
-- SMTP fallback (when SendGrid not configured)
+- Resend fallback (when SendGrid not configured)
+- SMTP fallback (when neither API provider is configured)
 - Email templates for all notification types
 - Delivery tracking and retry logic
 - Rate limiting per recipient
@@ -28,6 +30,7 @@ class EmailService:
 
     def __init__(self):
         self._sendgrid_configured = bool(settings.SENDGRID_API_KEY)
+        self._resend_configured = bool(settings.RESEND_API_KEY)
         self._smtp_configured = all(
             [
                 getattr(settings, "SMTP_HOST", None),
@@ -112,7 +115,14 @@ class EmailService:
             try:
                 return await self._send_via_sendgrid(to, subject, html_content, text_content)
             except Exception as e:
-                logger.warning("SendGrid failed, trying SMTP: %s", e)
+                logger.warning("SendGrid failed, trying Resend: %s", e)
+
+        # Resend second
+        if self._resend_configured:
+            try:
+                return await self._send_via_resend(to, subject, html_content, text_content)
+            except Exception as e:
+                logger.warning("Resend failed, trying SMTP: %s", e)
 
         # Fallback to SMTP
         if self._smtp_configured:
@@ -163,6 +173,44 @@ class EmailService:
             if not success:
                 logger.warning(
                     "SendGrid returned %d: %s",
+                    response.status_code,
+                    response.text[:200],
+                )
+            return success
+
+    async def _send_via_resend(
+        self,
+        to: str,
+        subject: str,
+        html_content: str,
+        text_content: Optional[str] = None,
+    ) -> bool:
+        """Send email via the Resend API (resend.com)."""
+        payload = {
+            "from": settings.RESEND_FROM or "Magneetar <onboarding@resend.dev>",
+            "to": [to],
+            "subject": subject,
+        }
+        if text_content:
+            payload["text"] = text_content
+        if html_content:
+            payload["html"] = html_content
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=10,
+            )
+
+            success = response.status_code in (200, 201)
+            if not success:
+                logger.warning(
+                    "Resend returned %d: %s",
                     response.status_code,
                     response.text[:200],
                 )
@@ -231,8 +279,10 @@ class EmailService:
         """Get email service status."""
         return {
             "sendgrid_configured": self._sendgrid_configured,
+            "resend_configured": self._resend_configured,
             "smtp_configured": self._smtp_configured,
             "available_providers": (["sendgrid"] if self._sendgrid_configured else [])
+            + (["resend"] if self._resend_configured else [])
             + (["smtp"] if self._smtp_configured else []),
         }
 

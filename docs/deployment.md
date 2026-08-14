@@ -185,6 +185,8 @@ cloudflared:
 | `MT_HOST` | No | `0.0.0.0` | Server bind address |
 | `MT_PORT` | No | `8000` | Server port |
 | `MT_SENDGRID_KEY` | No | — | SendGrid API key for email alerts |
+| `MT_RESEND_KEY` | No | — | Resend API key (fallback email provider; used when SendGrid is unset). Trial accounts can only deliver to the account owner's verified email until a sending domain is added |
+| `MT_RESEND_FROM` | No | `Magneetar <onboarding@resend.dev>` | Verified sender for Resend, e.g. `Magneetar <alerts@magneetar.me>` |
 | `MT_TERMII_KEY` | No | — | Termii API key for SMS alerts |
 | `MT_TWILIO_SID` | No | — | Twilio SID for WhatsApp alerts |
 | `MT_TWILIO_AUTH_TOKEN` | No | — | Twilio auth token |
@@ -235,7 +237,7 @@ cloudflared:
 
 ### Alerts (Configure at least one)
 
-- [ ] SendGrid API key set for email alerts
+- [ ] Email provider configured (`MT_SENDGRID_KEY` or `MT_RESEND_KEY`) so password-reset and verification emails actually deliver
 - [ ] Termii API key set for SMS alerts (Nigerian users)
 - [ ] Twilio configured for WhatsApp alerts (optional)
 - [ ] Alert phone number and email configured

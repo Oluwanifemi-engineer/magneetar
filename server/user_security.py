@@ -17,9 +17,9 @@ Security model:
   disable 2FA.
 - Password reset: tokens are single-use, expiring (15 min), and stored only
   as SHA-256 hashes. The endpoint never reveals whether an email exists
-  (no account enumeration) and delivers the reset link by email (SendGrid;
-  inert + logged when email is not configured — same graceful degradation
-  as the rest of the alert stack).
+  (no account enumeration) and delivers the reset link by email (SendGrid,
+  else Resend; inert + logged when no provider is configured — same
+  graceful degradation as the rest of the alert stack).
 - Email verification uses the same single-use hashed-token pattern.
 
 These routes are user-account-only: operator (dashboard/API-key) sessions
@@ -186,38 +186,61 @@ async def send_transactional_email(to: str, subject: str, text: str) -> bool:
     production logs carry recipient + subject and nothing an attacker could
     use to take over an account.
     """
-    if not settings.SENDGRID_API_KEY:
-        # Delivery failed / no provider: warn with metadata only — never the
-        # body, which contains the single-use reset/verify link. Emitting the
-        # full text at WARNING used to print the raw token to logs (anyone
-        # with log access could reset any account).
-        logger.warning(
-            "Transactional email NOT sent to %s — MT_SENDGRID_KEY not configured (subject=%s)",
-            to,
-            subject,
-        )
-        logger.debug("Transactional email body (tokens redacted):\n%s", _redact_email_tokens(text))
-        return False
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.sendgrid.com/v3/mail/send",
-                headers={
-                    "Authorization": f"Bearer {settings.SENDGRID_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "personalizations": [{"to": [{"email": to}]}],
-                    "from": {"email": "alerts@magneetar.me", "name": "Magneetar"},
-                    "subject": subject,
-                    "content": [{"type": "text/plain", "value": text}],
-                },
-                timeout=10,
-            )
-            return response.status_code in (200, 202)
-    except Exception as e:
-        logger.warning(f"Transactional email send failed: {e}")
-        return False
+    if settings.SENDGRID_API_KEY:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.sendgrid.com/v3/mail/send",
+                    headers={
+                        "Authorization": f"Bearer {settings.SENDGRID_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "personalizations": [{"to": [{"email": to}]}],
+                        "from": {"email": "alerts@magneetar.me", "name": "Magneetar"},
+                        "subject": subject,
+                        "content": [{"type": "text/plain", "value": text}],
+                    },
+                    timeout=10,
+                )
+                return response.status_code in (200, 202)
+        except Exception as e:
+            logger.warning("SendGrid send failed: %s", e)
+            return False
+
+    if settings.RESEND_API_KEY:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.resend.com/emails",
+                    headers={
+                        "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "from": settings.RESEND_FROM or "Magneetar <onboarding@resend.dev>",
+                        "to": [to],
+                        "subject": subject,
+                        "text": text,
+                    },
+                    timeout=10,
+                )
+                return response.status_code in (200, 201)
+        except Exception as e:
+            logger.warning("Resend send failed: %s", e)
+            return False
+
+    # Delivery failed / no provider: warn with metadata only — never the
+    # body, which contains the single-use reset/verify link. Emitting the
+    # full text at WARNING used to print the raw token to logs (anyone with
+    # log access could reset any account).
+    logger.warning(
+        "Transactional email NOT sent to %s — no email provider configured (subject=%s)",
+        to,
+        subject,
+    )
+    logger.debug("Transactional email body (tokens redacted):\n%s", _redact_email_tokens(text))
+    return False
 
 
 # ─── Token issuance for reset/verify emails ─────────────────────────────────
