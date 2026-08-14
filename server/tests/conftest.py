@@ -7,8 +7,8 @@ override=False, so a variable that is already present (even as an empty
 string) wins over the .env file — which is exactly what we exploit here.
 
 Why this matters: without it, alert-path tests inherited the developer's live
-Twilio / SendGrid / Firebase credentials from server/.env and made REAL
-network calls to those APIs during the run. The occasional slow or
+Twilio / SendGrid / Resend / Firebase credentials from server/.env and made
+REAL network calls to those APIs during the run. The occasional slow or
 unreachable provider blew past the 30s request-timeout middleware (HTTP 504),
 which aborted the request before the alert row was written — producing
 order- and timing-dependent flakes (e.g. test_sim_change.py's
@@ -34,6 +34,14 @@ for _var in (
     "MT_ALERT_EMAIL",
     "MT_SENDGRID_KEY",
     "MT_SENDGRID_API_KEY",
+    # Resend transactional email — added to the strip list with the provider
+    # round (2026-08-14): without it, tests took the REAL Resend delivery path
+    # whenever the host .env carries MT_RESEND_KEY, making live resend.com
+    # calls on every register/forgot-password and breaking
+    # test_reset_token_never_logged_without_email_provider (the no-provider
+    # WARNING it pins never fired).
+    "MT_RESEND_KEY",
+    "MT_RESEND_API_KEY",
     "MT_TERMII_KEY",
     "MT_FIREBASE_KEY",
 ):
