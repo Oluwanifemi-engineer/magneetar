@@ -192,6 +192,26 @@ if curl -sf https://api.magneetar.me/health > /dev/null 2>&1; then
 else
     echo "   ⚠️  api.magneetar.me not responding — check Cloudflare tunnel"
 fi
+
+# The dashboard is served under TWO public hostnames (magneetar.me — the
+# marketing domain printed on flyers/security.txt — and app.magneetar.me).
+# They share one origin (both route to the dashboard container via the
+# tunnel), so a successful deploy MUST leave them serving the same build.
+# Compare the chunk-hash of each host's HTML: a divergence here means one
+# host is serving a stale bundle (e.g. an edge cache or a second origin),
+# which previously went unnoticed because only app.* was checked.
+page_chunk_hash() {
+    curl -sf "$1" 2>/dev/null | grep -oE '/_next/static/chunks/[a-zA-Z0-9_-]+\.js' | sort -u | md5sum | cut -d' ' -f1
+}
+BARE_HASH=$(page_chunk_hash https://magneetar.me/)
+APP_HASH=$(page_chunk_hash https://app.magneetar.me/)
+if [ -n "$BARE_HASH" ] && [ "$BARE_HASH" = "$APP_HASH" ]; then
+    echo "   ✅ magneetar.me and app.magneetar.me serve the same build (chunk $BARE_HASH)"
+else
+    echo "   ❌ BUILD DIVERGENCE: magneetar.me=($BARE_HASH) app.magneetar.me=($APP_HASH)"
+    echo "      Both hosts must serve the same bundle — purge edge caches and re-check."
+fi
+
 echo ""
 
 echo "╔══════════════════════════════════════════════════════════════╗"
