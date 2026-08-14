@@ -98,6 +98,25 @@ MT_DATABASE_URL=postgresql://user:pass@localhost:5432/magneetar
 
 ### 3. Start Development Server
 
+**Recommended — docker dev stack** (prod-parity runtime: same image, Python
+3.12, Redis-backed multi-worker WebSocket broadcast; isolated dev volumes):
+
+```bash
+make dev                    # or: scripts/dev-server.sh start
+# API at http://localhost:8000, redis for realtime broadcast
+
+scripts/dev-server.sh stop|restart|status|logs   # control the stack
+scripts/dev-server.sh reset                       # wipe dev data + rebuild fresh
+```
+
+Why docker for dev: the ad-hoc host-uvicorn setup drifted from production
+(host Python version, no Redis, root-owned processes, port confusion with the
+prod container). The dev stack runs the same image and env shape as
+production — what works locally is what ships.
+
+**Lightweight alternative** — host venv with auto-reload (no Redis, single
+worker):
+
 ```bash
 make server
 # Server running at http://localhost:8000 (uvicorn --reload)
@@ -107,7 +126,7 @@ make server
 
 ```bash
 make dashboard
-# Dashboard at http://localhost:3000
+# Dashboard at http://localhost:3000 (dev) — points at localhost:8000 by default
 ```
 
 ### 5. Run Tests & Quality Gates

@@ -1,0 +1,89 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAGNEETAR — DEVELOPMENT STACK (server + redis)
+# ═══════════════════════════════════════════════════════════════════════════════
+# One-command, reproducible dev environment that matches PRODUCTION exactly
+# (same image, same python 3.12, same redis-backed multi-worker broadcast)
+# without touching the production stack (docker-compose.yml → :8002 /
+# api.magneetar.me).
+#
+# Why this exists: the ad-hoc "host uvicorn on :8000" dev server caused a
+# recurring class of problems — root-owned processes, host Python version
+# drift (3.14 host vs 3.12 container), multi-worker spawn hangs, and port
+# confusion with the prod container. A compose dev stack removes all of it:
+# one command to start/stop, prod-parity runtime, isolated dev data volumes.
+#
+# Usage:
+#   scripts/dev-server.sh start | stop | restart | status | logs | reset
+#   (or: docker compose -f docker-compose.dev.yml up -d --build)
+#
+# The host dashboard dev server (npm run dev, :3001) targets localhost:8000
+# by default (dashboard/src/lib/api.ts), which is exactly where this stack
+# publishes the API — no config needed.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: magneetar-dev
+
+services:
+  # Realtime broadcast bus — required for the multi-worker WebSocket fan-out
+  # (the server image runs 4 uvicorn workers, exactly like production).
+  redis:
+    image: redis:7-alpine
+    container_name: magneetar-dev-redis
+    restart: unless-stopped
+    # Pub/sub only — nothing to persist. Bounded memory keeps it tiny.
+    command:
+      ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      args:
+        # Dev builds get a clearly-labeled version in /health.
+        APP_VERSION: "dev"
+    container_name: magneetar-dev-server
+    restart: unless-stopped
+    depends_on:
+      redis:
+        # Wait for the pub/sub bus to be HEALTHY — the server's broadcast
+        # listener subscribes at boot and messages published before the
+        # first subscribe would be lost (same contract as production).
+        condition: service_healthy
+    ports:
+      # The dashboard dev server (host :3001) calls the API at
+      # http://localhost:8000 — this is the dev stack's published port.
+      - "8000:8000"
+    env_file:
+      - ./server/.env
+    environment:
+      - MT_ENVIRONMENT=development
+      # SQLite on a DEV volume — separate from production's magneetar-data,
+      # so dev registrations/data can never leak into prod (and vice versa).
+      - MT_DB_PATH=/app/data/magneetar.db
+      - MT_MEDIA_DIR=/app/media
+      # Multi-worker realtime: Redis pub/sub keeps WebSocket broadcasts
+      # consistent across the 4 uvicorn workers (see websocket_manager.py).
+      - MT_REDIS_URL=redis://redis:6379/0
+    volumes:
+      - magneetar-dev-data:/app/data
+      - magneetar-dev-media:/app/media
+      - ./server/static/apk:/app/static/apk
+      # Firebase service-account JSON for FCM push (server/.env sets
+      # MT_FIREBASE_KEY=./firebase-key.json → /app/firebase-key.json).
+      - ./server/firebase-key.json:/app/firebase-key.json:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  # Dev-only data. `scripts/dev-server.sh reset` wipes these for a clean slate.
+  magneetar-dev-data:
+  magneetar-dev-media:

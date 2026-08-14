@@ -23,7 +23,16 @@ help:           ## Show this help
 
 # ─── Server ───────────────────────────────────────────────────────────────────
 
-server:         ## Start the FastAPI development server
+dev:            ## Start the docker dev stack (API :8000 + redis) — prod-parity
+	bash scripts/dev-server.sh start
+
+dev-stop:       ## Stop the docker dev stack (dev data kept)
+	bash scripts/dev-server.sh stop
+
+dev-reset:      ## Wipe dev data volumes + rebuild the docker dev stack fresh
+	bash scripts/dev-server.sh reset
+
+server:         ## Start the FastAPI dev server on the host (lightweight, --reload)
 	cd server && source venv/bin/activate && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 server-install: ## Install server dependencies (runtime + dev tooling)

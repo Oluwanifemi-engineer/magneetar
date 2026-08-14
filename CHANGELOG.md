@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### Dev environment overhaul (2026-08-14 — docker dev stack + cleanup)
+
+- **New `docker-compose.dev.yml`** — a proper, one-command dev environment
+  that matches production exactly: same server image (Python 3.12), same
+  Redis-backed multi-worker WebSocket broadcast, isolated dev volumes
+  (`magneetar-dev-data` / `magneetar-dev-media`). Publishes the API on
+  `localhost:8000` (what the dashboard dev server targets by default).
+  Replaces the ad-hoc host-uvicorn setup that caused recurring issues:
+  root-owned processes, host-vs-container Python drift (3.14 vs 3.12),
+  multi-worker spawn hangs, and port confusion with the prod container.
+- **New `scripts/dev-server.sh`** — `start | stop | restart | status |
+  logs | reset` (reset wipes dev volumes for a clean slate). Makefile
+  aliases: `make dev` / `make dev-stop` / `make dev-reset`.
+- **Host `make server` kept** as the lightweight auto-reload alternative
+  (documented in README); docker dev stack is now the recommended path.
+- **Cleanup**: 172 stray test-media temp dirs + session scratch (smoke
+  DBs, commit-message files, stray logs) removed from /tmp; the pre-deploy
+  prod DB backup was moved from volatile /tmp into `backups/` (gzipped,
+  matching the backup-db.sh convention).
+
 ### Developer API keys v2 (2026-08-14 — read-only keys + usage metering)
 
 - **Read-only key type** (`mtk_read_<32>`, `key_type: "readonly"`): for
