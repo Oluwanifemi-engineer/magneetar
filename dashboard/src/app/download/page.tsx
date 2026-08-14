@@ -123,6 +123,10 @@ const INSTALL_FAQ = [
     q: 'How do I know the file is genuine?',
     a: 'The SHA-256 checksum in the Verify section below is the fingerprint of the exact file served — compare it to the downloaded file, and it\'s also printed on this page.',
   },
+  {
+    q: 'Android says “App not installed”',
+    a: 'Three usual causes, in order: (1) An older Magneetar build is already on the phone, signed with a different key — uninstall the old Magneetar first (Settings → Apps → Magneetar → Uninstall), then install again. (2) The download was interrupted or incomplete — compare the file\'s SHA-256 with the checksum in the Verify section below, then download again. (3) Play Protect quietly blocked the install — temporarily pause “Scan apps with Play Protect” in Settings → Security, install, then turn it back on.',
+  },
 ];
 
 function formatBytes(bytes: number): string {

@@ -69,7 +69,25 @@ table per device, or keep one big matrix with columns per slot.
 | 5 | ☐/2 |  |  |  |  |
 | 6 | ☐/2 |  |  |  |  |
 
-## 5. Server-side signals (checked at exit)
+## 5. Issues log (every real-world finding, from day one)
+
+| # | Date | Device | Reported by | Symptom | Triage | Resolution | Status |
+|---|---|---|---|---|---|---|---|
+| 1 | 2026-08-14 | TBD | Tester | “App not installed” after granting permissions — install never completes | Likely (a) signature conflict with an older build on the phone, (b) interrupted download (checksum mismatch), or (c) Play Protect quietly blocking | Diagnosing — fix steps added to the download page FAQ; see the install decision tree below | 🔴 OPEN |
+
+**Install decision tree (for “App not installed”):**
+1. Was Magneetar installed on this phone before? → Uninstall the old app
+   (Settings → Apps → Magneetar → Uninstall), then install the new APK. A
+   change of signing key (old keystore vs release.keystore) makes Android
+   refuse the update with exactly this error.
+2. Is the SHA-256 of the downloaded file identical to the checksum shown on
+   the download page? → If not, the download was truncated; download again.
+3. Is Play Protect on? → Pause “Scan apps with Play Protect” (Settings →
+   Security → App security), install, then re-enable.
+4. Still failing? Record the EXACT error wording + Android version and open
+   a new issue row here — this is what G1 is for.
+
+## 6. Server-side signals (checked at exit)
 
 | Signal | Where | Result |
 |---|---|---|
@@ -78,7 +96,7 @@ table per device, or keep one big matrix with columns per slot.
 | `/health` uptime + DB health over the window | api.magneetar.me/health |  |
 | Sentry events (if DSN configured) | Sentry project dashboard |  |
 
-## 6. G1 exit checklist (ALL boxes required to pass)
+## 7. G1 exit checklist (ALL boxes required to pass)
 
 - [ ] Device roster: ≥6 devices / ≥4 OEMs (incl. Transsion + no-network-provider regression device)
 - [ ] Each device ran ≥2 continuous weeks as a daily driver
