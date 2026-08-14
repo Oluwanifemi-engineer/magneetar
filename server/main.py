@@ -642,6 +642,17 @@ def _verify_apk_ticket(expires_epoch: int, sig: str) -> bool:
     return hmac.compare_digest(expected, sig) and now <= expires_epoch and expires_epoch - now <= APK_TICKET_TTL_SECONDS
 
 
+def _apk_ticket_sig_valid(expires_epoch: int, sig: str) -> bool:
+    """True when the signature is GENUINE (constant-time compare), regardless
+    of whether the window has lapsed. Used to tell a tampered/forged ticket
+    (bad signature → 403) apart from a genuine-but-stale one (valid signature,
+    expired window → 302 self-heal)."""
+    if not sig:
+        return False
+    expected = _sign_apk_ticket(expires_epoch)
+    return hmac.compare_digest(expected, sig)
+
+
 @app.get("/apk/ticket")
 async def apk_ticket(request: Request):
     """Mint a short-lived signed download URL for the current release APK.
@@ -742,11 +753,27 @@ async def download_apk(expires: int = 0, sig: str = ""):
     2. magneetar-latest.apk                  (the always-current pointer)
     3. the newest magneetar-*.apk on disk     (last resort)
     """
+    if not sig:
+        # A bare link (no ticket at all) is almost certainly a human clicking
+        # the URL or a scraper probing — self-heal to the download page, which
+        # mints a fresh ticket on load.
+        return RedirectResponse(
+            _apk_download_page(),
+            status_code=302,
+        )
+    if not _apk_ticket_sig_valid(expires, sig):
+        # A PRESENT but forged/tampered signature gets a clean 403 — this is
+        # an attack probe or a corrupted link, and self-healing would just
+        # mask it. Only genuine signatures may ever receive the self-heal
+        # redirect or the bytes.
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid or expired download link — mint a fresh one from the download page",
+        )
     if not _verify_apk_ticket(expires, sig):
-        # A stale/expired link must not dead-end on raw JSON: the download page
-        # mints a fresh ticket on load, so bounce the browser there (302 — the
-        # ticket itself is still REQUIRED to receive bytes, so the anti-scrape
-        # gate is unchanged; only the error UX changed).
+        # Genuine signature whose window lapsed (stale/expired link) — don't
+        # dead-end on raw JSON: the download page mints a fresh ticket on
+        # load, so bounce the browser there.
         return RedirectResponse(
             _apk_download_page(),
             status_code=302,

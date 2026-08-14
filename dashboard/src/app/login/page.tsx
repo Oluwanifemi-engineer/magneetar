@@ -19,6 +19,7 @@ import {
   Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PRODUCT_STATS } from '@/lib/productStats';
 
 type LoginMode = 'account' | 'apikey';
 
@@ -375,15 +376,12 @@ export default function LoginPage() {
           </div>
 
           {/* ─── Verifiable signals (no fabricated adoption numbers — the
-              project shows real counts only when real users exist) */}
+              project shows real counts only when real users exist; values are
+              single-sourced from @/lib/productStats) */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 animate-fade-slide" style={{ animationDelay: '0.2s' }}>
-            {[
-              { value: '381', label: 'automated tests' },
-              { value: '24/7', label: 'stealth tracking' },
-              { value: 'SHA-256', label: 'evidence chain' },
-            ].map((stat) => (
+            {PRODUCT_STATS.map((stat) => (
               <div key={stat.label} className="flex items-baseline gap-1.5">
-                <span className="text-sm font-bold font-mono text-white">{stat.value}</span>
+                <span className="text-sm font-bold font-mono text-white">{stat.display}</span>
                 <span className="text-[10px] font-mono font-bold tracking-wider text-white/35 uppercase">{stat.label}</span>
               </div>
             ))}

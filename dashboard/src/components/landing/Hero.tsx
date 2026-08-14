@@ -4,14 +4,13 @@ import Link from 'next/link';
 import { ArrowRight, ShieldCheck, Radar, MapPin, Camera, ChevronRight, Download, Check } from 'lucide-react';
 import { VersionBadge } from './VersionBadge';
 import { AnimatedCounter } from '@/components/ui/AnimatedCounter';
+import { PRODUCT_STATS } from '@/lib/productStats';
 
-// Stats with numeric values for animation
-const HERO_STATS = [
-  { value: 381, label: 'automated tests', suffix: '' },
-  { value: 24, label: 'stealth tracking', suffix: '/7' },
-  // Honest claim: location telemetry is stored with integrity hashing (the
-  // evidence SHA-256 chain), not blanket AES encryption at rest.
-  { value: 256, label: 'chain-of-custody hashing', prefix: 'SHA-', suffix: '-bit' },
+// Stats with numeric values for animation. The first three are single-sourced
+// from PRODUCT_STATS (so the hero and login page can never diverge); the 4th
+// (3-layer background persistence) is hero-only.
+const HERO_STATS: { value: number; label: string; prefix?: string; suffix?: string }[] = [
+  ...PRODUCT_STATS.map((s) => ({ value: s.value, label: s.label, prefix: s.prefix, suffix: s.suffix })),
   { value: 3, label: 'background persistence', suffix: '-layer' },
 ];
 

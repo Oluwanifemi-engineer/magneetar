@@ -85,6 +85,14 @@ from encryption import encrypt_location_for_store as _encrypt_location_for_store
 # registration wrote to (FK failures under full-suite runs). Binding here
 # captures the same pre-eviction instance the app's dashboard router holds.
 from evidence import evidence_builder  # noqa: E402
+
+# Same pre-eviction binding for the APK ticket signer: test_e2e evicts
+# config/main and re-imports them with a DIFFERENT MT_JWT_SECRET, so a
+# function-local `from main import _sign_apk_ticket` (post-eviction) signs
+# with e2e's key while the app's route still validates with the pre-eviction
+# one — a genuinely signed URL would be rejected as forged. Binding here
+# captures the same pre-eviction signer the app validates against.
+from main import _sign_apk_ticket  # noqa: E402
 from main import app  # noqa: E402
 
 # Same pre-eviction binding for the devices router, so a monkeypatched
@@ -1775,13 +1783,13 @@ class TestApkChecksum:
 
     def test_download_requires_valid_ticket(self):
         """F-05 gating: /apk/download without a valid signed ticket never
-        serves bytes. Since 2026-08-11 a missing/expired ticket is redirected
-        (302) to the download page — which mints a fresh ticket — instead of
-        a raw 403 JSON body, so stale links self-heal. Forged/expired
-        signatures must redirect too, never serve the APK."""
+        serves bytes. The three failure modes are distinguished by intent:
+        - bare link (no sig) → 302 self-heal to the download page (human error)
+        - PRESENT but forged/tampered sig → 403 (attack probe / corrupted link;
+          masking it with a redirect would hide the tampering)
+        - genuine signature whose window lapsed → 302 self-heal (stale link)
+        """
         import time
-
-        from main import _sign_apk_ticket
 
         download_page = config.settings.DASHBOARD_URL.rstrip("/") + "/download"
 
@@ -1792,7 +1800,11 @@ class TestApkChecksum:
         # follow_redirects=False — the test app has no /download route, and the
         # point is to assert the redirect itself, not its target page.
         assert_redirects(client.get("/apk/download", follow_redirects=False))
-        assert_redirects(client.get("/apk/download?expires=9999999999&sig=deadbeef", follow_redirects=False))
+
+        # A PRESENT but forged signature must be rejected with a clean 403 —
+        # never a redirect (which would mask tampering) and never bytes.
+        forged = client.get("/apk/download?expires=9999999999&sig=deadbeef", follow_redirects=False)
+        assert forged.status_code == 403, f"expected 403 for forged sig, got {forged.status_code}"
 
         # A genuinely signed URL is redirected once its window has lapsed.
         past = int(time.time()) - 3600
