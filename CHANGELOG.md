@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### G1 validation tooling + Sentry enablement (2026-08-14)
+
+- **G1 tracker** (`docs/g1-validation-tracker.md`) — fillable per-device /
+  per-condition pass-fail log: device roster (≥6 devices / ≥4 OEMs incl. the
+  Transsion + no-network-provider regression slots), condition matrix keyed
+  to the validation plan, recovery-drill log, battery-drain table, feedback
+  summary, server-signal checks, and the G1 exit checklist.
+- **Tester recruitment messages** (`docs/tester-recruitment-message.md`) —
+  WhatsApp-ready copy (group pitch, one-to-one onboarding with the honest
+  Play-Protect install path, mid-window nudge, end-of-window wrap-up),
+  written to never read like a scam.
+- **Tester feedback form** (`docs/tester-feedback-form.md`) — weekly
+  5-minute form + end-of-window verdict (ship / fix-first / not ready),
+  with an owner triage guide (P0/P1/P2 rules).
+- **Sentry: mapping-upload gap closed + enable steps documented**: the app
+  was already wired for crash reporting (sentry-android 7.14.0, plugin,
+  manual init, ProGuard rules) but `autoUploadProguardMapping` was
+  hardcoded off — even with a DSN, release builds would have reported
+  obfuscated, unreadable traces. The `sentry {}` block now reads
+  `SENTRY_AUTH_TOKEN` / `SENTRY_ORG` / `SENTRY_PROJECT` (the same -P → env →
+  local.properties lookup as every other secret) and enables ProGuard
+  mapping upload only when DSN + token + org + project are all present —
+  DSN alone gives crash events, so the graded behavior can never break a
+  release build. Enable steps in the validation plan §5.
+
 ### Product decision — Play submission gated on real-world validation (2026-08-14)
 
 - **Owner decision (ADR-0006): no Play Store production submission until

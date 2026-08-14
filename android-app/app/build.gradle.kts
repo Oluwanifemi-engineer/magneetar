@@ -62,6 +62,27 @@ val sentryDsn = (project.findProperty("SENTRY_DSN") as String?)
     ?: localProperty("SENTRY_DSN")
     ?: ""
 
+// Sentry mapping-upload credentials — optional. The DSN above alone enables
+// crash reporting in the app (MainActivity.initSentrySafe); the auth token +
+// org/project slugs are only needed to auto-upload ProGuard mappings so
+// release stack traces de-obfuscate (see the sentry { } block). Same lookup
+// pattern as every other build secret: -P flag → env → local.properties.
+val sentryAuthToken = (project.findProperty("SENTRY_AUTH_TOKEN") as String?)
+    ?.takeIf { it.isNotBlank() }
+    ?: System.getenv("MT_SENTRY_AUTH_TOKEN")?.takeIf { it.isNotBlank() }
+    ?: localProperty("SENTRY_AUTH_TOKEN")
+    ?: ""
+val sentryOrg = (project.findProperty("SENTRY_ORG") as String?)
+    ?.takeIf { it.isNotBlank() }
+    ?: System.getenv("MT_SENTRY_ORG")?.takeIf { it.isNotBlank() }
+    ?: localProperty("SENTRY_ORG")
+    ?: ""
+val sentryProject = (project.findProperty("SENTRY_PROJECT") as String?)
+    ?.takeIf { it.isNotBlank() }
+    ?: System.getenv("MT_SENTRY_PROJECT")?.takeIf { it.isNotBlank() }
+    ?: localProperty("SENTRY_PROJECT")
+    ?: ""
+
 // ── Release signing credentials ──────────────────────────────────────────
 // Never default to a hardcoded password (an attacker who gets the keystore
 // file + the repo source would otherwise also have the password). Every
@@ -210,12 +231,25 @@ android {
     }
 }
 
-// Sentry configuration — disable auto-upload when no DSN is configured
+// Sentry configuration — ProGuard mapping upload only when the project is
+// FULLY configured (DSN + auth token + org + project). Graded by design:
+//   - nothing set      → SDK never inits (initSentrySafe), nothing uploaded
+//   - DSN only         → crash reporting works; release traces arrive
+//                        obfuscated until mappings are uploaded
+//   - DSN + token +    → mappings auto-upload on release builds; traces read
+//     org + project      like source (includeSourceContext can be added later)
+// Never enable upload half-way: autoUpload on WITHOUT an auth token FAILS the
+// release build — worse than obfuscated traces.
 sentry {
-    // Set to false until a Sentry project and DSN are configured
-    autoUploadProguardMapping = false
+    org = sentryOrg
+    projectName = sentryProject
+    authToken = sentryAuthToken
     uploadNativeSymbols = false
-    includeProguardMapping = false
+    includeNativeSources = false
+    val mappingUploadEnabled = sentryDsn.isNotBlank() && sentryAuthToken.isNotBlank() &&
+        sentryOrg.isNotBlank() && sentryProject.isNotBlank()
+    includeProguardMapping = mappingUploadEnabled
+    autoUploadProguardMapping = mappingUploadEnabled
 }
 
 dependencies {

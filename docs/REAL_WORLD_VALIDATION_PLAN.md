@@ -77,12 +77,17 @@ driver** (charges overnight, real commutes, real app usage).
 - **≥5 real users** (not the developer), spread across the device matrix,
   each running it daily for ≥2 weeks. Recruitment: family/WhatsApp groups
   and the Guardian Network's own user base — the product is literally built
-  for this.
-- **Feedback loop:** weekly check-in + a short structured form (bugs,
-  battery life, tracking reliability, "would you keep using this?").
-  Server-side signals supplement self-reports: `error_log` table rows,
+  for this. Copy-paste WhatsApp messages: `docs/tester-recruitment-message.md`.
+- **Feedback loop:** weekly check-in via the structured form in
+  `docs/tester-feedback-form.md` (bugs, battery life, tracking reliability,
+  "would you keep using this?"). Every report is triaged and answered —
+  testers who feel heard stay for G2.
+- **Tracking:** per-device, per-condition pass/fail log in
+  `docs/g1-validation-tracker.md` (roster, condition matrix, drill log,
+  battery table, exit checklist).
+- **Server-side signals** supplement self-reports: `error_log` table rows,
   `/health` uptime, per-device `last_seen` gaps (silent-tracking-death
-  detector), and Sentry if a DSN is configured.
+  detector), and Sentry crash events (see §5).
 - Every report triaged: P0 = silent failure / data loss / theft-response
   broken; P1 = feature broken with a workaround; P2 = cosmetic. P0s are
   fixed and re-deployed before the gate can pass.
@@ -144,7 +149,41 @@ monitoring cadence from §5).
 
 ---
 
-## 5. Definition of done (this plan)
+## 5. Sentry crash visibility (recommended for G1)
+
+Server `error_log` + feedback forms catch what people notice; Sentry catches
+what they don't — every uncaught Java/Kotlin crash, with device model, OS
+version, breadcrumbs, and a readable stack trace, reported automatically.
+
+The Android app is **already fully wired** (sentry-android 7.14.0, the
+Gradle plugin, manual init in `MainActivity.initSentrySafe`, ProGuard keep
+rules) and does nothing until a DSN is configured.
+
+**Enable in ~3 minutes:**
+
+1. Create a free Sentry account → new project → **Android** → copy the DSN
+   (the `https://...@sentry.io/<project>` string).
+2. Add to `android-app/local.properties` (gitignored):
+   ```
+   SENTRY_DSN=https://<key>@sentry.io/<project>
+   # Optional — readable (de-obfuscated) release stack traces:
+   SENTRY_AUTH_TOKEN=sntrys_...
+   SENTRY_ORG=<your-org-slug>
+   SENTRY_PROJECT=<project-slug>
+   ```
+   (Equivalent env vars: `MT_SENTRY_DSN`, `MT_SENTRY_AUTH_TOKEN`,
+   `MT_SENTRY_ORG`, `MT_SENTRY_PROJECT`.)
+3. Rebuild the release APK (`assembleSideloadRelease` /
+   `assemblePlayRelease`) → install → crashes land in Sentry. When the
+   auth token + org + project are set, release builds also **auto-upload
+   ProGuard mappings** so traces read like source.
+
+Graded by design (never breaks a build): DSN alone = crash events with
+obfuscated release traces; DSN + token + org + project = full mapping
+upload. Verify once: force a test crash (or catch a real G1 one) and confirm
+the event + (if configured) a readable stack trace in Sentry.
+
+## 6. Definition of done (this plan)
 
 - [ ] Device matrix ≥6 devices / ≥4 OEMs, each ≥2 weeks daily use
 - [ ] All §2.2 conditions exercised with a pass/fail record per device
