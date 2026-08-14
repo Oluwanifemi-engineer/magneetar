@@ -1,7 +1,7 @@
 # Magneetar — Project Status Report
 
-**Generated:** August 4, 2026  
-**Version:** 1.5.0  
+**Generated:** August 14, 2026  
+**Version:** 1.4.2  
 **Status:** 🟢 Production Ready
 
 ---
@@ -14,7 +14,20 @@ Magneetar is a fully functional anti-theft tracking system with:
 - **Dashboard** — Next.js tactical command center with a premium landing + auth experience
 - **Production deployment** — Docker Compose + Cloudflare Tunnel (SQLite on the persisted volume is the live data plane)
 
-All **681 tests pass consistently** (489 backend + 192 dashboard). The latest round fixed the **command re-execution loop / stuck-PENDING bug** end-to-end: new Android `RecentCommandTracker` enforces at-most-once execution (a lost ack now converges via an idempotent re-ack instead of re-running the siren/capture every 10s), the command loop flushes the ack outbox before each poll, and the dashboard's `command_ack` WebSocket handler updates the row instantly (the empty handler is why successful commands looked PENDING for up to 10s). The system is hardened with reliability improvements (WebSocket connection limits, alert circuit breakers, per-device recipients, CI alert verification), and **Milestone 2 (Multi-User & Device Ownership) P0s are now complete**: devices link to accounts on Android at registration and via a claim endpoint, every dashboard endpoint is scoped by ownership, WebSocket broadcasts are owner-filtered, and per-user device limits are enforced. **Guardian Network (Milestone 3 P0)** is also live: opt-in guardians, blurred nearby scans, sighting reports, and recovery-request lifecycle — all verified end-to-end in production. The latest round landed **step-up-password media deletion**, **working remote commands** (wipe CONFIRMED_WIPE + hardened Android command loop), the **Trail Replay Invalid-Date fix**, the **Settings modal portal fix**, premium command buttons, and the **magenta-tile white-M brand refresh** (web + Android launcher). **v1.3.0** adds **uninstall protection** (active Device Admin blocks uninstall until deactivated — warning + instant server theft-signal on disable; device/profile-owner mode adds the hard `setUninstallBlocked(true)`; onboarding now routes through Device Admin by default with an explicit, informed skip; `scripts/enable-uninstall-protection.sh` provisions device-owner via adb; `docs/security.md`), **background camera/audio capture fixed** (new `MediaCaptureService` camera|microphone FGS — photo/front/audio now work from a locked screen on Android 14/15 and ack honestly), and the **bold solid white-M logo** (Moniepoint-style) across web + Android.
+All **747 tests pass consistently** (549 backend + 198 dashboard). The latest round fixed the **command re-execution loop / stuck-PENDING bug** end-to-end: new Android `RecentCommandTracker` enforces at-most-once execution (a lost ack now converges via an idempotent re-ack instead of re-running the siren/capture every 10s), the command loop flushes the ack outbox before each poll, and the dashboard's `command_ack` WebSocket handler updates the row instantly (the empty handler is why successful commands looked PENDING for up to 10s). The system is hardened with reliability improvements (WebSocket connection limits, alert circuit breakers, per-device recipients, CI alert verification), and **Milestone 2 (Multi-User & Device Ownership) P0s are now complete**: devices link to accounts on Android at registration and via a claim endpoint, every dashboard endpoint is scoped by ownership, WebSocket broadcasts are owner-filtered, and per-user device limits are enforced. **Guardian Network (Milestone 3 P0)** is also live: opt-in guardians, blurred nearby scans, sighting reports, and recovery-request lifecycle — all verified end-to-end in production. The latest round landed **step-up-password media deletion**, **working remote commands** (wipe CONFIRMED_WIPE + hardened Android command loop), the **Trail Replay Invalid-Date fix**, the **Settings modal portal fix**, premium command buttons, and the **magenta-tile white-M brand refresh** (web + Android launcher). **v1.3.0** adds **uninstall protection** (active Device Admin blocks uninstall until deactivated — warning + instant server theft-signal on disable; device/profile-owner mode adds the hard `setUninstallBlocked(true)`; onboarding now routes through Device Admin by default with an explicit, informed skip; `scripts/enable-uninstall-protection.sh` provisions device-owner via adb; `docs/security.md`), **background camera/audio capture fixed** (new `MediaCaptureService` camera|microphone FGS — photo/front/audio now work from a locked screen on Android 14/15 and ack honestly), and the **bold solid white-M logo** (Moniepoint-style) across web + Android.
+
+**Latest (2026-08-14, v1.4.2):** session tokens are now encrypted at rest
+(AndroidKeyStore-backed AES-256-GCM `TokenVault` — plaintext
+SharedPreferences credentials are gone), transactional email finally delivers
+in production via a new **Resend** provider (reset/verify links that
+previously only reached server logs), reset tokens + WebSocket JWTs stopped
+leaking into server logs, GDPR account deletion no longer 500s for users with
+FCM tokens, developer API keys gained a **read-only type + usage metering**,
+and the v1.4.2 Android stability batch fixed the stale "Version 1.0.0"
+onboarding footer, a tracking-service crash-loop on devices without a network
+location provider, and an uninstall guard that was blocking the app's own
+setup/update dialogs. Backend suite **549 passed / 4 skipped**, dashboard
+**198/198**.
 
 ---
 
@@ -35,9 +48,9 @@ All **681 tests pass consistently** (489 backend + 192 dashboard). The latest ro
 | **Media Delete Tests** (`test_media_delete.py`) | **11** | ✅ **All pass** (step-up password gate: user password + admin API key, wrong-password 401, rate limit 429, ownership 403, evidence counter fix-up) |
 | **User Security Tests** (`test_user_security.py`) | **12** | ✅ **All pass** (TOTP 2FA full lifecycle: setup/enable/disable, challenge-token-never-a-session, same-code replay rejected, brute-force lockout; password reset round-trip incl. single-use + expiry; email verification; operator sessions rejected) |
 | **Media Store Tests** (`test_media_store.py`) | **16** | ✅ **All pass** (evidence media CRUD, retention purge keeps active-case media, owner scoping) |
-| **Backend Total** | **506** | **✅ All pass** (incl. 13 new this round: 12 Find Network beacon lifecycle + 1 migration; 493 prior) |
-| **Dashboard Tests** | **197** | **✅ All pass** (24 suites, `tsc --noEmit` clean, incl. `LoginPage.test.tsx` 2FA step, `SettingsModal.test.tsx` Security panel, `ForgotPasswordPage`/`ResetPasswordPage`/`VerifyEmailPage`, `MediaGallery.test.tsx` password-gated deletion, `CommandPanel.test.tsx` wipe/front/burst, `useWebSocket.test.tsx` command_ack instant-update, `api.test.ts` CSV-export binary download + geofence auto-action payload, `GeofencePanel.test.tsx` zone policy UI, `DeviceSharing.test.ts` share API client contract, **+5 `EvidencePanel.test.tsx`** recovery-dossier export: case summary, empty state with enabled button, success toast, error toast + inline error, re-enable after failure) |
-| **Grand Total** | **703** | **✅ All pass** |
+| **Backend Total** | **549** | **✅ All pass** (latest 2026-08-14 run: 549 passed / 4 skipped — incl. Resend provider, credential-redaction, and API-key rounds) |
+| **Dashboard Tests** | **198** | **✅ All pass** (24 suites, `tsc --noEmit` clean, incl. `LoginPage.test.tsx` 2FA step, `SettingsModal.test.tsx` Security panel, `ForgotPasswordPage`/`ResetPasswordPage`/`VerifyEmailPage`, `MediaGallery.test.tsx` password-gated deletion, `CommandPanel.test.tsx` wipe/front/burst, `useWebSocket.test.tsx` command_ack instant-update, `api.test.ts` CSV-export binary download + geofence auto-action payload, `GeofencePanel.test.tsx` zone policy UI, `DeviceSharing.test.ts` share API client contract, **+5 `EvidencePanel.test.tsx`** recovery-dossier export: case summary, empty state with enabled button, success toast, error toast + inline error, re-enable after failure) |
+| **Grand Total** | **747** | **✅ All pass** (549 backend + 198 dashboard) |
 | **Android JVM Tests** | **43+** | **✅ All pass** (both flavors; incl. `LostModeParamsTest` 6, **+16 `SosBeaconTest` + `SosBeaconTrackerTest`** Find Network wire contract) |
 
 ---

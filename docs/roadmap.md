@@ -1,7 +1,7 @@
 # Magneetar — Strategic Roadmap
 
-**Version:** 3.0  
-**Last Updated:** 2026-08-07  
+**Version:** 3.1  
+**Last Updated:** 2026-08-14  
 **Status:** 🟢 Active Development  
 
 ---
@@ -12,7 +12,7 @@
 
 ---
 
-## Current Position (v1.4.0)
+## Current Position (v1.4.2)
 
 The Magneetar ecosystem is production-ready with:
 - **Android app** with stealth tracking, evidence capture, and remote commands
@@ -23,6 +23,11 @@ The Magneetar ecosystem is production-ready with:
 - **Full onboarding flow** with sign-up, sign-in, guided permissions, and battery optimization exemption
 - **CI/CD pipeline** — automated release build, version bumping, ProGuard, signing, and git tagging (`scripts/build-release.sh`)
 - **Firebase automation** — Firebase CLI setup script for FCM push notifications (`scripts/firebase-setup.sh`)
+- **Guardian Network + Find Network Phase 1 live** — SOS BLE beacon broadcast + opt-in guardian sightings end-to-end (v1.6)
+- **Session tokens encrypted at rest** — AndroidKeyStore AES-256-GCM vault; no plaintext credentials on disk (v1.4.2)
+- **Transactional email delivering** — Resend provider: reset/verify links finally reach users (v1.4.2)
+- **Developer API keys live** — scoped `mtk_` keys with a read-only type + usage metering (v1.7)
+- **Test suite** — 549 backend + 198 dashboard, all green (2026-08-14)
 
 ---
 
@@ -72,8 +77,8 @@ The Magneetar ecosystem is production-ready with:
 
 | Priority | Task | Details | Effort |
 |----------|------|---------|--------|
-| 🔴 P0 | **SOS signal from app** | When device is stolen, broadcasts encrypted SOS via BLE + Wi-Fi direct | 1 week |
-| 🟡 P1 | **Crowd-sourced location** | Guardian Network nodes report sightings of stolen devices (opt-in, privacy-preserving) | 2 weeks |
+| 🔴 P0 | **SOS signal from app** | When device is stolen, broadcasts encrypted SOS via BLE + Wi-Fi direct | 1 week | ✅ **Phase 1 done (v1.6)** — `SosBeaconBroadcaster` BLE beacon + `GuardianBeaconScanner` |
+| 🟡 P1 | **Crowd-sourced location** | Guardian Network nodes report sightings of stolen devices (opt-in, privacy-preserving) | 2 weeks | ✅ **done** — opt-in guardian sightings + recovery-request lifecycle |
 | 🟡 P1 | **Geofence alerts to guardians** | Notify trusted guardians when device leaves safe zone | 3 days |
 | 🟢 P2 | **Reward system** | Optional bounty for recovery assistance | 1 week |
 
@@ -90,7 +95,7 @@ The Magneetar ecosystem is production-ready with:
 
 | Priority | Task | Details | Effort |
 |----------|------|---------|--------|
-| 🔴 P0 | **SIM change detection** | Detect SIM card swap and auto-activate theft mode | 2 days |
+| 🔴 P0 | **SIM change detection** | Detect SIM card swap and auto-activate theft mode | 2 days | ✅ **done (v1.4.1)** |
 | 🟡 P1 | **ML-based anomaly detection** | Train model on movement patterns; detect unusual behavior | 2 weeks |
 | 🟡 P1 | **False positive reduction** | Implement confirmation chain: 3 consecutive anomalies before alert | 3 days |
 | 🟡 P1 | **Auto-evidence capture** | On theft detection, automatically capture front camera photo + audio | 2 days |
@@ -146,12 +151,12 @@ we must never copy.
 
 | Priority | Feature | Details | Effort |
 |----------|---------|---------|-------|
-| 🔴 P0 | **Lost-Mode lock screen** | Push lock + "call this number / reward if found" overlay to the stolen phone's screen; drives good-Samaritan recovery | 1 week |
-| 🔴 P0 | **Recovery Dossier** | One-click police/insurer package: evidence PDF + location timeline + IMEI + theft case + Guardian sightings | 1 week |
+| 🔴 P0 | **Lost-Mode lock screen** | Push lock + "call this number / reward if found" overlay to the stolen phone's screen; drives good-Samaritan recovery | 1 week | ✅ **DONE (v1.5)** |
+| 🔴 P0 | **Recovery Dossier** | One-click police/insurer package: evidence PDF + location timeline + IMEI + theft case + Guardian sightings | 1 week | ✅ **DONE (v1.6)** — command timeline + all photos + RBAC-gated |
 | 🔴 P0 | **Offline cell resolution (OpenCelliD)** | Bundle the Nigeria dump (MCC 621) for the existing `/cell-locate` endpoint — real fixes for offline stolen phones | 1 week |
 | 🟡 P1 | **Trip history & heatmap** | Persistent 30-day timeline, revisits, heatmap replay (free 7-day / paid 30-day lever) | 1 week |
-| 🟡 P1 | **Family/Team circles with roles** | Owner / co-admin / view-only (extends multi-user ownership) | 1 week |
-| 🟡 P1 | **Geofence automated actions** | Per-zone policy: leave home at 2am → auto siren + front capture + alert | 1 week |
+| 🟡 P1 | **Family/Team circles with roles** | Owner / co-admin / view-only (extends multi-user ownership) | 1 week | ✅ **DONE (v1.6)** — device sharing + RBAC (admin / viewer / device_only) |
+| 🟡 P1 | **Geofence automated actions** | Per-zone policy: leave home at 2am → auto siren + front capture + alert | 1 week | ✅ **DONE (v1.5)** |
 | 🟡 P1 | **Battery-smart tracking** | Adaptive cadence: stationary 60s / moving 3s / <15% battery drain-safe mode | 1 week |
 | 🟢 P2 | **Multi-language** | Yoruba, Hausa, Igbo, French, Swahili (app + dashboard) | 2 weeks |
 | 🟢 P2 | **In-app notification center** | Alert history with read/unread + channel traceability | 1 week |
@@ -160,7 +165,7 @@ we must never copy.
 
 | Priority | Feature | Details | Effort | Dependencies |
 |----------|---------|---------|-------|--------------|
-| 🔴 P0 | **Magneetar Find Network** | Private crowdsourced BLE mesh: apps advertise rotating encrypted beacons; other installs report sightings via the existing Guardian sighting pipeline. Works when data/GPS are off; the on-ramp to hardware tags | 2-3 months | Guardian pipeline (exists), BLE permissions, on-device beacon code |
+| 🔴 P0 | **Magneetar Find Network** | Private crowdsourced BLE mesh: apps advertise rotating encrypted beacons; other installs report sightings via the existing Guardian sighting pipeline. Works when data/GPS are off; the on-ramp to hardware tags | 2-3 months | Guardian pipeline (exists), BLE permissions, on-device beacon code | ✅ **Phase 1 DONE (v1.6)** — mesh scale-out, beacon-permission UX, battery-aware scheduling remain |
 | 🔴 P0 | **On-device edge Sentinel** | Scoring + auto-capture on the phone when offline (snatch motion, SIM removal, airplane-mode) — theft response that doesn't wait for a network round-trip | 1-2 months | Sentinel rules port to Kotlin; accelerometer access |
 | 🟡 P1 | **Zero-knowledge evidence** | Media encrypted at rest with per-device keys, decrypted only on the owner's dashboard (WebCrypto) | 1-2 months | Key management on device + server |
 | 🟡 P1 | **Paystack billing** | Free / Premium / Family tiers, card + direct debit, in-dashboard upgrade. Paystack is the standard for Nigerian SaaS | 2-4 weeks | `PLAN_DEVICE_LIMITS` exists; new billing endpoints + webhook |
