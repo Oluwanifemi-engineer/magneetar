@@ -11,45 +11,38 @@ interface AnimatedCounterProps {
   className?: string;
 }
 
+/**
+ * Renders a numeric claim. The number is ALWAYS its true value — it starts
+ * there on first paint (SSR included) and never counts up from 0. A count-up
+ * animation made screenshots and cached HTML show wrong numbers ("SHA-0-bit",
+ * "349 tests" mid-flight on a page that promises every claim is verifiable),
+ * so the only animation left is a fade-in that never changes the digits.
+ */
 export function AnimatedCounter({
   value,
   suffix = '',
   prefix = '',
-  duration = 2000,
   className = '',
 }: AnimatedCounterProps) {
   const { ref, isVisible } = useScrollReveal({ threshold: 0.5 });
-  const [count, setCount] = useState(0);
-  const hasAnimated = useRef(false);
+  const [shown, setShown] = useState(false);
 
   useEffect(() => {
-    if (!isVisible || hasAnimated.current) return;
-
-    hasAnimated.current = true;
-    const startTime = Date.now();
-    const startValue = 0;
-
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-
-      // Easing function (ease-out cubic)
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const current = Math.round(startValue + (value - startValue) * eased);
-
-      setCount(current);
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      }
-    };
-
-    requestAnimationFrame(animate);
-  }, [isVisible, value, duration]);
+    if (isVisible && !shown) {
+      setShown(true);
+    }
+  }, [isVisible, shown]);
 
   return (
-    <span ref={ref} className={`tabular-nums ${className}`}>
-      {prefix}{count.toLocaleString()}{suffix}
+    <span
+      ref={ref}
+      className={`tabular-nums transition-opacity duration-700 ${
+        shown ? 'opacity-100' : 'opacity-0'
+      } ${className}`}
+    >
+      {prefix}
+      {value.toLocaleString()}
+      {suffix}
     </span>
   );
 }

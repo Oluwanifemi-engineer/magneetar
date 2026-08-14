@@ -127,8 +127,10 @@ class TestHealthEndpoint:
         data = response.json()
         assert data["status"] == "online"
         assert "version" in data
-        assert "uptime" in data
         assert "server_time" in data
+        # F-08: uptime is intentionally NOT public (it reveals deploy timing);
+        # it stays available to operators via the admin-gated /api/metrics.
+        assert "uptime" not in data
 
     def test_health_no_auth_required(self):
         response = client.get("/health")

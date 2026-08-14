@@ -226,8 +226,10 @@ class TestHealthEndpointReliability:
         assert data["status"] == "online"
         assert data["database"] is True
         assert "version" in data
-        assert "uptime" in data
         assert "server_time" in data
+        # F-08: uptime is intentionally NOT public (it reveals deploy timing);
+        # it stays available to operators via the admin-gated /api/metrics.
+        assert "uptime" not in data
 
     def test_health_after_db_file_removed(self, monkeypatch):
         """Simulate DB becoming inaccessible — health should report degraded."""

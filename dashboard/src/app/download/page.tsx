@@ -290,12 +290,15 @@ export default function DownloadPage() {
             One download. Complete protection. Real-time tracking, remote lock, evidence capture, and theft detection — all in one app.
           </p>
 
-          {/* Quick stats */}
+          {/* Quick stats — every claim here is verifiable on this page or in
+              the product itself. No fabricated adoption numbers: the checksum
+              below proves the APK, tracking is a feature, and the free plan is
+              real. Real adoption numbers will appear here when they exist. */}
           <div className="flex items-center justify-center gap-8 mt-8">
             {[
-              { label: 'Active users', value: '10K+' },
-              { label: 'Devices protected', value: '25K+' },
-              { label: 'Recovery rate', value: '94%' },
+              { label: 'Stealth tracking', value: '24/7' },
+              { label: 'Checksum verified', value: 'SHA-256' },
+              { label: 'Free plan', value: '1 device' },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
                 <div className="text-xl font-bold text-white">{stat.value}</div>

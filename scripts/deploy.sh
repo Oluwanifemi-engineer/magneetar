@@ -102,20 +102,41 @@ echo ""
 # ── 6. Health gate with retries ────────────────────────────────────────────────
 # Wait up to HEALTH_RETRIES × 10s for /health to come back "online". This is
 # the point where a bad image is caught BEFORE it serves traffic.
-# The gate also verifies the SERVING container is the freshly-built one by
-# checking its uptime is small — a stale container from a missed recreate
-# would otherwise pass the gate and keep serving the old image.
+# The gate also verifies the SERVING container is the freshly-built one: the
+# /health response no longer exposes uptime publicly (F-08 — it revealed
+# deploy timing), so freshness is checked against the container's own start
+# time via docker inspect. A stale container from a missed recreate would
+# otherwise pass the gate and keep serving the old image.
 HEALTH_RETRIES=18   # 3 minutes max
 HEALTH_OK=0
+SERVER_CONTAINER=$(docker compose ps -q server 2>/dev/null || true)
+container_age() {
+    if [ -z "$SERVER_CONTAINER" ]; then
+        echo 99999
+        return
+    fi
+    STARTED=$(docker inspect -f '{{.State.StartedAt}}' "$SERVER_CONTAINER" 2>/dev/null || echo "")
+    if [ -z "$STARTED" ]; then
+        echo 99999
+        return
+    fi
+    # StartedAt is RFC3339 (e.g. 2026-08-14T19:00:00.123456789Z) — convert to epoch.
+    START_EPOCH=$(date -d "$STARTED" +%s 2>/dev/null || echo 0)
+    NOW_EPOCH=$(date +%s)
+    echo $(( NOW_EPOCH - START_EPOCH ))
+}
 echo "⏳ Waiting for server health (up to ${HEALTH_RETRIES}x10s)..."
 for i in $(seq 1 "$HEALTH_RETRIES"); do
-    UPTIME=$(curl -sf http://localhost:8002/health 2>/dev/null | python3 -c "import json,sys; print(int(json.load(sys.stdin).get('uptime', 99999)))" 2>/dev/null || echo 99999)
-    if [ "$UPTIME" -lt 180 ]; then
+    UPTIME=$(container_age)
+    # Health must ALSO report online — a container that started but failed to
+    # bind (or is crash-looping) would look "fresh" forever otherwise.
+    STATUS=$(curl -sf http://localhost:8002/health 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('status',''))" 2>/dev/null || echo "")
+    if [ "$UPTIME" -lt 180 ] && [ "$STATUS" = "online" ]; then
         HEALTH_OK=1
-        echo "   ✅ Server is healthy (attempt $i, uptime ${UPTIME}s)"
+        echo "   ✅ Server is healthy (attempt $i, container age ${UPTIME}s, status $STATUS)"
         break
     fi
-    echo "   ⏳ health check attempt $i/${HEALTH_RETRIES} (uptime ${UPTIME}s — waiting for the new container)..."
+    echo "   ⏳ health check attempt $i/${HEALTH_RETRIES} (container age ${UPTIME}s, status ${STATUS:-unknown} — waiting for the new container)..."
     sleep 10
 done
 

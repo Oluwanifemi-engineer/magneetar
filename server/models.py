@@ -743,9 +743,11 @@ class DashboardStats(BaseModel):
 
 
 class HealthResponse(BaseModel):
+    # NOTE: uptime is deliberately NOT exposed publicly (F-08) — it reveals
+    # deploy timing. It stays available to operators via the admin-gated
+    # /api/metrics endpoint (magneetar_uptime_seconds).
     status: str = "online"
     version: str = "1.2.0"
-    uptime: float = 0.0
     server_time: str
     database: Optional[bool] = None
     """Database connectivity: True=healthy, False=degraded, None=not checked"""

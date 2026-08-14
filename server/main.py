@@ -804,7 +804,6 @@ async def health():
     return HealthResponse(
         status="online" if db_ok else "degraded",
         version=APP_VERSION,
-        uptime=time.time() - SERVER_START,
         server_time=datetime.now(timezone.utc).isoformat(),
         database=db_ok,
     )

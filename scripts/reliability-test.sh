@@ -84,8 +84,10 @@ test_health_basic() {
         return
     fi
 
-    if echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); 'version' in d and 'uptime' in d" 2>/dev/null; then
-        pass "Health response contains version and uptime"
+    # F-08: uptime is deliberately NOT public (it revealed deploy timing) — it
+    # stays available to operators via the admin-gated /api/metrics endpoint.
+    if echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); 'version' in d and 'server_time' in d" 2>/dev/null; then
+        pass "Health response contains version and server_time"
     else
         fail "Health response missing fields: $response"
     fi
@@ -195,7 +197,7 @@ test_timeout_middleware() {
     jobj=$(curl -s "$API/health" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
-print(json.dumps({'status': d.get('status'), 'uptime': d.get('uptime')}))
+print(json.dumps({'status': d.get('status'), 'server_time': d.get('server_time')}))
 " 2>/dev/null || echo '{"status":"unknown"}')
 
     # If we got a response, timeout middleware is working
