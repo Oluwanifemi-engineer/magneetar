@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### v1.4.2 verification round — dashboard fix + release build (2026-08-14)
+
+- **Dashboard WebSocket stale-closure fixed**: `connect()` invoked
+  `handleMessage` (declared after it) with no dependency — a real
+  stale-closure hazard. The handler now dispatches through a ref (a dep
+  would be a TDZ crash; a hoisted function would churn the socket every
+  render). The three remaining `exhaustive-deps` warnings were confirmed
+  false positives (mount-once URL prefill that must not fight the input;
+  reverse-geocode keyed on primitive coords so every ping doesn't
+  re-geocode) and are documented with targeted disables.
+- **v1.4.2 release build verified**: `bundlePlayRelease` →
+  `app-play-release.aab` — versionName **1.4.2**, versionCode **8**,
+  targetSdk 36, signer SHA-256 `02:4C:BB:34…0A:7F` (release.keystore) —
+  ready for Play upload once screenshots + declaration forms are done.
+- **Full gates re-verified**: backend **549 passed / 4 skipped** + flake8 0,
+  dashboard **198/198** + tsc + eslint clean, Android both flavors compile
+  + JVM tests green.
+
 ### Android v1.4.2 stability batch (2026-08-14)
 
 - **Onboarding footer showed a stale version forever** ("Version 1.0.0" was
