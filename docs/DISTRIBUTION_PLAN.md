@@ -1,6 +1,6 @@
 # Magneetar — Distribution Plan
 
-**Date:** 2026-08-14 · **Version:** 1.4.2 (versionCode 8) · **Status:** 🔒 GATED —
+**Date:** 2026-08-14 · **Version:** 1.4.3 (versionCode 9) · **Status:** 🔒 GATED —
 the submission sequence below may NOT start until the real-world validation
 program passes (owner decision 2026-08-14, ADR-0006,
 `docs/REAL_WORLD_VALIDATION_PLAN.md`).
@@ -16,11 +16,11 @@ session.
 
 | Prerequisite | Status |
 |---|---|
-| **Signed AAB** `android-app/app/build/outputs/bundle/playRelease/app-play-release.aab` — v1.4.2, versionCode 8, play flavor | ✅ built 2026-08-14 |
+| **Signed AAB** `android-app/app/build/outputs/bundle/playRelease/app-play-release.aab` — v1.4.3, versionCode 9, play flavor | ✅ built 2026-08-14 |
 | **Signature chain** keystore → AAB → sideload APK (cert SHA-256 `02:4C:BB:34…0A:7F`) | ✅ proven via `keytool`/`jarsigner`/`apksigner` |
 | **Play flavor is Play-clean** — zero SMS/phone-state perms, zero Accessibility/UninstallGuard (merged playRelease manifest inspected) | ✅ no accessibility matches |
 | **Keystore backup** `~/Documents/magneetar-keystore-backup-2026-08-12/` (keystore + RECOVERY.md, byte-identical hashes) | ✅ created |
-| **Public URLs** — magneetar.me, /privacy, /terms, /download, /login = 200; api.magneetar.me/api/config = 1.4.2 | ✅ all live |
+| **Public URLs** — magneetar.me, /privacy, /terms, /download, /login = 200; api.magneetar.me/api/config = 1.4.3 | ✅ all live |
 | **Privacy policy** live and honest (TLS in transit, SHA-256 evidence chain, deletion paths) | ✅ checked |
 | **Test standard** — backend 549 passed / 4 skipped (full-suite, CI-equivalent), dashboard 198 passed + tsc + eslint clean, Android both flavors compile + JVM tests | ✅ green |
 
@@ -34,7 +34,8 @@ session.
    period).
 4. **Move a 2nd keystore copy off-machine** (encrypted USB / password-managed
    vault — hard rule in RECOVERY.md).
-5. **Reinstall the v1.4.2 APK** on the test phone (download page or adb) and
+5. **Reinstall the v1.4.3 APK** on the test phone (download page, in-app
+   self-update, or adb) and
    re-link the dashboard.
 
 ---
@@ -44,7 +45,7 @@ session.
 | Channel | Role | Notes |
 |---|---|---|
 | **Google Play** | BLOCKED until real-world validation passes (ADR-0006) | Play-installed apps bypass the sideload hard block (BIND_DEVICE_ADMIN + camera/mic + background location keep Play Protect blocking any sideload on current Android — see play-store-checklist.md). The only friction-free channel, once the gate passes. |
-| **magneetar.me/download** | **PRIMARY during validation** — serves the play-clean v1.4.2 APK (verified SHA-256 `ca4c400d…`); after Play goes live it becomes the fallback for manual installs | Real users install from here during the G1 validation program (docs/REAL_WORLD_VALIDATION_PLAN.md). |
+| **magneetar.me/download** | **PRIMARY during validation** — serves the play-clean v1.4.3 APK (verified SHA-256 `c4c89e25…`); after Play goes live it becomes the fallback for manual installs | Real users install from here during the G1 validation program (docs/REAL_WORLD_VALIDATION_PLAN.md). |
 | **Sideload SMS-relay build** | Not public | Buildable only (`assembleSideloadRelease`); archived for internal testing of the offline SMS relay. |
 
 **Decision (2026-08-14, ADR-0006):** Play submission is **gated on real-world
@@ -96,7 +97,7 @@ pass does the page's primary CTA switch to the Play button.
 - [ ] **Week 0:** recruit ≥12 testers (family/WhatsApp groups work — the
       Guardian Network is literally built for this; testers install from the
       closed-track opt-in link, keep the app installed 14 days)
-- [ ] Upload the v1.4.2 AAB to **Internal testing** first (fast review,
+- [ ] Upload the v1.4.3 AAB to **Internal testing** first (fast review,
       ~hours) → smoke-test the Play-signed APKs on a real device
 - [ ] Promote the same release to **Closed testing**; expect 24–72h review
       (up to 7d for a new account with device-admin)

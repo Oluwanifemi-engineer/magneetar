@@ -1,7 +1,7 @@
 # Magneetar — Project Status Report
 
 **Generated:** August 14, 2026  
-**Version:** 1.4.2  
+**Version:** 1.4.3  
 **Status:** 🟢 Production Ready
 
 ---
@@ -28,6 +28,15 @@ onboarding footer, a tracking-service crash-loop on devices without a network
 location provider, and an uninstall guard that was blocking the app's own
 setup/update dialogs. Backend suite **549 passed / 4 skipped**, dashboard
 **198/198**.
+
+**Latest (2026-08-14, v1.4.3):** in-app **self-update** — the "update
+available" notification now downloads the verified release APK (SHA-256
+checked against `/apk/checksum` for the exact served bytes) and installs it
+via Android's PackageInstaller, so upgrades never touch the sideload path
+that produced the G1 "App not installed" dead-end. Explicit user action
+only; inert when installed via Google Play. Deployed to production
+(versionCode 9); download page now serves `c4c89e25…` (zero SMS/phone
+perms).
 
 ---
 

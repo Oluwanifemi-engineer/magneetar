@@ -1,6 +1,6 @@
 # Magneetar — Play Console Listing (copy-paste ready)
 
-**Date:** 2026-08-14 · **Build to upload:** v1.4.2 AAB (versionCode 8)
+**Date:** 2026-08-14 · **Build to upload:** v1.4.3 AAB (versionCode 9)
 **Assets:** `docs/play-assets/feature-graphic-1024x500.png`,
 `docs/play-assets/icon-512.png`
 
@@ -123,10 +123,10 @@ Declare each with its feature rationale (paste these verbatim):
 ## 6. Production release
 
 1. Upload `android-app/app/build/outputs/bundle/playRelease/app-play-release.aab`
-   (freshly built 2026-08-14, `versionName 1.4.2`, `versionCode 8`, signed
+   (freshly built 2026-08-14, `versionName 1.4.3`, `versionCode 9`, signed
    with the release keystore — SHA-256 `02:4C:BB:34…0A:7F`, play flavor =
    **zero** SMS/phone-state perms; also staged at
-   `server/static/apk/magneetar-v1.4.2-play.aab`).
+   `server/static/apk/magneetar-v1.4.3-play.aab`).
 2. **Release notes:** "Session tokens encrypted at rest, SIM-change
    detection, remote lock/wipe, evidence capture with SHA-256 chain of
    custody, Guardian recovery network, geofencing, background theft

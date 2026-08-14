@@ -566,17 +566,31 @@ class TrackingService : Service() {
                 }
             }
 
-            // 2) Newer app version available → one-time "update available" nudge.
-            if (latestVersion.isNotEmpty() && latestVersion != BuildConfig.VERSION_NAME) {
+            // 2) Newer app version available → one-time "update available" nudge,
+            //    now self-updating: the tap (or "Update now" action) runs the
+            //    in-app updater — download → checksum-verify → PackageInstaller.
+            //    Skipped when installed via Google Play: Play delivers updates
+            //    itself and sideloading from outside Play is a policy violation.
+            if (latestVersion.isNotEmpty() && latestVersion != BuildConfig.VERSION_NAME &&
+                !AppUpdater.isInstalledViaPlayStore(this)
+            ) {
                 val lastNotified = prefs.getLong("compat_update_notified", 0L)
                 if (System.currentTimeMillis() - lastNotified > 24L * 60 * 60 * 1000) {
                     prefs.edit().putLong("compat_update_notified", System.currentTimeMillis()).apply()
+                    val updateIntent = Intent(this, AppUpdaterService::class.java)
+                        .putExtra(AppUpdaterService.EXTRA_UPDATE_TO, latestVersion)
+                    val updatePi = PendingIntent.getService(
+                        this, 0, updateIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
                     val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                     mgr.notify(
                         NOTIF_ID + 2,
                         NotificationCompat.Builder(this, CHANNEL_ID)
                             .setContentTitle("Magneetar update available")
-                            .setContentText("Version $latestVersion is out — update from the Play Store or magneetar.me.")
+                            .setContentText("Version $latestVersion is ready — tap to install")
+                            .setContentIntent(updatePi)
+                            .addAction(0, "Update now", updatePi)
                             .setSmallIcon(android.R.drawable.ic_menu_info_details)
                             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                             .setAutoCancel(true)

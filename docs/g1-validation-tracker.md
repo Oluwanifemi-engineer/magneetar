@@ -89,7 +89,10 @@ The failure is phone-state, in this order:
    → Deactivate first: Settings → Security → Device admin apps → Magneetar
    → Deactivate; Settings → Accessibility → “System Update Protection” →
    OFF. THEN uninstall. Definitive: `adb uninstall com.magneetar.app`
-   (one USB cable + PC), then `adb install magneetar-v1.4.2-release.apk`.
+   (one USB cable + PC), then `adb install magneetar-v1.4.3-release.apk`.
+   v1.4.3 (2026-08-14): installs on phones that still run an older build can
+   also self-heal via the **in-app updater** — open Magneetar, tap the
+   “Update available” notification, done (no sideload, no PC).
 2. **OEM scanner (Samsung “App security” is separate from Play Protect).**
    Pause BOTH during install, then re-enable.
 3. **“Install unknown apps” grant.** The app/browser opening the APK needs

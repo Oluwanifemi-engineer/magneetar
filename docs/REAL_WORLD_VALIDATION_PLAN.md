@@ -18,8 +18,8 @@ days.
 
 | Channel | Role |
 |---|---|
-| **magneetar.me/download** | PRIMARY — serves the verified play-clean v1.4.2 APK (`magneetar-v1.4.2-release.apk`, SHA-256 `ca4c400d…`, zero SMS/phone perms). This is how testers install. |
-| **Sideload SMS-relay build** | Internal only — `magneetar-v1.4.2-sideload-release.apk` (explicit filename, never the resolver default). Used to validate the offline SMS relay channel on one device. |
+| **magneetar.me/download** | PRIMARY — serves the verified play-clean v1.4.3 APK (`magneetar-v1.4.3-release.apk`, SHA-256 `c4c89e25…`, zero SMS/phone perms). This is how testers install. |
+| **Sideload SMS-relay build** | Internal only — `magneetar-v1.4.3-sideload-release.apk` (explicit filename, never the resolver default). Used to validate the offline SMS relay channel on one device. |
 | **Google Play** | BLOCKED until G1 AND G2 below both pass. |
 
 ---
@@ -115,7 +115,7 @@ assumed.
 
 Only after G1 passes:
 
-1. Upload the v1.4.2 AAB (`server/static/apk/magneetar-v1.4.2-play.aab`) to
+1. Upload the v1.4.3 AAB (`server/static/apk/magneetar-v1.4.3-play.aab`) to
    **Internal testing** first (~hours) → smoke-test the Play-signed APKs on
    a real device.
 2. Promote to **Closed testing** (expect 24–72h review; up to 7d for a new

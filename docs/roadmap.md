@@ -12,7 +12,7 @@
 
 ---
 
-## Current Position (v1.4.2)
+## Current Position (v1.4.3)
 
 The Magneetar ecosystem is production-ready with:
 - **Android app** with stealth tracking, evidence capture, and remote commands
@@ -46,7 +46,7 @@ The Magneetar ecosystem is production-ready with:
 
 ### Deliverables
 - [ ] Firebase FCM configured and verified with end-to-end push test
-- [x] Release APK signed with production key, ready for upload (v1.4.2 AAB built + verified 2026-08-14)
+- [x] Release APK signed with production key, ready for upload (v1.4.3 AAB built + verified 2026-08-14)
 - [ ] **Real-world validation passed** (G1 — docs/REAL_WORLD_VALIDATION_PLAN.md) then uploaded to Google Play Console (ADR-0006 gate)
 - [ ] Crash reporting operational with 48h of data
 - [ ] Performance benchmarks documented
@@ -245,7 +245,8 @@ we must never copy.
 
 - [ ] **Week 1:** Start the real-world validation program — assemble the device
       matrix (≥6 devices / ≥4 OEMs), recruit ≥5 real users, install the
-      v1.4.2 play-clean APK from magneetar.me/download
+      v1.4.3 play-clean APK from magneetar.me/download (installs can also
+      self-heal via the in-app updater — no sideload needed for older builds)
 - [ ] **Week 1:** Setup Firebase — run `bash scripts/firebase-setup.sh`
 - [ ] **Week 1:** Document findings in `docs/REAL_WORLD_VALIDATION_PLAN.md` (per-device pass/fail records)
 - [ ] **Week 2:** Create Google Play Developer account ($25 one-time fee) — prep only

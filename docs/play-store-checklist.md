@@ -228,7 +228,7 @@ Policy facts researched 2026-08-07 from official Play/Android documentation:
   from **Aug 31, 2026** (extension window to **Nov 1, 2026**). Magneetar
   already ships `targetSdk 36` — ahead of the deadline.
 - **AAB mandatory:** Play accepts only **App Bundles for new apps** since 2021.
-  The Play AAB is built: `server/static/apk/magneetar-v1.4.2-play.aab`
+  The Play AAB is built: `server/static/apk/magneetar-v1.4.3-play.aab`
   (signed with the release key, targetSdk 36, **zero SMS permissions** via
   the `play` flavor).
 - **SMS permissions:** the `play` flavor **removes** `RECEIVE_SMS`,

@@ -81,6 +81,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!-- In-app self-update: lets Android's PackageInstaller install the app's
+         own verified update over the existing install (no manual sideload).
+         Per-app install grant is requested at runtime, not via this tag. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -242,6 +247,19 @@
 
         <service
             android:name=".GuardianBeaconScanner"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync"
+            android:stopWithTask="false" />
+
+        <!-- ─── In-App Self-Updater ────────────────────────────────────── -->
+        <!-- Downloads the verified release APK and installs it via Android's
+             PackageInstaller (explicit user action only). Started from the
+             "Update available" notification in TrackingService; runs a short
+             foreground service so the download survives screen-lock and
+             battery-saver. Never active for Play-installed copies. -->
+        <service
+            android:name=".AppUpdaterService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync"

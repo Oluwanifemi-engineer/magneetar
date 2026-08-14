@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### In-app self-updater + v1.4.3 release (2026-08-14)
+
+- **In-app self-update** (`AppUpdaterService` + `AppUpdater`) — the "update
+  available" notification is now tappable: it downloads the verified release
+  APK from the official server, rejects any file whose SHA-256 doesn't match
+  `/apk/checksum` for the exact served bytes, and installs via Android's
+  PackageInstaller — the same mechanism the Play Store uses, which installs
+  over an existing (even admin-protected) install and never shows the plain
+  "App not installed" failure of the manual sideload route. Install is always
+  explicit (user tap + Android's own confirm dialog); it stays inert when the
+  app was installed via Google Play (Play delivers updates itself); a missing
+  "Allow installs from this source" grant is surfaced with a one-tap Settings
+  deep link.
+- **v1.4.3 (versionCode 9) deployed to production** — the first build that
+  can update itself. This is the durable answer to G1 issue #1 ("App not
+  installed"): stuck installs no longer need a sideload at all — the app
+  pulls its own update.
+- **G1 issue #1 evidence-complete** (`docs/g1-validation-tracker.md`) —
+  download/file/signature causes ruled out with hard evidence (served-bytes
+  checksum ca4c400d → c4c89e25, apksigner + zipalign, keystore comparison
+  proving one signing key since v1.1.0); remaining causes are phone-state
+  (leftover/zombie protected install, OEM scanner, missing install-source
+  grant). `scripts/install-apk.sh` upgraded to a diagnostic installer that
+  detects leftover installs + device-owner state and prints the exact adb
+  `INSTALL_FAILED_*` reason; download-page FAQ corrected (deactivate Device
+  Admin + accessibility BEFORE uninstall).
+
 ### G1 validation tooling + Sentry enablement (2026-08-14)
 
 - **G1 tracker** (`docs/g1-validation-tracker.md`) — fillable per-device /
