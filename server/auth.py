@@ -333,12 +333,13 @@ class ApiKeyActor:
     the key as that user (filtered by scopes and per-device share roles).
     """
 
-    __slots__ = ("user_id", "scopes", "key_prefix")
+    __slots__ = ("user_id", "scopes", "key_prefix", "key_type")
 
-    def __init__(self, user_id: str, scopes: list, key_prefix: str):
+    def __init__(self, user_id: str, scopes: list, key_prefix: str, key_type: str = "live"):
         self.user_id = user_id
         self.scopes = scopes
         self.key_prefix = key_prefix
+        self.key_type = key_type
 
     def has_scope(self, scope: str) -> bool:
         return scope in self.scopes
@@ -349,12 +350,20 @@ class ApiKeyActor:
         return f"key:{self.key_prefix}"
 
 
-def generate_api_key(env: str = "live") -> str:
-    """Mint a new developer API key: mtk_<env>_<32 url-safe chars>.
+def generate_api_key(env: str = "live", key_type: str = "live") -> str:
+    """Mint a new developer API key.
+
+    Live keys:  mtk_<env>_<32 url-safe chars>  (e.g. mtk_live_…)
+    Readonly:   mtk_read_<32 url-safe chars> — distinct prefix so a leaked
+    key's type is recognizable at a glance (logs, dashboards, greps) and so
+    the auth path can structurally strip write scopes from anything carrying
+    the mtk_read_ prefix, independent of the stored key_type column.
 
     token_urlsafe(24) yields 32 url-safe characters. The full key is shown to
     the creator EXACTLY once — the server stores only the prefix + hash.
     """
+    if key_type == "readonly":
+        return f"mtk_read_{secrets.token_urlsafe(24)}"
     if env not in ("live", "test"):
         env = "live"
     return f"mtk_{env}_{secrets.token_urlsafe(24)}"
@@ -388,7 +397,8 @@ def get_api_key_actor(
 
     with get_db_context() as conn:
         row = conn.execute(
-            "SELECT id, user_id, key_hash, scopes, expires_at, revoked_at FROM api_keys WHERE key_prefix=?",
+            "SELECT id, user_id, key_hash, scopes, key_type, expires_at, revoked_at "
+            "FROM api_keys WHERE key_prefix=?",
             (prefix,),
         ).fetchone()
         if not row:
@@ -413,17 +423,25 @@ def get_api_key_actor(
 
         scopes = [s for s in (row["scopes"] or "").split(",") if s in VALID_API_KEY_SCOPES]
 
+        # Readonly enforcement at AUTH time, not just creation: any key whose
+        # stored key_type is readonly — OR whose raw prefix is mtk_read_ — is
+        # stripped of write scopes before the route ever sees it. Defense in
+        # depth: even a tampered row or a legacy row can never turn a
+        # readonly key into a wipe/lock credential.
+        if row["key_type"] == "readonly" or presented.startswith("mtk_read_"):
+            scopes = [s for s in scopes if not s.endswith(":write")]
+
         # Per-key rate limit (120 req/min) — a leaked or shared key cannot
         # hammer the data plane. DB-backed like the other alert/command
         # limiters; checked BEFORE the request does any work.
         if not check_rate_limit(f"apikey:{prefix}", "apikey", 120, 1):
             raise HTTPException(status_code=429, detail="API key rate limit exceeded")
 
-        # Best-effort last-used stamp + audit. Wrapped in try/except so a
-        # failure to record usage never fails the request.
+        # Best-effort last-used stamp + usage meter + audit. Wrapped in
+        # try/except so a failure to record usage never fails the request.
         try:
             conn.execute(
-                "UPDATE api_keys SET last_used_at=? WHERE id=?",
+                "UPDATE api_keys SET last_used_at=?, request_count=request_count+1 WHERE id=?",
                 (datetime.now(timezone.utc).isoformat(), row["id"]),
             )
             conn.commit()
@@ -431,7 +449,7 @@ def get_api_key_actor(
         except Exception:
             pass
 
-    return ApiKeyActor(row["user_id"], scopes, prefix)
+    return ApiKeyActor(row["user_id"], scopes, prefix, row["key_type"])
 
 
 def require_api_key_scope(scope: str):

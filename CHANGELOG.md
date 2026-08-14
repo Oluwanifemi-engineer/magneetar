@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### Developer API keys v2 (2026-08-14 — read-only keys + usage metering)
+
+- **Read-only key type** (`mtk_read_<32>`, `key_type: "readonly"`): for
+  integrations that only observe (alerting scripts, read-only dashboards).
+  Structurally incapable of write access — `devices:write` is rejected at
+  creation (422) AND stripped at every request by `get_api_key_actor` from
+  any key whose stored `key_type` is `readonly` or whose prefix is
+  `mtk_read_`, so even a tampered row can never become a wipe/lock
+  credential. Rotation preserves the type.
+- **Per-key usage metering**: `request_count` increments atomically on every
+  key-authenticated request (alongside `last_used_at`), exposed in the
+  dashboard key list and the list endpoint — the future billing basis and an
+  early leak signal.
+  - **Schema**: `key_type` + `request_count` columns added to `api_keys`
+    (SQLite CREATE + idempotent ALTER migrations for existing DBs, Postgres
+    adapter parity — CI-enforced).
+  - **Dashboard**: Settings → Developer API Keys gains a live/read-only
+    picker (write checkbox locked for read-only) + type badge and request
+    count per key.
+  - **Tests**: 6 new in `test_api_keys.py` (34 total) — `mtk_read_` prefix +
+    stored type, creation-time write rejection, reads-ok/commands-403,
+    auth-time enforcement against a tampered row, `request_count`
+    increments + listing, rotate preserves type. Full backend suite: 541
+    passed; dashboard 197/197; tsc + eslint clean.
+
 ### Security & hygiene (2026-08-13 — hardening pass)
 
 - **`/metrics` + `/metrics/json` are no longer public**: both leaked operational

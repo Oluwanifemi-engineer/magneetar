@@ -199,11 +199,20 @@ export type ApiKeyScope =
   | 'alerts:read'
   | 'media:read';
 
+// 'live' keys carry any granted scope; 'readonly' keys are structurally
+// incapable of write scopes — enforced server-side at creation AND at every
+// request (auth strips write scopes), so a leaked readonly key can never
+// issue wipe/lock commands.
+export type ApiKeyType = 'live' | 'readonly';
+
 export interface ApiKey {
   id: string;
   name: string;
   key_prefix: string;
   scopes: ApiKeyScope[];
+  key_type: ApiKeyType;
+  // Usage meter: incremented on every key-authenticated request.
+  request_count: number;
   created_at: string;
   last_used_at: string | null;
   expires_at: string | null;

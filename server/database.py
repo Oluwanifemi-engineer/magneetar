@@ -286,6 +286,18 @@ def init_db(db_path: str = None):
     except sqlite3.OperationalError:
         pass  # Column already exists
 
+    # Developer API keys v1.1 (2026-08-14): readonly key type + usage
+    # metering. Existing rows default to 'live' (current behavior) and a
+    # request count of 0.
+    try:
+        c.execute("ALTER TABLE api_keys ADD COLUMN key_type TEXT NOT NULL DEFAULT 'live'")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    try:
+        c.execute("ALTER TABLE api_keys ADD COLUMN request_count INTEGER NOT NULL DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
     # ─── Account security (v1.4) ────────────────────────────────────────────
     # TOTP 2FA: the secret is AES-256-GCM encrypted at rest (user_security.py)
     # and only enabled after the user proves a valid code; totp_last_period
@@ -527,6 +539,13 @@ def init_db(db_path: str = None):
             key_prefix TEXT NOT NULL UNIQUE,
             key_hash TEXT NOT NULL,
             scopes TEXT NOT NULL DEFAULT 'devices:read',
+            -- 'live' (default) or 'readonly' — readonly keys structurally
+            -- cannot carry devices:write (enforced at creation AND auth
+            -- time), so a leaked readonly key can never issue a wipe/lock.
+            key_type TEXT NOT NULL DEFAULT 'live',
+            -- Usage metering: incremented on every key-authenticated request
+            -- (best-effort, alongside last_used_at).
+            request_count INTEGER NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_used_at TIMESTAMP,
             expires_at TIMESTAMP,
@@ -1084,6 +1103,26 @@ def ensure_initialized() -> bool:
         "totp_enabled",
         "totp_last_period",
     }
+    # Developer API key columns — key_type (readonly enforcement) +
+    # request_count (usage metering, v1.7). A DB that predates them must not
+    # take the no-op fast path or the guarded ALTER migrations never run —
+    # this exact drift just shipped: the prod DB had api_keys (v1.6) and the
+    # staleness check never compared its columns, so the new columns were
+    # silently missing until an authenticated key lookup 500'd.
+    expected_api_keys_columns = {
+        "id",
+        "user_id",
+        "name",
+        "key_prefix",
+        "key_hash",
+        "scopes",
+        "key_type",
+        "request_count",
+        "created_at",
+        "last_used_at",
+        "expires_at",
+        "revoked_at",
+    }
     # At-rest encryption columns — location_data must exist before the write
     # path can store ciphertext on a production DB (same no-such-column 500
     # class that bit devices/commands/media historically).
@@ -1140,6 +1179,7 @@ def ensure_initialized() -> bool:
             # recovery_requests table predates the column would take the
             # no-op path below and never migrate (the device_shares bug class).
             recovery_columns = {row["name"] for row in conn.execute("PRAGMA table_info(recovery_requests)").fetchall()}
+            api_keys_columns = {row["name"] for row in conn.execute("PRAGMA table_info(api_keys)").fetchall()}
         if (
             required_tables.issubset(present_tables)
             and expected_devices_columns.issubset(devices_columns)
@@ -1149,6 +1189,7 @@ def ensure_initialized() -> bool:
             and expected_locations_columns.issubset(locations_columns)
             and expected_geofences_columns.issubset(geofences_columns)
             and {"beacon_token"}.issubset(recovery_columns)
+            and expected_api_keys_columns.issubset(api_keys_columns)
         ):
             return False
         init_db()

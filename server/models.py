@@ -6,7 +6,7 @@ Request/response schemas for all API endpoints.
 import re
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ─── Device Models ───────────────────────────────────────────────────────────
 
@@ -454,6 +454,11 @@ class ApiKeyCreateRequest(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=100)
     scopes: list[str] = Field(default_factory=lambda: ["devices:read"])
+    # 'live' (default) or 'readonly'. Readonly keys get the mtk_read_ prefix
+    # and can NEVER carry devices:write — enforced at validation AND again at
+    # auth time (get_api_key_actor), so a leaked readonly key is structurally
+    # incapable of issuing wipe/lock commands even if the row were tampered.
+    key_type: str = Field(default="live", max_length=16)
     expires_at: Optional[str] = Field(None, max_length=40)
     # Step-up: the account password is re-verified (rate-limited) so a stolen
     # dashboard session alone cannot mint long-lived credentials.
@@ -481,6 +486,23 @@ class ApiKeyCreateRequest(BaseModel):
             raise ValueError(f"Unknown scopes: {sorted(unknown)}")
         # Dedupe, preserving order.
         return list(dict.fromkeys(v))
+
+    @field_validator("key_type")
+    @classmethod
+    def validate_key_type(cls, v):
+        if v not in ("live", "readonly"):
+            raise ValueError("key_type must be 'live' or 'readonly'")
+        return v
+
+    @model_validator(mode="after")
+    def readonly_cannot_write(self):
+        # Structural guarantee (belt + braces with auth-time filtering): a
+        # readonly key is created without write scopes, and get_api_key_actor
+        # re-filters at every request — a leaked readonly key can never wipe
+        # or lock a device.
+        if self.key_type == "readonly" and "devices:write" in self.scopes:
+            raise ValueError("readonly keys cannot carry the devices:write scope")
+        return self
 
     @field_validator("expires_at")
     @classmethod
@@ -511,17 +533,22 @@ class ApiKeyCreateResponse(BaseModel):
     key: str
     key_prefix: str
     scopes: list[str]
+    key_type: str = "live"
     created_at: str
     expires_at: Optional[str] = None
 
 
 class ApiKeyListItem(BaseModel):
-    """Listed keys expose prefix + metadata only — never the hash or the key."""
+    """Listed keys expose prefix + metadata only — never the hash or the key.
+    key_type tells the owner live vs readonly at a glance; request_count is
+    the usage meter (incremented per key-authenticated request)."""
 
     id: str
     name: str
     key_prefix: str
     scopes: list[str]
+    key_type: str = "live"
+    request_count: int = 0
     created_at: Optional[str] = None
     last_used_at: Optional[str] = None
     expires_at: Optional[str] = None

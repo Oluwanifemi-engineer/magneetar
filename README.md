@@ -228,6 +228,12 @@ step-up, carry explicit scopes (`devices:read`, `devices:write`,
 `alerts:read`, `media:read`), and are **intersected with your account's own
 RBAC rights** — a viewer-shared device stays read-only through a key too.
 
+Two key types:
+- **Live** (`mtk_live_…`) — may carry write scopes (`devices:write`).
+- **Read-only** (`mtk_read_…`) — structurally cannot issue wipe/lock
+  commands: `devices:write` is rejected at creation AND stripped at every
+  request, so even a leaked read-only key stays read-only.
+
 ```
 # List devices (scope: devices:read)
 curl -s https://api.magneetar.me/api/v1/devices \
@@ -242,7 +248,10 @@ curl -s -X POST https://api.magneetar.me/api/v1/devices/<id>/commands \
 Security properties: the server stores only a 12-char prefix + SHA-256 hash
 (the full key is shown once at creation), keys are per-key rate-limited, and
 `wipe` is deliberately unavailable through keys (it requires the dashboard
-step-up password). Full spec: `docs/developer-api.md`.
+step-up password). Every key-authenticated request increments a usage meter
+(`request_count`, visible in Settings → Developer API Keys), so a key that
+starts burning requests you didn't make is a leak you can see. Full spec:
+`docs/developer-api.md`.
 
 ---
 

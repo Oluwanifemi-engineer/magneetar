@@ -6,7 +6,7 @@ import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { UserProfile } from '@/types';
 import { X, Trash2, ShieldAlert, ShieldCheck, Crown, ArrowUpRight, Smartphone, Mail, RefreshCw, KeyRound, Plus, Copy, Check, Ban, RotateCcw } from 'lucide-react';
-import { ApiKey, ApiKeyCreated, ApiKeyScope } from '@/types';
+import { ApiKey, ApiKeyCreated, ApiKeyScope, ApiKeyType } from '@/types';
 
 const PLAN_LABELS: Record<string, string> = {
   free: 'FREE',
@@ -35,6 +35,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [showCreateKey, setShowCreateKey] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyScopes, setNewKeyScopes] = useState<ApiKeyScope[]>(['devices:read']);
+  // 'live' (default) or 'readonly' — readonly keys can never carry
+  // devices:write; switching to readonly strips it client-side (the server
+  // enforces this too, at creation AND at every request).
+  const [newKeyType, setNewKeyType] = useState<ApiKeyType>('live');
   const [createdKey, setCreatedKey] = useState<ApiKeyCreated | null>(null);
   const [keyPassword, setKeyPassword] = useState('');
   const [keyMsg, setKeyMsg] = useState('');
@@ -185,9 +189,17 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   const toggleScope = (scope: ApiKeyScope) => {
+    if (newKeyType === 'readonly' && scope === 'devices:write') return; // structurally impossible
     setNewKeyScopes((prev) =>
       prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]
     );
+  };
+
+  const setKeyType = (t: ApiKeyType) => {
+    setNewKeyType(t);
+    if (t === 'readonly') {
+      setNewKeyScopes((prev) => prev.filter((s) => s !== 'devices:write'));
+    }
   };
 
   const createApiKey = async () => {
@@ -201,6 +213,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       const res = await getAPI().createApiKey({
         name: newKeyName.trim(),
         scopes: newKeyScopes,
+        key_type: newKeyType,
         password: keyPassword,
       });
       setCreatedKey(res);
@@ -604,6 +617,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                     </div>
                     <div className="text-[9px] font-mono text-mag-text-dim/50">
                       Prefix <span className="text-mag-text-dim/80">{createdKey.key_prefix}…</span> ·
+                      {createdKey.key_type === 'readonly' ? ' read-only · ' : ' live · '}
                       scopes {createdKey.scopes.join(', ')}
                     </div>
                   </div>
@@ -616,21 +630,54 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                   className={stepupInputClass}
                 />
 
-                <div className="space-y-1.5">
-                  {ALL_SCOPES.map((s) => (
-                    <label
-                      key={s.value}
-                      className="flex items-center gap-2 cursor-pointer text-[10px] font-mono text-mag-text-dim/70 hover:text-mag-text transition-colors"
+                <div className="flex gap-1.5">
+                  {(['live', 'readonly'] as ApiKeyType[]).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setKeyType(t)}
+                      className={`flex-1 py-1.5 rounded-md border text-[9px] font-mono font-bold uppercase tracking-wider transition-all ${
+                        newKeyType === t
+                          ? t === 'readonly'
+                            ? 'border-mag-accent/60 bg-mag-accent/10 text-mag-accent'
+                            : 'border-mag-accent/60 bg-mag-accent/10 text-mag-accent'
+                          : 'border-mag-border/30 text-mag-text-dim/50 hover:text-mag-text-dim/80'
+                      }`}
                     >
-                      <input
-                        type="checkbox"
-                        checked={newKeyScopes.includes(s.value)}
-                        onChange={() => toggleScope(s.value)}
-                        className="accent-[#06B6D4]"
-                      />
-                      {s.label}
-                    </label>
+                      {t === 'readonly' ? 'Read-only' : 'Live'}
+                    </button>
                   ))}
+                </div>
+                <div className="text-[9px] font-mono text-mag-text-dim/50 -mt-1">
+                  {newKeyType === 'readonly'
+                    ? 'Read-only keys can never issue wipe/lock commands — enforced by the server even if leaked.'
+                    : 'Live keys may carry write scopes (issue commands).'}
+                </div>
+
+                <div className="space-y-1.5">
+                  {ALL_SCOPES.map((s) => {
+                    const writeLocked = newKeyType === 'readonly' && s.value === 'devices:write';
+                    return (
+                      <label
+                        key={s.value}
+                        className={`flex items-center gap-2 text-[10px] font-mono transition-colors ${
+                          writeLocked
+                            ? 'cursor-not-allowed text-mag-text-dim/30'
+                            : 'cursor-pointer text-mag-text-dim/70 hover:text-mag-text'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={newKeyScopes.includes(s.value)}
+                          disabled={writeLocked}
+                          onChange={() => toggleScope(s.value)}
+                          className="accent-[#06B6D4]"
+                        />
+                        {s.label}
+                        {writeLocked && ' (unavailable for read-only)'}
+                      </label>
+                    );
+                  })}
                 </div>
 
                 <input
@@ -669,6 +716,20 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                       <div className="text-[9px] font-mono text-mag-text-dim/50">
                         {k.key_prefix}…
                       </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
+                          k.key_type === 'readonly'
+                            ? 'bg-mag-accent/10 text-mag-accent'
+                            : 'bg-mag-border/20 text-mag-text-dim/60'
+                        }`}
+                      >
+                        {k.key_type === 'readonly' ? 'read-only' : 'live'}
+                      </span>
+                      <span className="text-[9px] font-mono text-mag-text-dim/50">
+                        {k.request_count} req
+                      </span>
                     </div>
                     <div className="text-[9px] font-mono text-mag-text-dim/50 break-all">
                       {k.scopes.join(' · ')}

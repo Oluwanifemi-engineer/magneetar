@@ -1,4 +1,4 @@
-import { Device, Location, Command, MediaItem, MediaDetail, ErrorLogResponse, GuardianProfile, RecoveryRequest, NearbyRecoveryRequest, UserProfile, Geofence, GeofenceAutoAction, DeviceShare, ShareRole, ApiKey, ApiKeyCreated, ApiKeyScope } from '@/types';
+import { Device, Location, Command, MediaItem, MediaDetail, ErrorLogResponse, GuardianProfile, RecoveryRequest, NearbyRecoveryRequest, UserProfile, Geofence, GeofenceAutoAction, DeviceShare, ShareRole, ApiKey, ApiKeyCreated, ApiKeyScope, ApiKeyType } from '@/types';
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -462,10 +462,13 @@ class MagneetarAPI {
    * Create a scoped key. The FULL key is returned exactly once in `key` —
    * show it to the user immediately, because the server stores only the
    * prefix + hash and cannot recover it later.
+   * key_type: 'live' (default) or 'readonly' — readonly keys can never carry
+   * write scopes (enforced server-side at creation and at every request).
    */
   async createApiKey(data: {
     name: string;
     scopes: ApiKeyScope[];
+    key_type?: ApiKeyType;
     password: string;
     expires_at?: string | null;
   }): Promise<ApiKeyCreated> {

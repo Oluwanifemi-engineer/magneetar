@@ -9,13 +9,15 @@ backend + tests + dashboard UI live, rolling out on api.magneetar.me
 > - Backend: `server/routes/api_keys.py` (management + `/api/v1` data surface),
 >   `auth.get_api_key_actor` + `require_api_key_scope`, `api_keys` table in
 >   `database.py`/`database_postgres.py`, key cleanup on account deletion.
-> - Tests: `server/tests/test_api_keys.py` (28 cases — creation, scope
+> - Tests: `server/tests/test_api_keys.py` (34 cases — creation, scope
 >   enforcement, RBAC intersection, step-up, rotation, revocation, rate
->   limits, wipe rejection).
+>   limits, wipe rejection, readonly key type, usage metering).
 > - Dashboard: Settings → Developer API Keys (create / copy-once / rotate /
->   revoke with password step-up).
+>   revoke with password step-up, live vs read-only picker, usage meter).
 > - Rollout order §10 items 1-3 are done; item 4 (Android) is intentionally
->   untouched. Remaining future work: per-key usage metering + billing.
+>   untouched. v1.7 added the **read-only key type** (`mtk_read_…`) and
+>   **per-key usage metering** (`request_count`). Remaining future work:
+>   billing on top of the meter.
 
 ---
 
@@ -56,8 +58,14 @@ reseller tooling) against *their own* data only.
 ```
 Format:   mtk_live_<32 random url-safe chars>      # live environment
           mtk_test_<32 random url-safe chars>      # sandbox environment
+          mtk_read_<32 random url-safe chars>      # read-only (see §4)
 Example:  mtk_live_7f3KpQ2xLm9zWvR4cTnB8yHd1gJ6sUa
 ```
+
+The `mtk_read_` prefix is structural: `get_api_key_actor` strips write
+scopes from ANY key carrying it (or whose stored `key_type` is
+`readonly`) before the route sees them, independent of the stored scopes
+column.
 
 - The **full key is displayed exactly once** at creation (server never stores it).
 - Stored as **SHA-256 hash** (reuse `auth.hash_device_key` pattern) + a
@@ -65,12 +73,14 @@ Example:  mtk_live_7f3KpQ2xLm9zWvR4cTnB8yHd1gJ6sUa
 
 ```sql
 CREATE TABLE IF NOT EXISTS api_keys (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  id           TEXT PRIMARY KEY,
   user_id      TEXT NOT NULL,                     -- owning account
   name         TEXT NOT NULL,                     -- human label ("Reseller dash")
   key_prefix   TEXT NOT NULL UNIQUE,              -- 'mtk_live_7f3KpQ2x' (first 12)
   key_hash     TEXT NOT NULL,                     -- sha256(full key)
   scopes       TEXT NOT NULL DEFAULT 'devices:read',  -- comma-separated
+  key_type     TEXT NOT NULL DEFAULT 'live',      -- 'live' | 'readonly' (v1.7)
+  request_count INTEGER NOT NULL DEFAULT 0,       -- usage meter (v1.7)
   created_at   TEXT NOT NULL,
   last_used_at TEXT,
   expires_at   TEXT,                              -- NULL = never
@@ -79,6 +89,9 @@ CREATE TABLE IF NOT EXISTS api_keys (
 CREATE INDEX idx_api_keys_user   ON api_keys(user_id);
 CREATE INDEX idx_api_keys_prefix ON api_keys(key_prefix);
 ```
+
+Existing databases migrate forward idempotently (`ALTER TABLE … ADD COLUMN`
+in `database.py` + Postgres parity).
 
 - Lookup: find candidate row(s) by `key_prefix`, then compare
   `hmac.compare_digest(sha256(presented), key_hash)` — constant time.
@@ -100,6 +113,26 @@ v1 ships with a small scope set that maps 1:1 onto existing RBAC abilities:
 Scopes are **always intersected** with the owner account's own rights: a key
 can never exceed what the account could do in the dashboard, and sharing
 rules still apply per device.
+
+### Read-only key type (`mtk_read_…`, v1.7)
+
+A second key type for integrations that only *observe* (alerting scripts,
+read-only dashboards, backup tooling):
+
+- **Creation**: `key_type: "readonly"` — `devices:write` is rejected with
+  422 at creation (the model enforces it), and the UI locks the checkbox.
+- **Auth time (defense in depth)**: `get_api_key_actor` strips any
+  `:write` scope from a key whose stored `key_type` is `readonly` OR whose
+  prefix is `mtk_read_` — even a tampered row can never turn a read-only
+  key into a wipe/lock credential.
+- **Rotate** preserves the type.
+
+### Usage metering (v1.7)
+
+Every key-authenticated request increments `request_count` (atomically,
+best-effort alongside `last_used_at`). The count is exposed in the key list
+and is the future billing basis (§9). A key that starts burning requests you
+ didn't make is a leak you can see.
 
 ## 5. Auth flow
 
@@ -158,7 +191,7 @@ Step-up prompt on create/revoke/rotate. Reuses the existing password gate.
 
 - **OAuth2 authorization-code** for third-party apps ("connect your account").
 - Webhooks (theft event → POST to integrator URL).
-- Per-key usage metering + billing.
+- Billing on top of the usage meter (`request_count` is already recorded).
 
 ## 10. Rollout order
 

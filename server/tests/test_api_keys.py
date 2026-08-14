@@ -94,13 +94,14 @@ def register_device(device_id: str, user_token: str) -> dict:
     return resp.json()
 
 
-def create_key(user: dict, name: str = "test key", scopes=None, expires_at=None, password=None) -> dict:
+def create_key(user: dict, name: str = "test key", scopes=None, expires_at=None, password=None, key_type=None) -> dict:
     """POST /api/account/api-keys (step-up gated)."""
     resp = client.post(
         "/api/account/api-keys",
         json={
             "name": name,
             "scopes": scopes if scopes is not None else ["devices:read"],
+            "key_type": key_type if key_type is not None else "live",
             "expires_at": expires_at,
             "password": password if password is not None else TEST_USER_PASSWORD,
         },
@@ -172,6 +173,46 @@ class TestSchemaMigration:
         conn.close()
 
         assert "api_keys" in tables
+        os.remove(old_db_path)
+
+    def test_ensure_initialized_adds_new_api_key_columns_to_existing_db(self, monkeypatch):
+        """A DB that already has api_keys (v1.6 schema — no key_type /
+        request_count) must still be migrated forward. The staleness check
+        compares api_keys COLUMNS now; before that fix, an existing table
+        made ensure_initialized take the no-op fast path and the guarded
+        ALTERs never ran — this exact drift shipped to production on
+        2026-08-14 (readonly keys 500'd on the live DB)."""
+        fd, old_db_path = tempfile.mkstemp(suffix="-oldapi.db")
+        os.close(fd)
+
+        conn = sqlite3.connect(old_db_path)
+        conn.execute("CREATE TABLE devices (id TEXT PRIMARY KEY)")
+        # The v1.6 api_keys schema — no key_type, no request_count.
+        conn.execute(
+            """CREATE TABLE api_keys (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                key_prefix TEXT NOT NULL UNIQUE,
+                key_hash TEXT NOT NULL,
+                scopes TEXT NOT NULL DEFAULT 'devices:read',
+                created_at TEXT,
+                last_used_at TEXT,
+                expires_at TEXT,
+                revoked_at TEXT
+            )"""
+        )
+        conn.commit()
+        conn.close()
+
+        monkeypatch.setattr(database, "DB_PATH", old_db_path)
+        assert database.ensure_initialized() is True
+
+        conn = sqlite3.connect(old_db_path)
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(api_keys)")}
+        conn.close()
+
+        assert {"key_type", "request_count"}.issubset(cols)
         os.remove(old_db_path)
 
 
@@ -314,6 +355,112 @@ class TestKeyManagement:
         # Old key dies instantly, new key works.
         assert client.get("/api/v1/devices", headers=key_headers(created["key"])).status_code == 401
         assert client.get("/api/v1/alerts", headers=key_headers(rotated["key"])).status_code == 200
+
+    def test_rotate_preserves_key_type(self):
+        user = register_user("rotate-ro@example.com")
+        created = create_key(user, name="Ro key", key_type="readonly").json()
+
+        resp = client.post(
+            f"/api/account/api-keys/{created['id']}/rotate",
+            json={"password": TEST_USER_PASSWORD},
+            headers=user_headers(user["token"]),
+        )
+        assert resp.status_code == 200, resp.text
+        rotated = resp.json()
+        assert rotated["key_type"] == "readonly"
+        assert rotated["key"].startswith("mtk_read_")
+
+
+# ─── Readonly key type + usage metering ─────────────────────────────────────
+
+
+class TestReadonlyKeysAndMetering:
+    def _owner_with_device(self, email="ro-owner@example.com"):
+        user = register_user(email)
+        register_device("ro-owner-phone", user["token"])
+        return user
+
+    def test_readonly_key_has_mtk_read_prefix_and_type(self):
+        user = register_user("ro-prefix@example.com")
+        created = create_key(user, name="Read-only dash", key_type="readonly").json()
+        assert created["key"].startswith("mtk_read_")
+        assert len(created["key"]) == len("mtk_read_") + 32
+        assert created["key_prefix"] == created["key"][:12]
+        assert created["key_type"] == "readonly"
+        # Stored as readonly too.
+        with database.get_db_context() as conn:
+            row = conn.execute("SELECT key_type FROM api_keys WHERE id=?", (created["id"],)).fetchone()
+        assert row["key_type"] == "readonly"
+
+    def test_readonly_key_cannot_be_created_with_write_scope(self):
+        """Creation-time structural guarantee: a readonly key with
+        devices:write is rejected with 422 — you cannot even mint it."""
+        user = register_user("ro-write@example.com")
+        resp = create_key(user, scopes=["devices:read", "devices:write"], key_type="readonly")
+        assert resp.status_code == 422
+        resp = create_key(user, scopes=["devices:write"], key_type="readonly")
+        assert resp.status_code == 422
+
+    def test_readonly_key_reads_but_cannot_command(self):
+        """A readonly key works on the read surface but the devices:write
+        gate returns 403 — wipe/lock are structurally impossible."""
+        user = self._owner_with_device()
+        created = create_key(user, scopes=["devices:read"], key_type="readonly").json()
+        # Reads fine.
+        resp = client.get("/api/v1/devices", headers=key_headers(created["key"]))
+        assert resp.status_code == 200
+        assert len(resp.json()["devices"]) == 1
+        # Write denied — the key has no devices:write scope at auth time.
+        resp = client.post(
+            "/api/v1/devices/ro-owner-phone/commands",
+            json={"command": "lock"},
+            headers=key_headers(created["key"]),
+        )
+        assert resp.status_code == 403
+
+    def test_readonly_enforced_at_auth_time_even_if_row_tampered(self):
+        """Defense in depth: even if the stored scopes column is tampered to
+        include devices:write, the auth path strips write scopes from any
+        readonly key (stored key_type OR mtk_read_ prefix) before the route
+        sees them — a leaked readonly key can never become a wipe/lock
+        credential."""
+        user = self._owner_with_device()
+        created = create_key(user, scopes=["devices:read"], key_type="readonly").json()
+        # Simulate a tampered row: write scope sneaked into the scopes column.
+        with database.get_db_context() as conn:
+            conn.execute(
+                "UPDATE api_keys SET scopes='devices:read,devices:write' WHERE id=?",
+                (created["id"],),
+            )
+            conn.commit()
+        resp = client.post(
+            "/api/v1/devices/ro-owner-phone/commands",
+            json={"command": "lock"},
+            headers=key_headers(created["key"]),
+        )
+        assert resp.status_code == 403
+
+    def test_request_count_increments_and_is_listed(self):
+        user = register_user("meter@example.com")
+        created = create_key(user).json()
+        # Fresh key: no usage yet.
+        resp = client.get("/api/account/api-keys", headers=user_headers(user["token"]))
+        assert resp.json()["api_keys"][0]["request_count"] == 0
+
+        # Two key-authenticated requests (one that fails auth does NOT count
+        # — metering happens after authentication).
+        assert client.get("/api/v1/devices", headers=key_headers(created["key"])).status_code == 200
+        assert client.get("/api/v1/devices", headers=key_headers(created["key"])).status_code == 200
+        assert client.get("/api/v1/devices", headers=key_headers("mtk_live_bogus")).status_code == 401
+
+        resp = client.get("/api/account/api-keys", headers=user_headers(user["token"]))
+        listed = resp.json()["api_keys"][0]
+        assert listed["request_count"] == 2
+        assert listed["last_used_at"] is not None
+        # DB agrees.
+        with database.get_db_context() as conn:
+            row = conn.execute("SELECT request_count FROM api_keys WHERE id=?", (created["id"],)).fetchone()
+        assert row["request_count"] == 2
 
 
 # ─── Data surface: scopes ────────────────────────────────────────────────────

@@ -86,17 +86,17 @@ def _verify_user_stepup(user_id: str, raw_password) -> None:
         raise HTTPException(status_code=401, detail="Invalid password")
 
 
-def _insert_key(db, user_id: str, name: str, scopes: list, expires_at) -> dict:
+def _insert_key(db, user_id: str, name: str, scopes: list, expires_at, key_type: str = "live") -> dict:
     """Mint a key, store prefix+hash, return the full key + metadata (the
     full key is returned to the caller exactly once)."""
-    raw = generate_api_key()
+    raw = generate_api_key(key_type=key_type)
     key_id = f"ak-{uuid.uuid4().hex[:12]}"
     prefix = raw[:12]
     now = datetime.now(timezone.utc).isoformat()
     db.execute(
-        "INSERT INTO api_keys (id, user_id, name, key_prefix, key_hash, scopes, created_at, expires_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (key_id, user_id, name, prefix, hash_device_key(raw), ",".join(scopes), now, expires_at),
+        "INSERT INTO api_keys (id, user_id, name, key_prefix, key_hash, scopes, key_type, created_at, expires_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (key_id, user_id, name, prefix, hash_device_key(raw), ",".join(scopes), key_type, now, expires_at),
     )
     db.commit()
     return {
@@ -105,6 +105,7 @@ def _insert_key(db, user_id: str, name: str, scopes: list, expires_at) -> dict:
         "key": raw,
         "key_prefix": prefix,
         "scopes": scopes,
+        "key_type": key_type,
         "created_at": now,
         "expires_at": expires_at,
     }
@@ -127,11 +128,11 @@ async def create_api_key(
         raise HTTPException(status_code=401, detail="Account no longer exists")
     _verify_user_stepup(user_id, req.password)
 
-    result = _insert_key(db, user_id, req.name, req.scopes, req.expires_at)
+    result = _insert_key(db, user_id, req.name, req.scopes, req.expires_at, req.key_type)
     log_audit(
         "api_key_created",
         actor=user_id,
-        details=f"key_prefix={result['key_prefix']} scopes={','.join(req.scopes)}",
+        details=f"key_prefix={result['key_prefix']} type={req.key_type} scopes={','.join(req.scopes)}",
     )
     return result
 
@@ -143,7 +144,8 @@ async def list_api_keys(auth: str = Depends(get_current_user)):
     user_id = _require_user_actor(auth)
     with get_db_context() as conn:
         rows = conn.execute(
-            "SELECT id, name, key_prefix, scopes, created_at, last_used_at, expires_at, revoked_at "
+            "SELECT id, name, key_prefix, scopes, key_type, request_count, "
+            "created_at, last_used_at, expires_at, revoked_at "
             "FROM api_keys WHERE user_id=? ORDER BY created_at DESC",
             (user_id,),
         ).fetchall()
@@ -203,7 +205,7 @@ async def rotate_api_key(
 
     with get_db_context() as conn:
         row = conn.execute(
-            "SELECT name, scopes, expires_at, key_prefix FROM api_keys "
+            "SELECT name, scopes, key_type, expires_at, key_prefix FROM api_keys "
             "WHERE id=? AND user_id=? AND revoked_at IS NULL",
             (key_id, user_id),
         ).fetchone()
@@ -218,7 +220,7 @@ async def rotate_api_key(
     name = row["name"]
     scopes = [s for s in (row["scopes"] or "").split(",") if s]
     expires_at = row["expires_at"]
-    result = _insert_key(db, user_id, name, scopes, expires_at)
+    result = _insert_key(db, user_id, name, scopes, expires_at, row["key_type"])
     log_audit(
         "api_key_rotated",
         actor=user_id,
