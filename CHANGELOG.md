@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-15
 
+### Fix — audio evidence playback silent in the dashboard (G1 field finding)
+
+- **Root cause was NOT the capture.** Forensically verified the exact file
+  the device uploaded (29.88 s mono AAC, real content, peak 0.89, RMS
+  −37.8 dBFS) — it decodes and plays in Chrome. The dashboard player
+  toggled React's `autoPlay` prop *after mount*, which browsers ignore /
+  block under the autoplay-with-sound policy → PLAY spun silently.
+- **Fix:** playback is now driven explicitly — `audio.play()`/`pause()`
+  from the click handler (guaranteed user gesture), errors surfaced
+  instead of silent dead air, plus a DOWNLOAD FILE fallback in the viewer.
+  Verified live: bundle carries the new player, zero `autoPlay` refs.
+
 ### Fix — audio capture "Audio file not found" (G1 field finding)
 
 - The A03s silently failed to finalize **stereo 128 kbps** AAC from the
