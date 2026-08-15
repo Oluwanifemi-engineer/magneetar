@@ -567,6 +567,25 @@ class MediaCaptureService : Service() {
 
     // ── Audio ───────────────────────────────────────────────────────────────
 
+    /**
+     * Capture configs to try, most preferred first. Some low-end SoCs
+     * (Samsung A03s / MediaTek, live-tested) silently FAIL to finalize stereo
+     * or high-bitrate AAC recorded from the mic — the recorder reports a
+     * successful stop() but no file exists afterward ("Audio file not found
+     * after recording", seen live on SM-A037F). Mono AAC-LC at moderate
+     * bitrate is the universally-supported profile (the user's own audio
+     * research confirms: "never stereo for speech — universal HW encoder is
+     * mono AAC-LC"). We attempt the higher-quality config first, then walk
+     * down to the bulletproof one rather than failing the capture.
+     */
+    private class AudioCaptureConfig(
+        val source: Int,
+        val sampleRate: Int,
+        val bitRate: Int,
+        val channels: Int,
+        val label: String,
+    )
+
     @android.annotation.SuppressLint("MissingPermission")
     private suspend fun captureAudio() {
         // Ensure cache directory exists
@@ -605,6 +624,42 @@ class MediaCaptureService : Service() {
         }
 
         Log.i(TAG, "Audio capture file: ${file.absolutePath}")
+
+        // Progressive fallback chain — a low-end SoC may reject the fancy
+        // config (stereo/high bitrate) with a silent no-file failure, so each
+        // step degrades toward the universally-supported mono profile. Each
+        // config is tried on a FRESH recorder + FRESH output file (a recorder
+        // that failed to finalize is unusable).
+        val configs = listOf(
+            // Preferred: clear voice, low noise-suppression impact.
+            AudioCaptureConfig(MediaRecorder.AudioSource.VOICE_RECOGNITION, 44_100, 96_000, 1, "voice-mono-44k"),
+            // Fallback 1: plain mic, same quality.
+            AudioCaptureConfig(MediaRecorder.AudioSource.MIC, 44_100, 96_000, 1, "mic-mono-44k"),
+            // Fallback 2: bulletproof profile — mono AAC-LC 16 kHz, the
+            // config that works on every device.
+            AudioCaptureConfig(MediaRecorder.AudioSource.MIC, 16_000, 32_000, 1, "mic-mono-16k"),
+        )
+
+        var lastFailure: Exception? = null
+        for (cfg in configs) {
+            val attemptFile = File(file.parentFile, "mt_audio_${System.currentTimeMillis()}.m4a")
+            try {
+                captureAudioWithConfig(attemptFile, cfg)
+                return  // success — uploaded and acked by the caller
+            } catch (e: Exception) {
+                Log.w(TAG, "Audio capture config '${cfg.label}' failed: ${e.message}")
+                lastFailure = e
+                try { if (attemptFile.exists()) attemptFile.delete() } catch (_: Exception) {}
+            }
+        }
+        // All configs failed — surface the LAST reason (usually the first
+        // config's real cause, e.g. muted mic) rather than a generic error.
+        throw lastFailure ?: IllegalStateException("Audio capture failed")
+    }
+
+    /** Record one clip with one config; throws on any failure. */
+    @android.annotation.SuppressLint("MissingPermission")
+    private suspend fun captureAudioWithConfig(file: File, cfg: AudioCaptureConfig) {
         var recorder: MediaRecorder? = null
         try {
             recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -614,44 +669,27 @@ class MediaCaptureService : Service() {
                 MediaRecorder()
             }
             recorder.apply {
-                // VOICE_RECOGNITION bypasses noise suppression and AGC
-                // This allows ambient sounds to be captured clearly
-                // Falls back to MIC if VOICE_RECOGNITION not supported
-                try {
-                    setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
-                    Log.i(TAG, "Using VOICE_RECOGNITION audio source")
-                } catch (e: Exception) {
-                    Log.w(TAG, "VOICE_RECOGNITION not supported, using MIC")
-                    setAudioSource(MediaRecorder.AudioSource.MIC)
-                }
+                // VOICE_RECOGNITION bypasses noise suppression and AGC so
+                // ambient sounds capture clearly; falls back to MIC when the
+                // source is rejected.
+                setAudioSource(cfg.source)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                // AAC is well-supported; use higher quality for ambient capture.
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-
-                // Optimized settings for ambient sound/speech capture:
-                // - 44100 Hz: Standard CD quality, captures full speech range
-                // - 128 kbps: Higher bitrate for clearer audio (was 96kbps)
-                // - Stereo: Better spatial audio for ambient sounds
-                // These settings are well-supported across Android devices.
-                setAudioSamplingRate(44100)
-                setAudioEncodingBitRate(128_000)  // Increased from 96kbps
-                setAudioChannels(2)  // Stereo for better ambient capture
-                // NOTE: deliberately NO setMaxDuration(). The 30s recording
-                // window is already owned by the polling loop below (it waits
-                // exactly AUDIO_CAPTURE_MS before calling stop()). Setting BOTH
-                // maxDuration AND an app-side 30s stop() creates a race: when
-                // the OS auto-stops the recorder at maxDuration the moment the
-                // app calls stop(), Samsung's MediaRecorder finalizes the file
-                // and removes it, so the exists() check below fails with
-                // "Audio file not found after recording" (seen live on
-                // SM-A037F, 2026-08-11). The app-side loop alone means stop()
-                // is the only stop — the file is always kept.
+                setAudioSamplingRate(cfg.sampleRate)
+                setAudioEncodingBitRate(cfg.bitRate)
+                setAudioChannels(cfg.channels)
+                // NOTE: deliberately NO setMaxDuration(). The recording window
+                // is owned by the polling loop below (it waits exactly
+                // AUDIO_CAPTURE_MS before calling stop()). Setting BOTH
+                // maxDuration AND an app-side stop() creates a race where
+                // Samsung's MediaRecorder finalizes the file and removes it,
+                // failing the exists() check with "Audio file not found after
+                // recording" (seen live on SM-A037F, 2026-08-11).
                 setOutputFile(file.absolutePath)
-                Log.i(TAG, "Preparing MediaRecorder for audio capture")
+                Log.i(TAG, "Preparing MediaRecorder (${cfg.label})")
                 prepare()
-                Log.i(TAG, "MediaRecorder prepared, starting capture")
                 start()
-                Log.i(TAG, "Audio capture started successfully")
+                Log.i(TAG, "Audio capture started (${cfg.label})")
             }
 
             // ── Silence detection ─────────────────────────────────────────

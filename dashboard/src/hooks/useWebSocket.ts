@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useStore } from '@/store/useStore';
+import { pickLiveLocation, isGoodLocationFix } from '@/lib/utils';
 
 type MessageType = 'location' | 'alert' | 'command_ack' | 'heartbeat' | 'sentinel' | 'ping' | 'pong';
 
@@ -102,72 +103,75 @@ export function useWebSocket() {
       case 'location': {
         // Immediately update device location in store for real-time map
         const { devices, selectedDeviceId } = useStore.getState();
-        if (data.device_id === selectedDeviceId) {
-          // Update latest location directly (partial — runtime data)
-          useStore.setState({
-            latestLocation: {
-              id: Date.now(),
-              device_id: data.device_id,
-              lat: data.lat,
-              lng: data.lng,
-              // The server broadcasts accuracy_horizontal (the device's
-              // Kalman-fused accuracy in meters) on every live location — map
-              // it to the UI's `accuracy` field so the map circle and
-              // "±Nm" readouts show the REAL fused accuracy in real time,
-              // not a perpetual "±?m". Falls back to the legacy `accuracy`
-              // key for older server builds.
-              accuracy: data.accuracy_horizontal ?? data.accuracy ?? null,
-              accuracy_horizontal: data.accuracy_horizontal ?? null,
-              provider: data.provider || 'gps',
-              speed: data.speed,
-              bearing: data.bearing ?? null,
-              battery_percent: data.battery,
-              altitude: null,
-              sentinel_score: data.sentinel_score,
-              threat_level: data.threat_level,
-              anomalies: data.anomalies || null,
-              timestamp: data.timestamp || new Date().toISOString(),
-              server_timestamp: data.timestamp || null,
-              device_timestamp: data.timestamp || null,
-              is_charging: null,
-              network_type: null,
-              sim_changed: null,
-              is_airplane_mode: null,
-              is_location_enabled: null,
-              activity_type: null,
-              // Honest confidence from the device's telemetry (HIGH/MEDIUM/
-              // LOW) instead of a hardcoded 'high'.
-              confidence_level: data.confidence_level || 'unknown',
-            },
-            // Also update map center if following
-            mapCenter: useStore.getState().followDevice ? [data.lat, data.lng] : useStore.getState().mapCenter,
-          });
-        }
-        // Update device in list
-        const updatedDevices = devices.map(d =>
-          d.id === data.device_id
-            ? { ...d, lat: data.lat, lng: data.lng, battery_percent: data.battery, is_online: true, last_seen: data.timestamp }
-            : d
-        );
-        useStore.setState({ devices: updatedDevices });
-
-        // Also append to locations array for trail rendering
         const prevLocations = useStore.getState().locations;
+        // Synthetic fix row — carries the same fields a polled location has
+        // (including the quality metadata the live-pin gate needs), so the
+        // trail and the pin stay consistent.
         const newLoc: any = {
+          id: Date.now(),
+          device_id: data.device_id,
           lat: data.lat,
           lng: data.lng,
-          battery_percent: data.battery,
-          speed: data.speed,
+          // The server broadcasts accuracy_horizontal (the device's
+          // Kalman-fused accuracy in meters) on every live location — map
+          // it to the UI's `accuracy` field so the map circle and
+          // "±Nm" readouts show the REAL fused accuracy in real time,
+          // not a perpetual "±?m". Falls back to the legacy `accuracy`
+          // key for older server builds.
           accuracy: data.accuracy_horizontal ?? data.accuracy ?? null,
-          provider: data.provider || null,
+          accuracy_horizontal: data.accuracy_horizontal ?? null,
+          provider: data.provider || 'gps',
+          speed: data.speed,
           bearing: data.bearing ?? null,
-          timestamp: data.timestamp,
+          battery_percent: data.battery,
+          altitude: null,
           sentinel_score: data.sentinel_score,
           threat_level: data.threat_level,
-          device_timestamp: data.timestamp,
-          server_timestamp: data.timestamp,
+          anomalies: data.anomalies || null,
+          timestamp: data.timestamp || new Date().toISOString(),
+          server_timestamp: data.timestamp || null,
+          device_timestamp: data.timestamp || null,
+          is_charging: null,
+          network_type: null,
+          sim_changed: null,
+          is_airplane_mode: null,
+          is_location_enabled: null,
+          activity_type: null,
+          // Honest confidence from the device's telemetry (HIGH/MEDIUM/
+          // LOW) instead of a hardcoded 'high'.
+          confidence_level: data.confidence_level || 'unknown',
         };
-        useStore.setState({ locations: [newLoc, ...prevLocations].slice(0, 500) });
+        // Append to the trail unconditionally (every fix is real telemetry).
+        const nextLocations = [newLoc, ...prevLocations].slice(0, 500);
+        // Live pin = quality-gated (pickLiveLocation): a degraded cell-tower
+        // fix (200-700m, km off the true GPS position) must NOT teleport the
+        // marker — the pin stays on the most recent GOOD fix until the
+        // freshness window expires. Same rule as the server's LIVE_FIX_ORDER_SQL
+        // and the store's setLocations.
+        const deviceFixes = [newLoc, ...prevLocations.filter(l => l.device_id === data.device_id)].slice(0, 500);
+        const live = pickLiveLocation(deviceFixes);
+        const followDevice = useStore.getState().followDevice;
+        useStore.setState({
+          locations: nextLocations,
+          latestLocation: live,
+          mapCenter: followDevice && live ? [live.lat, live.lng] : useStore.getState().mapCenter,
+        });
+        // Update device in list — coords follow the SAME gate (the sidebar
+        // card must not show a misleading cell centroid either); battery and
+        // last_seen always refresh.
+        const updatedDevices = devices.map(d => {
+          if (d.id !== data.device_id) return d;
+          const base: any = { battery_percent: data.battery, is_online: true, last_seen: data.timestamp };
+          if (data.device_id === selectedDeviceId && live) {
+            base.lat = live.lat;
+            base.lng = live.lng;
+          } else if (isGoodLocationFix(newLoc) || d.lat == null || d.lng == null) {
+            base.lat = data.lat;
+            base.lng = data.lng;
+          }
+          return { ...d, ...base };
+        });
+        useStore.setState({ devices: updatedDevices });
         break;
       }
 

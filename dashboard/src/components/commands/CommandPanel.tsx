@@ -26,7 +26,7 @@ const COMMANDS: {
   { command: 'ping', label: 'PING', icon: Radio, tone: 'primary', title: 'Check the device is reachable (acks instantly)' },
   { command: 'capture_photo_front', label: 'FRONT', icon: Webcam, tone: 'accent', title: 'Capture front camera photo' },
   { command: 'capture_photo', label: 'PHOTO', icon: Camera, tone: 'accent', title: 'Capture rear camera photo' },
-  { command: 'capture_audio', label: 'AUDIO', icon: Mic, tone: 'accent', title: 'Record 20s of audio' },
+  { command: 'capture_audio', label: 'AUDIO', icon: Mic, tone: 'accent', title: 'Record 30s of audio' },
   { command: 'location_burst', label: 'BURST', icon: LocateFixed, tone: 'primary', title: 'Send 5 rapid location fixes' },
   { command: 'lock', label: 'LOCK', icon: Lock, tone: 'warning', title: 'Lock the device screen instantly' },
   { command: 'alarm', label: 'SIREN', icon: Siren, tone: 'warning', title: 'Play a max-volume alarm' },
@@ -36,6 +36,24 @@ const COMMANDS: {
   { command: 'lost_mode', label: 'LOST MODE', icon: ShieldAlert, tone: 'danger', title: 'Lock the device to a full-screen recovery message with a call button' },
   { command: 'wipe', label: 'WIPE', icon: AlertTriangle, tone: 'danger', title: 'Factory reset — requires confirmation' },
 ];
+
+// Vertical rollout groups: each group is a row that expands on click to
+// reveal its commands (the old 2×4 tile grid crammed 9 buttons into a narrow
+// column and pushed destructive + rare actions off-view). Grouped by intent
+// so an operator sees the surface first, then rolls out what they need.
+const COMMAND_GROUPS: {
+  id: string;
+  label: string;
+  icon: typeof Radio;
+  commands: string[];
+}[] = [
+  { id: 'locate', label: 'Locate', icon: LocateFixed, commands: ['ping', 'location_burst'] },
+  { id: 'evidence', label: 'Evidence', icon: Camera, commands: ['capture_photo_front', 'capture_photo', 'capture_audio'] },
+  { id: 'control', label: 'Control', icon: Siren, commands: ['lock', 'alarm', 'lost_mode'] },
+  { id: 'danger', label: 'Danger', icon: AlertTriangle, commands: ['wipe'] },
+];
+
+const commandById = (c: string) => COMMANDS.find(x => x.command === c)!;
 
 export function CommandPanel() {
   const { commands, setCommands, selectedDeviceId, devices } = useStore();
@@ -57,6 +75,16 @@ export function CommandPanel() {
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [commandError, setCommandError] = useState('');
   const [lastSent, setLastSent] = useState('');
+  // Vertical rollout groups — 'locate' starts open so the surface is never
+  // empty; the rest expand on click. Each group stays independent so the
+  // operator can keep Evidence open while firing a Control command.
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(['locate']));
+  const toggleGroup = (id: string) =>
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   // Wipe is a factory reset — the server requires the step-up password
   // (account password for users, master API key for admin) before queuing,
   // so this prompt collects it (the server re-verifies; this is not the
@@ -195,19 +223,58 @@ export function CommandPanel() {
         <div className="text-[11px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold mb-2.5 px-1">
           Quick Actions
         </div>
-        <div className="grid grid-cols-4 gap-2">
-          {COMMANDS.map(({ command, label, icon, tone, title }) => (
-            <CommandButton
-              key={command}
-              command={command}
-              label={label}
-              icon={icon}
-              tone={tone}
-              title={title}
-              loading={sending === command}
-              onSend={() => handleClick(command)}
-            />
-          ))}
+        <div className="space-y-1.5">
+          {COMMAND_GROUPS.map(group => {
+            const open = openGroups.has(group.id);
+            const GroupIcon = group.icon;
+            return (
+              <div
+                key={group.id}
+                className="rounded-xl border border-mag-border/40 bg-mag-surface/20 overflow-hidden"
+              >
+                <button
+                  onClick={() => toggleGroup(group.id)}
+                  aria-expanded={open}
+                  aria-label={`${group.label} commands`}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-mag-surface/40 transition-colors group"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-lg bg-current/10 border border-current/20 flex items-center justify-center">
+                      <GroupIcon size={12} className="text-mag-text-dim/70 group-hover:text-mag-text transition-colors" />
+                    </span>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-mag-text/70 group-hover:text-mag-text transition-colors">
+                      {group.label}
+                    </span>
+                  </span>
+                  <svg
+                    width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                    className={`text-mag-text-dim/40 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+                {open && (
+                  <div className="grid grid-cols-3 gap-1.5 p-2 border-t border-mag-border/30 animate-fade-in">
+                    {group.commands.map(c => {
+                      const { command, label, icon, tone, title } = commandById(c);
+                      return (
+                        <CommandButton
+                          key={command}
+                          command={command}
+                          label={label}
+                          icon={icon}
+                          tone={tone}
+                          title={title}
+                          loading={sending === command}
+                          onSend={() => handleClick(command)}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Feedback strip */}

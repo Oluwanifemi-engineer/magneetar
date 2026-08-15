@@ -57,6 +57,32 @@ logger = get_logger("magneetar")
 
 router = APIRouter()
 
+# ─── Live-location quality gate ─────────────────────────────────────────────
+# The device reports a fix every ~3s. When GPS is unavailable (indoors,
+# pocket, car), Android falls back to cell-tower fixes whose accuracy is
+# 200-700m — and the cell centroid can be KILOMETRES from the true position.
+# The dashboard's live pin used to be the newest fix regardless of quality,
+# so a degraded fix landing right after a good GPS fix teleported the map to
+# a misleading location (G1 field finding 2026-08-15: pin jumped 3.5km to a
+# cell centroid while the device sat still).
+#
+# Rule: the live position is the most recent fix that is GOOD — HIGH/MEDIUM
+# confidence or <100m accuracy — within a freshness window. A degraded fix
+# only takes over after the window expires (so a genuinely moving device in
+# a GPS-denied area still advances, just with an honest accuracy circle).
+# The window ALSO bounds how far back we'll resurrect a stale good fix: a
+# 3-hour-old GPS fix is not where the device is anymore.
+LIVE_FIX_GOOD_ACCURACY_M = 100
+LIVE_FIX_FRESH_WINDOW_MINUTES = 15
+
+LIVE_FIX_ORDER_SQL = f"""
+    CASE WHEN (confidence_level IN ('HIGH','MEDIUM')
+               OR (accuracy_horizontal IS NOT NULL AND accuracy_horizontal < {LIVE_FIX_GOOD_ACCURACY_M}))
+               AND julianday(server_timestamp) >= julianday('now', '-{LIVE_FIX_FRESH_WINDOW_MINUTES} minutes')
+          THEN 0 ELSE 1 END,
+    server_timestamp DESC
+"""
+
 
 def _resolve_user_id(auth: str) -> Optional[str]:
     """Return the user id if the auth subject is a user token, else None (admin)."""
@@ -238,9 +264,15 @@ async def list_devices(
     # 0.0 placeholders in lat/lng). access_role/is_owner tag the caller's
     # grant per row (device_shares LEFT JOIN — the COALESCE only kicks in for
     # the owner's own rows where ds is NULL).
+    # The device's "latest" fix is the most recent GOOD fix (HIGH/MEDIUM
+    # confidence or <100m accuracy) within the staleness window, falling back
+    # to the newest fix — see LIVE_FIX_ORDER_SQL. Without this, a degraded
+    # cell-tower fix (200-700m, sometimes km off) landing right after a good
+    # GPS fix teleported the sidebar/map to a misleading position (G1
+    # finding 2026-08-15: pin jumped 3.5km to a cell centroid).
     if user_id:
         devices = db.execute(
-            """SELECT d.*,
+            f"""SELECT d.*,
                       l.lat, l.lng, l.location_encrypted, l.location_data,
                       l.battery_percent, l.sentinel_score, l.threat_level,
                       CASE WHEN d.owner_id = ? THEN 'owner'
@@ -250,21 +282,23 @@ async def list_devices(
                LEFT JOIN device_shares ds
                       ON ds.device_id = d.id AND ds.grantee_user_id = ?
                LEFT JOIN locations l ON d.id = l.device_id
-                   AND l.id = (SELECT MAX(id) FROM locations WHERE device_id = d.id)
+                   AND l.id = (SELECT id FROM locations WHERE device_id = d.id
+                               ORDER BY {LIVE_FIX_ORDER_SQL} LIMIT 1)
                WHERE d.owner_id = ? OR ds.grantee_user_id IS NOT NULL
                ORDER BY d.last_seen DESC""",
             (user_id, user_id, user_id, user_id),
         ).fetchall()
     else:
         devices = db.execute(
-            """SELECT d.*,
+            f"""SELECT d.*,
                       l.lat, l.lng, l.location_encrypted, l.location_data,
                       l.battery_percent, l.sentinel_score, l.threat_level,
                       'owner' AS access_role,
                       1 AS is_owner
                FROM devices d
                LEFT JOIN locations l ON d.id = l.device_id
-                   AND l.id = (SELECT MAX(id) FROM locations WHERE device_id = d.id)
+                   AND l.id = (SELECT id FROM locations WHERE device_id = d.id
+                               ORDER BY {LIVE_FIX_ORDER_SQL} LIMIT 1)
                ORDER BY d.last_seen DESC"""
         ).fetchall()
 
@@ -966,8 +1000,10 @@ async def get_device_history(
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
 
+    # Quality-gated live fix (same rule as the devices list) — the newest
+    # row is often a degraded cell-tower fix that would mislead the caller.
     location = db.execute(
-        "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT 1",
+        f"SELECT * FROM locations WHERE device_id=? ORDER BY {LIVE_FIX_ORDER_SQL} LIMIT 1",
         (device_id,),
     ).fetchone()
 
@@ -1119,8 +1155,11 @@ async def get_live_location(
 ):
     """Get latest location for a device."""
     _assert_device_access(db, device_id, auth, min_role="viewer")
+    # Quality-gated live fix (same rule as the devices list) — see
+    # LIVE_FIX_ORDER_SQL. The newest row is often a degraded cell fix that
+    # can be kilometres off the true position.
     row = db.execute(
-        "SELECT * FROM locations WHERE device_id=? ORDER BY server_timestamp DESC LIMIT 1",
+        f"SELECT * FROM locations WHERE device_id=? ORDER BY {LIVE_FIX_ORDER_SQL} LIMIT 1",
         (device_id,),
     ).fetchone()
 

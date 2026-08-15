@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Device, Location, Command, MediaItem, TabId, Alert } from '@/types';
-import { isOnline, getSignalLevel, calculateDistance, calculateBearing, bearingToLabel } from '@/lib/utils';
+import { isOnline, getSignalLevel, calculateDistance, calculateBearing, bearingToLabel, pickLiveLocation } from '@/lib/utils';
 
 // ─── Store Types ─────────────────────────────────────────────────────────────
 
@@ -147,7 +147,11 @@ export const useStore = create<MagneetarState>()(
       latestLocation: null,
 
       setLocations: (locations) => {
-        const latest = locations.length > 0 ? locations[0] : null;
+        // Live pin = most recent GOOD fix (quality gate, see pickLiveLocation):
+        // the newest row is often a degraded cell-tower fix that can be km off
+        // the true GPS position — pinning it made the map teleport after GPS
+        // dropped (G1 finding 2026-08-15: 3.5km jump to a cell centroid).
+        const latest = pickLiveLocation(locations);
         set({ locations, latestLocation: latest });
         if (latest && get().followDevice) {
           set({ mapCenter: [latest.lat, latest.lng] });

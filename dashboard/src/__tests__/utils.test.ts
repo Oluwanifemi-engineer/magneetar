@@ -1,4 +1,4 @@
-import { deviceDisplayName, isOnline, getSignalLevel, relativeTime, parseTimestamp, formatTimestamp, locationTimestamp } from '@/lib/utils';
+import { deviceDisplayName, isOnline, getSignalLevel, relativeTime, parseTimestamp, formatTimestamp, locationTimestamp, isGoodLocationFix, pickLiveLocation } from '@/lib/utils';
 
 describe('deviceDisplayName', () => {
   it('prefers the owner-set alias', () => {
@@ -114,5 +114,72 @@ describe('formatTimestamp', () => {
     const out = formatTimestamp('2026-08-01 20:34:00');
     expect(out).not.toBe('—');
     expect(out).toContain('34:00');
+  });
+});
+
+describe('isGoodLocationFix — live-pin quality gate', () => {
+  it('accepts HIGH and MEDIUM confidence', () => {
+    expect(isGoodLocationFix({ confidence_level: 'HIGH', accuracy_horizontal: 5 })).toBe(true);
+    expect(isGoodLocationFix({ confidence_level: 'MEDIUM', accuracy_horizontal: 50 })).toBe(true);
+  });
+
+  it('accepts LOW confidence only when accuracy is under 100m (street-level)', () => {
+    expect(isGoodLocationFix({ confidence_level: 'LOW', accuracy_horizontal: 90 })).toBe(true);
+    expect(isGoodLocationFix({ confidence_level: 'LOW', accuracy_horizontal: 700 })).toBe(false);
+    expect(isGoodLocationFix({ confidence_level: 'LOW', accuracy: 45 })).toBe(true);
+  });
+
+  it('rejects missing metadata, unknown confidence, and huge accuracy', () => {
+    expect(isGoodLocationFix(null)).toBe(false);
+    expect(isGoodLocationFix({})).toBe(false);
+    expect(isGoodLocationFix({ confidence_level: 'unknown' })).toBe(false);
+    expect(isGoodLocationFix({ confidence_level: 'LOW', accuracy_horizontal: null })).toBe(false);
+    expect(isGoodLocationFix({ confidence_level: 'LOW', accuracy_horizontal: 1000 })).toBe(false);
+  });
+});
+
+describe('pickLiveLocation — live pin never teleports to a degraded cell fix', () => {
+  const now = new Date();
+  const ts = (minsAgo: number) => new Date(now.getTime() - minsAgo * 60_000).toISOString();
+  const fix = (id: number, lat: number, conf: string, acc: number, minsAgo: number): any => ({
+    id,
+    lat,
+    lng: 4.0,
+    confidence_level: conf,
+    accuracy_horizontal: acc,
+    server_timestamp: ts(minsAgo),
+  });
+
+  it('uses the newest fix when it is good', () => {
+    const list = [fix(3, 7.518, 'HIGH', 5, 0), fix(2, 7.518, 'HIGH', 5, 1)];
+    expect(pickLiveLocation(list)!.id).toBe(3);
+  });
+
+  it('holds the most recent GOOD fix when a degraded fix lands right after it', () => {
+    // G1 field case: GPS fix 2 min ago (7.518, ±5m), then a cell fix arrives
+    // 3.5km away (7.501, ±700m). The pin must stay at the GPS fix.
+    const list = [
+      fix(4, 7.5013, 'LOW', 700, 0),
+      fix(3, 7.518, 'HIGH', 5, 2),
+    ];
+    expect(pickLiveLocation(list)!.id).toBe(3);
+    expect(pickLiveLocation(list)!.lat).toBe(7.518);
+  });
+
+  it('advances to the degraded fix once the good fix ages past the freshness window', () => {
+    const list = [
+      fix(4, 7.5013, 'LOW', 700, 0),
+      fix(3, 7.518, 'HIGH', 5, 20), // 20 min old — stale
+    ];
+    expect(pickLiveLocation(list)!.id).toBe(4);
+  });
+
+  it('falls back to the newest fix when no fix is good (GPS-denied area)', () => {
+    const list = [fix(2, 7.5013, 'LOW', 500, 0), fix(1, 7.5010, 'LOW', 600, 1)];
+    expect(pickLiveLocation(list)!.id).toBe(2);
+  });
+
+  it('returns null for an empty list', () => {
+    expect(pickLiveLocation([])).toBeNull();
   });
 });

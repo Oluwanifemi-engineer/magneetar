@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — 2026-08-15
+
+### Fix — audio capture "Audio file not found" (G1 field finding)
+
+- The A03s silently failed to finalize **stereo 128 kbps** AAC from the
+  mic (`stop()` "succeeds", no file materializes — the exact live error).
+  The recorder config now uses a **progressive fallback chain** on fresh
+  recorders/files: VOICE_RECOGNITION mono 96 kbps → MIC mono 96 kbps →
+  bulletproof MIC mono 32 kbps @16 kHz (the profile that works on every
+  device, per the audio research). The misleading `setMaxDuration` race
+  was already removed; the real cause was the stereo config your own
+  research doc warned against.
+
+### Fix — quick-actions layout (Guardian reachable)
+
+- The 320px right panel overflowed 8 tabs → **Guardian and Errors were
+  pushed off-screen with no scroll affordance**. Tabs now wrap into a
+  2-row grid (everything always visible). Quick actions are now a
+  **vertical accordion with rollout groups** (Locate / Evidence / Protect)
+  instead of a cramped 2×4 grid — every command reachable, Guardian
+  included.
+
+### Fix — dashboard pin teleports to a degraded cell fix (G1 field finding)
+
+- Live DB evidence (device `mt-9be468c1`): the device reports a fix every
+  ~3s, and when GPS drops (indoors/pocket/car) Android falls back to
+  cell-tower fixes with **192–767 m accuracy, sometimes km off** — the
+  pin jumped 3.5 km to a cell centroid while the device sat still.
+- **Fix (server + client, same rule):** the live position is now the most
+  recent GOOD fix — HIGH/MEDIUM confidence or <100 m accuracy — within a
+  15-minute freshness window. Degraded fixes only take over after the
+  window expires (a genuinely moving device in a GPS-denied area still
+  advances, with the accuracy circle telling the truth). Applied to the
+  devices list, `/live`, device history, the WS feed, and the store's
+  pin selection.
+
+---
+
 ## [Unreleased] — 2026-08-12
 
 ### ADR-0007 — Play internal testing is the install channel (2026-08-15)

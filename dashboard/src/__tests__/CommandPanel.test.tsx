@@ -127,16 +127,33 @@ describe('CommandPanel Component', () => {
     expect(screen.queryByText(/delivered via SMS/i)).not.toBeInTheDocument();
   });
 
-  it('renders all quick action command buttons', () => {
+  it('renders the Locate group open by default, others collapsed', () => {
     render(<CommandPanel />);
-    // The siren button sends wire command 'alarm' (server/device contract).
+    // The 'locate' group starts open — its commands are visible immediately.
     expect(screen.getByTestId('cmd-btn-ping')).toBeInTheDocument();
-    expect(screen.getByTestId('cmd-btn-capture_photo')).toBeInTheDocument();
-    expect(screen.getByTestId('cmd-btn-capture_photo_front')).toBeInTheDocument();
-    expect(screen.getByTestId('cmd-btn-capture_audio')).toBeInTheDocument();
     expect(screen.getByTestId('cmd-btn-location_burst')).toBeInTheDocument();
+    // Other groups are collapsed — their commands must not be rendered yet
+    // (rollout reveals them on click, keeping the narrow panel uncluttered).
+    expect(screen.queryByTestId('cmd-btn-capture_photo')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('cmd-btn-alarm')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('cmd-btn-wipe')).not.toBeInTheDocument();
+  });
+
+  it('rolls out group commands on click (every command reachable)', () => {
+    render(<CommandPanel />);
+    // Roll out Evidence → capture commands appear.
+    fireEvent.click(screen.getByLabelText('Evidence commands'));
+    expect(screen.getByTestId('cmd-btn-capture_photo_front')).toBeInTheDocument();
+    expect(screen.getByTestId('cmd-btn-capture_photo')).toBeInTheDocument();
+    expect(screen.getByTestId('cmd-btn-capture_audio')).toBeInTheDocument();
+    // Roll out Control → siren/lock/lost-mode appear. The siren button sends
+    // wire command 'alarm' (server/device contract).
+    fireEvent.click(screen.getByLabelText('Control commands'));
     expect(screen.getByTestId('cmd-btn-lock')).toBeInTheDocument();
     expect(screen.getByTestId('cmd-btn-alarm')).toBeInTheDocument();
+    expect(screen.getByTestId('cmd-btn-lost_mode')).toBeInTheDocument();
+    // Roll out Danger → wipe appears.
+    fireEvent.click(screen.getByLabelText('Danger commands'));
     expect(screen.getByTestId('cmd-btn-wipe')).toBeInTheDocument();
   });
 
@@ -174,6 +191,8 @@ describe('CommandPanel Component', () => {
 
   it('issues the siren via wire command "alarm" when SIREN button is clicked', async () => {
     render(<CommandPanel />);
+    // Siren lives in the collapsed Control group — roll it out first.
+    fireEvent.click(screen.getByLabelText('Control commands'));
     const sirenBtn = screen.getByTestId('cmd-btn-alarm');
     fireEvent.click(sirenBtn);
 
@@ -193,6 +212,8 @@ describe('CommandPanel Component', () => {
 
   it('sends CONFIRMED_WIPE only after an explicit confirmation + step-up password', async () => {
     render(<CommandPanel />);
+    // Wipe lives in the collapsed Danger group — roll it out first.
+    fireEvent.click(screen.getByLabelText('Danger commands'));
     // First click arms the confirmation — no command issued yet.
     fireEvent.click(screen.getByTestId('cmd-btn-wipe'));
     expect(mockIssueCommand).not.toHaveBeenCalled();
@@ -214,6 +235,8 @@ describe('CommandPanel Component', () => {
 
   it('wipe password is required — Enter with empty password does not fire', async () => {
     render(<CommandPanel />);
+    // Wipe lives in the collapsed Danger group — roll it out first.
+    fireEvent.click(screen.getByLabelText('Danger commands'));
     fireEvent.click(screen.getByTestId('cmd-btn-wipe'));
     fireEvent.keyDown(screen.getByLabelText('Confirm wipe password'), { key: 'Enter' });
     expect(mockIssueCommand).not.toHaveBeenCalled();
@@ -222,6 +245,7 @@ describe('CommandPanel Component', () => {
 
   it('wipe sends the password on Enter', async () => {
     render(<CommandPanel />);
+    fireEvent.click(screen.getByLabelText('Danger commands'));
     fireEvent.click(screen.getByTestId('cmd-btn-wipe'));
     fireEvent.change(screen.getByLabelText('Confirm wipe password'), { target: { value: 's3cret' } });
     fireEvent.keyDown(screen.getByLabelText('Confirm wipe password'), { key: 'Enter' });
@@ -242,6 +266,7 @@ describe('CommandPanel Component', () => {
 
   it('front camera button sends capture_photo_front', async () => {
     render(<CommandPanel />);
+    fireEvent.click(screen.getByLabelText('Evidence commands'));
     fireEvent.click(screen.getByTestId('cmd-btn-capture_photo_front'));
     await waitFor(() => {
       expect(mockIssueCommand).toHaveBeenCalledWith('device-001', 'capture_photo_front', '', undefined);

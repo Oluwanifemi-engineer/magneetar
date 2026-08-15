@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from 'clsx';
+import type { Location } from '@/types';
 
 // ─── Step-up Auth Helper ─────────────────────────────────────────────────────
 
@@ -138,6 +139,51 @@ export function isOnline(lastSeen: string | null, thresholdMs = 300000): boolean
   const d = parseTimestamp(lastSeen);
   if (!d) return false;
   return Date.now() - d.getTime() < thresholdMs;
+}
+
+// ─── Live-location quality gate ─────────────────────────────────────────────
+// Mirrors the SERVER's LIVE_FIX_ORDER_SQL (server/routes/dashboard.py): the
+// device reports a fix every ~3s, and when GPS is unavailable Android falls
+// back to cell-tower fixes whose accuracy is 200-700m and whose centroid can
+// be KILOMETRES from the true position. The live pin must be the most recent
+// GOOD fix (HIGH/MEDIUM confidence or <100m accuracy) within a freshness
+// window — a degraded fix landing right after a good GPS fix used to teleport
+// the map to a misleading location (G1 field finding 2026-08-15: pin jumped
+// 3.5km to a cell centroid).
+export const LIVE_FIX_GOOD_ACCURACY_M = 100;
+export const LIVE_FIX_FRESH_WINDOW_MS = 15 * 60 * 1000;
+
+/** True when a fix is trustworthy enough to move the live pin. */
+export function isGoodLocationFix(loc: {
+  confidence_level?: string | null;
+  accuracy_horizontal?: number | null;
+  accuracy?: number | null;
+} | null | undefined): boolean {
+  if (!loc) return false;
+  const conf = (loc.confidence_level || '').toUpperCase();
+  if (conf === 'HIGH' || conf === 'MEDIUM') return true;
+  const acc = loc.accuracy_horizontal ?? loc.accuracy;
+  return acc != null && acc >= 0 && acc < LIVE_FIX_GOOD_ACCURACY_M;
+}
+
+/**
+ * Pick the live pin from a newest-first location list.
+ *
+ * Returns the most recent GOOD fix within the freshness window; falls back to
+ * the newest fix when no good fix is fresh (the device may genuinely be
+ * moving through a GPS-denied area — show its approximate position instead of
+ * a stale GPS fix, with the accuracy circle telling the truth).
+ */
+export function pickLiveLocation(locations: Location[]): Location | null {
+  if (!locations.length) return null;
+  const now = Date.now();
+  for (const loc of locations) {
+    if (!isGoodLocationFix(loc)) continue;
+    const ts = parseTimestamp(locationTimestamp(loc));
+    if (ts && now - ts.getTime() < LIVE_FIX_FRESH_WINDOW_MS) return loc;
+    break; // good fixes only get older from here — if this one is stale, all are
+  }
+  return locations[0];
 }
 
 // ─── Distance Utilities ──────────────────────────────────────────────────────
