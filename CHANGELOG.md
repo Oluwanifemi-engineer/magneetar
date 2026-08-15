@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-15
 
+### Fix — false "Impossible jump" teleport alerts (found via live GPS-off test)
+
+- `_haversine` returns **meters** (it is also the unit the geofence radius
+  check uses), but the impossible-jump check named the result `distance_km`
+  and reported it as km — an ordinary 118 m walk read as "119 km", so
+  **every** moving ping was flagged as a teleport (+15 score, spurious
+  anomaly). It also compared against `history[1]` (a fix 2 pings old)
+  instead of the newest fix at `history[0]`, inflating distances further.
+- Fixed both: km conversion + correct history index. Regression tests added.
+
+### Fix — duplicate location uploads after reconnect (found via live airplane-mode test)
+
+- OkHttp's default `retryOnConnectionFailure=true` transparently re-sends a
+  POST with the SAME body when the connection dies after the server already
+  processed it. During a captive-portal reconnect the device's pings were
+  each inserted **twice** (461 duplicate rows across 78 sequences — the
+  server got the request, the response was lost, the client re-POSTed the
+  identical body ~45 s later).
+- Fixed on both sides: `retryOnConnectionFailure(false)` on the
+  TrackingService + MediaCaptureService clients (the app has its own
+  recovery layers: fresh fixes, heartbeat, OfflineOutbox — a silent resend
+  adds duplicates, never data), and a server-side at-most-once guard on
+  (device_id, ping_sequence, device_timestamp) for both the live and
+  offline-queue insert paths, backed by a supporting index.
+- Verified live post-deploy: zero duplicates, zero false teleports.
+
 ### Fix — audio evidence playback silent in the dashboard (G1 field finding)
 
 - **Root cause was NOT the capture.** Forensically verified the exact file
