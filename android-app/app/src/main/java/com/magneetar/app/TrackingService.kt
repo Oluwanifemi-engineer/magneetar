@@ -52,6 +52,15 @@ class TrackingService : Service() {
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        // OkHttp's default retryOnConnectionFailure=true transparently re-sends
+        // a POST with the SAME body when the connection dies after the server
+        // already processed it (seen live: captive-portal reconnect caused each
+        // ping to be inserted twice — the server got the request, the response
+        // was lost, OkHttp re-POSTed the identical body ~30-45s later). The app
+        // has its own recovery layers (fresh fix every ~5s, 60s heartbeat,
+        // OfflineOutbox for acks) — a silently re-sent stale body adds
+        // duplicates, never data. At-most-once per ping is the contract.
+        .retryOnConnectionFailure(false)
         .build()
 
     // Auth state (read/written from several Dispatchers.IO coroutines — the

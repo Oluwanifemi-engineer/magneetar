@@ -395,6 +395,27 @@ async def claim_device(
 # ─── Location Reports ────────────────────────────────────────────────────────
 
 
+def location_row_exists(conn: sqlite3.Connection, device_id: str, report: TelemetryPing) -> bool:
+    """True when this exact ping (device + seq + device-clock timestamp) was
+    already persisted.
+
+    At-most-once guard: OkHttp's default retryOnConnectionFailure re-sends the
+    SAME body when the connection dies after the server processed it (seen
+    live: a captive-portal reconnect inserted every ping twice — the server
+    got the request, the response was lost, the client re-POSTed the identical
+    body ~45s later). A normal (non-unique) index keeps this lookup cheap;
+    the check itself is the constraint, so existing dirty rows don't block
+    the migration.
+    """
+    if not report.ping_sequence:
+        return False
+    row = conn.execute(
+        "SELECT 1 FROM locations WHERE device_id=? AND ping_sequence=? AND device_timestamp=? LIMIT 1",
+        (device_id, report.ping_sequence, report.device_timestamp),
+    ).fetchone()
+    return row is not None
+
+
 def _persist_location(
     conn: sqlite3.Connection,
     *,
@@ -411,7 +432,13 @@ def _persist_location(
     Shared by the synchronous path (runs on the request connection) and the
     batched path (runs on the write queue's dedicated connection). Keeping
     the SQL in one place guarantees the two paths can never drift.
+
+    At-most-once: a retried/duplicate ping (same device + ping_sequence +
+    device_timestamp) is skipped — the device row's last_seen still refreshes
+    below, but no second row is inserted.
     """
+    if location_row_exists(conn, device_id, report):
+        return
     # At-rest encryption (v1.5): when MT_ENCRYPTION_KEY is configured, the
     # coordinates are AES-256-GCM encrypted with the per-device HKDF key — the
     # row stores 0.0 placeholders + ciphertext in location_data. Sentinel and
@@ -1118,6 +1145,11 @@ async def upload_offline_queue(
 
     for ping in queue.pings:
         if ping.device_id != device_id:
+            continue
+        # At-most-once (same contract as the live path): a ping that already
+        # landed via a previous flush or a live retry is skipped, never
+        # double-inserted.
+        if location_row_exists(db, device_id, ping):
             continue
 
         now = datetime.now(timezone.utc).isoformat()

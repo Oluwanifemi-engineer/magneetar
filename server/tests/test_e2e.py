@@ -106,6 +106,23 @@ def ensure_device(device_id="e2e-test-device"):
     return resp.status_code == 200
 
 
+def count_locations(device_id, seq=None):
+    """Count location rows for a device (optionally filtered by ping_sequence)."""
+    import sqlite3
+
+    conn = sqlite3.connect(settings.DB_PATH)
+    if seq is None:
+        cur = conn.execute("SELECT COUNT(*) FROM locations WHERE device_id=?", (device_id,))
+    else:
+        cur = conn.execute(
+            "SELECT COUNT(*) FROM locations WHERE device_id=? AND ping_sequence=?",
+            (device_id, seq),
+        )
+    n = cur.fetchone()[0]
+    conn.close()
+    return n
+
+
 # ─── Device Management Endpoints ───────────────────────────────────────────
 
 
@@ -197,6 +214,57 @@ class TestLiveLocation:
         resp = client.get(f"/api/dashboard/locations/{device_id}/live", headers=dash_headers)
         assert resp.status_code == 200
         assert resp.json()["location"] is not None
+
+    def test_duplicate_ping_not_double_inserted(self):
+        """At-most-once: re-POSTing the SAME ping (device + seq + device
+        timestamp) must NOT insert a second row — OkHttp retryOnConnectionFailure
+        re-sends identical bodies when a connection dies after the server
+        processed the request (seen live: every ping inserted twice during a
+        captive-portal reconnect). The device row's last_seen still refreshes."""
+        device_id = "dup-ping-dev"
+        assert ensure_device(device_id)
+        dev_headers = get_device_headers(device_id)
+        payload = {
+            "device_id": device_id,
+            "lat": 9.1000,
+            "lng": 8.7000,
+            "accuracy_horizontal": 15.0,
+            "provider": "gps",
+            "ping_sequence": 42,
+            "device_timestamp": "2026-08-15T12:10:35.075Z",
+        }
+
+        for _ in range(2):
+            resp = client.post("/api/device/location", json=payload, headers=dev_headers)
+            assert resp.status_code == 200
+
+        count = count_locations(device_id, seq=42)
+        assert count == 1, f"Duplicate ping inserted {count} times — expected 1"
+
+    def test_offline_queue_duplicate_not_double_inserted(self):
+        """Same at-most-once guard on the batched offline-queue path."""
+        device_id = "dup-queue-dev"
+        assert ensure_device(device_id)
+        dev_headers = get_device_headers(device_id)
+        ping = {
+            "device_id": device_id,
+            "lat": 9.1000,
+            "lng": 8.7000,
+            "accuracy_horizontal": 15.0,
+            "provider": "gps",
+            "ping_sequence": 7,
+            "device_timestamp": "2026-08-15T11:56:35.075Z",
+        }
+
+        for _ in range(2):
+            resp = client.post(
+                "/api/device/offline-queue",
+                json={"pings": [ping]},
+                headers=dev_headers,
+            )
+            assert resp.status_code == 200
+
+        assert count_locations(device_id, seq=7) == 1
 
 
 # ─── Theft Detection (single-ping, fresh device) ──────────────────────────

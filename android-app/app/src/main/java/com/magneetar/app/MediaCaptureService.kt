@@ -172,6 +172,12 @@ class MediaCaptureService : Service() {
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        // Same at-most-once contract as TrackingService: a connection that dies
+        // after the server processed the upload must NOT be transparently
+        // re-sent (OkHttp default retryOnConnectionFailure=true would POST the
+        // identical evidence twice → duplicate media rows). The capture ack
+        // layer is the recovery path, not a silent body resend.
+        .retryOnConnectionFailure(false)
         .build()
 
     // Auth state (device tokens are persisted by TrackingService on register;

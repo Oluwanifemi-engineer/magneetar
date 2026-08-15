@@ -653,6 +653,13 @@ def init_db(db_path: str = None):
         CREATE INDEX IF NOT EXISTS idx_devices_key_hash ON devices(device_key_hash);
         CREATE INDEX IF NOT EXISTS idx_locations_device ON locations(device_id);
         CREATE INDEX IF NOT EXISTS idx_locations_timestamp ON locations(server_timestamp);
+        -- At-most-once dedup lookups (device + ping_sequence + device_timestamp
+        -- uniqueness is enforced by the application layer in
+        -- routes/devices.py::location_row_exists, NOT by a UNIQUE index — the
+        -- prod DB already contains historical duplicates, so a UNIQUE index
+        -- migration would fail; the index keeps the guard cheap instead).
+        CREATE INDEX IF NOT EXISTS idx_locations_dedup ON
+            locations(device_id, ping_sequence, device_timestamp);
         CREATE INDEX IF NOT EXISTS idx_media_device ON media(device_id);
         CREATE INDEX IF NOT EXISTS idx_commands_device ON commands(device_id);
         CREATE INDEX IF NOT EXISTS idx_commands_status ON commands(status);

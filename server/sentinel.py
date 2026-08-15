@@ -141,13 +141,20 @@ class SentinelEngine:
                 pass
 
         # ── Location History Analysis ─────────────────────────────────────
-        if history and len(history) >= 2:
-            # Check for impossible jumps (teleportation)
-            prev = history[1]  # Previous location
+        if history and len(history) >= 1:
+            # Check for impossible jumps (teleportation). History is ordered
+            # newest-first, so the immediately-previous fix is history[0] —
+            # using history[1] compared against a fix 2 pings old and inflated
+            # the distance for every moving device.
+            prev = history[0]  # Previous location (newest stored fix)
             prev_lat = prev.get("lat")
             prev_lng = prev.get("lng")
             if prev_lat and prev_lng:
-                distance_km = self._haversine(prev_lat, prev_lng, ping.lat, ping.lng)
+                # _haversine returns METERS (it is also used that way by the
+                # geofence radius check below). This block wants km — without
+                # the /1000, an ordinary 118m walk reads as "119km" and every
+                # moving device gets a false "Impossible jump" teleport alert.
+                distance_km = self._haversine(prev_lat, prev_lng, ping.lat, ping.lng) / 1000.0
                 time_diff = self._time_diff_seconds(prev.get("server_timestamp"), ping.device_timestamp)
                 if time_diff > 0:
                     implied_speed_kmh = (distance_km / time_diff) * 3600

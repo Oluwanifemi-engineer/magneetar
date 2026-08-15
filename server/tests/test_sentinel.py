@@ -278,6 +278,41 @@ class TestLocationValidation:
             )
 
 
+class TestImpossibleJumpCheck:
+    def _history(self, lat, lng, ts="2026-08-15T10:00:00+00:00"):
+        """Newest-first history with the previous fix at [0]."""
+        return [{"lat": lat, "lng": lng, "server_timestamp": ts}]
+
+    def test_short_walk_not_flagged(self, engine):
+        """A ~100m walk between pings must NOT be a teleport (haversine returns
+        meters; without the /1000 this read as "119km" and flagged every ping)."""
+        ping = TelemetryPing(
+            device_id="test",
+            lat=9.0829,  # ~100m north of the previous fix
+            lng=8.6753,
+            device_timestamp="2026-08-15T10:00:10+00:00",
+        )
+        score, level, anomalies = engine.compute_score(ping, self._history(9.0820, 8.6753))
+        assert not any("Impossible jump" in a for a in anomalies)
+        assert score == 0
+        assert level == "SAFE"
+
+    def test_teleport_flagged(self, engine):
+        """A genuine 100km teleport in seconds MUST be flagged."""
+        ping = TelemetryPing(
+            device_id="test",
+            lat=10.0,  # ~100km north of the previous fix
+            lng=8.6753,
+            device_timestamp="2026-08-15T10:00:10+00:00",
+        )
+        score, level, anomalies = engine.compute_score(ping, self._history(9.0820, 8.6753))
+        jump = [a for a in anomalies if "Impossible jump" in a]
+        assert len(jump) == 1
+        # Distance must read in km: ~100km, NOT ~100,000km (meters mislabeled).
+        assert "100000km" not in jump[0]
+        assert score >= 15
+
+
 class TestGeofenceCheck:
     def test_inside_geofence_no_trigger(self, engine, safe_ping):
         geofences = [

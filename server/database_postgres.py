@@ -403,6 +403,8 @@ class PostgresDatabase:
                     """
                     CREATE INDEX IF NOT EXISTS idx_locations_device ON locations(device_id);
                     CREATE INDEX IF NOT EXISTS idx_locations_timestamp ON locations(server_timestamp);
+                    CREATE INDEX IF NOT EXISTS idx_locations_dedup ON
+                        locations(device_id, ping_sequence, device_timestamp);
                     CREATE INDEX IF NOT EXISTS idx_media_device ON media(device_id);
                     CREATE INDEX IF NOT EXISTS idx_commands_device ON commands(device_id);
                     CREATE INDEX IF NOT EXISTS idx_commands_status ON commands(status);
