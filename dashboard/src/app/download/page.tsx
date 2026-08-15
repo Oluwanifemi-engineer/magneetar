@@ -113,7 +113,7 @@ const INSTALL_FAQ = [
   },
   {
     q: 'Android asks me to allow “Install unknown apps”',
-    a: 'That\'s the standard one-time permission for apps outside the Play Store: tap Settings → allow installs from your browser → then Install. Google may also show a “Play Protect” check for sideloaded apps — you can temporarily pause “Scan apps with Play Protect” in Settings → Security, install, then turn it back on. The Play Store version (coming soon) installs with no prompts.',
+    a: 'That\'s the standard one-time permission for apps outside the Play Store: tap Settings → allow installs from your browser → then Install. Google may also show a “Play Protect” check for sideloaded apps — you can temporarily pause “Scan apps with Play Protect” in Settings → Security, install, then turn it back on. Prefer the Google Play install instead — it has no such prompts (see the banner above).',
   },
   {
     q: 'The app shows OFFLINE on my dashboard',
@@ -412,6 +412,24 @@ export default function DownloadPage() {
               How to <span className="text-gradient-primary">install</span>
             </h2>
             <p className="mt-3 text-white/40 text-[15px]">Get protected in under 5 minutes</p>
+          </div>
+
+          <div className="mb-8 rounded-xl border border-[#06B6D4]/25 bg-[#06B6D4]/[0.06] p-5">
+            <div className="flex items-start gap-3">
+              <ShieldCheck size={18} className="text-[#06B6D4] shrink-0 mt-0.5" />
+              <div>
+                <p className="text-white font-semibold text-[14px]">
+                  Google Play install (recommended)
+                </p>
+                <p className="mt-1 text-[13px] leading-relaxed text-white/50">
+                  The Play Store version installs with no prompts — no “Install
+                  unknown apps”, no Play Protect block, and automatic updates.
+                  We're in private testing right now; join the waitlist and we'll
+                  invite you by email. The steps below are the manual fallback
+                  for devices that can't use the Play Store.
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4">

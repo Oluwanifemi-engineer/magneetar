@@ -16,15 +16,30 @@ days.
 
 ## 1. Channels during validation
 
+**Decision 2026-08-15 (ADR-0007):** the G1/G2 install channel is now the
+**Play Store *internal testing* track** (private, testers invited by email,
+≤100 testers, no public listing, no review delay, friction-free installs
+with auto-updates). Rationale: modern Android's Enhanced Fraud Protection
+**hard-blocks sideloading** any permission profile that keeps Magneetar's
+anti-theft features (device admin + camera/mic + background location +
+overlay) — verified on-device 2026-08-11 and documented in
+`docs/PLAY_POLICY_ANALYSIS.md`. The download page was a discovery page with
+no reliable install path for real users; internal testing removes the
+block entirely AND gives testers automatic updates. It is NOT a public
+submission — the app never appears in search and only invited emails can
+install. The "no Play before validation" constraint (ADR-0006) is preserved:
+**production/public release still waits for G1 + G2.**
+
 | Channel | Role |
 |---|---|
-| **magneetar.me/download** | PRIMARY — serves the verified play-clean v1.4.3 APK (`magneetar-v1.4.3-release.apk`, SHA-256 `c4c89e25…`, zero SMS/phone perms). This is how testers install. |
-| **Sideload SMS-relay build** | Internal only — `magneetar-v1.4.3-sideload-release.apk` (explicit filename, never the resolver default). Used to validate the offline SMS relay channel on one device. |
-| **Google Play** | BLOCKED until G1 AND G2 below both pass. |
+| **Play internal testing track** | **PRIMARY install channel for G1 AND G2** — testers install from the private Play link (no Play Protect block, no "Install unknown apps", no adb). Every new AAB upload auto-updates testers. |
+| **magneetar.me/download** | Secondary — still serves the verified play-clean APK for devices where sideloading works (older Android, adb users, or testers who accept the pause-Play-Protect dance). Documented as the fallback, not the primary path. |
+| **Sideload SMS-relay build** | Internal only — `magneetar-v1.4.4-sideload-release.apk` (explicit filename, never the resolver default). Used to validate the offline SMS relay channel on one device that can sideload it. |
+| **Play production (public)** | BLOCKED until G1 AND G2 both pass. |
 
 ---
 
-## 2. Gate G1 — Sideload / download-page real-world validation
+## 2. Gate G1 — Real-world validation (installs via Play internal testing)
 
 ### 2.1 Device matrix (target: ≥6 devices, ≥4 OEMs, Android 10 → 15/16)
 
@@ -57,9 +72,11 @@ driver** (charges overnight, real commutes, real app usage).
 - **Android 14/15 background execution** — evidence capture (front photo +
   audio) from a **locked screen** during an armed theft response; FGS
   notification visible; honest acks.
-- **Play Protect** — tester follows the download-page install path; the
-  pause-scanning workaround documented there is the known cost of
-  sideloading (a Play listing makes it moot — that is the point of G2).
+- **Install channel (internal testing)** — tester installs from the
+  private Play internal-testing link (Settings → Play Store → install).
+  No Play Protect block, no "Install unknown apps" prompt. The
+  pause-scanning sideload workaround is only the documented fallback for
+  devices that can't use Play.
 - **Device-admin uninstall protection** — admin deactivation fires the
   server theft-signal; the v1.4.2 whitelist does not block the app's own
   setup dialogs (battery-optimization grant, precise-location change).
@@ -112,6 +129,13 @@ assumed.
 ---
 
 ## 3. Gate G2 — Play closed testing (user approval on the Play channel)
+
+> **2026-08-15 (ADR-0007):** G1 and G2 installs now both flow through the
+> same private Play channel — G1 uses the internal testing track, G2
+> promotes the validated build to the closed testing track (larger cohort,
+> up to 2,000 testers, light review). Testers keep their existing installs;
+> the only change is which track the build is served from. This makes the
+> G1 → G2 transition seamless instead of re-installing everyone.
 
 Only after G1 passes:
 

@@ -318,7 +318,18 @@ cd android-app && ./gradlew assembleRelease
 > **2026-08-14 (ADR-0006):** Upload is additionally gated on the real-world
 > validation program (`docs/REAL_WORLD_VALIDATION_PLAN.md`) — G1 (real users,
 > real devices, ≥2 weeks, drill 12/12, ≥80% approval) then G2 (closed testing,
-> ≥12 testers, 14 days, tester sign-off). Do not upload until both pass.
+> ≥12 testers, 14 days, tester sign-off). Do not upload to **production**
+> until both pass.
+>
+> **2026-08-15 (ADR-0007):** the **internal testing track** is now the
+> install channel for G1/G2 (private, email-invited testers, no public
+> listing, no review delay). It is NOT a production submission — modern
+> Android hard-blocks sideloading Magneetar's permission profile (see
+> `PLAY_POLICY_ANALYSIS.md`), and internal testing is the only friction-free
+> path that keeps the "no public release before validation" rule intact.
+> First upload: **v1.4.4 AAB** (`server/static/apk/magneetar-v1.4.4-play.aab`,
+> SHA-256 `c958dcfd…`, versionCode 10, zero SMS, zero accessibility service,
+> not debuggable — verified 2026-08-15).
 
 - [ ] **Real-world validation G1 passed** (documented exit per the plan)
 - [ ] **Closed-testing cohort signed off (G2)**

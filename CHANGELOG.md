@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### ADR-0007 — Play internal testing is the install channel (2026-08-15)
+
+- **The install problem, solved at the channel level.** Modern Android's
+  Enhanced Fraud Protection hard-blocks sideloading ANY permission profile
+  that keeps Magneetar's anti-theft features (verified on-device
+  2026-08-11; `PLAY_POLICY_ANALYSIS.md`). The download page was a
+  discovery page with no reliable install path for real users. Decision:
+  G1/G2 testers now install through the **Play internal testing track** —
+  private (email-invited only, no public listing, no review delay),
+  friction-free installs, and automatic updates. Production/public
+  release still waits for G1 + G2 (ADR-0006 unchanged).
+- **v1.4.4 AAB** built and staged: `magneetar-v1.4.4-play.aab`
+  (SHA-256 `c958dcfd…`, versionCode 10) — verified not debuggable, zero
+  SMS permissions, zero accessibility service. Upload steps in
+  `docs/PLAY_INTERNAL_TESTING_SETUP.md`.
+- **Download page** now leads with a "Google Play install (recommended)"
+  banner; the sideload steps are documented as the fallback.
+- **Validation plan** updated: internal testing is the G1 install channel;
+  G2 promotes the same build to closed testing (testers keep installs).
+
 ### v1.4.4 — sms_relay_number gated behind device auth (2026-08-15)
 
 - **`/api/config` no longer discloses the SMS relay number anonymously** —
