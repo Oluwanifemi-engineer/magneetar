@@ -14,13 +14,14 @@ import time
 import traceback as tb
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from typing import Optional
 
 from alerts import normalize_phone_to_e164  # noqa: E402  (SMS inbound webhook)
 from archive_monitor import archive_stale_devices_loop
-from auth import decode_token, user_id_from_subject
+from auth import decode_token, hash_device_key, user_id_from_subject
 from config import settings
 from database import DB_PATH, check_rate_limit, ensure_initialized, get_db_context, log_error
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from leader_lock import acquire_task_lock, release_task_lock
@@ -837,18 +838,35 @@ async def health():
 
 
 @app.get("/api/config", response_model=ConfigResponse)
-async def get_config():
-    """Public config endpoint for mobile apps."""
+async def get_config(x_device_key: Optional[str] = Header(None)):
+    """Public config endpoint for mobile apps.
+
+    The generic fields (app_version, min_android_version, features_enabled)
+    stay public — the app needs them BEFORE registration for the update
+    nudge. `sms_relay_number` is disclosed ONLY to registered devices
+    presenting a valid x-device-key (F-08 family): an anonymous scraper has
+    no use for the SMS relay number, and only a registered device's sender
+    allowlist needs it. Empty for everyone else — the app then falls back to
+    code-only SMS verification (existing, documented behavior).
+    """
     # app_version must match /health (single source: VERSION file). A stale
     # hardcoded value here broke the Android "update available" nudge.
+    relay_number = ""
+    if x_device_key:
+        key_hash = hash_device_key(x_device_key)
+        with get_db_context() as conn:
+            row = conn.execute("SELECT 1 FROM devices WHERE device_key_hash=?", (key_hash,)).fetchone()
+            if row:
+                # Offline Command Relay: the number command SMS are sent FROM.
+                # The Android app allowlists it as the only command-issuing
+                # sender (along with the Termii alphanumeric "Magneetar"), so a
+                # leaked pairing code alone can't be replayed from a random
+                # number. Empty when unset OR the request is not a registered
+                # device.
+                relay_number = settings.TWILIO_SMS_FROM
     return ConfigResponse(
         app_version=APP_VERSION,
-        # Offline Command Relay: the number command SMS are sent FROM. The
-        # Android app allowlists it as the only command-issuing sender (along
-        # with the Termii alphanumeric "Magneetar"), so a leaked pairing code
-        # alone can't be replayed from a random number. Empty when the server
-        # has no SMS sender configured — the app then falls back to code-only.
-        sms_relay_number=settings.TWILIO_SMS_FROM,
+        sms_relay_number=relay_number,
     )
 
 

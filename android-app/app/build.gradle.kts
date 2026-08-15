@@ -167,7 +167,7 @@ android {
         // versionName is read from the repo-root VERSION file at build time
         // (same value the server reports and the APK filename uses).
         // versionCode must strictly increase on every Play release.
-        versionCode = 9
+        versionCode = 10
         versionName = appVersion
 
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")

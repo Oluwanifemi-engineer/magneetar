@@ -22,7 +22,7 @@ services:
       context: ./server
       dockerfile: Dockerfile
       args:
-        APP_VERSION: "1.4.3"
+        APP_VERSION: "1.4.4"
     container_name: magneetar-server
     restart: unless-stopped
     depends_on:

@@ -528,7 +528,15 @@ class TrackingService : Service() {
             val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
             val (code, response) = withContext(Dispatchers.IO) {
                 try {
+                    // The server discloses sms_relay_number ONLY to registered
+                    // devices (F-08 family) — present the per-device key so the
+                    // SMS sender allowlist keeps working. This runs right after
+                    // registration, so the server already holds our key hash.
                     val builder = Request.Builder().url("$SERVER/api/config").get()
+                    val deviceKey = prefs.getString("device_key", "") ?: ""
+                    if (deviceKey.isNotEmpty()) {
+                        builder.addHeader("x-device-key", deviceKey)
+                    }
                     client.newCall(builder.build()).execute().use { it.code to it.body?.string() }
                 } catch (e: Exception) { -1 to null }
             }

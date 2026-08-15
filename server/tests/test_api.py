@@ -165,12 +165,13 @@ class TestConfigEndpoint:
         health = client.get("/health").json()
         assert config["app_version"] == health["version"] == APP_VERSION
 
-    def test_config_exposes_sms_relay_number(self):
-        """The Android app allowlists the server's SMS sender as the only
-        number allowed to issue commands — it must learn that number from the
-        public config endpoint (which it already fetches for the version
-        nudge). Must mirror the configured TWILIO_SMS_FROM exactly (empty when
-        unset, so the app falls back to code-only verification)."""
+    def test_config_does_not_expose_sms_relay_number_anonymously(self):
+        """F-08 family: the SMS relay number must NOT be disclosed to
+        anonymous requests — an unauthenticated scraper of /api/config learns
+        nothing about the Twilio relay. Only a registered device presenting
+        its x-device-key sees the number (its sender allowlist needs it);
+        everyone else gets an empty string and the app falls back to code-only
+        SMS verification."""
         # Patch the MODULE-LEVEL `config` binding (imported at the top of this
         # file, pre-eviction) — a function-local re-import under full-suite
         # runs resolves the post-eviction config module whose settings object
@@ -178,10 +179,32 @@ class TestConfigEndpoint:
         saved = config.settings.TWILIO_SMS_FROM
         try:
             config.settings.TWILIO_SMS_FROM = "+15551234567"
-            assert client.get("/api/config").json()["sms_relay_number"] == "+15551234567"
-
-            config.settings.TWILIO_SMS_FROM = ""
+            # 1) Anonymous request → relay number stays empty.
             assert client.get("/api/config").json()["sms_relay_number"] == ""
+
+            # 2) Unknown/forged device key → still empty.
+            resp = client.get("/api/config", headers={"x-device-key": "not-a-registered-device-key"})
+            assert resp.status_code == 200
+            assert resp.json()["sms_relay_number"] == ""
+
+            # 3) A REGISTERED device's key → the number, mirrored exactly.
+            device_id = f"cfg-dev-{secrets.token_hex(4)}"
+            device_key = f"cfg-key-{secrets.token_hex(8)}"
+            reg = client.post(
+                "/api/device/register",
+                json={"device_id": device_id, "fingerprint": f"fp-{device_id}", "device_key": device_key},
+                headers=get_auth_headers(),
+            )
+            assert reg.status_code == 200, reg.text
+            resp = client.get("/api/config", headers={"x-device-key": device_key})
+            assert resp.status_code == 200
+            assert resp.json()["sms_relay_number"] == "+15551234567"
+
+            # 4) Unset relay → empty even for a registered device (the app
+            #    then falls back to code-only verification).
+            config.settings.TWILIO_SMS_FROM = ""
+            resp = client.get("/api/config", headers={"x-device-key": device_key})
+            assert resp.json()["sms_relay_number"] == ""
         finally:
             config.settings.TWILIO_SMS_FROM = saved
 
