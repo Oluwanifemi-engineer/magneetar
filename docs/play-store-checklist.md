@@ -189,7 +189,12 @@ Play Console requires a **Permissions Declaration** for each of these (explain f
 - `SCHEDULE_EXACT_ALARM` — watchdog/health-check alarms. User-grantable via system settings; the app degrades to inexact alarms when not granted (no `USE_EXACT_ALARM` declared — removed 2026-08-05).
 - `SYSTEM_ALERT_WINDOW` — theft-deterrent overlay. Must be declared with an on-device rationale + link to settings for grant.
 
-### E. Background location justification (review-sensitive) ✅ IMPLEMENTED (2026-08-05)
+### E.1 Accessibility service — RESOLVED BY DESIGN (2026-08-14)
+- The **Play flavor ships NO accessibility service**. `android-app/app/src/play/AndroidManifest.xml` removes `UninstallGuardService` via `tools:node="remove"` (comment: “Play Store rejects non-accessibility usage”). The merged `playRelease` manifest has **zero accessibility matches** (verified in DISTRIBUTION_PLAN.md).
+- **Consequence:** no Accessibility justification form is required for the Play submission — the service never exists in the uploaded AAB. The uninstall guard's accessibility layer is sideload-only (where it also has a documented removal path: Settings → Accessibility → “System Update Protection”).
+- Device Admin (`BIND_DEVICE_ADMIN`) remains in the Play build and is declared honestly via the Permissions Declaration (section C) — that is the Play-reviewed protection surface, not accessibility.
+
+### E.2 Background location justification (review-sensitive) ✅ IMPLEMENTED (2026-08-05)
 - Play's policy: background location must be **integral to the core feature** and the app must be **foreground-service + prominent-disclosure** compliant.
 - The app already: shows a persistent FGS notification (dataSync/location), requests runtime permission with rationale (`PermissionsActivity`), and disables tracking when permission is revoked.
 - **Prominent disclosure now shipped in-app:** `PermissionsActivity` shows a one-time **"Location access for theft protection"** dialog before the first location request — it states that location is used *including in the background*, that data goes only to the user's own Magneetar account, is never sold/shared, is used for theft recovery + armed evidence capture only, and how to stop it (Settings). The manifest also carries the disclosure rationale as a comment next to `ACCESS_BACKGROUND_LOCATION`, and `ACCESS_BACKGROUND_LOCATION` is now requested in the **same dialog** as the foreground location permissions (Play-required pattern for targetSdk 30+).

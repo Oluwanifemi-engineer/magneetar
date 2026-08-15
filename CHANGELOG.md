@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### Security re-check disposition (2026-08-14 20:15)
+
+- **S-7 re-verified live**: tampered APK ticket on the API host returns a
+  clean **403 JSON** (`Invalid or expired download link`) — the re-check's
+  "still renders the SPA page" probe hit the marketing host, which has no
+  `/apk/download` route (static export falls back to the landing page; no
+  binary ever streams from it). Signed links are api-host-only by design.
+- **Git secret-history scan clean**: no real credentials have ever been
+  committed — every env/secret file in history is a placeholder
+  (`CHANGE_ME` / empty / `.example`).
+- **Play accessibility item closed by design**: the Play flavor removes
+  `UninstallGuardService` via `tools:node="remove"` — the uploaded AAB
+  ships zero accessibility service, so no Play justification form is
+  required (recorded in play-store-checklist §E.1). Sideload keeps the
+  uninstall guard with its documented removal path.
+
 ### Dual-host deploy verification (2026-08-14)
 
 - `deploy.sh` now verifies **both** public dashboard hostnames
