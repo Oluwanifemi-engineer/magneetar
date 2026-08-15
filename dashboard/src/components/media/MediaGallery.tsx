@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
@@ -28,6 +28,8 @@ export function MediaGallery() {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [itemData, setItemData] = useState<any>(null);
   const [playing, setPlaying] = useState(false);
+  const [playError, setPlayError] = useState('');
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   // Manage / delete state
   const [manageMode, setManageMode] = useState(false);
@@ -68,7 +70,35 @@ export function MediaGallery() {
     setSelectedItem(null);
     setItemData(null);
     setPlaying(false);
+    setPlayError('');
   };
+
+  /**
+   * Playback is driven EXPLICITLY from the click handler (a real user
+   * gesture) rather than a React-toggled autoPlay prop. autoPlay is only
+   * honored at element load time — toggling it after mount does nothing on
+   * most browsers, and Chrome's autoplay-with-sound policy can reject it
+   * without a direct gesture. The play()/pause() promise also lets us
+   * surface real failures (unsupported codec, blocked playback) instead of
+   * a PLAY button that toggles but stays silent.
+   */
+  const togglePlay = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playing) {
+      audio.pause();
+      setPlaying(false);
+    } else {
+      setPlayError('');
+      audio.play().then(() => setPlaying(true)).catch((e) => {
+        // Autoplay-policy rejection or codec/decode failure — tell the user
+        // instead of leaving a silent, spinning player.
+        console.error('Audio playback failed:', e);
+        setPlaying(false);
+        setPlayError('Playback failed — try downloading the file.');
+      });
+    }
+  }, [playing]);
 
   const toggleManage = () => {
     setManageMode(!manageMode);
@@ -175,17 +205,35 @@ export function MediaGallery() {
                   <Music size={24} className="text-mag-primary" />
                 </div>
                 <button
-                  onClick={() => setPlaying(!playing)}
+                  onClick={togglePlay}
                   className="mag-btn-primary text-xs"
                 >
                   {playing ? <Pause size={14} /> : <Play size={14} />}
                   {playing ? 'PAUSE' : 'PLAY'}
                 </button>
                 <audio
+                  ref={audioRef}
                   src={`data:audio/mp4;base64,${itemData.data_b64}`}
-                  autoPlay={playing}
+                  preload="auto"
                   onEnded={() => setPlaying(false)}
+                  onError={() => {
+                    setPlaying(false);
+                    setPlayError('Playback failed — the audio file may be unsupported by this browser.');
+                  }}
                 />
+                {playError && (
+                  <div className="mt-3 text-[10px] font-mono text-mag-danger/80 animate-fade-in">
+                    {playError}
+                  </div>
+                )}
+                <a
+                  href={`data:audio/mp4;base64,${itemData.data_b64}`}
+                  download={`evidence_${selectedItem.id}.m4a`}
+                  className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-mag-text-dim/60 hover:text-mag-primary transition-colors"
+                >
+                  <ChevronLeft size={11} className="rotate-90" />
+                  DOWNLOAD FILE
+                </a>
               </div>
             )}
             {!itemData && (

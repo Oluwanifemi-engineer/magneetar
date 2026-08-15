@@ -163,3 +163,95 @@ describe('MediaGallery — password-gated deletion', () => {
     expect(screen.getByRole('button', { name: /confirm delete/i })).toBeDisabled();
   });
 });
+
+describe('MediaGallery — audio playback', () => {
+  const audioItem = (overrides: any = {}) => ({
+    id: 7,
+    device_id: 'device-001',
+    type: 'audio',
+    timestamp: '2026-08-15T10:00:00Z',
+    lat: null,
+    lng: null,
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockMedia = [audioItem()];
+    mockSelectedDeviceId = 'device-001';
+    mockGetMedia.mockResolvedValue({ media: mockMedia });
+    mockGetMediaFile.mockResolvedValue({ type: 'audio', data_b64: 'QUJD' });
+  });
+
+  it('opens the audio viewer with a PLAY button and an audio element', async () => {
+    render(<MediaGallery />);
+    await waitFor(() => expect(mockGetMedia).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByText('AUDIO'));
+    await waitFor(() => expect(mockGetMediaFile).toHaveBeenCalledWith(7));
+
+    expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
+    const audio = document.querySelector('audio');
+    expect(audio).not.toBeNull();
+    expect(audio!.getAttribute('src')).toContain('data:audio/mp4;base64');
+    // Playback is gesture-driven: autoPlay must NOT be set (the pre-fix
+    // behavior toggled autoPlay after mount, which autoplay policies block).
+    expect(audio!.autoplay).toBe(false);
+  });
+
+  it('calls play() explicitly from the PLAY button (user-gesture playback)', async () => {
+    const playMock = jest
+      .spyOn(window.HTMLMediaElement.prototype, 'play')
+      .mockResolvedValue();
+    render(<MediaGallery />);
+    await waitFor(() => expect(mockGetMedia).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByText('AUDIO'));
+    await waitFor(() => expect(mockGetMediaFile).toHaveBeenCalledWith(7));
+
+    fireEvent.click(screen.getByRole('button', { name: /play/i }));
+    expect(playMock).toHaveBeenCalledTimes(1);
+    playMock.mockRestore();
+  });
+
+  it('pauses when PLAY is pressed again while playing', async () => {
+    const playMock = jest
+      .spyOn(window.HTMLMediaElement.prototype, 'play')
+      .mockResolvedValue();
+    const pauseMock = jest
+      .spyOn(window.HTMLMediaElement.prototype, 'pause')
+      .mockImplementation(() => {});
+    render(<MediaGallery />);
+    await waitFor(() => expect(mockGetMedia).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByText('AUDIO'));
+    await waitFor(() => expect(mockGetMediaFile).toHaveBeenCalledWith(7));
+
+    fireEvent.click(screen.getByRole('button', { name: /play/i }));
+    expect(playMock).toHaveBeenCalledTimes(1);
+
+    // Button now reads PAUSE — clicking it pauses.
+    await waitFor(() => expect(screen.getByRole('button', { name: /pause/i })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /pause/i }));
+    expect(pauseMock).toHaveBeenCalledTimes(1);
+    playMock.mockRestore();
+    pauseMock.mockRestore();
+  });
+
+  it('shows a clear error when the browser blocks/rejects playback', async () => {
+    const playMock = jest
+      .spyOn(window.HTMLMediaElement.prototype, 'play')
+      .mockRejectedValue(new Error('NotAllowedError: play() failed'));
+    render(<MediaGallery />);
+    await waitFor(() => expect(mockGetMedia).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByText('AUDIO'));
+    await waitFor(() => expect(mockGetMediaFile).toHaveBeenCalledWith(7));
+
+    fireEvent.click(screen.getByRole('button', { name: /play/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/Playback failed/)).toBeInTheDocument();
+    });
+    playMock.mockRestore();
+  });
+});
