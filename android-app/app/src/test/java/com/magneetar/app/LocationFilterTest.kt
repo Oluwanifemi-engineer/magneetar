@@ -181,6 +181,46 @@ class LocationFilterTest {
     }
 
     @Test
+    fun `rejected fixes while GPS is lost never blow up the reported accuracy`() {
+        // G1 field finding (2026-08-15, live): parked+locked phone lost GPS;
+        // only far-away cell fixes arrived, each gated as an outlier. The old
+        // coast path never advanced lastTs, so dt grew every fix and Q ∝ dt⁴
+        // exploded the covariance: accuracy went 1,117m → 152,277,180m in 16
+        // minutes, and the server's >1000m garbage guard rejected EVERY ping
+        // (live pin frozen). The coast path must degrade honestly: bounded
+        // accuracy (last known position ± ~1km), never an absurd sigma.
+        val f = LocationFilter()
+        val lat = 6.5
+        val lng = 3.4
+        f.update(fix(lat, lng, 5f, 0L))
+        val mPerDeg = mPerDeg()
+
+        // A cell fix 500m off every ~3s for 10 minutes (parked phone, GPS
+        // gone). Every fix is a physically impossible jump -> rejected.
+        var ts = 0L
+        var last: LocationFilter.Estimate? = null
+        repeat(200) { i ->
+            ts += 3000L
+            last = f.update(fix(lat + 500.0 / mPerDeg, lng, 400f, ts))
+        }
+        val estimate = last ?: error("filter never produced an estimate")
+        assertTrue("rejected fix must be flagged as outlier", estimate.outlier)
+        assertTrue(
+            "accuracy must stay bounded (honest ±~1km), got ${estimate.accuracyMeters}m",
+            estimate.accuracyMeters < 1000.0,
+        )
+        // The position itself must NOT chase the 500m-off cell centroid.
+        val drift = hypot((estimate.lat - lat) * mPerDeg, (estimate.lng - lng) * mPerDeg)
+        assertTrue("coasted position must hold the last good fix, drifted ${drift}m", drift < 50.0)
+
+        // And the filter must recover instantly when GPS returns.
+        val recovered = f.update(fix(lat + 5.0 / mPerDeg, lng, 5f, ts + 1000L))!!
+        assertFalse("good fix after GPS return must be accepted", recovered.outlier)
+        val moved = hypot((recovered.lat - lat) * mPerDeg, (recovered.lng - lng) * mPerDeg)
+        assertTrue("filter must snap back to the real fix, moved ${moved}m", moved < 30.0)
+    }
+
+    @Test
     fun `long time gap does not teleport the track`() {
         val f = LocationFilter()
         f.update(fix(6.5, 3.4, 5f, 0L))

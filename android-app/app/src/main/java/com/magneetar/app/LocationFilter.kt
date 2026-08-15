@@ -43,7 +43,32 @@ class LocationFilter(
     private val staticSpeedMps: Double = 0.8,
     /** 5-sigma innovation gate — the default chi-squared threshold for 2 DOF. */
     private val gateChiSq: Double = 25.0,
+    /**
+     * Cap for the COASTED accuracy (meters) while fixes are being rejected.
+     *
+     * G1 field finding (2026-08-15): with the phone parked and locked, GPS
+     * went quiet and only far-away cell fixes arrived. Each was gated as an
+     * outlier (correct), but the coast path never advanced lastTs, so dt
+     * grew with every fix and Q ∝ dt⁴ blew the covariance up: reported
+     * accuracy went 1,117m → 152,277,180m in 16 minutes. The server's
+     * `accuracy > 1000m = garbage` guard then rejected EVERY ping — the
+     * dashboard pin froze at a stale position (the owner's "location error
+     * is quite high" bug).
+     *
+     * Honest degradation, not a lie: when GPS is lost the truth IS "last
+     * known position, ± ~1km" — not ±152,000km. 999 keeps reports under the
+     * server's 1000m reject threshold while still telling the dashboard the
+     * fix is degraded (LOW confidence → quality gate holds it back).
+     */
+    private val maxCoastAccuracyM: Double = 999.0,
 ) {
+
+    companion object {
+        // Covariance-variance caps for the coast path: position sigma ≤
+        // maxCoastAccuracyM, velocity sigma ≤ 10 m/s (a parked phone with
+        // GPS lost cannot legitimately learn more velocity than jitter).
+        private const val MAX_COAST_VEL_VAR = 100.0 // 10 m/s squared
+    }
 
     /** A single raw location fix from any provider. */
     data class Fix(
@@ -132,6 +157,11 @@ class LocationFilter(
             x[1] += x[3] * dt
             val preP = predictCovariance(dt, hypot(x[2], x[3]) > staticSpeedMps)
             for (i in 0 until 16) p[i] = preP[i]
+            // v1.5 fix (G1 field finding): NaN fixes arrive continuously when
+            // the fused provider glitches — without this the dt growth below
+            // would blow up the covariance exactly like the outlier path.
+            lastTs = fix.timestampMs
+            clampCoastCovariance()
             val e = makeEstimate(outlier = true)
             lastEstimate = e
             return e
@@ -199,6 +229,15 @@ class LocationFilter(
             // Coast: keep the prediction, inflate P (we learned nothing).
             x[0] = xe; x[1] = xn
             for (i in 0 until 16) p[i] = preP[i]
+            // v1.5 fix (G1 field finding): a rejected fix is still a REAL
+            // observation in time — advance lastTs so the next fix computes a
+            // small honest dt instead of a growing one (Q ∝ dt⁴ made the
+            // covariance explode to ±152,000km on a parked phone). Clamp the
+            // covariance so a GPS-lost device reports "last known ± ~1km",
+            // not an absurd sigma that the server rejects wholesale (which
+            // froze the live pin).
+            lastTs = fix.timestampMs
+            clampCoastCovariance()
             val e = makeEstimate(outlier = true)
             lastEstimate = e
             return e
@@ -381,6 +420,25 @@ class LocationFilter(
         originLng = lng
         x[0] = 0.0; x[1] = 0.0
         lastTs = ts
+    }
+
+    /**
+     * Bound the covariance diagonal on the coast path.
+     *
+     * While fixes are being rejected the filter learns nothing new, so the
+     * velocity-variance channel (p22 → dt²·p22 → p00) would otherwise drive
+     * the position covariance — and therefore the reported accuracy — to
+     * astronomical values. Clamping keeps the reported sigma honest
+     * (≤ [maxCoastAccuracyM]) without breaking the filter: the moment a
+     * real GPS fix arrives it is absorbed normally (the accepted path never
+     * clamps) and the covariance returns to GPS scale.
+     */
+    private fun clampCoastCovariance() {
+        val maxPosVar = maxCoastAccuracyM * maxCoastAccuracyM
+        p[0] = minOf(p[0], maxPosVar)
+        p[5] = minOf(p[5], maxPosVar)
+        p[10] = minOf(p[10], MAX_COAST_VEL_VAR)
+        p[15] = minOf(p[15], MAX_COAST_VEL_VAR)
     }
 
     private fun makeEstimate(outlier: Boolean): Estimate {
