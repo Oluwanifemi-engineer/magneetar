@@ -1,0 +1,16 @@
+# <type>(<scope>): <short summary — imperative, ≤ 72 chars>
+#
+# type: feat | fix | security | docs | test | chore | ops
+#
+# Body (optional, 2-6 lines): what + why at the CODE level.
+#
+# ── OPSEC CHECKLIST (public repo — read before committing) ──────────────
+# [ ] No signing key IDs, cert hashes, keystore paths
+# [ ] No versionCode, artifact sizes, APK bytes
+# [ ] No live identifiers: device IDs (mt-…), emails, phones, tokens
+# [ ] No deploy timing / commit→deploy windows / "not yet deployed"
+# [ ] No permission-profile maps or rate-limit/ADR implementation details
+# [ ] S-ID / G1-ID referenced (audit trail) but implementation stays in the
+#     tracker file, not the commit
+# [ ] Secrets, DSNs, API keys: absent (truncated or not)
+# ─────────────────────────────────────────────────────────────────────────

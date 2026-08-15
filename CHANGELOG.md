@@ -36,6 +36,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   detector entirely. Floor now freezes on speech (the signal, not noise)
   and re-adapts only in the quiet gaps.
 
+### Fix — audio-watch upload rejected with 415 (found during on-phone field test, G1-6)
+
+- The first live field-test capture produced a file the server rejected
+  with HTTP 415: the SHA-256 hashing stream and MediaMuxer wrote to the
+  SAME path concurrently, so the file lost its MP4 header and failed the
+  magic-byte gate. The hash now goes to a separate digest sink (never the
+  media file), the encoder owns the file exclusively, the WAV fallback
+  actually writes real PCM and patches the header on finalize, and the
+  encoder is stopped before the size-check + upload so size fields are
+  correct. Upload failures now log the HTTP status.
+- **Field test PASS (2026-08-15):** armed → alarm siren through the speaker
+  → VAD detected (rms 2950 → SPEECH_START) → valid M4A segment incl. the
+  ~15 s pre-roll → uploaded → server accepted (magic gate), SHA-256
+  matched, chained into the live evidence case (audio_count=2).
+- **Theft-signal escalation wired:** server already queues `capture_audio`
+  (prio 1) on theft activation / failed-unlock / geofence auto-action;
+  when the watch is armed the app routes it to EVIDENCE (continuous +
+  immediate upload) for a 5-minute window.
+
 ### Fix — false "Impossible jump" teleport alerts (found via live GPS-off test)
 
 - `_haversine` returns **meters** (it is also the unit the geofence radius

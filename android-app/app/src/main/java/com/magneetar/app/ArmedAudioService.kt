@@ -24,7 +24,6 @@ import org.json.JSONObject
 import java.io.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.security.DigestOutputStream
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.*
@@ -176,7 +175,7 @@ class ArmedAudioService : Service() {
     // Segment pipeline
     private val vad = VadDetector(SAMPLE_RATE)
     private val preRoll: ArrayDeque<ByteArray> = ArrayDeque()
-    private var segmentOut: DigestOutputStream? = null
+    private var segmentHash: MessageDigest? = null
     private var segmentFile: File? = null
     private var segmentStartEpochMs = 0L
     private var prevHash = ""                       // chain-of-custody
@@ -426,7 +425,7 @@ class ArmedAudioService : Service() {
 
                 if (inEvidence) {
                     // Continuous recording in EVIDENCE.
-                    if (segmentOut == null) openSegment()
+                    if (segmentFile == null) openSegment()
                     writeToSegment(block, inEvidence)
                 } else {
                     when (vad.classify(shortBlock)) {
@@ -458,14 +457,19 @@ class ArmedAudioService : Service() {
     }
 
     private fun openSegment() {
-        if (segmentOut != null) return
+        if (segmentFile != null) return
         segmentCounter++
         val file = File(segmentDir(), "seg_%04d.m4a".format(segmentCounter))
         val digest = MessageDigest.getInstance("SHA-256")
         if (prevHash.isNotEmpty()) digest.update(prevHash.toByteArray())
         try {
-            val fos = FileOutputStream(file)
-            segmentOut = DigestOutputStream(BufferedOutputStream(fos), digest)
+            // Chain-of-custody digest over the RAW PCM stream (the audio
+            // content). This is a HASH SINK — it feeds the digest but writes
+            // NOTHING to disk; the MediaCodec→MediaMuxer pipeline owns the
+            // actual .m4a file. (Writing PCM to the same path the muxer uses
+            // corrupts the MP4 header — the server's magic-byte check then
+            // rejects the file with 415, seen live 2026-08-15.)
+            segmentHash = digest
             segmentFile = file
             // Wall-clock start INCLUDING the pre-roll window (the first bytes
             // written are from before detection).
@@ -473,10 +477,10 @@ class ArmedAudioService : Service() {
             ptsUs = 0L
             lastSegmentMs = System.currentTimeMillis()
             initEncoder(file)
-            // Flush the pre-roll ring — oldest first.
+            // Flush the pre-roll ring — oldest first (hash + encode only).
             while (preRoll.isNotEmpty()) {
                 val b = preRoll.removeFirst()
-                segmentOut?.write(b)
+                hashBlock(b)
                 feedEncoder(b)
             }
             if (segmentManifest == null) {
@@ -488,29 +492,39 @@ class ArmedAudioService : Service() {
         }
     }
 
-    private fun writeToSegment(block: ByteArray, evidence: Boolean) {
-        if (segmentOut == null) openSegment()  // safety
+    private fun hashBlock(block: ByteArray) {
         try {
-            segmentOut?.write(block)
+            segmentHash?.update(block)
+        } catch (e: Exception) {
+            Log.w(TAG, "hash update failed: ${e.message}")
+        }
+    }
+
+    private fun writeToSegment(block: ByteArray, evidence: Boolean) {
+        if (segmentFile == null) openSegment()  // safety
+        try {
+            hashBlock(block)
             feedEncoder(block)
             if (System.currentTimeMillis() - lastSegmentMs >= MAX_SEGMENT_MS) {
                 closeSegment()
                 openSegment()  // roll file, keep recording
             }
-        } catch (e: IOException) {
+        } catch (e: Exception) {
             Log.w(TAG, "segment write failed: ${e.message}")
         }
     }
 
     private fun closeSegment() {
-        val out = segmentOut ?: return
+        val f = segmentFile ?: return
+        val digest = segmentHash ?: return
         try {
-            out.flush()
-            val sha = out.messageDigest.digest().joinToString("") { "%02x".format(it) }
-            out.close()
-            val f = segmentFile
+            val sha = digest.digest().joinToString("") { "%02x".format(it) }
             val startMs = segmentStartEpochMs
-            if (f != null && f.exists() && f.length() > 44) {
+            // Finalize the writer BEFORE inspecting/uploading: the WAV
+            // fallback patches its RIFF/data sizes on stop — a file read
+            // before finalize would carry zero-length headers.
+            stopEncoder()
+            if (f.exists() && f.length() > 44) {
                 sessionBytes += f.length()
                 val row = JSONObject().apply {
                     put("seg", segmentCounter)
@@ -533,7 +547,7 @@ class ArmedAudioService : Service() {
         } catch (e: Exception) {
             Log.w(TAG, "closeSegment failed: ${e.message}")
         } finally {
-            segmentOut = null
+            segmentHash = null
             segmentFile = null
             stopEncoder()
         }
@@ -555,6 +569,14 @@ class ArmedAudioService : Service() {
     }
 
     // ── AAC encoder (MediaCodec) with WAV fallback ───────────────────────
+    // One of two writers owns the segment file:
+    //   AAC path — MediaCodec → MediaMuxer writes the .m4a container.
+    //   WAV path — raw PCM appended after a RIFF/WAVE header (the server's
+    //              audio magic-byte check accepts both MP4/ftyp and RIFF/WAVE),
+    //              used when the SoC lacks an AAC encoder (rare) or MediaMuxer.
+    private var wavStream: RandomAccessFile? = null
+    private var wavDataBytes = 0L
+
     private fun initEncoder(file: File) {
         try {
             val fmt = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, SAMPLE_RATE, CHANNELS)
@@ -564,25 +586,63 @@ class ArmedAudioService : Service() {
             val codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC)
             codec.configure(fmt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             codec.start()
-            encoder = codec
-            muxer = try {
+            val mux = try {
                 MediaMuxer(file.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
             } catch (e: Exception) {
-                // MediaMuxer unavailable (some AOSP images) — release codec and
-                // fall through to the WAV path.
                 codec.stop()
                 codec.release()
-                encoder = null
-                null
+                throw e
             }
+            encoder = codec
+            muxer = mux
         } catch (e: Exception) {
             Log.w(TAG, "AAC encoder unavailable — falling back to WAV: ${e.message}")
             encoder = null
             muxer = null
+            // WAV fallback: 44-byte RIFF/WAVE header written up front, data
+            // size patched on close. Server accepts WAV magic (RIFF....WAVE).
+            try {
+                val raf = RandomAccessFile(file, "rw")
+                raf.setLength(0)
+                raf.write(byteArrayOf('R'.code.toByte(), 'I'.code.toByte(), 'F'.code.toByte(), 'F'.code.toByte()))
+                raf.write(intLE(0))  // RIFF chunk size — patched at close
+                raf.write(byteArrayOf('W'.code.toByte(), 'A'.code.toByte(), 'V'.code.toByte(), 'E'.code.toByte()))
+                raf.write(byteArrayOf('f'.code.toByte(), 'm'.code.toByte(), 't'.code.toByte(), ' '.code.toByte()))
+                raf.write(intLE(16))
+                raf.write(shortLE(1))  // PCM
+                raf.write(shortLE(CHANNELS))
+                raf.write(intLE(SAMPLE_RATE))
+                raf.write(intLE(SAMPLE_RATE * CHANNELS * PCM_BYTES))  // byte rate
+                raf.write(shortLE(CHANNELS * PCM_BYTES))  // block align
+                raf.write(shortLE(16))  // bits per sample
+                raf.write(byteArrayOf('d'.code.toByte(), 'a'.code.toByte(), 't'.code.toByte(), 'a'.code.toByte()))
+                raf.write(intLE(0))  // data chunk size — patched at close
+                wavStream = raf
+                wavDataBytes = 0
+            } catch (e2: Exception) {
+                Log.w(TAG, "WAV fallback init failed: ${e2.message}")
+            }
         }
     }
 
+    private fun intLE(v: Int): ByteArray = byteArrayOf(
+        (v and 0xff).toByte(), ((v shr 8) and 0xff).toByte(),
+        ((v shr 16) and 0xff).toByte(), ((v shr 24) and 0xff).toByte()
+    )
+
+    private fun shortLE(v: Int): ByteArray = byteArrayOf((v and 0xff).toByte(), ((v shr 8) and 0xff).toByte())
+
     private fun feedEncoder(pcm: ByteArray) {
+        // WAV fallback path: raw PCM straight to the file.
+        wavStream?.let { raf ->
+            try {
+                raf.write(pcm)
+                wavDataBytes += pcm.size
+            } catch (e: Exception) {
+                Log.w(TAG, "wav write failed: ${e.message}")
+            }
+            return
+        }
         val codec = encoder ?: return
         val mux = muxer ?: return
         try {
@@ -635,9 +695,7 @@ class ArmedAudioService : Service() {
     private fun stopEncoder() {
         try {
             encoder?.let { codec ->
-                try {
-                    codec.stop()
-                } catch (_: Exception) {}
+                try { codec.stop() } catch (_: Exception) {}
                 codec.release()
             }
             muxer?.let { m ->
@@ -645,6 +703,21 @@ class ArmedAudioService : Service() {
                 m.release()
             }
         } catch (_: Exception) {}
+        // WAV fallback: patch the RIFF + data chunk sizes so the file is a
+        // valid WAV before upload (44 + data bytes).
+        wavStream?.let { raf ->
+            try {
+                val total = 36 + wavDataBytes
+                raf.seek(4); raf.write(intLE(total.toInt()))
+                raf.seek(40); raf.write(intLE(wavDataBytes.toInt()))
+                raf.fd.sync()
+                raf.close()
+            } catch (e: Exception) {
+                Log.w(TAG, "wav finalize failed: ${e.message}")
+            }
+            wavStream = null
+            wavDataBytes = 0
+        }
         encoder = null
         muxer = null
         muxerTrack = -1
@@ -668,11 +741,12 @@ class ArmedAudioService : Service() {
                         if (ln != null) put("lng", ln)
                     }
                 }.toString().toRequestBody(JSON)
-                if (post("/api/device/media", body)) {
+                val result = postWithStatus("/api/device/media", body)
+                if (result.first) {
                     Log.i(TAG, "Segment ${row.optInt("seg")} uploaded (${bytes.size} bytes)")
                     file.delete()
                 } else {
-                    Log.w(TAG, "Segment ${row.optInt("seg")} upload rejected — kept on disk")
+                    Log.w(TAG, "Segment ${row.optInt("seg")} upload rejected HTTP ${result.second} — kept on disk")
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Segment upload failed: ${e.message}")
@@ -708,12 +782,15 @@ class ArmedAudioService : Service() {
         return headers
     }
 
-    private fun post(path: String, body: RequestBody): Boolean {
+    private fun post(path: String, body: RequestBody): Boolean = postWithStatus(path, body).first
+
+    /** @return (success, httpStatus) — status is -1 on network failure. */
+    private fun postWithStatus(path: String, body: RequestBody): Pair<Boolean, Int> {
         return try {
             val builder = Request.Builder().url(BuildConfig.SERVER_URL + path).post(body)
             authHeaders().forEach { (k, v) -> builder.addHeader(k, v) }
-            client.newCall(builder.build()).execute().use { r -> r.code in 200..299 }
-        } catch (e: Exception) { false }
+            client.newCall(builder.build()).execute().use { r -> (r.code in 200..299) to r.code }
+        } catch (e: Exception) { false to -1 }
     }
 
     // ── Session cap (FIFO eviction, never delete uploaded rows) ─────────
