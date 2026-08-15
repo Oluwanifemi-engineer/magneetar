@@ -21,6 +21,15 @@ enum class CapturePath {
     /** Armed and the command maps to a real capture action — run it there. */
     RUN_ARMED_CAPTURE,
 
+    /**
+     * The armed AUDIO WATCH is holding the mic — escalate it to EVIDENCE
+     * mode instead of running a 30s clip in MediaCaptureService. Only one
+     * mic user may exist (two concurrent AudioRecords would fight); the
+     * watch already listens continuously, so the command becomes an
+     * EVIDENCE escalation on the already-running service.
+     */
+    RUN_AUDIO_WATCH,
+
     /** Armed but the command is unknown — ack 'failed', never run anything. */
     REFUSE_UNKNOWN,
 }
@@ -36,7 +45,7 @@ object CaptureRouting {
     }
 
     /**
-     * How a capture command must be handled:
+     * How a capture command must be handled (MediaCaptureService-only view):
      * - Not armed → PROMPT_REARM (the FGS cannot be background-started on
      *   Android 14+, so capture is honestly unavailable).
      * - Armed with a known command → RUN_ARMED_CAPTURE.
@@ -45,6 +54,25 @@ object CaptureRouting {
      */
     fun route(armed: Boolean, command: String): CapturePath = when {
         !armed -> CapturePath.PROMPT_REARM
+        actionFor(command) == null -> CapturePath.REFUSE_UNKNOWN
+        else -> CapturePath.RUN_ARMED_CAPTURE
+    }
+
+    /**
+     * Full capture routing including the armed audio watch (mic exclusivity).
+     *
+     * [watchArmed] — ArmedAudioService is running and holding the mic.
+     * [mediaArmed] — MediaCaptureService (camera|mic FGS) is armed.
+     *
+     * `capture_audio` prefers the audio watch when it is armed (it already
+     * holds the mic; escalating to EVIDENCE is the only mic-safe capture).
+     * Everything else keeps the MediaCaptureService path.
+     */
+    fun routeFull(watchArmed: Boolean, mediaArmed: Boolean, command: String): CapturePath = when {
+        command == "capture_audio" && watchArmed -> CapturePath.RUN_AUDIO_WATCH
+        command == "capture_audio" && mediaArmed -> CapturePath.RUN_ARMED_CAPTURE
+        command == "capture_audio" -> CapturePath.PROMPT_REARM
+        !mediaArmed -> CapturePath.PROMPT_REARM
         actionFor(command) == null -> CapturePath.REFUSE_UNKNOWN
         else -> CapturePath.RUN_ARMED_CAPTURE
     }

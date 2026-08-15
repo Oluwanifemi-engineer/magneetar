@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-15
 
+### Feature — Armed Audio Watch (game-changer gap-closer)
+
+- New `ArmedAudioService` — a persistent microphone FGS that LISTENS while
+  armed instead of only capturing on command. VAD-gated STEALTH mode keeps
+  a 15-second pre-roll ring in RAM and persists ONLY speech as AAC segments
+  (hardware MediaCodec, WAV fallback on SoCs without it); EVIDENCE mode
+  (the `capture_audio` command while armed, or a future theft-signal
+  escalation) records continuously with immediate upload. Every segment is
+  written with a SHA-256 hash-chained manifest row {seg_id, start_epoch,
+  prev_sha256, sha256, mode} — chain-of-custody consistent with the
+  server-side evidence cases.
+- **Mic exclusivity:** while the watch is armed, `capture_audio` routes to
+  it (the watch already holds the mic; a second recorder would fight it) —
+  photos keep using MediaCaptureService (camera ≠ mic). When the watch is
+  NOT armed, `capture_audio` falls back to the proven 30 s clip path
+  unchanged. Routing is unit-tested (13 tests).
+- **Android 14/15 honest shape:** armed from a foreground context
+  (HomeActivity auto-arm) or the "Re-arm" notification tap; Boot posts a
+  re-arm prompt (a mic FGS cannot start from BOOT_COMPLETED); call-state
+  pause during telephony; START_STICKY + stopWithTask=false.
+- The VAD's design-doc algorithm had two real bugs, fixed and regression-
+  tested (G1-5): the hangover window inflated a 20 ms door-slam into
+  "520 ms of speech" (persisting noise bursts), and the noise floor
+  tracked up on every loud block until sustained audio silenced the
+  detector entirely. Floor now freezes on speech (the signal, not noise)
+  and re-adapts only in the quiet gaps.
+
 ### Fix — false "Impossible jump" teleport alerts (found via live GPS-off test)
 
 - `_haversine` returns **meters** (it is also the unit the geofence radius

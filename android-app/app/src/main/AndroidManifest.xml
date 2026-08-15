@@ -237,6 +237,22 @@
             android:foregroundServiceType="camera|microphone"
             android:stopWithTask="false" />
 
+        <!-- ─── Armed Audio Evidence Watch ────────────────────────────── -->
+        <!-- Continuous VAD-gated speech capture (STEALTH) that escalates to
+             full EVIDENCE recording on command/theft signal, with a 15s
+             pre-roll ring so the first utterance is captured whole. Same
+             armed-watch shape as MediaCaptureService: a microphone FGS
+             cannot be started from the background on Android 14+, so it is
+             armed from a foreground context or a "Re-arm" notification tap
+             and stays running (START_STICKY, stopWithTask=false). Boot posts
+             a re-arm prompt — never a forbidden background start. -->
+        <service
+            android:name=".ArmedAudioService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="microphone"
+            android:stopWithTask="false" />
+
         <!-- ─── Find Network: SOS beacon + guardian scan ───────────────── -->
         <service
             android:name=".SosBeaconBroadcaster"

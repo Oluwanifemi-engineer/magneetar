@@ -63,6 +63,13 @@ class BootReceiver : BroadcastReceiver() {
                 MediaCaptureService.postRearmNotification(context)
             }
 
+            // Same for the audio evidence watch: a microphone FGS from
+            // BOOT_COMPLETED is banned on API 34+, so post its own re-arm
+            // prompt instead of trying a forbidden background start.
+            if (ArmedAudioService.wasArmedBeforeRestart(context)) {
+                ArmedAudioService.postRearmNotification(context)
+            }
+
             Log.i(TAG, "Services started successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start services: ${e.message}")

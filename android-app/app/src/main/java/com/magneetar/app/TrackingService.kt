@@ -939,6 +939,9 @@ class TrackingService : Service() {
         // posture (armed → remote capture possible) instead of a phantom
         // 'executed' on unarmed devices.
         put("capture_armed", MediaCaptureService.isArmed)
+        // Audio watch state — the VAD-gated STEALTH capture that backs
+        // capture_audio when armed (mic exclusivity: only one mic user).
+        put("audio_watch_armed", ArmedAudioService.isArmed)
         put("sim_changed", simChanged)
         // Failed-unlock "theftie" count (COMPETITOR_AUDIT P1 #4): repeated
         // failed unlocks strongly suggest a stranger in possession. The
@@ -1308,18 +1311,42 @@ class TrackingService : Service() {
      * (the dashboard shows the truth instead of a phantom 'executed').
      */
     private suspend fun startCaptureService(id: Int, command: String) {
-        when (CaptureRouting.route(MediaCaptureService.isArmed, command)) {
+        when (CaptureRouting.routeFull(
+            ArmedAudioService.isArmed,
+            MediaCaptureService.isArmed,
+            command,
+        )) {
             CapturePath.PROMPT_REARM -> {
                 // Capture is honestly unavailable: post the tap-to-re-arm
                 // notification and ack 'failed' (the dashboard shows the
                 // truth instead of a phantom 'executed').
                 MediaCaptureService.postRearmNotification(this)
+                ArmedAudioService.postRearmNotification(this)
                 ackFailed(id)
             }
             CapturePath.REFUSE_UNKNOWN -> {
                 // Defensive: never run an unknown command. Ack failed so the
                 // command doesn't stay PENDING and get re-delivered forever.
                 ackFailed(id)
+            }
+            CapturePath.RUN_AUDIO_WATCH -> {
+                // The armed audio watch holds the mic (VAD-gated continuous
+                // capture with pre-roll). Escalating to EVIDENCE makes it
+                // record everything + upload immediately — the command's
+                // intent is satisfied by the already-running watch without a
+                // second mic user. Ack only after the escalation is issued;
+                // the service is live and bytes WILL flow (honest 'executed').
+                try {
+                    val intent = Intent(this, ArmedAudioService::class.java).apply {
+                        setAction(ArmedAudioService.ACTION_FORCE_CAPTURE)
+                        putExtra(ArmedAudioService.EXTRA_COMMAND_ID, id)
+                    }
+                    startService(intent)
+                    ackCommand(id, "executed")
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    ackFailed(id)
+                }
             }
             CapturePath.RUN_ARMED_CAPTURE -> {
                 try {

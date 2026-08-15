@@ -63,4 +63,53 @@ class CaptureRoutingTest {
         // Defensive: an unknown command must never run — it acks failed.
         assertEquals(CapturePath.REFUSE_UNKNOWN, CaptureRouting.route(armed = true, command = "not_a_command"))
     }
+
+    // ── routeFull (audio watch + mic exclusivity) ───────────────────────
+
+    @Test
+    fun `capture_audio goes to the audio watch when it is armed`() {
+        // Mic exclusivity: the watch holds the mic — a 30s clip in
+        // MediaCaptureService would fight it. Escalate the watch instead.
+        assertEquals(
+            CapturePath.RUN_AUDIO_WATCH,
+            CaptureRouting.routeFull(watchArmed = true, mediaArmed = true, command = "capture_audio"),
+        )
+        assertEquals(
+            CapturePath.RUN_AUDIO_WATCH,
+            CaptureRouting.routeFull(watchArmed = true, mediaArmed = false, command = "capture_audio"),
+        )
+    }
+
+    @Test
+    fun `capture_audio falls back to the clip service when the watch is not armed`() {
+        assertEquals(
+            CapturePath.RUN_ARMED_CAPTURE,
+            CaptureRouting.routeFull(watchArmed = false, mediaArmed = true, command = "capture_audio"),
+        )
+    }
+
+    @Test
+    fun `capture_audio with neither armed prompts re-arm`() {
+        assertEquals(
+            CapturePath.PROMPT_REARM,
+            CaptureRouting.routeFull(watchArmed = false, mediaArmed = false, command = "capture_audio"),
+        )
+    }
+
+    @Test
+    fun `photos always use the media service regardless of the watch`() {
+        // The watch is mic-only; camera capture never routes to it.
+        assertEquals(
+            CapturePath.RUN_ARMED_CAPTURE,
+            CaptureRouting.routeFull(watchArmed = true, mediaArmed = true, command = "capture_photo"),
+        )
+        assertEquals(
+            CapturePath.RUN_ARMED_CAPTURE,
+            CaptureRouting.routeFull(watchArmed = true, mediaArmed = true, command = "capture_photo_front"),
+        )
+        assertEquals(
+            CapturePath.PROMPT_REARM,
+            CaptureRouting.routeFull(watchArmed = true, mediaArmed = false, command = "capture_photo"),
+        )
+    }
 }

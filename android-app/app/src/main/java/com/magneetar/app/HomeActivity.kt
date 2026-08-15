@@ -68,13 +68,24 @@ class HomeActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateUI()
-        // Auto-arm remote capture in background
+        // Auto-arm remote capture + the audio watch in background.
+        // Both MUST start from a foreground context (Android 14+ refuses a
+        // background start of a camera|mic FGS); HomeActivity opening is the
+        // natural foreground moment. If either fails (permission not fully
+        // granted etc.) the re-arm notification path takes over.
         val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
         if (prefs.getBoolean(PREF_AUTO_ARM, true)) {
             try {
                 val intent = Intent(this, MediaCaptureService::class.java)
                     .setAction(MediaCaptureService.ACTION_ARM)
                 ContextCompat.startForegroundService(this, intent)
+            } catch (e: Exception) {
+                // Best-effort
+            }
+            try {
+                val audioIntent = Intent(this, ArmedAudioService::class.java)
+                    .setAction(ArmedAudioService.ACTION_ARM)
+                ContextCompat.startForegroundService(this, audioIntent)
             } catch (e: Exception) {
                 // Best-effort
             }
@@ -228,20 +239,22 @@ class HomeActivity : AppCompatActivity() {
             .show()
     }
 
-    /** Arm/disarm remote capture and persist the choice across launches. */
+    /** Arm/disarm remote capture + audio watch and persist the choice. */
     private fun toggleCapture() {
         val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
         val currentlyArmed = prefs.getBoolean(PREF_AUTO_ARM, true)
         try {
-            val intent = Intent(this, MediaCaptureService::class.java).apply {
-                action = if (currentlyArmed) {
-                    MediaCaptureService.ACTION_DISARM
-                } else {
-                    MediaCaptureService.ACTION_ARM
-                }
-            }
+            val mediaAction = if (currentlyArmed) MediaCaptureService.ACTION_DISARM else MediaCaptureService.ACTION_ARM
+            val audioAction = if (currentlyArmed) ArmedAudioService.ACTION_DISARM else ArmedAudioService.ACTION_ARM
             prefs.edit().putBoolean(PREF_AUTO_ARM, !currentlyArmed).apply()
-            ContextCompat.startForegroundService(this, intent)
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, MediaCaptureService::class.java).setAction(mediaAction)
+            )
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, ArmedAudioService::class.java).setAction(audioAction)
+            )
             Toast.makeText(
                 this,
                 if (currentlyArmed) "Remote capture disabled" else "Remote capture enabled",
