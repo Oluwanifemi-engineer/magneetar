@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-12
 
+### v1.4.4 — sms_relay_number gated behind device auth (2026-08-15)
+
+- **`/api/config` no longer discloses the SMS relay number anonymously** —
+  the last outstanding finding from the security re-checks. The generic
+  fields (app_version, min_android_version, features_enabled) stay public
+  for the pre-registration update nudge, but `sms_relay_number` is only
+  returned when the request presents a valid `x-device-key` for a
+  registered device (the sender allowlist is its only consumer).
+  Anonymous or forged requests get `""` and the app falls back to
+  code-only SMS verification (existing, documented behavior).
+- **Android**: `checkServerCompatibility()` now sends `x-device-key` on the
+  config fetch — it runs right after registration, so the server already
+  holds the key hash. The SMS sender allowlist keeps working on updated
+  devices; v1.4.4 (versionCode 10) APK built and deployed.
+- Live-verified: anonymous → empty, forged key → empty; unit test confirms
+  a registered device's key mirrors the configured number.
+
 ### Security re-check disposition (2026-08-14 20:15)
 
 - **S-7 re-verified live**: tampered APK ticket on the API host returns a
