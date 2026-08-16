@@ -1112,6 +1112,27 @@ async def post_heartbeat(
         )
         db.commit()
 
+    # Location/airplane state over the heartbeat too (G1-10): a device with
+    # location services OFF pings 0,0 — the location path rejects the
+    # coordinates BEFORE Sentinel can score them — so location_disabled (+20)
+    # and airplane_mode (+15) never registered (and the app didn't report
+    # them at all). Same belt-and-braces pattern as admin_disabled above:
+    # carry the state on the heartbeat and raise the persisted score so the
+    # dashboard reflects the signal. SUMs the applicable weights (matching
+    # compute_score's additive behavior); MAX keeps the location path's
+    # fresher score authoritative.
+    hb_signal_score = 0
+    if hb.is_location_enabled is False:
+        hb_signal_score += sentinel.THEFT_SIGNALS["location_disabled"]["weight"]
+    if hb.is_airplane_mode:
+        hb_signal_score += sentinel.THEFT_SIGNALS["airplane_mode_on"]["weight"]
+    if hb_signal_score:
+        db.execute(
+            "UPDATE devices SET sentinel_score = MAX(sentinel_score, ?) WHERE id=?",
+            (hb_signal_score, device_id),
+        )
+        db.commit()
+
     # SIM change over the heartbeat (belt-and-braces for devices whose
     # location stream is quiet — e.g. location permission revoked): same
     # always-deliver alert, same 10-minute dedup as the location path.

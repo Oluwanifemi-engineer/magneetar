@@ -319,6 +319,13 @@ class HeartbeatPacket(BaseModel):
     # TelemetryPing.failed_unlock_count) — carried on the heartbeat so a
     # locked screen is still reported when the location stream is quiet.
     failed_unlock_count: Optional[int] = Field(None, ge=0)
+    # Location-services + airplane state (G1-10): a device with location OFF
+    # pings 0,0 and the location path rejects the coordinates BEFORE Sentinel
+    # scoring — so location_disabled (+20) and airplane_mode (+15) were dead
+    # signals. The heartbeat is the designed belt-and-braces path for a quiet
+    # location stream (same as admin_disabled), so the state is carried here.
+    is_location_enabled: Optional[bool] = None
+    is_airplane_mode: Optional[bool] = None
 
 
 # ─── Auth Models ─────────────────────────────────────────────────────────────

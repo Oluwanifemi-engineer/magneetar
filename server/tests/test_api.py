@@ -3531,3 +3531,52 @@ class TestFailedUnlockTheftie:
         commands = {p["command"] for p in pending}
         assert {"capture_photo_front", "capture_audio"} <= commands
         assert len(self._alerts(device_id)) >= 1, "heartbeat must fire the theftie alert too"
+
+    def test_heartbeat_scores_location_and_airplane_state(self):
+        """G1-10: location_disabled (+20) and airplane_mode (+15) are dead on
+        the location path (a 0,0 no-fix ping is rejected before Sentinel
+        scoring) — the heartbeat is the designed belt-and-braces path, so a
+        device reporting location OFF / airplane ON there must raise the
+        persisted score (same pattern as admin_disabled)."""
+        device_id = "theftie-hb-state"
+        resp = client.post(
+            "/api/device/register",
+            json={"device_id": device_id, "fingerprint": f"fp-hb-state-{device_id}"},
+            headers=get_auth_headers(),
+        )
+        token = resp.json()["token"]
+        self._seed_current_db_device(device_id)
+
+        # Location off alone → score ≥ 20.
+        resp = client.post(
+            "/api/device/heartbeat",
+            json={"device_id": device_id, "is_location_enabled": False},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200, resp.text
+        with database.get_db_context() as conn:
+            row = conn.execute("SELECT sentinel_score FROM devices WHERE id=?", (device_id,)).fetchone()
+        assert row[0] >= 20, f"location_disabled must score +20, got {row[0]}"
+
+        # Airplane on in the SAME heartbeat (a real device sends both flags
+        # together) adds +15 → ≥ 35.
+        resp = client.post(
+            "/api/device/heartbeat",
+            json={"device_id": device_id, "is_location_enabled": False, "is_airplane_mode": True},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200, resp.text
+        with database.get_db_context() as conn:
+            row = conn.execute("SELECT sentinel_score FROM devices WHERE id=?", (device_id,)).fetchone()
+        assert row[0] >= 35, f"location + airplane must score ≥ 35, got {row[0]}"
+
+        # A clean heartbeat never lowers the score.
+        resp = client.post(
+            "/api/device/heartbeat",
+            json={"device_id": device_id},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200, resp.text
+        with database.get_db_context() as conn:
+            row = conn.execute("SELECT sentinel_score FROM devices WHERE id=?", (device_id,)).fetchone()
+        assert row[0] >= 35, "a clean heartbeat must not lower the score"

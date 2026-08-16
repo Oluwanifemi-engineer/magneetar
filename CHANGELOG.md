@@ -42,6 +42,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   photo burst → valid JPEGs in the evidence case → always-deliver alert
   fired. 90/90 unit tests, APK staged + checksum live.
 
+### Fix — dead location/airplane theft signals (G1-10)
+
+- The GPS-off resilience test (no crash, pings continue, garbage fixes
+  rejected, no false theft) surfaced that two Sentinel signals were dead:
+  `location_disabled` (+20) and `airplane_mode_on` (+15) — the app never
+  reported them, and even when reported, the location path rejects a 0,0
+  no-fix ping BEFORE Sentinel scoring. The app now reports both flags on
+  the 60s heartbeat (the designed belt-and-braces path for a quiet location
+  stream, same as admin_disabled), and the heartbeat scores them. Live-
+  verified: location off → score 20 within one heartbeat, restored → 0.
+  Battery check: armed watch ≈ 0.9%/h (204 mAh / 4h29m), inside the band.
+
 ### Armed Camera — field-tested PASS (2026-08-16)
 
 - On-phone verification: a `capture_audio` command escalated the armed watch

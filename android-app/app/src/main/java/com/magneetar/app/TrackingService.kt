@@ -969,6 +969,11 @@ class TrackingService : Service() {
         // capture_audio when armed (mic exclusivity: only one mic user).
         put("audio_watch_armed", ArmedAudioService.isArmed)
         put("sim_changed", simChanged)
+        // Location-services state — the Sentinel `location_disabled` theft
+        // signal (+20) was DEAD because the app never reported it (found in
+        // the GPS-off resilience test: location turned off, score stayed 0).
+        // A thief disabling location must register.
+        put("is_location_enabled", isLocationEnabled())
         // Failed-unlock "theftie" count (COMPETITOR_AUDIT P1 #4): repeated
         // failed unlocks strongly suggest a stranger in possession. The
         // server scores it with Sentinel (+20) and, once it crosses the
@@ -984,6 +989,41 @@ class TrackingService : Service() {
         }.toString().toRequestBody(JSON)
 
         post("/api/device/location", body)
+    }
+
+    /**
+     * Whether the system location toggle is on. Permission-free and cheap —
+     * the hot-path ping needs no binder churn. API 28+ has the direct
+     * LocationManager.isLocationEnabled; older builds fall back to the
+     * provider checks (minSdk is 24). Sentinel scores `location_disabled`
+     * (+20) from this flag — a thief turning location off must register.
+     */
+    private fun isLocationEnabled(): Boolean {
+        val lm = getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return false
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                lm.isLocationEnabled
+            } else {
+                lm.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                    lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Whether airplane mode is on (Settings.Global.AIRPLANE_MODE_ON — the
+     * canonical flag; no radio-state probing). Sentinel scores
+     * `airplane_mode_on` (+15) from this. Reported on the heartbeat (see
+     * the heartbeat body comment — G1-10).
+     */
+    private fun isAirplaneMode(): Boolean {
+        return try {
+            Settings.Global.getInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) == 1
+        } catch (e: Exception) {
+            false
+        }
     }
 
     /**
@@ -1068,6 +1108,13 @@ class TrackingService : Service() {
                     put("failed_unlock_count", FailedUnlockMonitor.currentCount(this@TrackingService))
                     put("pending_evidence_count", 0)
                     put("capture_armed", MediaCaptureService.isArmed)
+                    // Location/airplane state (G1-10): the location ping is
+                    // rejected server-side when the fix is 0,0 (location off),
+                    // so these Sentinel signals (location_disabled +20,
+                    // airplane_mode +15) only reach the server over the 60s
+                    // heartbeat — the designed belt-and-braces path.
+                    put("is_location_enabled", isLocationEnabled())
+                    put("is_airplane_mode", isAirplaneMode())
                 }.toString().toRequestBody(JSON)
 
                 val response = post("/api/device/heartbeat", body)
