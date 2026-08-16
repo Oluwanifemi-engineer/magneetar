@@ -110,6 +110,15 @@ class ArmedAudioService : Service() {
         private const val EVIDENCE_MINUTES = 5           // default FORCE_CAPTURE window
         private const val MAX_SESSION_BYTES = 512L * 1024 * 1024
 
+        // Armed Camera: while in EVIDENCE (theft confirmed), also fire a
+        // front-photo burst through MediaCaptureService — the thief's face is
+        // the single most valuable evidence and the design's sensor-synced
+        // capture table calls for camera bursts in EVIDENCE. Every 60s keeps
+        // the camera free for command captures and the shutter noise away from
+        // the audio; a 5-min window yields ~5 face captures.
+        private const val PHOTO_BURST_INTERVAL_MS = 60_000L
+        private const val PHOTO_BURST_FIRST_DELAY_MS = 2_000L
+
         /** True while this service runs the armed mic watch. */
         @Volatile
         var isArmed: Boolean = false
@@ -168,6 +177,20 @@ class ArmedAudioService : Service() {
     private var armed = false
     private var pausedByCall = false
     private var evidenceUntilMs = 0L
+
+    // Armed Camera: periodic front-photo burst while in EVIDENCE.
+    private val photoBurstHandler = Handler(Looper.getMainLooper())
+    private var photoBurstRunning = false
+    private val photoBurstTick = object : Runnable {
+        override fun run() {
+            if (!armed || mode != MODE_EVIDENCE || System.currentTimeMillis() >= evidenceUntilMs) {
+                photoBurstRunning = false
+                return
+            }
+            fireFrontPhoto()
+            photoBurstHandler.postDelayed(this, PHOTO_BURST_INTERVAL_MS)
+        }
+    }
 
     private var audioRecord: AudioRecord? = null
     private var captureThread: CaptureThread? = null
@@ -231,6 +254,7 @@ class ArmedAudioService : Service() {
                 if (mode != MODE_EVIDENCE) {
                     mode = MODE_EVIDENCE
                     Log.i(TAG, "Escalated to EVIDENCE mode (${EVIDENCE_MINUTES} min)")
+                    startPhotoBurst()
                 }
                 return START_STICKY
             }
@@ -252,6 +276,7 @@ class ArmedAudioService : Service() {
         try { audioRecord?.release() } catch (_: Exception) {}
         audioRecord = null
         closeSegment()
+        stopPhotoBurst()
         writeManifestEntry("watch_stopped", wasArmed)
         try { segmentManifest?.close() } catch (_: Exception) {}
         if (wasArmed) {
@@ -320,7 +345,55 @@ class ArmedAudioService : Service() {
         Log.i(TAG, "Audio watch armed (STEALTH)")
     }
 
+    // ── Armed Camera ─────────────────────────────────────────────────────
+    /**
+     * Start the periodic front-photo burst for the EVIDENCE window. Fires a
+     * front photo through MediaCaptureService (the camera FGS — separate
+     * sensor, no mic conflict) every PHOTO_BURST_INTERVAL_MS so a theft
+     * signal yields a series of face captures the thief can't remove from
+     * the server. Skips gracefully when the camera service isn't armed
+     * (photo capture needs its FGS) or when camera permission is missing.
+     */
+    private fun startPhotoBurst() {
+        if (photoBurstRunning) return
+        if (!MediaCaptureService.isArmed) {
+            Log.i(TAG, "Photo burst skipped — camera service not armed")
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            Log.i(TAG, "Photo burst skipped — CAMERA permission not granted")
+            return
+        }
+        photoBurstRunning = true
+        photoBurstHandler.postDelayed(photoBurstTick, PHOTO_BURST_FIRST_DELAY_MS)
+        Log.i(TAG, "Armed Camera: front-photo burst active (${PHOTO_BURST_INTERVAL_MS / 1000}s interval)")
+    }
+
+    private fun stopPhotoBurst() {
+        if (!photoBurstRunning) return
+        photoBurstRunning = false
+        photoBurstHandler.removeCallbacks(photoBurstTick)
+        Log.i(TAG, "Armed Camera: photo burst stopped")
+    }
+
+    /** Fire one front-photo capture through MediaCaptureService (best-effort). */
+    private fun fireFrontPhoto() {
+        try {
+            // No command id: this is an evidence burst, not a dashboard
+            // command — MediaCaptureService uploads the photo without an ack.
+            val intent = Intent(this, MediaCaptureService::class.java)
+                .setAction(MediaCaptureService.ACTION_CAPTURE_PHOTO_FRONT)
+            startService(intent)
+            Log.i(TAG, "Armed Camera: front photo capture dispatched")
+        } catch (e: Exception) {
+            Log.w(TAG, "Armed Camera: front photo dispatch failed: ${e.message}")
+        }
+    }
+
     private fun disarm() {
+        stopPhotoBurst()
         armed = false
         isArmed = false
         captureThread?.requestStop()
@@ -411,6 +484,7 @@ class ArmedAudioService : Service() {
                 val inEvidence = mode == MODE_EVIDENCE
                 if (inEvidence && System.currentTimeMillis() >= evidenceUntilMs) {
                     mode = MODE_STEALTH
+                    stopPhotoBurst()
                     closeSegment()
                     Log.i(TAG, "EVIDENCE window ended — back to STEALTH")
                 }

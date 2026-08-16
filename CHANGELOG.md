@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — 2026-08-16
+
+### Feature — Armed Camera (theft-signal photo burst)
+
+- When the Armed Audio watch escalates to EVIDENCE mode (theft confirmed
+  via the `capture_audio` command, which the server queues on Sentinel
+  activation / failed-unlock reactions / geofence auto-actions), the watch
+  now also fires a **front-camera photo burst** every 60 s through the
+  existing MediaCaptureService path for the EVIDENCE window — the thief's
+  face is captured alongside their voice, both landing in the same
+  evidence case. Gated on MediaCaptureService being armed (camera and mic
+  are separate sensors — no conflict), stopped on disarm / onDestroy /
+  window end.
+
+### Dev — release source-tarball tooling (repo-visibility options)
+
+- New `scripts/make-source-tarball.sh`: builds a clean per-release source
+  tarball + SHA-256 (tree snapshot only — no `.git` history, no secrets,
+  no build artifacts) for the release-only-public path if the repo ever
+  goes private. Verified on both HEAD and tag (`git archive`) paths;
+  strips firebase-key.json, keystores (incl. `release.keystore.*` backups
+  the `*.keystore` glob missed), server/venv, node_modules,
+  dashboard/.next, dist/, APKs/AABs; tight secret-grep that only trips on
+  real key values, not placeholder docs.
+
+---
+
 ## [Unreleased] — 2026-08-15
 
 ### Feature — Armed Audio Watch (game-changer gap-closer)
