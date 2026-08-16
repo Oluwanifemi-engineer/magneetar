@@ -42,6 +42,10 @@ from pathlib import Path
 
 API_BASE = os.environ.get("MT_API_BASE", "https://api.magneetar.me")
 CONTAINER = os.environ.get("MT_SERVER_CONTAINER", "magneetar-server")
+# Read the live version from the repo VERSION file so the probe always
+# reports the CURRENT build (the UA mimics the real Android app).
+_VERSION_FILE = Path(__file__).resolve().parent.parent / "VERSION"
+APP_VERSION = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else "1.4.4"
 
 
 def load_env(path: Path) -> dict:
@@ -70,7 +74,7 @@ def call(method: str, path: str, headers: dict, payload: dict = None):
     hdrs = dict(headers)
     # Cloudflare's edge bot-scoring flags the default urllib UA; a real
     # mobile-ish UA keeps the probe hitting the app (same as the Android app).
-    hdrs.setdefault("User-Agent", "MagneetarAndroid/1.4.1 (okhttp/4.12)")
+    hdrs.setdefault("User-Agent", f"MagneetarAndroid/{APP_VERSION} (okhttp/4.12)")
     req = urllib.request.Request(f"{API_BASE}{path}", data=data, headers=hdrs, method=method)
     try:
         with urllib.request.urlopen(req, timeout=25) as r:
@@ -185,7 +189,7 @@ def main() -> int:
             "fingerprint": "sim-probe-fingerprint",
             "model": "SIM Probe",
             "os_version": "probe",
-            "app_version": "1.4.1",
+            "app_version": APP_VERSION,
         },
     )
     if status != 200:

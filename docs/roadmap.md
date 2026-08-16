@@ -1,7 +1,7 @@
 # Magneetar — Strategic Roadmap
 
-**Version:** 3.1  
-**Last Updated:** 2026-08-14  
+**Version:** 3.2  
+**Last Updated:** 2026-08-16  
 **Status:** 🟢 Active Development  
 
 ---
@@ -12,7 +12,7 @@
 
 ---
 
-## Current Position (v1.4.3)
+## Current Position (v1.4.4)
 
 The Magneetar ecosystem is production-ready with:
 - **Android app** with stealth tracking, evidence capture, and remote commands
@@ -27,7 +27,10 @@ The Magneetar ecosystem is production-ready with:
 - **Session tokens encrypted at rest** — AndroidKeyStore AES-256-GCM vault; no plaintext credentials on disk (v1.4.2)
 - **Transactional email delivering** — Resend provider: reset/verify links finally reach users (v1.4.2)
 - **Developer API keys live** — scoped `mtk_` keys with a read-only type + usage metering (v1.7)
-- **Test suite** — 549 backend + 198 dashboard, all green (2026-08-14)
+- **Test suite** — 558 backend + 211 dashboard, all green (2026-08-16)
+- **iOS companion app code-complete** — full SwiftUI app (owner dashboard +
+  protected-iPhone roles) committed under `ios-app/`; build pending a Mac
+  (see `docs/ios-port-capability-map.md` for the honest iOS scope)
 
 ---
 
@@ -115,7 +118,7 @@ The Magneetar ecosystem is production-ready with:
 
 | Priority | Task | Details | Effort |
 |----------|------|---------|--------|
-| 🟡 P1 | **iOS app** | SwiftUI app with core tracking features | 4 weeks |
+| 🟡 P1 | **iOS app** | SwiftUI app with core tracking features | 4 weeks | ✅ **code-complete (2026-08-16)** — `ios-app/` (XcodeGen spec, both roles, honest scope); build+TestFlight pending a Mac + Apple Developer account |
 | 🟡 P1 | **BLE asset tag prototype** | Custom ESP32 firmware + 3D-printed enclosure | 3 weeks |
 | 🟡 P1 | **Desktop dashboard PWA** | Progressive Web App for desktop with offline support | 2 weeks |
 | 🟢 P2 | **iOS background persistence** | Work through iOS background execution restrictions | 2 weeks |
@@ -245,7 +248,7 @@ we must never copy.
 
 - [ ] **Week 1:** Start the real-world validation program — assemble the device
       matrix (≥6 devices / ≥4 OEMs), recruit ≥5 real users, install the
-      v1.4.3 play-clean APK from magneetar.me/download (installs can also
+      v1.4.4 play-clean APK from magneetar.me/download (installs can also
       self-heal via the in-app updater — no sideload needed for older builds)
 - [ ] **Week 1:** Setup Firebase — run `bash scripts/firebase-setup.sh`
 - [ ] **Week 1:** Document findings in `docs/REAL_WORLD_VALIDATION_PLAN.md` (per-device pass/fail records)

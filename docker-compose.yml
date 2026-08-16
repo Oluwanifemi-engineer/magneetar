@@ -80,7 +80,7 @@ services:
         - NEXT_PUBLIC_API_URL=https://api.magneetar.me
         # Landing-page fallback version badge — deploy.sh exports this from the
         # repo VERSION file so the static fallback never drifts from the release.
-        - NEXT_PUBLIC_APP_VERSION=${MT_APP_VERSION:-1.4.1}
+        - NEXT_PUBLIC_APP_VERSION=${MT_APP_VERSION:-1.4.4}
     container_name: magneetar-dashboard
     restart: unless-stopped
     ports:

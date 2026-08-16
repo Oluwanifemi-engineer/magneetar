@@ -1,42 +1,51 @@
 # Magneetar — Project Status Report
 
-**Generated:** August 14, 2026  
-**Version:** 1.4.3  
-**Status:** 🟢 Production Ready
+**Generated:** August 16, 2026  
+**Version:** 1.4.4  
+**Status:** 🟢 Production Ready — G1 real-world validation in progress; Play submission gated (ADR-0006)
 
 ---
 
 ## Executive Summary
 
-Magneetar is a fully functional anti-theft tracking system with:
-- **Android app** — stealth tracking, evidence capture, remote commands, multi-user device linking
-- **Backend API** — FastAPI with intelligent theft detection (Sentinel AI) and full device-ownership scoping
-- **Dashboard** — Next.js tactical command center with a premium landing + auth experience
-- **Production deployment** — Docker Compose + Cloudflare Tunnel (SQLite on the persisted volume is the live data plane)
+Magneetar is a production anti-theft platform: **Android app** (stealth
+location + Sentinel theft scoring, armed evidence capture, remote commands,
+uninstall protection, Find Network), **FastAPI backend** (ownership-scoped,
+2FA, encrypted-at-rest evidence, RBAC device sharing, Guardian recovery),
+**Next.js dashboard** (live map, command center, geofences, evidence
+dossier), **iOS companion app code-complete** (both roles, honest scope,
+build pending a Mac), and a **Docker Compose + Cloudflare Tunnel production
+deploy** (SQLite data plane, healthy).
 
-All **747 tests pass consistently** (549 backend + 198 dashboard). The latest round fixed the **command re-execution loop / stuck-PENDING bug** end-to-end: new Android `RecentCommandTracker` enforces at-most-once execution (a lost ack now converges via an idempotent re-ack instead of re-running the siren/capture every 10s), the command loop flushes the ack outbox before each poll, and the dashboard's `command_ack` WebSocket handler updates the row instantly (the empty handler is why successful commands looked PENDING for up to 10s). The system is hardened with reliability improvements (WebSocket connection limits, alert circuit breakers, per-device recipients, CI alert verification), and **Milestone 2 (Multi-User & Device Ownership) P0s are now complete**: devices link to accounts on Android at registration and via a claim endpoint, every dashboard endpoint is scoped by ownership, WebSocket broadcasts are owner-filtered, and per-user device limits are enforced. **Guardian Network (Milestone 3 P0)** is also live: opt-in guardians, blurred nearby scans, sighting reports, and recovery-request lifecycle — all verified end-to-end in production. The latest round landed **step-up-password media deletion**, **working remote commands** (wipe CONFIRMED_WIPE + hardened Android command loop), the **Trail Replay Invalid-Date fix**, the **Settings modal portal fix**, premium command buttons, and the **magenta-tile white-M brand refresh** (web + Android launcher). **v1.3.0** adds **uninstall protection** (active Device Admin blocks uninstall until deactivated — warning + instant server theft-signal on disable; device/profile-owner mode adds the hard `setUninstallBlocked(true)`; onboarding now routes through Device Admin by default with an explicit, informed skip; `scripts/enable-uninstall-protection.sh` provisions device-owner via adb; `docs/security.md`), **background camera/audio capture fixed** (new `MediaCaptureService` camera|microphone FGS — photo/front/audio now work from a locked screen on Android 14/15 and ack honestly), and the **bold solid white-M logo** (Moniepoint-style) across web + Android.
+**All 769 tests pass** (558 backend + 211 dashboard) plus 43+ Android JVM
+tests; typecheck clean; production `/health` green on v1.4.4. Every finding
+from the external security review (F-01…F-09, S-6/S-7/S-10/S-12, G1#1) is
+closed and re-verified live: WS admin bypass, API-key super-account, FCM
+device pollution, /health + config leaks, tampered-download-signature 403,
+install-channel fix (Play internal testing), and the marketing-claim
+integrity pass (no fake adoption numbers anywhere). Sentry is live.
 
-**Latest (2026-08-14, v1.4.2):** session tokens are now encrypted at rest
-(AndroidKeyStore-backed AES-256-GCM `TokenVault` — plaintext
-SharedPreferences credentials are gone), transactional email finally delivers
-in production via a new **Resend** provider (reset/verify links that
-previously only reached server logs), reset tokens + WebSocket JWTs stopped
-leaking into server logs, GDPR account deletion no longer 500s for users with
-FCM tokens, developer API keys gained a **read-only type + usage metering**,
-and the v1.4.2 Android stability batch fixed the stale "Version 1.0.0"
-onboarding footer, a tracking-service crash-loop on devices without a network
-location provider, and an uninstall guard that was blocking the app's own
-setup/update dialogs. Backend suite **549 passed / 4 skipped**, dashboard
-**198/198**.
-
-**Latest (2026-08-14, v1.4.3):** in-app **self-update** — the "update
-available" notification now downloads the verified release APK (SHA-256
-checked against `/apk/checksum` for the exact served bytes) and installs it
-via Android's PackageInstaller, so upgrades never touch the sideload path
-that produced the G1 "App not installed" dead-end. Explicit user action
-only; inert when installed via Google Play. Deployed to production
-(versionCode 9); download page now serves `c4c89e25…` (zero SMS/phone
-perms).
+**Latest (2026-08-16, v1.4.4):**
+- **Trigger-first armed audio (G1-11)** — the mic is CLOSED while armed
+  (no permanent green dot), opens on theft-signal escalation, auto-closes
+  when the window ends; 15s pre-roll stays behind an explicit
+  Always-listen toggle. Live-verified end-to-end on the owner's phone.
+- **Armed camera burst** — theft escalation runs a 60s front-photo burst
+  into the evidence case; verified live.
+- **Live validation passed** — recovery drill 12/12, geofence exit +
+  capture + siren auto-actions, sharing-RBAC sweep 27/27, 2FA live flow,
+  theft-flood network block fixed (G1-9).
+- **Play build fixed (G1-14)** — Play AAB rebuilt to **versionCode 12**
+  with all G1 fixes (the staged v11 predated trigger-first audio);
+  download page re-staged to the **play-clean** APK (the sideload flavor
+  was being served — the exact profile Play Protect hard-blocks).
+- **iOS companion app code-complete** — full SwiftUI app under `ios-app/`
+  (owner dashboard + protected-iPhone roles, TOTP 2FA, WS live feed,
+  background location, geofence monitoring, siren, FCM/APNs push when
+  Firebase is configured); honest iOS scope in
+  `docs/ios-port-capability-map.md`. Server needs zero changes. Build +
+  TestFlight pending a Mac + Apple Developer account (owner's decision,
+  deferred for budget).
 
 ---
 
@@ -44,23 +53,12 @@ perms).
 
 | Test Suite | Count | Status |
 |------------|-------|--------|
-| API Tests (`test_api.py`) | 60 | ✅ All pass |
-| Auth Tests (`test_auth.py`) | 15 | ✅ All pass |
-| Sentinel Tests (`test_sentinel.py`) | 17 | ✅ All pass (incl. confirmation-gate regressions for the theft-unlock fix) |
-| E2E Tests (`test_e2e.py`) | 11 | ✅ All pass |
-| Offline Monitor Tests (`test_offline_monitor.py`) | 6 | ✅ All pass |
-| Reliability Tests (`test_reliability.py`) | 69 | ✅ All pass (WebSocket limits, live WS integration, full auth-path matrix incl. expired/revoked/tampered/missing-type, REST revocation, circuit breaker, per-device recipients) |
-| **Multi-User Tests** (`test_multi_user.py`) | **49** | ✅ **All pass** (register-with-user-token linking, claim endpoint by key/id, ownership scoping across all dashboard endpoints, per-user device limits, idempotent re-claims, **ghost-owner recovery**: claimable orphaned devices, stale deleted-account tokens rejected; **+13 new: device-sharing lifecycle + RBAC** — viewer can read but not command, admin can command, device_only redaction, upsert role change, revoke, owner-only grant/delete, share cleanup on device delete, WS allowed-set gate) |
-| **Guardian Tests** (`test_guardian.py`) | **23** | ✅ **All pass** (opt-in, recovery launch/close, blurred scans, rate-limited sightings, ownership isolation) |
-| **Heartbeat/Theft Tests** (`test_heartbeat_theft.py`) | **3** | ✅ **All pass** (heartbeat w/ admin inactive → 200 + last_seen advances + no stolen-mode; sub-threshold activation is a no-op) |
-| **Alert Settings Tests** (`test_alert_settings.py`) | **13** | ✅ **All pass** (per-device channels, enabled types, quiet hours, emergency always-deliver, dedup-row regression) |
-| **Media Delete Tests** (`test_media_delete.py`) | **11** | ✅ **All pass** (step-up password gate: user password + admin API key, wrong-password 401, rate limit 429, ownership 403, evidence counter fix-up) |
-| **User Security Tests** (`test_user_security.py`) | **12** | ✅ **All pass** (TOTP 2FA full lifecycle: setup/enable/disable, challenge-token-never-a-session, same-code replay rejected, brute-force lockout; password reset round-trip incl. single-use + expiry; email verification; operator sessions rejected) |
-| **Media Store Tests** (`test_media_store.py`) | **16** | ✅ **All pass** (evidence media CRUD, retention purge keeps active-case media, owner scoping) |
-| **Backend Total** | **549** | **✅ All pass** (latest 2026-08-14 run: 549 passed / 4 skipped — incl. Resend provider, credential-redaction, and API-key rounds) |
-| **Dashboard Tests** | **198** | **✅ All pass** (24 suites, `tsc --noEmit` clean, incl. `LoginPage.test.tsx` 2FA step, `SettingsModal.test.tsx` Security panel, `ForgotPasswordPage`/`ResetPasswordPage`/`VerifyEmailPage`, `MediaGallery.test.tsx` password-gated deletion, `CommandPanel.test.tsx` wipe/front/burst, `useWebSocket.test.tsx` command_ack instant-update, `api.test.ts` CSV-export binary download + geofence auto-action payload, `GeofencePanel.test.tsx` zone policy UI, `DeviceSharing.test.ts` share API client contract, **+5 `EvidencePanel.test.tsx`** recovery-dossier export: case summary, empty state with enabled button, success toast, error toast + inline error, re-enable after failure) |
-| **Grand Total** | **747** | **✅ All pass** (549 backend + 198 dashboard) |
-| **Android JVM Tests** | **43+** | **✅ All pass** (both flavors; incl. `LostModeParamsTest` 6, **+16 `SosBeaconTest` + `SosBeaconTrackerTest`** Find Network wire contract) |
+| **Backend (server/)** | **558** | ✅ **All pass, 4 skipped** (2026-08-16 run — full suite incl. security: TOTP 2FA lifecycle, step-up password gates, device-share RBAC, geofence auto-actions, evidence chain, rate limits) |
+| **Dashboard (dashboard/)** | **211** | ✅ **All pass, 24 suites** (2026-08-16 run, `tsc --noEmit` clean) |
+| **Grand Total** | **769** | ✅ **All pass** (558 backend + 211 dashboard) |
+| **Android JVM Tests** | **43+** | ✅ **All pass** (both flavors; LostMode, SOS beacon wire contract, etc.) |
+| **iOS unit tests** | 6 | ⏳ Written (`MagneetarTests`) — run on first Mac build |
+| **Live verification** | — | ✅ Recovery drill 12/12 · sharing-RBAC 27/27 · geofence exit/capture/siren · 2FA flow · theft-flood fix (G1-9) · trigger-first audio lifecycle |
 
 ---
 
