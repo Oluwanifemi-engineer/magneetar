@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-16
 
+### Validation — live geofence exit reaction + tester invite prep
+
+- Live-verified the geofence exit transition end-to-end on the real device
+  with real pings: entered event (inside marked) → fence moved → exit
+  detected → geofence_exit alert fired. Non-disruptive (alert-only action;
+  the capture/siren reaction queue paths are unit-covered and their
+  machinery was live-verified via the failed-unlock reaction).
+- Drafted the G1/G2 tester invite checklist + email for the Play internal
+  testing track (the official install channel per ADR-0007).
+
 ### Validation — live sharing-RBAC sweep + Play/GitHub release prep
 
 - Live end-to-end verification of the device-sharing role ladder on the
