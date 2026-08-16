@@ -63,8 +63,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   5-min EVIDENCE window (matching the on-device EVIDENCE burst), the same
   pattern as the existing 10-min alert dedup. Regression test added
   (`test_executed_capture_not_requeued_within_window`); full suite 557
-  passed. Deployed and verified live. The device-side counter resets on
-  unlock (USER_PRESENT), so the flood stops the moment the owner unlocks.
+  passed.
+- **Live-verified on the deployed build**: 5 locked cycles → Sentinel +20
+  → exactly ONE capture pair queued + executed → EVIDENCE burst at the
+  natural 60 s cadence (5 photos per 5-min window) → alert fired once →
+  zero re-queues over 3+ min while locked → the device kept pinging the
+  whole window (no network block — the old code blocked the carrier path
+  in ~2 min). The owner's real unlock then reset the counter (score
+  20→0), stopping the reaction exactly as designed.
 
 ### Repo visibility — private; open source honored per release
 
