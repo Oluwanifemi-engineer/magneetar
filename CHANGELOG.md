@@ -50,6 +50,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   live evidence case alongside the audio segments. Repeat commands
   mid-window dedupe correctly (no double escalation).
 
+### Fix — theft-flood network block (G1-9)
+
+- The clean-build quiet-window theft re-test passed end-to-end (Sentinel
+  +20, capture pair queued + executed, photos + audio landed, alert fired)
+  AND surfaced a reliability bug: the failed-unlock reaction re-queued a
+  capture pair every ~15 s while the count stayed above threshold, and the
+  resulting request burst from one mobile IP got the device's network path
+  to the server blocked — last_seen frozen, uploads failing (HTTP -1 /
+  read timeouts) — i.e. evidence stopped uploading exactly when it must
+  upload. Fixed server-side: the reaction is now bounded to ONE pair per
+  5-min EVIDENCE window (matching the on-device EVIDENCE burst), the same
+  pattern as the existing 10-min alert dedup. Regression test added
+  (`test_executed_capture_not_requeued_within_window`); full suite 557
+  passed. Deployed and verified live. The device-side counter resets on
+  unlock (USER_PRESENT), so the flood stops the moment the owner unlocks.
+
 ### Repo visibility — private; open source honored per release
 
 - The git repository is now **private** (commit diary not exposed — OPSEC).

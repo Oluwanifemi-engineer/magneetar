@@ -566,14 +566,44 @@ def _sim_changed_alert_recent(device_id: str) -> bool:
     return _alert_recent(device_id, "sim_changed")
 
 
+def _failed_unlock_capture_recent(db, device_id: str, minutes: int = 5) -> bool:
+    """True when a failed-unlock capture pair was already queued for this
+    device within the last `minutes` minutes.
+
+    The on-device EVIDENCE window is ~5 minutes, so one pair per window
+    keeps evidence flowing while a locked device keeps pinging — without the
+    continuous re-queue flood. G1-9 (found in the real-theft field test): a
+    photo/audio pair re-queued every ~15s while the count stayed above the
+    threshold, and the resulting request burst from one mobile IP got the
+    device's network path to the server blocked (last_seen frozen, uploads
+    failing with HTTP -1 / read timeouts) — exactly the moment evidence
+    MUST upload.
+
+    Reads through the REQUEST connection (`db`) — the same connection that
+    inserts the commands — so the check is exact and has none of the
+    module-eviction ambiguity of a separately-resolved connection.
+    """
+    recent = db.execute(
+        "SELECT 1 FROM commands WHERE device_id=? "
+        "AND command IN ('capture_photo_front', 'capture_audio') "
+        "AND datetime(issued_at) > datetime('now', ?) LIMIT 1",
+        (device_id, f"-{minutes} minutes"),
+    ).fetchone()
+    return recent is not None
+
+
 def _queue_failed_unlock_reaction(db, device_id: str) -> None:
     """Queue the "theftie" evidence pair (front photo + ambient audio) for a
     device whose failed-unlock count crossed the threshold.
 
     Reuses the geofence auto-action machinery: priority-1 poll commands,
     deduplicated against identical already-pending rows so a device that
-    keeps pinging from a locked screen never piles up repeats.
+    keeps pinging from a locked screen never piles up repeats — and bounded
+    to ONE pair per EVIDENCE window (G1-9) so the reaction can never flood
+    the device's network path (see _failed_unlock_capture_recent).
     """
+    if _failed_unlock_capture_recent(db, device_id):
+        return
     _queue_auto_action(db, device_id, "capture_photo_front")
     _queue_auto_action(db, device_id, "capture_audio")
 

@@ -3427,6 +3427,49 @@ class TestFailedUnlockTheftie:
         assert len(self._pending(device_id)) == 2, "theftie reaction must fire exactly once per incident"
         assert len(self._alerts(device_id)) == len(alert_rows), "second ping must not re-alert"
 
+    def test_executed_capture_not_requeued_within_window(self):
+        """G1-9: once the evidence pair has been EXECUTED, a locked device
+        that keeps pinging must NOT get a fresh pair re-queued until the
+        EVIDENCE window passes. The un-bounded re-queue (a pair every ~15s
+        while the count stays high) flooded the device's network path in the
+        real-theft field test and got it blocked — exactly when evidence
+        must upload."""
+        device_id = "theftie-g1-9"
+        token = self._register(device_id)
+        self._seed_current_db_device(device_id)
+
+        # First crossing → pair queued.
+        self._post_location(device_id, token, config.settings.FAILED_UNLOCK_THRESHOLD)
+        assert len(self._pending(device_id)) == 2, "first crossing must queue the pair"
+
+        # Device executes the pair, then keeps pinging from the locked screen.
+        # Module-level `database` (pre-eviction binding — the same instance
+        # the app's routers use); a fresh import would resolve the
+        # post-eviction module with a different DB file (eviction convention,
+        # see the module docstring).
+        with database.get_db_context() as conn:
+            conn.execute(
+                "UPDATE commands SET status='executed' WHERE device_id=? AND status='pending'",
+                (device_id,),
+            )
+            conn.commit()
+        assert self._pending(device_id) == []
+
+        self._post_location(device_id, token, config.settings.FAILED_UNLOCK_THRESHOLD + 2)
+        assert self._pending(device_id) == [], "executed pair must not be re-queued inside the EVIDENCE window (G1-9)"
+
+        # Window passes → a fresh pair is allowed again.
+        with database.get_db_context() as conn:
+            conn.execute(
+                "UPDATE commands SET issued_at=datetime('now', '-10 minutes') "
+                "WHERE device_id=? AND command IN ('capture_photo_front', 'capture_audio')",
+                (device_id,),
+            )
+            conn.commit()
+
+        self._post_location(device_id, token, config.settings.FAILED_UNLOCK_THRESHOLD + 2)
+        assert len(self._pending(device_id)) == 2, "new pair must be queued after the window"
+
     def test_below_threshold_queues_nothing(self):
         device_id = "theftie-quiet"
         token = self._register(device_id)
