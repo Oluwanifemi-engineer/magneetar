@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-16
 
+### Feature — iOS companion app (code-complete, build pending a Mac)
+
+- New `ios-app/` project: XcodeGen spec (one command on a Mac: `xcodegen
+  generate`), SwiftUI, iOS 16+, zero third-party deps beyond Firebase
+  (optional, for push). Two roles in one app:
+  - **Owner dashboard** — register/login with full TOTP 2FA flow, live
+    device list over the authenticated WebSocket, per-device map,
+    commands (ping / locate / siren / photo / audio / lost mode),
+    geofence CRUD with auto-actions, alert history, evidence media.
+  - **Protected iPhone** — register + link via the pairing code
+    (`sha256(device_key)[:8]`, byte-identical to the server), background
+    location (significant-change + visits, survives termination),
+    server-pushed geofences with exit alerts, 10s command poll that
+    plays the bundled siren, FCM/APNs push when a Firebase project is
+    configured (graceful fallback without it).
+- Honest iOS scope documented in `docs/ios-port-capability-map.md`: the
+  platform-banned Android features (background mic/camera, SMS relay,
+  anti-uninstall, remote lock/wipe) are absent or ack honestly — the app
+  never pretends to a capability iOS forbids.
+- Server needs zero changes: push already routes FCM v1 to APNs
+  (`platform=ios`), and device auth uses the per-device Keychain key.
+- Security parity: tokens in the Keychain (never UserDefaults), device
+  key in the Keychain, mandatory-token WS, viewer/device_only role
+  stripping enforced server-side. `.gitignore` now covers the iOS
+  config (device key), generated project, and Firebase plist.
+
 ### Fix — Play build regressions (G1-14)
 
 - The staged Play AAB predated the trigger-first audio change: rebuilt to

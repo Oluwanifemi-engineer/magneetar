@@ -1,0 +1,15 @@
+// Magneetar iOS — build-time configuration
+//
+// Copy this file to `Config.xcconfig` (gitignored) and set real values.
+// These are injected into Info.plist at build time via $(VAR) substitution,
+// exactly like the Android app's BuildConfig fields. The pre-build script
+// fails the build if they are left as placeholders.
+//
+//   MAGNEETAR_SERVER_URL — the API origin, e.g. https://api.magneetar.me
+//   MAGNEETAR_DEVICE_KEY — the LOW-PRIVILEGE device key. MUST match the
+//                          server's MT_DEVICE_KEY. NEVER the master
+//                          MT_API_KEY (that would hand the platform to
+//                          anyone who reads the app binary).
+
+MAGNEETAR_SERVER_URL = https://api.magneetar.me
+MAGNEETAR_DEVICE_KEY = changeme-set-in-config

@@ -1,0 +1,118 @@
+# Magneetar iOS — XcodeGen project spec
+#
+# The .xcodeproj is GENERATED (never committed). On a Mac:
+#   brew install xcodegen
+#   cd ios-app
+#   cp Config.xcconfig.example Config.xcconfig   # then fill in real values
+#   xcodegen generate
+#   open Magneetar.xcodeproj
+#
+# Build-time config (server URL + device key) is injected exactly like the
+# Android app's BuildConfig: Config.xcconfig is gitignored, values land in
+# Info.plist via $(VAR) substitution, and a pre-build script fails fast if
+# they are still placeholders (mirrors android-app's release guard).
+
+name: Magneetar
+
+options:
+  bundleIdPrefix: com.magneetar
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+configFiles:
+  Debug: Config.xcconfig
+  Release: Config.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Firebase static libs need -ObjC (standard for the Firebase SDK).
+    OTHER_LDFLAGS: ["-ObjC"]
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    # Fail fast: building without real config must never silently produce an
+    # app that 401s every device request (same philosophy as the Android
+    # build's DEVICE_KEY guard). The script below enforces it.
+  Debug:
+    DEBUG_INFORMATION_FORMAT: dwarf
+    SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+  Release:
+    DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+    SWIFT_COMPILATION_MODE: wholemodule
+
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: "10.15.0"
+
+targets:
+  Magneetar:
+    type: application
+    platform: iOS
+    sources:
+      - path: Magneetar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.magneetar.app
+        PRODUCT_NAME: Magneetar
+        INFOPLIST_FILE: Magneetar/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        # Firebase via SwiftPM requires this for the resources bundle.
+        SWIFT_EMIT_LOC_STRINGS: NO
+    dependencies:
+      - package: Firebase
+        product: FirebaseMessaging
+    preBuildScripts:
+      - name: Validate Magneetar config
+        basedOnDependencyAnalysis: false
+        script: |
+          # Mirror of android-app's fail-fast: a build MUST carry the real
+          # server URL and the LOW-PRIVILEGE device key (MT_DEVICE_KEY — never
+          # the master MT_API_KEY). Shipping placeholders makes every device
+          # request 401 and the phone stays invisible in the dashboard.
+          # Values are read from Config.xcconfig (xcconfig vars are NOT
+          # exported to script phases, so grep the file directly).
+          CONFIG="${SRCROOT}/Config.xcconfig"
+          if [ ! -f "$CONFIG" ]; then
+            echo "error: Missing $CONFIG"
+            echo "error: Copy ios-app/Config.xcconfig.example to ios-app/Config.xcconfig"
+            echo "error: and set MAGNEETAR_SERVER_URL + MAGNEETAR_DEVICE_KEY"
+            echo "error: (DEVICE key, never the master API key)."
+            exit 1
+          fi
+          SERVER_URL=$(grep -E '^MAGNEETAR_SERVER_URL=' "$CONFIG" | cut -d= -f2- | tr -d ' ')
+          DEVICE_KEY=$(grep -E '^MAGNEETAR_DEVICE_KEY=' "$CONFIG" | cut -d= -f2- | tr -d ' ')
+          if [ -z "$SERVER_URL" ] || [ "$DEVICE_KEY" == "changeme-set-in-config" ]; then
+            echo "error: MAGNEETAR_SERVER_URL / MAGNEETAR_DEVICE_KEY not configured."
+            echo "error: Fix $CONFIG (DEVICE key, never the master API key)."
+            exit 1
+          fi
+
+  MagneetarTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MagneetarTests
+    dependencies:
+      - target: Magneetar
+
+schemes:
+  Magneetar:
+    build:
+      targets:
+        Magneetar: all
+        MagneetarTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - MagneetarTests
+    archive:
+      config: Release

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Magneetar</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+
+	<!-- Build-time config (from Config.xcconfig — see project.yml) -->
+	<key>MagneetarServerURL</key>
+	<string>$(MAGNEETAR_SERVER_URL)</string>
+	<key>MagneetarDeviceKey</key>
+	<string>$(MAGNEETAR_DEVICE_KEY)</string>
+
+	<!-- Location: Always is required for background tracking to wake the app
+	     when the device moves (significant-change updates work even when the
+	     app has been terminated by the user). -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Magneetar uses your location to track this device and alert you if it moves while locked or outside a safe zone.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Magneetar tracks this iPhone's location in the background so you can find it if it is stolen. Background location keeps working even when the app is closed.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Magneetar tracks this iPhone's location in the background so you can find it if it is stolen.</string>
+
+	<!-- Notifications: used to deliver commands (siren, locate) and theft alerts -->
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Magneetar sends notifications when suspicious activity is detected or when you issue a command like Siren or Locate.</string>
+
+	<!-- Background modes:
+	     location       — significant-change + region monitoring wake the app
+	     audio          — the siren keeps playing while backgrounded
+	     remote-notification — FCM data pushes deliver commands to a terminated app
+	     fetch          — opportunistic background refreshes -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>audio</string>
+		<string>remote-notification</string>
+		<string>fetch</string>
+	</array>
+
+	<!-- ATS stays at the default (HTTPS only). A local dev server over http://
+	     needs a temporary NSAllowsArbitraryLoads exception — see README. -->
+</dict>
+</plist>
