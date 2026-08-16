@@ -64,10 +64,19 @@ class FailedUnlockTracker(
      * A screen-on event. Pass `locked=true` when the keyguard is still
      * showing (from KeyguardManager.isKeyguardLocked); opens a locked
      * session unless one is already open.
+     *
+     * MUST persist: production callers build a fresh tracker instance per
+     * event (FailedUnlockMonitor.tracker()), so an in-memory-only flag would
+     * be lost before the next SCREEN_OFF arrives and the attempt would never
+     * count (G1-8 — found in the real-theft-signal field test: SCREEN_ON/OFF
+     * received, count stayed 0 forever).
      */
     @Synchronized
     fun onScreenOn(locked: Boolean) {
-        if (locked) sessionOpen = true
+        if (locked && !sessionOpen) {
+            sessionOpen = true
+            persist()
+        }
     }
 
     /**

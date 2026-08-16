@@ -15,11 +15,15 @@ import android.content.Intent
  *     attempt.
  *   - `ACTION_USER_PRESENT` — a successful unlock resets the counter.
  *
- * These are protected system broadcasts (exempt from the implicit-broadcast
- * ban), so a manifest receiver receives them with zero permissions and no
- * runtime registration — the same pattern as SimChangeReceiver. The receiver
- * never touches the network; it only updates a SharedPreferences counter
- * that the next telemetry ping / heartbeat reports.
+ * IMPORTANT (G1-8): these broadcasts are NEVER delivered to manifest-declared
+ * receivers — since Android 8 the implicit-broadcast ban requires
+ * CONTEXT registration, and SCREEN_ON/OFF in particular are documented as
+ * only reaching context-registered receivers. TrackingService registers this
+ * receiver dynamically in onCreate (RECEIVER_EXPORTED — the broadcasts come
+ * from a highly-privileged system source) and unregisters in onDestroy; the
+ * manifest entry exists only as documentation. The receiver never touches the
+ * network; it only updates a SharedPreferences counter that the next
+ * telemetry ping / heartbeat reports.
  *
  * KNOWN LIMIT (honest, same as SimChangeMonitor's): the broadcast fires for
  * the app's own unlocks too — the server's reaction is threshold-gated

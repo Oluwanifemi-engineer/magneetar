@@ -21,6 +21,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are separate sensors — no conflict), stopped on disarm / onDestroy /
   window end.
 
+### Fix — failed-unlock "theftie" detector was dead (G1-8)
+
+- The real-theft-signal field test found the failed-unlock detector silently
+  broken: 5 locked screen cycles produced nothing (Sentinel stayed SAFE, no
+  capture, no alert). Three stacked bugs fixed:
+  1. SCREEN_ON/SCREEN_OFF/USER_PRESENT only reach CONTEXT-registered
+     receivers since Android 8 — the manifest declaration never fired.
+     Now registered dynamically in TrackingService (RECEIVER_EXPORTED,
+     unregistered in onDestroy).
+  2. The session gate read `isKeyguardLocked()` at the SCREEN_ON instant,
+     which races the keyguard transition on Samsung — switched to
+     `isKeyguardSecure` (a secure device's screen-on always means the
+     keyguard).
+  3. The session-open flag was never persisted, and production builds a
+     fresh tracker per event — the flag died before SCREEN_OFF arrived.
+     Persisted now, with a cross-instance regression test (12/12).
+- Verified live end-to-end: locked cycles → Sentinel +20 → automatic
+  capture_photo_front + capture_audio queued → EVIDENCE escalation +
+  photo burst → valid JPEGs in the evidence case → always-deliver alert
+  fired. 90/90 unit tests, APK staged + checksum live.
+
 ### Armed Camera — field-tested PASS (2026-08-16)
 
 - On-phone verification: a `capture_audio` command escalated the armed watch

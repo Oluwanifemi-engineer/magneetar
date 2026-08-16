@@ -39,6 +39,9 @@ class TrackingService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private lateinit var locationManager: LocationManager
     private lateinit var connectivityManager: android.net.ConnectivityManager
+    /** Dynamically-registered screen-state listener (SCREEN_ON/OFF/USER_PRESENT
+     *  only reach context-registered receivers — see onCreate). */
+    private val failedUnlockReceiver = FailedUnlockReceiver()
     /** Google Play Services fused provider — fuses GPS + WiFi + cell for
      *  dramatically better accuracy (3-15m vs 500m-5km from raw NETWORK) and
      *  faster GPS lock (satellite prediction from WiFi/cell data). Null when
@@ -203,6 +206,29 @@ class TrackingService : Service() {
         createNotificationChannel()
         startForeground(NOTIF_ID, buildNotification("Initializing..."))
         isRunning = true
+
+        // SCREEN_ON / SCREEN_OFF / USER_PRESENT are NEVER delivered to
+        // manifest-declared receivers — since Android 8 the platform only
+        // delivers them to CONTEXT-registered receivers (the implicit-broadcast
+        // ban), so the manifest entry alone silently never fired (G1-8, found
+        // in the real-theft-signal field test). Register dynamically here: this
+        // service is the always-on foreground service, so the counter stays
+        // live for the whole armed lifetime. RECEIVER_EXPORTED is required —
+        // these are system broadcasts sent from a highly-privileged source.
+        try {
+            ContextCompat.registerReceiver(
+                this,
+                failedUnlockReceiver,
+                IntentFilter().apply {
+                    addAction(Intent.ACTION_SCREEN_ON)
+                    addAction(Intent.ACTION_SCREEN_OFF)
+                    addAction(Intent.ACTION_USER_PRESENT)
+                },
+                ContextCompat.RECEIVER_EXPORTED,
+            )
+        } catch (e: Exception) {
+            android.util.Log.w("TrackingService", "FailedUnlock receiver registration failed: ${e.message}")
+        }
 
         // Re-post the Lost Mode notification if the device is in lost mode
         // and the service restarted (state persisted in prefs) — the lock
@@ -1924,6 +1950,7 @@ class TrackingService : Service() {
 
     override fun onDestroy() {
         isRunning = false
+        try { unregisterReceiver(failedUnlockReceiver) } catch (_: Exception) {}
         super.onDestroy()
         releaseWakeLock()
         scope.cancel()

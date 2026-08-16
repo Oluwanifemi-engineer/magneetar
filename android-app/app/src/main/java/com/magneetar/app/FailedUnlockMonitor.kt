@@ -45,11 +45,23 @@ object FailedUnlockMonitor {
     private fun tracker(context: Context): FailedUnlockTracker =
         FailedUnlockTracker.persistent(context, PREFS, KEY_STATE)
 
-    /** True when the screen is currently behind the keyguard. */
+    /**
+     * True when this device has a SECURE lock screen (PIN/pattern/password).
+     *
+     * G1-8: this must NOT be `isKeyguardLocked`. The SCREEN_ON broadcast
+     * arrives while the keyguard is still transitioning in — on many devices
+     * (Samsung in particular) the instantaneous check reads false and the
+     * locked session never opens, so the counter stays 0 forever (found in
+     * the real-theft-signal field test: broadcasts received, count never
+     * incremented). On a device with a secure lock screen, a screen-on always
+     * means the keyguard is showing (screen-off locks the device), so
+     * `isKeyguardSecure` is the reliable gate. Non-secure devices have no
+     * keyguard to fail against — never open a session there.
+     */
     private fun isLocked(context: Context): Boolean {
         return try {
             val km = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-            km?.isKeyguardLocked ?: false
+            km?.isKeyguardSecure ?: false
         } catch (e: Exception) {
             false
         }

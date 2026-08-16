@@ -120,6 +120,19 @@ class FailedUnlockTrackerTest {
     }
 
     @Test
+    fun `open session survives a rebuild so screen off counts it`() {
+        // G1-8 regression: production builds a FRESH tracker per event
+        // (FailedUnlockMonitor.tracker() on every broadcast), so an open
+        // session that was only held in memory would be gone by the time the
+        // SCREEN_OFF arrives — the failed attempt never counted. The session
+        // flag must persist with the count.
+        val store = MemoryStore()
+        tracker(store).onScreenOn(locked = true)   // instance A opens the session
+        tracker(store).onScreenOff()               // instance B must still see it
+        assertEquals(1, tracker(store).count())
+    }
+
+    @Test
     fun `user present persists the reset`() {
         val store = MemoryStore()
         tracker(store).apply {
