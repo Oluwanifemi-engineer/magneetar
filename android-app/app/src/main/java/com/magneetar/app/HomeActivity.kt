@@ -161,6 +161,7 @@ class HomeActivity : AppCompatActivity() {
         val items = mutableListOf(
             "Open Dashboard",
             "Toggle Remote Capture",
+            "Toggle Always-Listen Audio",
             "Battery Optimization",
             "Auto-start",
             "Change PIN",
@@ -168,7 +169,7 @@ class HomeActivity : AppCompatActivity() {
         )
 
         if (hasSms) {
-            items.add(2, "Toggle SMS Commands")
+            items.add(3, "Toggle SMS Commands")
         }
 
         androidx.appcompat.app.AlertDialog.Builder(this)
@@ -177,6 +178,7 @@ class HomeActivity : AppCompatActivity() {
                 when (items[which]) {
                     "Open Dashboard" -> openDashboard()
                     "Toggle Remote Capture" -> toggleCapture()
+                    "Toggle Always-Listen Audio" -> toggleAlwaysListen()
                     "Toggle SMS Commands" -> toggleSmsCommands()
                     "Battery Optimization" -> requestBatteryOptimization()
                     "Auto-start" -> OEMUtils.openAutoStartSettings(this)
@@ -263,6 +265,35 @@ class HomeActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, "Could not toggle remote capture", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /**
+     * Opt the armed audio watch into/out of continuous STEALTH listening.
+     * Default is trigger-first (mic closed while armed, no green dot, opens
+     * on a theft signal). Always-listen keeps the mic open for pre-roll +
+     * instant speech capture — at the cost of the permanent mic indicator.
+     * Flipping the pref + re-ARM takes effect without a service restart.
+     */
+    private fun toggleAlwaysListen() {
+        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+        val currentlyOn = prefs.getBoolean(ArmedAudioService.PREF_ALWAYS_LISTEN, false)
+        prefs.edit().putBoolean(ArmedAudioService.PREF_ALWAYS_LISTEN, !currentlyOn).apply()
+        try {
+            // Re-ARM the watch: arm() refreshes alwaysListen on an already-
+            // running service, so this alone flips the mic state.
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, ArmedAudioService::class.java).setAction(ArmedAudioService.ACTION_ARM)
+            )
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not update audio watch", Toast.LENGTH_SHORT).show()
+        }
+        Toast.makeText(
+            this,
+            if (currentlyOn) "Always-listen audio off (mic opens on theft signal)"
+            else "Always-listen audio on (mic stays open — indicator shows)",
+            Toast.LENGTH_LONG
+        ).show()
     }
 
     private fun toggleSmsCommands() {

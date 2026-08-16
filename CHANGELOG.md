@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-16
 
+### Feature — Trigger-first armed audio (no permanent green dot)
+
+- The armed audio watch previously held the microphone OPEN continuously
+  while armed (the 15 s pre-roll design) — on Android 12+ that means a
+  permanent, unhideable mic indicator, which the owner flagged as
+  unacceptable for real-world trust. The watch is now **trigger-first**:
+  the mic is CLOSED while armed (no indicator, ~zero battery), opens the
+  instant a theft signal escalates to EVIDENCE mode (or an owner
+  FORCE_CAPTURE arrives), captures + uploads for the window, then closes
+  itself automatically. The 15 s pre-roll + always-listening capability
+  remains available via an explicit **Always-listen** owner toggle
+  (Home → menu) for owners who accept the indicator cost.
+
 ### Feature — Armed Camera (theft-signal photo burst)
 
 - When the Armed Audio watch escalates to EVIDENCE mode (theft confirmed

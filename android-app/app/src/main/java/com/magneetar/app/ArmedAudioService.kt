@@ -33,18 +33,22 @@ import java.util.concurrent.TimeUnit
  * Armed STEALTH audio watch (foreground service, type microphone).
  *
  * The game-changer gap-closer: command-triggered 30s clips (MediaCaptureService)
- * only capture AFTER a command arrives. This service LISTENS while armed and
- * persists ONLY speech (VAD-gated), with a 15-second PRE-ROLL ring buffer so
- * the first file of an utterance contains the 15s before detection — the
- * pickpocket's first sentence is the most valuable evidence and the pre-roll
- * catches it.
+ * only capture AFTER a command arrives. This service is an armed evidence
+ * watch: by default the mic stays CLOSED while armed (no green dot, no mic
+ * battery cost) and opens INSTANTLY on a theft trigger — EVIDENCE then means
+ * continuous AAC capture + immediate upload. Owners can opt into always-listen
+ * STEALTH: the mic runs at 16 kHz, VAD persists ONLY speech, and a 15-second
+ * PRE-ROLL ring buffer means the first file of an utterance contains the 15s
+ * before detection — the pickpocket's first sentence is the most valuable
+ * evidence and the pre-roll catches it.
  *
  * MODES
- *   STEALTH  (default): mic runs continuously at 16 kHz. VAD decides what is
- *            persisted: silence feeds the pre-roll ring (kept in RAM, never
- *            written), speech opens an AAC segment, silence closes it. Cost ≈
- *            mic-only battery; storage ≈ speech-only (~35-85 MB/day in a
- *            pocket — vs 345 MB/day for raw continuous audio).
+ *   STEALTH  (default): TRIGGER-FIRST — the watch is armed and ready but the
+ *            mic stays CLOSED (no green dot) until a theft trigger escalates
+ *            to EVIDENCE. If the owner opts into always-listen
+ *            (PREF_ALWAYS_LISTEN), the mic runs at 16 kHz and VAD decides
+ *            what is persisted: silence feeds the pre-roll ring (RAM only,
+ *            never written), speech opens an AAC segment, silence closes it.
  *   EVIDENCE (escalation): continuous AAC recording + immediate upload, used
  *            after a theft signal or an explicit "capture now". The thief
  *            already knows they're compromised; the job is getting bytes off
@@ -68,9 +72,12 @@ import java.util.concurrent.TimeUnit
  *   - During a phone call (API 29+) third-party mic access yields silence.
  *     The call-state listener pauses capture (saves battery + avoids writing
  *     dead air) and resumes on IDLE.
- *   - The mic green dot is mandatory and unhideable. STEALTH keeps it
- *     continuous (the mic IS in use); that is the honest price of an always-
- *     armed watch.
+ *   - The mic green dot is mandatory and unhideable WHILE the mic is open.
+ *     The default trigger-first watch keeps the mic closed when armed, so
+ *     the dot is off in normal use and appears only during an EVIDENCE
+ *     window (the thief already knows; the dot doesn't stop uploads).
+ *     Always-listen mode (opt-in) shows the dot continuously — that is the
+ *     honest price of an always-listening watch.
  *
  * MIC EXCLUSIVITY: only ONE mic user may exist. While this service is armed,
  * the `capture_audio` command routes HERE (EVIDENCE escalation) instead of
@@ -87,6 +94,9 @@ class ArmedAudioService : Service() {
         const val NOTIF_ID = 41
         private const val REARM_NOTIF_ID = 42
         private const val PREF_ARMED = "audio_watch_armed"
+
+        /** Owner opt-in: keep the mic open in STEALTH (pre-roll + VAD, green dot on). */
+        const val PREF_ALWAYS_LISTEN = "audio_always_listen"
 
         // Actions — ARM/DISARM from foreground contexts; FORCE_CAPTURE from
         // the already-running service's command path (plain startService).
@@ -177,6 +187,15 @@ class ArmedAudioService : Service() {
     private var armed = false
     private var pausedByCall = false
     private var evidenceUntilMs = 0L
+
+    /**
+     * Owner opt-in (PREF_ALWAYS_LISTEN): keep the mic open in STEALTH for
+     * pre-roll + VAD. Default false = trigger-first: mic closed while armed,
+     * opened only in EVIDENCE. Read live by the capture thread, so flipping
+     * the pref + re-ARM takes effect without a service restart.
+     */
+    @Volatile
+    private var alwaysListen = false
 
     // Armed Camera: periodic front-photo burst while in EVIDENCE.
     private val photoBurstHandler = Handler(Looper.getMainLooper())
@@ -291,7 +310,14 @@ class ArmedAudioService : Service() {
     private fun prefs() = getSharedPreferences("mt", Context.MODE_PRIVATE)
 
     private fun arm() {
-        if (armed) return
+        alwaysListen = prefs().getBoolean(PREF_ALWAYS_LISTEN, false)
+        if (armed) {
+            // Re-ARM with the watch already running (e.g. the owner toggled
+            // always-listen): the capture thread picks the new setting up on
+            // its next tick — no service restart needed.
+            Log.i(TAG, "Audio watch re-armed (alwaysListen=$alwaysListen)")
+            return
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED
         ) {
@@ -342,7 +368,7 @@ class ArmedAudioService : Service() {
         prefs().edit().putBoolean(PREF_ARMED, true).apply()
         try { getSystemService(NotificationManager::class.java).cancel(REARM_NOTIF_ID) } catch (_: Exception) {}
         captureThread = CaptureThread().also { it.start() }
-        Log.i(TAG, "Audio watch armed (STEALTH)")
+        Log.i(TAG, "Audio watch armed (trigger-first; alwaysListen=$alwaysListen)")
     }
 
     // ── Armed Camera ─────────────────────────────────────────────────────
@@ -446,7 +472,7 @@ class ArmedAudioService : Service() {
 
     @android.annotation.SuppressLint("ForegroundServiceType")
     private fun startForegroundCompat() {
-        val notif = buildNotification("Armed — speech capture active")
+        val notif = buildNotification("Armed — evidence watch ready (mic opens on theft signal)")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ServiceCompat.startForeground(
                 this, NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
@@ -465,15 +491,37 @@ class ArmedAudioService : Service() {
             val block = ByteArray(BLOCK_BYTES)
             val shortBlock = ShortArray(BLOCK_SAMPLES)
             val bb = ByteBuffer.wrap(block).order(ByteOrder.LITTLE_ENDIAN)
-            try {
-                rec.startRecording()
-            } catch (e: Exception) {
-                Log.w(TAG, "startRecording failed: ${e.message}")
-                armed = false
-                isArmed = false
-                return
-            }
+            var micOpen = false
             while (!stopFlag.get() && armed) {
+                // The mic is opened ONLY while listening is wanted:
+                //   - EVIDENCE (theft confirmed / capture_now) — always.
+                //   - STEALTH — only when the owner opted into always-listen
+                //     (PREF_ALWAYS_LISTEN). Default OFF: the armed watch keeps
+                //     the service alive with the mic CLOSED — no green dot, no
+                //     mic battery cost — and opens it instantly on a trigger.
+                val wantMic = mode == MODE_EVIDENCE || (alwaysListen && mode == MODE_STEALTH)
+                if (wantMic != micOpen) {
+                    if (wantMic) {
+                        try {
+                            rec.startRecording()
+                            micOpen = true
+                            Log.i(TAG, "Mic open (listening)")
+                        } catch (e: Exception) {
+                            Log.w(TAG, "startRecording failed: ${e.message}")
+                            micOpen = false
+                            Thread.sleep(2_000)  // back off before retrying a busy mic
+                        }
+                    } else {
+                        try { rec.stop() } catch (_: Exception) {}
+                        micOpen = false
+                        closeSegment()
+                        Log.i(TAG, "Mic closed (not listening)")
+                    }
+                }
+                if (!micOpen) {
+                    Thread.sleep(200)
+                    continue
+                }
                 val read = try { rec.read(block, 0, BLOCK_BYTES) } catch (e: Exception) { -1 }
                 if (read <= 0) { Thread.sleep(5); continue }
                 // Decode the PCM block into shorts for the VAD.
