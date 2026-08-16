@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are separate sensors — no conflict), stopped on disarm / onDestroy /
   window end.
 
+### Armed Camera — field-tested PASS (2026-08-16)
+
+- On-phone verification: a `capture_audio` command escalated the armed watch
+  to EVIDENCE and the front-photo burst fired at the 60 s cadence — two
+  valid JPEGs (640×480, EXIF-timestamped, SHA-256 recorded) landed in the
+  live evidence case alongside the audio segments. Repeat commands
+  mid-window dedupe correctly (no double escalation).
+
 ### Repo visibility — private; open source honored per release
 
 - The git repository is now **private** (commit diary not exposed — OPSEC).
