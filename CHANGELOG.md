@@ -94,6 +94,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per version", the footer GitHub icon now links to the tarball, and
   README/docs pull the tarball instead of cloning the private repo.
 
+### Verified — TOTP 2FA live flow, audio quality, Play AAB (2026-08-16)
+
+- The full 2FA flow was exercised against the live server with a throwaway
+  user (deleted after): setup → enable (password step-up + code) →
+  password-only login returns ONLY a single-purpose challenge token →
+  challenge token rejected on protected routes (`Invalid token type`) →
+  wrong code 401 → valid code → real tokens → replay protection
+  (`Verification code already used`) → rate limit 429 (5/15 min, hit
+  live) → step-up account deletion (wrong password 401, correct 200 with
+  full GDPR cascade).
+- Audio quality: all evidence segments are valid AAC-LC MP4s at the
+  designed ~33 kbps; STEALTH segments are 15–17 s VAD-gated speech
+  episodes (silence never persisted), EVIDENCE-window segments are full
+  120–134 s captures.
+- Play AAB rebuilt with the G1-8/9/10 fixes: versionCode 10→11 (strict
+  increase for the next Play upload), versionName stays 1.4.4 (bug-fix
+  cycle — no 1.5.0 bump), zero SMS/accessibility permissions verified in
+  the play flavor.
+- New `scripts/check-soak.sh <device> <hours>` — one-command soak-health
+  check (gaps > 30 min, liveness, score) for the dedicated-phone 24h
+  sign-off.
+
 ### Dev — release source-tarball tooling (repo-visibility options)
 
 - New `scripts/make-source-tarball.sh`: builds a clean per-release source

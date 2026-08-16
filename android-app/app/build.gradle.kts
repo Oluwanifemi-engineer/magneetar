@@ -166,8 +166,9 @@ android {
         targetSdk = 36
         // versionName is read from the repo-root VERSION file at build time
         // (same value the server reports and the APK filename uses).
-        // versionCode must strictly increase on every Play release.
-        versionCode = 10
+        // versionCode must strictly increase on every Play release. 11 =
+        // the G1-8/9/10 fixed build (10 was the pre-fix staged AAB).
+        versionCode = 11
         versionName = appVersion
 
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")
