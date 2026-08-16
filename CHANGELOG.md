@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-16
 
+### Validation — live sharing-RBAC sweep + Play/GitHub release prep
+
+- Live end-to-end verification of the device-sharing role ladder on the
+  deployed server (27/27 checks, throwaway accounts, GDPR-cleaned): viewer
+  reads (coords included) but cannot control; admin controls; device_only
+  strips coordinates + alert recipients; revoke cuts access instantly.
+- Drafted the honest Play Store listing copy (no adoption numbers — the
+  verifiability rule) with permissions declaration, Data Safety answers,
+  and internal-testing release notes, plus the exact GitHub release steps
+  (notes + source tarball staged, checksums verified).
+
 ### Feature — Trigger-first armed audio (no permanent green dot)
 
 - The armed audio watch previously held the microphone OPEN continuously
