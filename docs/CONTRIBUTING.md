@@ -30,7 +30,7 @@ We are committed to providing a welcoming and inclusive experience for everyone.
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/Oluwanifemi-engineer/magneetar.git
+   git clone git@github.com:Oluwanifemi-engineer/magneetar.git   # private — maintainers only
    cd magneetar
    ```
 

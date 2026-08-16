@@ -21,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are separate sensors — no conflict), stopped on disarm / onDestroy /
   window end.
 
+### Repo visibility — private; open source honored per release
+
+- The git repository is now **private** (commit diary not exposed — OPSEC).
+  The "open source" promise is kept per release: the server serves
+  `/apk/source` (tarball of this exact release, no `.git` history, no
+  secrets/build artifacts) + `/apk/source/checksum`, the download page
+  shows both in the Verify section with the trust signal "Source released
+  per version", the footer GitHub icon now links to the tarball, and
+  README/docs pull the tarball instead of cloning the private repo.
+
 ### Dev — release source-tarball tooling (repo-visibility options)
 
 - New `scripts/make-source-tarball.sh`: builds a clean per-release source

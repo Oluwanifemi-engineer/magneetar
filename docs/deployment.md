@@ -420,4 +420,5 @@ docker compose up -d
 
 ---
 
-> **Need help?** Open an issue at github.com/Oluwanifemi-engineer/magneetar
+> **Need help?** Contact the maintainers — the repo is private; the per-release
+> source tarball + checksum ships from the download page (`/apk/source`).

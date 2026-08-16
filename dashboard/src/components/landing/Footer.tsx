@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Github } from 'lucide-react';
+import { FileArchive } from 'lucide-react';
 import { useLiveServerInfo, statusDotClass, type ServerStatus } from './VersionBadge';
+import { SOURCE_TARBALL_URL } from '@/lib/utils';
 
 const FOOTER_LINKS = [
   {
@@ -64,13 +65,14 @@ export function Footer() {
             </p>
             <div className="mt-6 flex items-center gap-3">
               <a
-                href="https://github.com/Oluwanifemi-engineer/magneetar"
+                href={SOURCE_TARBALL_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-lg border border-white/[0.08] bg-white/[0.03] flex items-center justify-center text-white/60 hover:text-white hover:border-white/20 hover:bg-white/[0.06] transition-all"
-                aria-label="GitHub"
+                aria-label="Source code (per-release tarball)"
+                title="Source code — per-release tarball"
               >
-                <Github size={15} />
+                <FileArchive size={15} />
               </a>
               <a
                 href="https://api.magneetar.me/health"

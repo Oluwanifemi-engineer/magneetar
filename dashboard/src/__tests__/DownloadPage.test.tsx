@@ -23,6 +23,14 @@ const CHECKSUM = {
   size_bytes: 7493780,
 };
 
+// Source tarball gets a DISTINCT hash so the two checksum blocks render
+// different values (the page shows APK + source checksums side by side).
+const SOURCE_CHECKSUM = {
+  ...CHECKSUM,
+  filename: 'magneetar-v1.4.0-source.tar.gz',
+  sha256: 'b'.repeat(64),
+};
+
 const TICKET = {
   url: '/apk/download?expires=9999999999&sig=test-sig',
   expires_at: '2026-08-03T20:00:00Z',
@@ -39,6 +47,9 @@ function fetchMock() {
       // a blob (no navigation), so the mock must support blob()/ok like a
       // real FileResponse.
       return Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob(['APK-BYTES'])) });
+    }
+    if (url.includes('/apk/source')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(SOURCE_CHECKSUM) });
     }
     return Promise.resolve({ ok: true, json: () => Promise.resolve(CHECKSUM) });
   }) as unknown as typeof fetch;
@@ -76,8 +87,10 @@ describe('Download Page', () => {
       expect(screen.getByText(CHECKSUM.sha256)).toBeInTheDocument();
     });
 
-    // Should have 3 fetch calls: ticket, checksum, and health
-    expect(global.fetch).toHaveBeenCalledTimes(3);
+    // Should have 4 fetch calls: ticket, apk checksum, source checksum, health
+    expect(global.fetch).toHaveBeenCalledTimes(4);
+    // Both checksum blocks render (APK + per-release source tarball).
+    expect(screen.getByText(SOURCE_CHECKSUM.sha256)).toBeInTheDocument();
   });
 
   it('shows error state when APIs are unreachable', async () => {

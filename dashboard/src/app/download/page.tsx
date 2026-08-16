@@ -24,7 +24,7 @@ import {
   ArrowRight,
   ChevronDown,
 } from 'lucide-react';
-import { APK_DOWNLOAD_URL, APK_CHECKSUM_URL } from '@/lib/utils';
+import { APK_DOWNLOAD_URL, APK_CHECKSUM_URL, SOURCE_TARBALL_URL, SOURCE_CHECKSUM_URL } from '@/lib/utils';
 import { pickDownloadUrl } from '@/lib/downloadTicket';
 import { Reveal } from '@/hooks/useScrollReveal';
 
@@ -143,8 +143,10 @@ function SkeletonBlock({ className = '' }: { className?: string }) {
 export default function DownloadPage() {
   const [authed, setAuthed] = useState(false);
   const [checksum, setChecksum] = useState<ChecksumInfo | null>(null);
+  const [sourceChecksum, setSourceChecksum] = useState<ChecksumInfo | null>(null);
   const [checksumError, setChecksumError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [sourceCopied, setSourceCopied] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [ticketError, setTicketError] = useState(false);
   const [minting, setMinting] = useState(false);
@@ -203,12 +205,22 @@ export default function DownloadPage() {
       .then((data: ChecksumInfo) => { if (!cancelled) setChecksum(data); })
       .catch(() => { if (!cancelled) setChecksumError(true); })
       .finally(() => { clearTimeout(timer); setLoading(false); });
+    // Source tarball checksum (per-release open source — repo is private).
+    fetch(SOURCE_CHECKSUM_URL, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+      .then((data: ChecksumInfo) => { if (!cancelled) setSourceChecksum(data); })
+      .catch(() => {});
     return () => { cancelled = true; controller.abort(); };
   }, []);
 
   const copyChecksum = async () => {
     if (!checksum) return;
     try { await navigator.clipboard.writeText(checksum.sha256); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
+  };
+
+  const copySourceChecksum = async () => {
+    if (!sourceChecksum) return;
+    try { await navigator.clipboard.writeText(sourceChecksum.sha256); setSourceCopied(true); setTimeout(() => setSourceCopied(false), 2000); } catch {}
   };
 
   const handleDownload = async (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -385,12 +397,12 @@ export default function DownloadPage() {
               </p>
             )}
 
-            {/* Trust signals */}
+            {/* Trust signals — every one verifiable on this page */}
             <div className="mt-6 flex flex-wrap items-center gap-6 text-[11px] text-white/30">
               {[
                 { icon: ShieldCheck, text: 'SHA-256 verified' },
                 { icon: Check, text: 'No ads, no tracking' },
-                { icon: Zap, text: 'Open source' },
+                { icon: Zap, text: 'Source released per version' },
               ].map((item) => (
                 <div key={item.text} className="flex items-center gap-2">
                   <item.icon size={12} className="text-[#22C55E]/60" />
@@ -398,6 +410,13 @@ export default function DownloadPage() {
                 </div>
               ))}
             </div>
+            <p className="mt-4 text-[11px] text-white/25">
+              The source of this exact release is downloadable below —{' '}
+              <a href={SOURCE_TARBALL_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-white/50">
+                magneetar-v{checksum?.version || ''}-source.tar.gz
+              </a>{' '}
+              (SHA-256 verified in the Verify section).
+            </p>
 
           </div>
         </section>
@@ -539,23 +558,59 @@ export default function DownloadPage() {
         </Reveal>
 
         {/* ═══ Verify Section ═══ */}
-        <Reveal delay={300} className="mt-20 glass-panel rounded-2xl p-6">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <div className="text-[10px] font-mono text-white/30 tracking-widest font-bold mb-2">SHA-256 CHECKSUM</div>
-              {checksum ? (
-                <code className="text-[13px] font-mono text-[#22D3EE]/70 break-all">{checksum.sha256}</code>
-              ) : (
-                <span className="text-[13px] font-mono text-white/20">Loading...</span>
-              )}
+        <Reveal delay={300} className="mt-20 space-y-4">
+          <div className="glass-panel rounded-2xl p-6">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <div className="text-[10px] font-mono text-white/30 tracking-widest font-bold mb-2">SHA-256 CHECKSUM — APK</div>
+                {checksum ? (
+                  <code className="text-[13px] font-mono text-[#22D3EE]/70 break-all">{checksum.sha256}</code>
+                ) : (
+                  <span className="text-[13px] font-mono text-white/20">Loading...</span>
+                )}
+              </div>
+              <button
+                onClick={copyChecksum}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl glass-panel text-[12px] font-mono font-bold text-white/50 hover:text-white transition-all duration-300"
+              >
+                {copied ? <Check size={14} className="text-[#22C55E]" /> : <Copy size={14} />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
             </div>
-            <button
-              onClick={copyChecksum}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl glass-panel text-[12px] font-mono font-bold text-white/50 hover:text-white transition-all duration-300"
-            >
-              {copied ? <Check size={14} className="text-[#22C55E]" /> : <Copy size={14} />}
-              {copied ? 'Copied' : 'Copy'}
-            </button>
+          </div>
+
+          <div className="glass-panel rounded-2xl p-6">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="min-w-0">
+                <div className="text-[10px] font-mono text-white/30 tracking-widest font-bold mb-2">SOURCE TARBALL — SHA-256 (open source, per release)</div>
+                {sourceChecksum ? (
+                  <code className="text-[13px] font-mono text-[#22D3EE]/70 break-all">{sourceChecksum.sha256}</code>
+                ) : (
+                  <span className="text-[13px] font-mono text-white/20">Loading...</span>
+                )}
+              </div>
+              <button
+                onClick={copySourceChecksum}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl glass-panel text-[12px] font-mono font-bold text-white/50 hover:text-white transition-all duration-300 shrink-0"
+              >
+                {sourceCopied ? <Check size={14} className="text-[#22C55E]" /> : <Copy size={14} />}
+                {sourceCopied ? 'Copied' : 'Copy'}
+              </button>
+              <a
+                href={SOURCE_TARBALL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl glass-panel text-[12px] font-mono font-bold text-white/50 hover:text-white transition-all duration-300 shrink-0"
+              >
+                <Download size={14} />
+                Source (.tar.gz)
+              </a>
+            </div>
+            <p className="mt-3 text-[11px] text-white/25 leading-relaxed">
+              The git repository is private; the full source of this exact release ships as a
+              tarball so every claim stays verifiable. Compare the hash of your downloaded
+              tarball to the one above — they must match.
+            </p>
           </div>
         </Reveal>
 

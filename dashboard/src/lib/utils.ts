@@ -30,6 +30,12 @@ export const APK_DOWNLOAD_URL = 'https://api.magneetar.me/apk/download';
 // verify a sideloaded file byte-for-byte before installing.
 export const APK_CHECKSUM_URL = 'https://api.magneetar.me/apk/checksum';
 
+// Per-release source tarball + checksum — the git repo is private, so
+// "open source" is honored per release (see server/main.py /apk/source).
+// The download page links these so the source claim stays verifiable.
+export const SOURCE_TARBALL_URL = 'https://api.magneetar.me/apk/source';
+export const SOURCE_CHECKSUM_URL = 'https://api.magneetar.me/apk/source/checksum';
+
 // ─── Math Helpers ───────────────────────────────────────────────────────────
 function toRad(deg: number): number {
   return deg * (Math.PI / 180);

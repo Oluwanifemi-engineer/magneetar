@@ -813,6 +813,54 @@ async def apk_checksum():
     }
 
 
+# ─── Source Tarball (per-release open source — repo is private) ─────────────
+
+
+def _source_tarball_path():
+    """Path of the source tarball for this release, or None."""
+    apk_dir = os.path.join(os.path.dirname(__file__), "static", "apk")
+    # Version-pinned first (a release ships exactly one), then the pointer.
+    for name in (f"magneetar-v{APP_VERSION}-source.tar.gz", "magneetar-source.tar.gz"):
+        path = os.path.join(apk_dir, name)
+        if os.path.exists(path):
+            return path
+    return None
+
+
+@app.get("/apk/source")
+async def source_tarball():
+    """Download the source of THIS release as a clean tarball.
+
+    The git repo is private (commit diary not exposed), so "open source" is
+    honored per-release: each tagged release ships its tree snapshot + SHA-256
+    here, verifiable against the checksum below — the same way many security
+    tools publish. No signed ticket needed: this is deliberately public.
+    """
+    path = _source_tarball_path()
+    if path is None:
+        raise HTTPException(status_code=404, detail="Source tarball not found on server")
+    return FileResponse(
+        path,
+        media_type="application/gzip",
+        filename=f"magneetar-v{APP_VERSION}-source.tar.gz",
+    )
+
+
+@app.get("/apk/source/checksum")
+async def source_tarball_checksum():
+    """SHA-256 + size for the exact tarball /apk/source serves."""
+    path = _source_tarball_path()
+    if path is None:
+        raise HTTPException(status_code=404, detail="Source tarball not found on server")
+    digest, size_bytes = await asyncio.to_thread(_get_apk_checksum, path)
+    return {
+        "filename": f"magneetar-v{APP_VERSION}-source.tar.gz",
+        "version": APP_VERSION,
+        "sha256": digest,
+        "size_bytes": size_bytes,
+    }
+
+
 # ─── Health & Config (kept in main.py — core infrastructure) ─────────────────
 
 

@@ -1888,6 +1888,44 @@ class TestApkChecksum:
             if os.path.exists(path):
                 os.remove(path)
 
+    # ─── Source tarball (per-release open source — repo is private) ────────────
+
+    def test_source_tarball_served_publicly_with_checksum(self):
+        """/apk/source + /apk/source/checksum must serve the release source
+        tarball WITHOUT a ticket — it is deliberately public (it replaces the
+        open repo). The checksum must match the served bytes exactly.
+        """
+        import hashlib
+
+        checksum_resp = client.get("/apk/source/checksum")
+        if checksum_resp.status_code == 404:
+            # No tarball staged in this test environment: the download must
+            # 404 too (never serve an unrelated file).
+            assert client.get("/apk/source").status_code == 404
+            return
+
+        data = checksum_resp.json()
+        assert len(data["sha256"]) == 64
+        int(data["sha256"], 16)  # valid lowercase hex
+        assert data["size_bytes"] > 0
+        assert data["filename"].endswith("-source.tar.gz")
+
+        dl = client.get("/apk/source")  # no ticket required
+        assert dl.status_code == 200
+        assert dl.headers["content-type"] == "application/gzip"
+        assert hashlib.sha256(dl.content).hexdigest() == data["sha256"]
+        assert len(dl.content) == data["size_bytes"]
+
+    def test_source_checksum_stable_across_requests(self):
+        """Repeated source-checksum calls return the same digest (same cache
+        path as the APK checksum)."""
+        first = client.get("/apk/source/checksum")
+        if first.status_code == 404:
+            return
+        second = client.get("/apk/source/checksum")
+        assert second.status_code == 200
+        assert first.json()["sha256"] == second.json()["sha256"]
+
 
 # ─── Security: device deletion requires step-up password ────────────────────
 

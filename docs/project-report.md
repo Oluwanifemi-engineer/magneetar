@@ -9,7 +9,7 @@
 | **Author** | Oluwanifemi Tinubu — Electronic & Electrical Engineering |
 | **Version** | 1.4.0 (report revision 1.0) |
 | **Date** | August 7, 2026 |
-| **Repository** | https://github.com/Oluwanifemi-engineer/magneetar |
+| **Repository** | private (commit diary not exposed — OPSEC); per-release source tarball + SHA-256 from `/apk/source` |
 | **License** | Business Source License 1.1 (converts to Apache 2.0 on 2030-08-01) |
 
 ---
@@ -579,7 +579,7 @@ The honest verdict: Magneetar is **real-world-ready for a controlled pilot** —
 ### A.2 Backend
 
 ```bash
-git clone https://github.com/Oluwanifemi-engineer/magneetar.git
+curl -L https://api.magneetar.me/apk/source -o magneetar-source.tar.gz   # per-release tarball
 cd magneetar
 make setup                      # venv + server deps + npm ci
 make pre-commit-install         # quality-gate git hooks

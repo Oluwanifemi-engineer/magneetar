@@ -62,11 +62,19 @@
 - An Android device (for the app)
 - A Cloudflare account (for public access via Tunnel)
 
-### 1. Clone & Install
+### 1. Get the source & install
+
+The git repository is private (the commit diary is not exposed — OPSEC).
+Open source is honored **per release**: every tagged release ships its full
+source as a clean tarball + SHA-256 from the [download page](https://app.magneetar.me/download)
+(`/apk/source` on the API host). Build from that, or from an internal clone
+if you're a maintainer.
 
 ```bash
-git clone https://github.com/Oluwanifemi-engineer/magneetar.git
-cd magneetar
+curl -L https://api.magneetar.me/apk/source -o magneetar-source.tar.gz
+sha256sum magneetar-source.tar.gz   # must match the download page's hash
+tar -xzf magneetar-source.tar.gz
+cd magneetar-*-source
 bash scripts/generate-env.sh   # Generate secure secrets
 make setup                    # venv + server deps (incl. dev tooling) + npm ci
 make pre-commit-install       # install git hooks (black, isort, flake8, eslint)
