@@ -328,8 +328,18 @@ cd android-app && ./gradlew assembleRelease
 > `PLAY_POLICY_ANALYSIS.md`), and internal testing is the only friction-free
 > path that keeps the "no public release before validation" rule intact.
 > First upload: **v1.4.4 AAB** (`server/static/apk/magneetar-v1.4.4-play.aab`,
-> SHA-256 `c958dcfd…`, versionCode 10, zero SMS, zero accessibility service,
-> not debuggable — verified 2026-08-15).
+> SHA-256 `3cc83b5c…`, **versionCode 12**, zero SMS, zero accessibility
+> service, not debuggable — rebuilt + verified 2026-08-16 after the G1-11
+> trigger-first audio change (the earlier v11 AAB predated it).
+>
+> **2026-08-16 — download-page APK re-staged to the play-clean build.** The
+> `magneetar-v1.4.4-release.apk` / `magneetar-latest.apk` files had regressed
+> to the **sideload flavor** (RECEIVE_SMS/SEND_SMS/READ_PHONE_STATE — the
+> exact profile Play Protect hard-blocks, G1#1). Verified live before the
+> fix: `/apk/download` served the sideload bytes. Re-staged to
+> `assemblePlayRelease` output (zero SMS), live-verified: `/apk/download` +
+> `/apk/checksum` now serve/hash `5c8fb9ab…`. The SMS-capable sideload APK
+> stays archived as `magneetar-v1.4.4-sideload-release.apk`.
 
 - [ ] **Real-world validation G1 passed** (documented exit per the plan)
 - [ ] **Closed-testing cohort signed off (G2)**

@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-16
 
+### Fix — Play build regressions (G1-14)
+
+- The staged Play AAB predated the trigger-first audio change: rebuilt to
+  **versionCode 12** so the internal-testing upload includes G1-11 (the old
+  AAB would have shipped the always-on-mic behavior + permanent green
+  dot). Zero SMS + zero accessibility verified in the new AAB.
+- The download-page APK had regressed to the sideload flavor (SMS
+  permissions — the exact profile Play Protect hard-blocks, G1#1).
+  Re-staged to the play-clean build; live-verified `/apk/download` +
+  `/apk/checksum` now serve/hash the play-clean bytes (`5c8fb9ab…`).
+  The SMS-capable sideload APK stays archived.
+
 ### Validation — live geofence exit reaction + tester invite prep
 
 - Live-verified the geofence exit transition end-to-end on the real device

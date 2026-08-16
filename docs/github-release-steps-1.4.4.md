@@ -7,10 +7,11 @@
 
 | File | Path | SHA-256 |
 |---|---|---|
-| Source tarball | `dist/magneetar-1.4.4-source.tar.gz` (1,426,805 B) | `3afe76e4065dbac0bff6a2f3142b1367c93b278913287927eac8bcca6a96789d` |
+| Source tarball | `dist/magneetar-1.4.4-source.tar.gz` | `cad1337cbc14e40f5a81f77152a36423e8f4e925079fd8c59170ca475f20691d` |
 | Checksum file | `dist/magneetar-1.4.4-source.tar.gz.sha256` | — (contains the line above) |
-| Sideload APK (reference) | `server/static/apk/magneetar-v1.4.4-release.apk` | `8639606a07e95a92e747820b597f9458abd79c95eeaab09117eb382adbf39b29` |
-| Play AAB (reference, internal testing) | `server/static/apk/magneetar-v1.4.4-play.aab` | `6510cf4174769abe0278bdedebf6c052b897c02865f994b776da752f8fbd566f` |
+| Play-clean APK (download page, `magneetar-v1.4.4-release.apk` / `magneetar-latest.apk`) | `server/static/apk/` | `5c8fb9ab00ce2d801c6489ab2b29b30a3936268f51b6be8beda3e307ed47d752` |
+| Play AAB (internal testing, versionCode 12) | `server/static/apk/magneetar-v1.4.4-play.aab` | `3cc83b5c560966571abda20aeb8d413430b127283617b73fdf4183d01f6e0bcb` |
+| Sideload APK (SMS-capable, archived) | `server/static/apk/magneetar-v1.4.4-sideload-release.apk` | `60330fb93993bd10cb9405c9106bf38f05ca2045c35053bf042b1fa4f5b25a7b` |
 
 Upload the **source tarball + its .sha256** to the release (the APK/AAB live on
 the product site and Play — don't duplicate them here; the release is the
@@ -38,15 +39,22 @@ source-transparency artifact per the "open source, release tarball" model).
 ```bash
 # The tarball on GitHub must match the staged one byte-for-byte:
 curl -sL https://github.com/<owner>/magneetar/releases/download/v1.4.4/magneetar-1.4.4-source.tar.gz | sha256sum
-# expect: 3afe76e4065dbac0bff6a2f3142b1367c93b278913287927eac8bcca6a96789d
+# expect: cad1337cbc14e40f5a81f77152a36423e8f4e925079fd8c59170ca475f20691d
 ```
 
 ## Notes
 
+- **2026-08-16 re-stage:** the staged AAB was rebuilt to **versionCode 12**
+  because the first AAB (v11, 15:23) predated the G1-11 trigger-first audio
+  change — the Play upload would have shipped the old always-on-mic
+  behavior. Rebuilt with all fixes (G1-8/9/10/11), verified zero SMS + zero
+  accessibility. The download-page APK was ALSO re-staged to the play-clean
+  build (it had regressed to the sideload flavor, which Play Protect
+  hard-blocks — G1#1); the SMS-capable sideload APK stays archived.
 - The release notes doc mentions checksums for the APK + source; the live
-  `/apk/download` page serves the same APK hash (`8639606a…`) so the GitHub
+  `/apk/download` page serves the same APK hash (`5c8fb9ab…`) so the GitHub
   release and the product site agree.
-- The Play AAB (versionCode 11) is the internal-testing upload — it is NOT a
+- The Play AAB (versionCode 12) is the internal-testing upload — it is NOT a
   GitHub release artifact.
 - If the repo is private (owner decision), the release link is
   invite-only — the tarball keeps its value for G1/G2 testers and

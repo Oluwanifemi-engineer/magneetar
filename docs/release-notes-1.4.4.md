@@ -56,8 +56,10 @@ its `.sha256`, also served at `/apk/source` from the product site.
 ## Checksums
 
 ```
-APK:       8639606a07e95a92…  (magneetar-v1.4.4-release.apk — full hash on the download page)
-Source:    3afe76e4065dbac0bff6a2f3142b1367c93b278913287927eac8bcca6a96789d  (magneetar-1.4.4-source.tar.gz)
+APK (play-clean):  5c8fb9ab00ce2d801c6489ab2b29b30a3936268f51b6be8beda3e307ed47d752  (magneetar-v1.4.4-release.apk — what /apk/download serves)
+Play AAB (v12):    3cc83b5c560966571abda20aeb8d413430b127283617b73fdf4183d01f6e0bcb  (magneetar-v1.4.4-play.aab — internal-testing upload)
+Source:            cad1337cbc14e40f5a81f77152a36423e8f4e925079fd8c59170ca475f20691d  (magneetar-1.4.4-source.tar.gz)
+Sideload APK:      60330fb93993bd10cb9405c9106bf38f05ca2045c35053bf042b1fa4f5b25a7b  (magneetar-v1.4.4-sideload-release.apk — SMS-capable, archived)
 ```
 
 > Full APK SHA-256 is published on the download page's Verify section next to
