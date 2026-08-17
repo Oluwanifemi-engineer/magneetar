@@ -47,6 +47,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `/apk/checksum` now serve/hash the play-clean bytes (`52113c1e…`).
   The SMS-capable sideload APK stays archived.
 
+### Fix — location resilience (G1-16, field: fused drop + dead-GNSS silence)
+
+- **Raw GPS listener in the fused branch (gated on fused silence)** — the
+  phone's own GNSS was producing 8.2m fixes the app never listened to: the
+  fused branch only registered raw NETWORK, and on the budget Samsung GMS
+  silently stopped delivering (dumpsys `fused provider: Request[OFF]` when
+  the app went background) — the stream went silent for hours. The filter
+  now receives raw GPS fixes during any fused outage, so a GMS drop never
+  again means a dead tracker.
+- **Raw-path post throttle (1/5s)** — the raw GPS listener alone can deliver
+  ~1 fix/s during a lock; with the network stream that would blow past the
+  server's 30/min location rate limit. The Kalman filter still ingests
+  every fix; only the upload is throttled (`RawPostThrottleTest` locks the
+  budget).
+- **Fused self-heal watchdog** — if no fix of any kind is posted for 3
+  minutes while the service is alive, the app re-registers the fused
+  subscription (observed GMS drop recovered instead of waiting forever).
+- **Stationary-silence refresh** — Android's network provider only pushes on
+  cell/WiFi change, so a parked phone with dead GNSS goes fully silent; the
+  heartbeat now pokes `getCurrentLocation` every 4 minutes of silence for a
+  fresh fix (staleness-gated — a cached last-known can never re-poison the
+  filter).
+- VersionCode 14 (same 1.4.4 versionName, per the release convention);
+  APK `32aa4245…`, AAB `209eed53…` — staged, live `/apk/checksum` verified.
+
 ### Fix — location accuracy (G1-15, the Ile-Ife 55km-pin incident)
 
 - **Root cause**: the Kalman location filter absorbed the FIRST fix

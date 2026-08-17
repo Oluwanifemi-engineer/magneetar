@@ -17,15 +17,21 @@ dossier), **iOS companion app code-complete** (both roles, honest scope,
 build pending a Mac), and a **Docker Compose + Cloudflare Tunnel production
 deploy** (SQLite data plane, healthy).
 
-**All 769 tests pass** (558 backend + 211 dashboard) plus 43+ Android JVM
-tests; typecheck clean; production `/health` green on v1.4.4. Every finding
+**All 771 tests pass** (558 backend + 211 dashboard) plus 102 Android JVM
+tests per flavor (204 total, incl. the G1-16 location-resilience suite);
+typecheck clean; production `/health` green on v1.4.4. Every finding
 from the external security review (F-01…F-09, S-6/S-7/S-10/S-12, G1#1) is
 closed and re-verified live: WS admin bypass, API-key super-account, FCM
 device pollution, /health + config leaks, tampered-download-signature 403,
 install-channel fix (Play internal testing), and the marketing-claim
 integrity pass (no fake adoption numbers anywhere). Sentry is live.
 
-**Latest (2026-08-17, v1.4.4):**
+**Latest (2026-08-17, v1.4.4):** G1-16 location resilience (vc14):
+raw GPS listener under fused (8-15m fixes survive GMS drops), raw-path
+post throttle (rate-limit-safe), fused self-heal watchdog, and a
+stationary-silence `getCurrentLocation` refresh. Staged + live
+(`/apk/checksum` → `32aa4245…`). Earlier today's 49.7km pin was a stale
+browser tab — the server/DB/device were all verified correct at the time.
 - **Location accuracy fixed (G1-15)** — the Ile-Ife 55km-pin incident is
   root-caused and live-verified fixed: the Kalman filter now refuses to
   anchor on a garbage first fix (init guard), re-anchors when provably

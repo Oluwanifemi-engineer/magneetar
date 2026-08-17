@@ -171,7 +171,7 @@ android {
         // v1.4.4 with G1-11 trigger-first audio, 13 = v1.4.4 with G1-13
         // location accuracy (Kalman init guard + re-anchor escape hatch +
         // fused wait-for-accurate / no-cached-first-fix).
-        versionCode = 13
+        versionCode = 14
         versionName = appVersion
 
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")

@@ -34,6 +34,16 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
+/**
+ * G1-16: true when [minIntervalNs] has elapsed since [lastPostNs].
+ * The raw-path post throttle (GPS + network fallback listeners) uses this so
+ * the upload cadence stays under the server's 30/min location rate limit even
+ * when the raw GPS provider delivers ~1 fix/s during a lock. Pure function so
+ * the throttle budget is unit-tested (RawPostThrottleTest).
+ */
+internal fun rawPostDue(lastPostNs: Long, nowNs: Long, minIntervalNs: Long): Boolean =
+    nowNs - lastPostNs >= minIntervalNs
+
 class TrackingService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -198,6 +208,51 @@ class TrackingService : Service() {
          * and trip the server's 30/min location rate limit. 5 fix intervals.
          */
         private const val NETWORK_FALLBACK_MIN_GAP_NS = 15L * 1_000_000_000L
+
+        /**
+         * G1-16: minimum gap between raw-path location POSTs. During a
+         * fused-silence window the raw GPS listener can deliver ~1 fix/s and
+         * the raw network listener fires on cell/WiFi change — without a cap
+         * the server's 30/min location rate limit would 429 the stream. The
+         * filter still ingests EVERY fix; only the upload is throttled. The
+         * fused path keeps GMS's own cadence (observed ~3-5s), so this only
+         * constrains the raw fallback streams.
+         */
+        private const val RAW_POST_MIN_INTERVAL_NS = 5L * 1_000_000_000L
+
+        /**
+         * G1-16: fused self-heal thresholds. Field finding (Ile-Ife, budget
+         * Samsung, 2026-08-17): GMS dropped the app's fused subscription
+         * entirely when the app went to background (dumpsys showed
+         * `fused provider: Request[OFF]`) while the process stayed alive —
+         * the location stream went silent for HOURS even though the phone's
+         * own GNSS kept producing 8.2m fixes the app never listened to. If
+         * no fix of any kind has been posted for this long while the service
+         * is alive, re-register the fused subscription so the high-accuracy
+         * path comes back instead of waiting forever.
+         */
+        private const val STREAM_STALE_REARM_NS = 3L * 60L * 1_000_000_000L
+        /** Don't hammer GMS with re-registers — at most one per 10 minutes. */
+        private const val FUSED_REARM_MIN_GAP_NS = 10L * 60L * 1_000_000_000L
+
+        /**
+         * G1-16: stationary-silence refresh. Android's network location
+         * provider only PUSHES a fix when the cell/WiFi fingerprint changes —
+         * a parked phone with dead GNSS (indoor night, the exact Ile-Ife
+         * field condition) therefore goes completely silent: no fused fix, no
+         * network fix, no GPS fix. Every 4 minutes of total silence we poke
+         * the network provider for a FRESH single fix (requestSingleUpdate
+         * forces a new scan, unlike getLastKnownLocation which returns the
+         * hours-old cached value). Fresh scan → honest ~200m fix flows → the
+         * dashboard's last-seen/pin stays alive instead of freezing.
+         */
+        private const val STREAM_REFRESH_NS = 4L * 60L * 1_000_000_000L
+        private const val STREAM_REFRESH_MIN_GAP_NS = 4L * 60L * 1_000_000_000L
+        // getCurrentLocation needs real time for a GPS/WiFi scan attempt
+        // (GMS's internal budget is ~10s); the raw single-update fallback
+        // gets a shorter leash.
+        private const val GMS_CURRENT_FIX_TIMEOUT_MS = 10_000L
+        private const val SINGLE_FIX_TIMEOUT_MS = 2_500L
 
         /**
          * Runtime flag — set to true when onCreate completes, cleared in onDestroy.
@@ -750,6 +805,25 @@ class TrackingService : Service() {
     // G1-15: last time (elapsedRealtimeNanos) a fused fix arrived — gates the
     // raw NETWORK fallback stream so it only reports during GPS denial.
     @Volatile private var lastFusedFixNs = 0L
+    // G1-16: last time (elapsedRealtimeNanos) a raw-path fix was POSTED — the
+    // onRawLocation throttle shared by every raw listener (GPS + network).
+    @Volatile private var lastRawPostNs = 0L
+    // G1-16: last time (elapsedRealtimeNanos) a location was actually POSTED
+    // (either path). The fused self-heal watchdog uses it to detect a dead
+    // stream even when the service itself is alive and heartbeating.
+    @Volatile private var lastPostAnyNs = 0L
+    // G1-16: last time the fused subscription was re-registered (self-heal).
+    @Volatile private var lastFusedRearmNs = 0L
+    // G1-16: last time the stationary-silence single-fix refresh fired.
+    @Volatile private var lastRefreshNs = 0L
+    // G1-16: service start (elapsedRealtimeNanos) — lets the refresh and
+    // fused self-heal measure stream silence even before the FIRST post
+    // (a fresh process in a fix-less environment must not wait forever for a
+    // post that never comes).
+    @Volatile private var serviceStartNs = SystemClock.elapsedRealtimeNanos()
+    // Hoisted from startLocationUpdates so the self-heal watchdog can remove
+    // + re-request the fused subscription without rebuilding the pipeline.
+    private var fusedLocationRequest: LocationRequest? = null
 
     /**
      * Fused GPS+NETWORK position estimator (constant-velocity Kalman). Every
@@ -801,7 +875,93 @@ class TrackingService : Service() {
             )
         )
         if (filtered != null) {
+            // G1-16: cap raw-path POSTs at RAW_POST_MIN_INTERVAL_NS (the raw
+            // GPS listener alone can deliver ~1 fix/s during a lock — well
+            // over the server's 30/min limit). The filter already ingested
+            // the fix above; only the upload is throttled, so the fused path
+            // (which posts on GMS's own ~3-5s cadence) is unaffected.
+            val nowNs = SystemClock.elapsedRealtimeNanos()
+            if (!rawPostDue(lastRawPostNs, nowNs, RAW_POST_MIN_INTERVAL_NS)) return
+            lastRawPostNs = nowNs
             scope.launch { reportLocation(location, filtered) }
+        }
+    }
+
+    /**
+     * G1-16 stationary-silence refresh: ask GMS for a CURRENT fix. The
+     * continuous listeners only push on CHANGE (GPS lock, cell/WiFi
+     * fingerprint change), so a parked phone with dead GNSS goes completely
+     * silent — the dashboard freezes at the last fix until the phone moves or
+     * sees sky. getCurrentLocation forces a fresh GPS + WiFi/cell fix attempt
+     * (unlike requestSingleUpdate, which this device's network provider
+     * ignored — measured live). Fed through the same filter + throttle path
+     * as any raw fix; the staleness gate inside onRawLocation still rejects a
+     * cached last-known, so a poison fix can never sneak in.
+     */
+    @SuppressLint("MissingPermission")
+    private suspend fun requestSingleFreshFix() {
+        val client = fusedClient
+        if (client != null) {
+            try {
+                val cts = com.google.android.gms.tasks.CancellationTokenSource()
+                val task = client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
+                val loc = withTimeoutOrNull(GMS_CURRENT_FIX_TIMEOUT_MS) { task.await() }
+                if (loc != null) {
+                    if (isStaleFix(loc)) {
+                        // getCurrentLocation fell back to a cached last-known —
+                        // reject it (never feed poison) and report the outcome
+                        // so field diagnosis knows the refresh ran.
+                        android.util.Log.i(
+                            "TrackingService",
+                            "Refresh: getCurrentLocation returned a stale fix (${loc.time}) — rejected"
+                        )
+                    } else {
+                        android.util.Log.i(
+                            "TrackingService",
+                            "Refresh: fresh fix (${loc.provider}, ${loc.accuracy}m) — posting"
+                        )
+                        onRawLocation(loc)
+                        return
+                    }
+                } else {
+                    android.util.Log.i("TrackingService", "Refresh: getCurrentLocation timed out (no fix available)")
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("TrackingService", "getCurrentLocation refresh failed: ${e.message}")
+            }
+        }
+        // Raw fallback (no GMS): force a fresh network single update.
+        val lm = locationManager ?: return
+        val mainLooper = Looper.getMainLooper()
+        val handler = Handler(mainLooper)
+        val delivered = java.util.concurrent.atomic.AtomicBoolean(false)
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                if (delivered.getAndSet(true)) return
+                try { lm.removeUpdates(this) } catch (_: Exception) {}
+                onRawLocation(location)
+            }
+            @Deprecated("Deprecated in Java")
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+        }
+        val timeout = Runnable {
+            if (!delivered.getAndSet(true)) {
+                try { lm.removeUpdates(listener) } catch (_: Exception) {}
+            }
+        }
+        try {
+            if (lm.getProvider(LocationManager.NETWORK_PROVIDER) != null) {
+                lm.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, listener, mainLooper)
+                handler.postDelayed(timeout, SINGLE_FIX_TIMEOUT_MS)
+            } else if (lm.getProvider(LocationManager.GPS_PROVIDER) != null) {
+                lm.requestSingleUpdate(LocationManager.GPS_PROVIDER, listener, mainLooper)
+                handler.postDelayed(timeout, SINGLE_FIX_TIMEOUT_MS)
+            }
+        } catch (e: Exception) {
+            if (!delivered.getAndSet(true)) {
+                try { lm.removeUpdates(listener) } catch (_: Exception) {}
+            }
+            android.util.Log.w("TrackingService", "Single-fix refresh failed: ${e.message}")
         }
     }
 
@@ -852,6 +1012,7 @@ class TrackingService : Service() {
                     setWaitForAccurateLocation(true)
                     setMaxUpdateAgeMillis(30_000L)
                 }.build()
+                fusedLocationRequest = locationRequest
 
                 val callback = object : LocationCallback() {
                     override fun onLocationResult(result: LocationResult) {
@@ -917,6 +1078,43 @@ class TrackingService : Service() {
                 } catch (e: Exception) {
                     // Non-fatal: fused alone still runs.
                     android.util.Log.w("TrackingService", "Network fallback listener failed to start: ${e.message}")
+                }
+
+                // G1-16 belt-and-braces, second half: ALSO listen to the raw
+                // GPS provider while fused runs. Field finding (Ile-Ife, Aug
+                // 17): fused on this device STOPPED delivering entirely when
+                // the app went to background (dumpsys: `fused provider:
+                // Request[OFF]`) — the stream went silent for hours even
+                // though the phone's own GNSS was producing 8.2m fixes that
+                // the app never listened to (the fused branch only registered
+                // raw NETWORK, and network providers stop pushing fixes on a
+                // stationary phone). With this listener the filter keeps
+                // receiving GPS fixes during any fused outage (same fused-
+                // silence gate as the network stream), so a GMS drop never
+                // again means a dead tracker. The Kalman weights GPS
+                // (R≈8²) far above network (R≈200²), so the extra stream is
+                // harmless when fused is healthy — the gate keeps it quiet
+                // and the raw-path post throttle prevents rate-limit 429s.
+                val gpsListener = object : LocationListener {
+                    override fun onLocationChanged(location: Location) {
+                        if (SystemClock.elapsedRealtimeNanos() - lastFusedFixNs
+                            < NETWORK_FALLBACK_MIN_GAP_NS
+                        ) return
+                        onRawLocation(location)
+                    }
+                    @Deprecated("Deprecated in Java")
+                    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+                }
+                try {
+                    if (locationManager.getProvider(LocationManager.GPS_PROVIDER) != null) {
+                        locationManager.requestLocationUpdates(
+                            LocationManager.GPS_PROVIDER, LOCATION_INTERVAL_MS, 0f,
+                            gpsListener, Looper.getMainLooper()
+                        )
+                    }
+                } catch (e: Exception) {
+                    // Non-fatal: fused + raw network still run.
+                    android.util.Log.w("TrackingService", "Raw GPS listener failed to start: ${e.message}")
                 }
 
                 // Also check if location settings need user attention
@@ -1025,6 +1223,9 @@ class TrackingService : Service() {
 
     private suspend fun reportLocation(loc: Location, filtered: LocationFilter.Estimate) {
         if (!isRegistered) return
+        // G1-16: feed the self-heal watchdog — any successful post (fused OR
+        // raw path) proves the stream is alive.
+        lastPostAnyNs = SystemClock.elapsedRealtimeNanos()
 
         pingSequence++
 
@@ -1193,6 +1394,67 @@ class TrackingService : Service() {
     private suspend fun heartbeatLoop() {
         while (true) {
             try {
+                // G1-16 fused self-heal: GMS has been observed dropping the
+                // app's fused subscription in the field (Ile-Ife 2026-08-17:
+                // `fused provider: Request[OFF]` at 20:54 while the process
+                // stayed alive — the location stream went silent for hours).
+                // If no fix of ANY kind has been posted for
+                // STREAM_STALE_REARM_NS while the service is alive, re-register
+                // the fused subscription so the high-accuracy path recovers
+                // instead of waiting forever. The raw GPS/network listeners
+                // (G1-16) keep fixes flowing meanwhile, so this is the
+                // recovery, not the only lifeline.
+                try {
+                    val nowNs = SystemClock.elapsedRealtimeNanos()
+                    val silentNs = if (lastPostAnyNs > 0L) nowNs - lastPostAnyNs
+                                   else nowNs - serviceStartNs
+                    if (useFusedProvider && fusedCallback != null && fusedLocationRequest != null &&
+                        silentNs >= STREAM_STALE_REARM_NS &&
+                        nowNs - lastFusedRearmNs >= FUSED_REARM_MIN_GAP_NS
+                    ) {
+                        lastFusedRearmNs = nowNs
+                        android.util.Log.w(
+                            "TrackingService",
+                            "Location stream silent for ${silentNs / 1_000_000_000}s — re-registering fused"
+                        )
+                        val cb = fusedCallback
+                        val req = fusedLocationRequest
+                        if (cb != null && req != null) {
+                            try { fusedClient?.removeLocationUpdates(cb) } catch (_: Exception) {}
+                            try {
+                                fusedClient?.requestLocationUpdates(req, cb, Looper.getMainLooper())
+                            } catch (e: Exception) {
+                                android.util.Log.w("TrackingService", "Fused re-register failed: ${e.message}")
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("TrackingService", "Fused self-heal check failed: ${e.message}")
+                }
+
+                // G1-16 stationary-silence refresh: when NO fix of any kind
+                // has been posted for STREAM_REFRESH_NS (parked phone, dead
+                // GNSS — the network provider only pushes on cell/WiFi
+                // change), request a fresh single fix from the network
+                // provider. The fresh scan keeps the stream alive with honest
+                // ~200m fixes instead of freezing the dashboard at the last
+                // fix until the phone moves or sees sky.
+                try {
+                    val nowNs2 = SystemClock.elapsedRealtimeNanos()
+                    // Silence measured from the last post, or from service
+                    // start when the stream never posted (fix-less boot).
+                    val silentNs = if (lastPostAnyNs > 0L) nowNs2 - lastPostAnyNs
+                                   else nowNs2 - serviceStartNs
+                    if (silentNs >= STREAM_REFRESH_NS &&
+                        nowNs2 - lastRefreshNs >= STREAM_REFRESH_MIN_GAP_NS
+                    ) {
+                        lastRefreshNs = nowNs2
+                        requestSingleFreshFix()
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("TrackingService", "Stream refresh check failed: ${e.message}")
+                }
+
                 // SIM-change detection (belt-and-braces: the heartbeat runs
                 // even when the location stream is quiet — e.g. location
                 // permission revoked — so a swap is still reported).
