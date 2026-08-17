@@ -185,6 +185,19 @@ class TrackingService : Service() {
         private const val WAIT_BETWEEN_COMMANDS_MS = 10_000L
         private const val HEARTBEAT_INTERVAL_MS = 60_000L
         private const val LOCATION_INTERVAL_MS = 3_000L
+        /**
+         * G1-13: max age of a location fix accepted into the Kalman filter
+         * (nanos). Fixes older than this are cached/historical — feeding one
+         * in would be treated as a fresh measurement and corrupt the track.
+         */
+        private const val MAX_FIX_AGE_NS = 2L * 60L * 1_000_000_000L
+        /**
+         * G1-15: the raw NETWORK stream (GPS-denial fallback) only reports
+         * when fused has been silent for at least this long — otherwise the
+         * same network fix would be posted twice (fused already blends it in)
+         * and trip the server's 30/min location rate limit. 5 fix intervals.
+         */
+        private const val NETWORK_FALLBACK_MIN_GAP_NS = 15L * 1_000_000_000L
 
         /**
          * Runtime flag — set to true when onCreate completes, cleared in onDestroy.
@@ -734,6 +747,9 @@ class TrackingService : Service() {
     private var currentBatteryPercent = 0
     private var currentNetworkType = "unknown"
     private var isCharging = false
+    // G1-15: last time (elapsedRealtimeNanos) a fused fix arrived — gates the
+    // raw NETWORK fallback stream so it only reports during GPS denial.
+    @Volatile private var lastFusedFixNs = 0L
 
     /**
      * Fused GPS+NETWORK position estimator (constant-velocity Kalman). Every
@@ -751,6 +767,44 @@ class TrackingService : Service() {
     // the raw-LocationManager fallback catches SecurityException explicitly —
     // lint cannot see either guard, so suppress (same pattern as the other
     // permission-gated helpers in this file).
+    /**
+     * G1-13 staleness gate: reject fixes whose capture time is older than
+     * [MAX_FIX_AGE_NS]. Uses elapsedRealtimeNanos (monotonic, immune to
+     * wall-clock changes/NTP jumps), with a 0-fallback so devices that don't
+     * populate it (rare OEM glitches) are not wrongly dropped. A stale fix —
+     * e.g. a cached location delivered mid-stream — must never feed the
+     * Kalman filter: it would be treated as a fresh measurement and yank the
+     * estimate off the real track.
+     */
+    private fun isStaleFix(location: Location): Boolean {
+        val fixElapsed = location.elapsedRealtimeNanos
+        if (fixElapsed <= 0L) return false
+        return SystemClock.elapsedRealtimeNanos() - fixElapsed > MAX_FIX_AGE_NS
+    }
+
+    /**
+     * Shared raw-provider fix path (used by both the no-GMS LocationManager
+     * fallback and the G1-15 parallel NETWORK stream under fused): stale
+     * gate → Kalman update → report. Extracted so every raw listener feeds
+     * the filter identically.
+     */
+    private fun onRawLocation(location: Location) {
+        if (isStaleFix(location)) return
+        updateDeviceState()
+        val filtered = locationFilter.update(
+            LocationFilter.Fix(
+                lat = location.latitude,
+                lng = location.longitude,
+                accuracyMeters = location.accuracy,
+                timestampMs = location.time,
+                provider = location.provider ?: "gps",
+            )
+        )
+        if (filtered != null) {
+            scope.launch { reportLocation(location, filtered) }
+        }
+    }
+
     @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -777,12 +831,39 @@ class TrackingService : Service() {
                     Priority.PRIORITY_HIGH_ACCURACY, LOCATION_INTERVAL_MS
                 ).apply {
                     setMinUpdateIntervalMillis(LOCATION_INTERVAL_MS / 2)
-                    setWaitForAccurateLocation(false)
+                    // G1-13 (2026-08-17, the Ile-Ife 55km-pin incident): fused
+                    // used to deliver a cached/historical location as the
+                    // FIRST fix on service start (it can be hours old and
+                    // from a completely different place, yet claim good
+                    // accuracy). The Kalman init absorbed it as ground truth
+                    // and then rejected every real GPS fix forever. Guards:
+                    //  - waitForAccurateLocation(true): delay initial
+                    //    low-accuracy fixes briefly so a high-accuracy one
+                    //    can arrive first;
+                    //  - setMaxUpdateAgeMillis(30s): allow an initial fix
+                    //    only if it is at most 30s old — recent enough to be
+                    //    where the device actually is, old enough that the
+                    //    hours-old cached poison (the incident's root cause)
+                    //    is never delivered. NOT 0: field test on a budget
+                    //    Samsung (GNSS TTFF mean 650s!) showed 0 starves the
+                    //    stream — no fresh fix within the wait means no
+                    //    initial delivery at all, so the filter never starts
+                    //    and the device goes dark for 10+ minutes.
+                    setWaitForAccurateLocation(true)
+                    setMaxUpdateAgeMillis(30_000L)
                 }.build()
 
                 val callback = object : LocationCallback() {
                     override fun onLocationResult(result: LocationResult) {
                         val location = result.lastLocation ?: return
+                        // G1-13: never feed the filter a stale fix (a queued
+                        // cached location delivered mid-stream can yank the
+                        // estimate off the real track). elapsedRealtimeNanos
+                        // is monotonic — immune to wall-clock jumps.
+                        if (isStaleFix(location)) return
+                        // G1-15: fused is alive — the raw network fallback
+                        // must stay quiet (it checks this timestamp).
+                        lastFusedFixNs = SystemClock.elapsedRealtimeNanos()
                         updateDeviceState()
                         val filtered = locationFilter.update(
                             LocationFilter.Fix(
@@ -801,6 +882,43 @@ class TrackingService : Service() {
                 fusedCallback = callback
                 fusedClient?.requestLocationUpdates(locationRequest, callback, Looper.getMainLooper())
 
+                // G1-15 belt-and-braces: ALSO listen to the raw NETWORK
+                // provider while fused runs. Field finding (Ile-Ife, budget
+                // Samsung): fused on this device served GPS-only — during the
+                // GNSS-denied stretches (TTFF mean 650s!) the filter got NOTHING
+                // and coasted to the 999m clamp, even though fresh ~200m
+                // network fixes existed. The Kalman already weights GPS
+                // (R≈8²) far above network (R≈200²), so a parallel network
+                // stream is harmless when GPS is healthy and keeps the device
+                // reporting honest degraded fixes when it isn't.
+                val networkListener = object : LocationListener {
+                    override fun onLocationChanged(location: Location) {
+                        // G1-15: this raw stream is a GPS-DENIAL fallback, not
+                        // a second feed. When fused is alive it already blends
+                        // network fixes in, so reporting them again would
+                        // double-post (and trip the server's 30/min rate
+                        // limit — observed live). Only report when fused has
+                        // been silent for a few intervals.
+                        if (SystemClock.elapsedRealtimeNanos() - lastFusedFixNs
+                            < NETWORK_FALLBACK_MIN_GAP_NS
+                        ) return
+                        onRawLocation(location)
+                    }
+                    @Deprecated("Deprecated in Java")
+                    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+                }
+                try {
+                    if (locationManager.getProvider(LocationManager.NETWORK_PROVIDER) != null) {
+                        locationManager.requestLocationUpdates(
+                            LocationManager.NETWORK_PROVIDER, LOCATION_INTERVAL_MS, 0f,
+                            networkListener, Looper.getMainLooper()
+                        )
+                    }
+                } catch (e: Exception) {
+                    // Non-fatal: fused alone still runs.
+                    android.util.Log.w("TrackingService", "Network fallback listener failed to start: ${e.message}")
+                }
+
                 // Also check if location settings need user attention
                 checkLocationSettings()
                 return
@@ -815,19 +933,7 @@ class TrackingService : Service() {
         android.util.Log.i("TrackingService", "Falling back to raw LocationManager")
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
-                updateDeviceState()
-                val filtered = locationFilter.update(
-                    LocationFilter.Fix(
-                        lat = location.latitude,
-                        lng = location.longitude,
-                        accuracyMeters = location.accuracy,
-                        timestampMs = location.time,
-                        provider = location.provider ?: "gps",
-                    )
-                )
-                if (filtered != null) {
-                    scope.launch { reportLocation(location, filtered) }
-                }
+                onRawLocation(location)
             }
             @Deprecated("Deprecated in Java")
             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}

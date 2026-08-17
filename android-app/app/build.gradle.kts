@@ -167,8 +167,11 @@ android {
         // versionName is read from the repo-root VERSION file at build time
         // (same value the server reports and the APK filename uses).
         // versionCode must strictly increase on every Play release. 11 =
-        // the G1-8/9/10 fixed build (10 was the pre-fix staged AAB).
-        versionCode = 12
+        // the G1-8/9/10 fixed build (10 was the pre-fix staged AAB), 12 =
+        // v1.4.4 with G1-11 trigger-first audio, 13 = v1.4.4 with G1-13
+        // location accuracy (Kalman init guard + re-anchor escape hatch +
+        // fused wait-for-accurate / no-cached-first-fix).
+        versionCode = 13
         versionName = appVersion
 
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")

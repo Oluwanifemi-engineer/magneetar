@@ -44,8 +44,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The download-page APK had regressed to the sideload flavor (SMS
   permissions — the exact profile Play Protect hard-blocks, G1#1).
   Re-staged to the play-clean build; live-verified `/apk/download` +
-  `/apk/checksum` now serve/hash the play-clean bytes (`5c8fb9ab…`).
+  `/apk/checksum` now serve/hash the play-clean bytes (`52113c1e…`).
   The SMS-capable sideload APK stays archived.
+
+### Fix — location accuracy (G1-15, the Ile-Ife 55km-pin incident)
+
+- **Root cause**: the Kalman location filter absorbed the FIRST fix
+  unconditionally. A cached/historical fused fix (or a cell centroid with
+  a lying accuracy field) anchored the filter ~55km from the phone's true
+  position; the 5-sigma outlier gate then rejected every real GPS fix
+  forever (the server logged 15,514 consecutive rows at exactly the
+  999m coast clamp while the phone's GPS was reporting fresh 8.5m fixes
+  at the true location).
+- **Init guard**: the filter now only anchors on a first fix ≤60m
+  accuracy (GPS-class), holding the best candidate and falling back after
+  30s so GPS-denied devices still report degraded rather than nothing.
+- **Re-anchor escape hatch**: when the filter's own accuracy is blown up
+  (>200m) OR two agreeing GPS-class fixes arrive >2km from the anchor
+  (a consistent story — the anchor is the lie), the filter resets and
+  re-inits on the good fix instead of rejecting it forever.
+- **Fused request**: `setWaitForAccurateLocation(true)` +
+  `setMaxUpdateAgeMillis(30s)` so an hours-old cached location is never
+  delivered as the first "ground truth" fix (NOT 0 — field test on a
+  budget Samsung with GNSS TTFF mean 650s showed 0 starves the stream).
+- **Staleness gate**: every fix must be ≤2 min old (monotonic
+  `elapsedRealtimeNanos`) before entering the filter.
+- **Live-verified**: the pin recovered to Ile-Ife (HIGH 10.4m accuracy),
+  continuous 2s pings at GPS scale. 5 new unit tests (17 total, both
+  flavors). Rebuilt to **versionCode 13**; APK `29d71ee5…`, AAB `aa7d2d24…`
+  staged + live. Live soak additions: coast-path velocity decay (a
+  GPS-lost phone can no longer drift with stale velocity — the incident's
+  55km walk) and a fused-freshness-gated raw NETWORK fallback stream so
+  GNSS-denied stretches report honest ~83m fixes instead of the 999m coast.
 
 ### Validation — live geofence exit reaction + tester invite prep
 

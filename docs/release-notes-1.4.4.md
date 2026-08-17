@@ -56,9 +56,9 @@ its `.sha256`, also served at `/apk/source` from the product site.
 ## Checksums
 
 ```
-APK (play-clean):  5c8fb9ab00ce2d801c6489ab2b29b30a3936268f51b6be8beda3e307ed47d752  (magneetar-v1.4.4-release.apk — what /apk/download serves)
+APK (play-clean):  29d71ee5617b37bcf6125fcde063643d7c73cca544ad956cabee29cf32488e14  (magneetar-v1.4.4-release.apk — what /apk/download serves)
 Play AAB (v12):    3cc83b5c560966571abda20aeb8d413430b127283617b73fdf4183d01f6e0bcb  (magneetar-v1.4.4-play.aab — internal-testing upload)
-Source:            cad1337cbc14e40f5a81f77152a36423e8f4e925079fd8c59170ca475f20691d  (magneetar-1.4.4-source.tar.gz)
+Source:            75dafdd256b12ffdd022567ccc19eefa07f7e935eb9d68e1faa00afff5ce8507  (magneetar-1.4.4-source.tar.gz)
 Sideload APK:      60330fb93993bd10cb9405c9106bf38f05ca2045c35053bf042b1fa4f5b25a7b  (magneetar-v1.4.4-sideload-release.apk — SMS-capable, archived)
 ```
 

@@ -7,10 +7,10 @@
 
 | File | Path | SHA-256 |
 |---|---|---|
-| Source tarball | `dist/magneetar-1.4.4-source.tar.gz` | `cad1337cbc14e40f5a81f77152a36423e8f4e925079fd8c59170ca475f20691d` |
+| Source tarball | `dist/magneetar-1.4.4-source.tar.gz` | `75dafdd256b12ffdd022567ccc19eefa07f7e935eb9d68e1faa00afff5ce8507` |
 | Checksum file | `dist/magneetar-1.4.4-source.tar.gz.sha256` | — (contains the line above) |
-| Play-clean APK (download page, `magneetar-v1.4.4-release.apk` / `magneetar-latest.apk`) | `server/static/apk/` | `5c8fb9ab00ce2d801c6489ab2b29b30a3936268f51b6be8beda3e307ed47d752` |
-| Play AAB (internal testing, versionCode 12) | `server/static/apk/magneetar-v1.4.4-play.aab` | `3cc83b5c560966571abda20aeb8d413430b127283617b73fdf4183d01f6e0bcb` |
+| Play-clean APK (download page, `magneetar-v1.4.4-release.apk` / `magneetar-latest.apk`) | `server/static/apk/` | `29d71ee5617b37bcf6125fcde063643d7c73cca544ad956cabee29cf32488e14` |
+| Play AAB (internal testing, versionCode 12) | `server/static/apk/magneetar-v1.4.4-play.aab` | `aa7d2d240cbb89d0c04021d912ef2da4a096187085185c0788a41c691fbf4e17` |
 | Sideload APK (SMS-capable, archived) | `server/static/apk/magneetar-v1.4.4-sideload-release.apk` | `60330fb93993bd10cb9405c9106bf38f05ca2045c35053bf042b1fa4f5b25a7b` |
 
 Upload the **source tarball + its .sha256** to the release (the APK/AAB live on
@@ -39,7 +39,7 @@ source-transparency artifact per the "open source, release tarball" model).
 ```bash
 # The tarball on GitHub must match the staged one byte-for-byte:
 curl -sL https://github.com/<owner>/magneetar/releases/download/v1.4.4/magneetar-1.4.4-source.tar.gz | sha256sum
-# expect: cad1337cbc14e40f5a81f77152a36423e8f4e925079fd8c59170ca475f20691d
+# expect: 75dafdd256b12ffdd022567ccc19eefa07f7e935eb9d68e1faa00afff5ce8507
 ```
 
 ## Notes
@@ -52,7 +52,7 @@ curl -sL https://github.com/<owner>/magneetar/releases/download/v1.4.4/magneetar
   build (it had regressed to the sideload flavor, which Play Protect
   hard-blocks — G1#1); the SMS-capable sideload APK stays archived.
 - The release notes doc mentions checksums for the APK + source; the live
-  `/apk/download` page serves the same APK hash (`5c8fb9ab…`) so the GitHub
+  `/apk/download` page serves the same APK hash (`29d71ee5…`) so the GitHub
   release and the product site agree.
 - The Play AAB (versionCode 12) is the internal-testing upload — it is NOT a
   GitHub release artifact.

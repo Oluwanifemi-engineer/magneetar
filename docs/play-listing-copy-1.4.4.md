@@ -117,7 +117,7 @@ permission to protect.
 - [ ] Command panel (lock / alarm / evidence).
 - [ ] Evidence case (photos + audio segments).
 
-## Release notes for the AAB upload (internal testing, v1.4.4, versionCode 12)
+## Release notes for the AAB upload (internal testing, v1.4.4, versionCode 13)
 ```
 • Trigger-first armed audio: mic is closed while armed (no permanent
   indicator); it opens on a theft signal and closes itself when the
@@ -133,7 +133,7 @@ permission to protect.
 ```
 
 ## Upload checklist (internal testing track)
-1. AAB: `server/static/apk/magneetar-v1.4.4-play.aab` (**versionCode 12**,
+1. AAB: `server/static/apk/magneetar-v1.4.4-play.aab` (**versionCode 13**,
    SHA-256 `3cc83b5c…`, zero SMS, zero accessibility service — verified
    2026-08-16 after the rebuild that added the G1-11 trigger-first audio).
 2. Fill store listing with the copy above.

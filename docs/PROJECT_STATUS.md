@@ -25,7 +25,16 @@ device pollution, /health + config leaks, tampered-download-signature 403,
 install-channel fix (Play internal testing), and the marketing-claim
 integrity pass (no fake adoption numbers anywhere). Sentry is live.
 
-**Latest (2026-08-16, v1.4.4):**
+**Latest (2026-08-17, v1.4.4):**
+- **Location accuracy fixed (G1-15)** — the Ile-Ife 55km-pin incident is
+  root-caused and live-verified fixed: the Kalman filter now refuses to
+  anchor on a garbage first fix (init guard), re-anchors when provably
+  lost (escape hatch: degraded filter OR two agreeing GPS-class fixes far
+  away), and the fused request never delivers an hours-old cached location
+  as "ground truth" (wait-for-accurate + 30s max update age) with a
+  2-min monotonic staleness gate on every fix. Live: pin back at Ile-Ife
+  (HIGH 10.4m accuracy, continuous 2s pings at GPS scale — was 15,514
+  consecutive rows at the 999m coast clamp). versionCode 13.
 - **Trigger-first armed audio (G1-11)** — the mic is CLOSED while armed
   (no permanent green dot), opens on theft-signal escalation, auto-closes
   when the window ends; 15s pre-roll stays behind an explicit
@@ -35,8 +44,8 @@ integrity pass (no fake adoption numbers anywhere). Sentry is live.
 - **Live validation passed** — recovery drill 12/12, geofence exit +
   capture + siren auto-actions, sharing-RBAC sweep 27/27, 2FA live flow,
   theft-flood network block fixed (G1-9).
-- **Play build fixed (G1-14)** — Play AAB rebuilt to **versionCode 12**
-  with all G1 fixes (the staged v11 predated trigger-first audio);
+- **Play build fixed (G1-14/G1-15)** — Play AAB rebuilt to **versionCode
+  13** with all G1 fixes (trigger-first audio + location accuracy);
   download page re-staged to the **play-clean** APK (the sideload flavor
   was being served — the exact profile Play Protect hard-blocks).
 - **iOS companion app code-complete** — full SwiftUI app under `ios-app/`

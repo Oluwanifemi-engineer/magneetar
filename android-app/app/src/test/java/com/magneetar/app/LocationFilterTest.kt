@@ -220,6 +220,209 @@ class LocationFilterTest {
         assertTrue("filter must snap back to the real fix, moved ${moved}m", moved < 30.0)
     }
 
+    // ── G1-13: init guard + escape hatch (the Ile-Ife 55km-pin incident) ──
+
+    @Test
+    fun `poor first fix does not anchor - waits for a quality fix`() {
+        // A cell centroid (300m "accuracy", actually 55km off) must NOT
+        // anchor the filter. The old code absorbed any first fix, locking
+        // the pin at the wrong spot forever.
+        val f = LocationFilter()
+        val bad = f.update(fix(7.7956, 4.1744, 300f, 1000L))
+        assertNull("a 300m cell fix must not anchor the filter", bad)
+        assertFalse(f.isInitialized)
+
+        // The real GPS fix arrives 55km away — the filter must anchor THERE.
+        val good = f.update(fix(7.5179, 4.5287, 8f, 4000L))!!
+        assertEquals(7.5179, good.lat, 1e-6)
+        assertEquals(4.5287, good.lng, 1e-6)
+        assertTrue(good.accuracyMeters <= 10.0)
+    }
+
+    @Test
+    fun `gps-denied device falls back to best candidate after init timeout`() {
+        // If the device genuinely has no GPS (all fixes are 200-400m cell
+        // fixes), the init guard must not wait forever: after the timeout it
+        // anchors on the best candidate so the device still reports SOMETHING
+        // (with honest degraded accuracy).
+        val f = LocationFilter()
+        var ts = 0L
+        var last: LocationFilter.Estimate? = null
+        // ~35s of poor fixes at the 3s cadence — past the 30s timeout.
+        repeat(12) {
+            ts += 3000L
+            last = f.update(fix(6.5, 3.4, 250f, ts))
+        }
+        val estimate = last ?: error("filter must fall back after the init timeout")
+        assertTrue(f.isInitialized)
+        assertTrue(
+            "fallback init must keep honest degraded accuracy, got ${estimate.accuracyMeters}",
+            estimate.accuracyMeters > 100.0,
+        )
+        // And it must still recover instantly when GPS returns.
+        val recovered = f.update(fix(6.5, 3.4, 5f, ts + 3000L))!!
+        assertFalse(recovered.outlier)
+        assertTrue(recovered.accuracyMeters < 30.0)
+    }
+
+    @Test
+    fun `degraded filter re-anchors on a far good gps fix`() {
+        // THE Ile-Ife incident, exactly: the filter is anchored at the wrong
+        // spot (7.7956, 4.1744 — ~55km from truth) and has been coasting
+        // (accuracy blown up to the 999m clamp) because every real fix was
+        // rejected as an outlier. When GPS finally lands a fresh 8m fix at
+        // the TRUE location, the escape hatch must snap the anchor there
+        // instead of rejecting it a 10,000th time.
+        val f = LocationFilter()
+        val mPerDeg = mPerDeg()
+        // Simulate the wrong anchor: a 5m-accurate cached fix from a
+        // different place (this is how the incident started — fused handed
+        // over a historical location that claimed high accuracy).
+        f.update(fix(7.7956, 4.1744, 5f, 0L))
+        // GPS-denied stretch: 500m-off cell fixes get rejected (167 m/s
+        // implied), accuracy climbs to the 999m coast clamp (the 15,514-row
+        // signature from the incident).
+        var ts = 0L
+        repeat(80) {
+            ts += 3000L
+            f.update(fix(7.7956 + 500.0 / mPerDeg, 4.1744, 400f, ts))
+        }
+        val coasted = f.lastEstimate()!!
+        assertTrue("filter must be degraded before the escape fires (acc=${coasted.accuracyMeters})", coasted.accuracyMeters > 200.0)
+
+        // A fresh GPS fix at the TRUE location (Ile-Ife), 55km away.
+        val fixed = f.update(fix(7.5179, 4.5287, 8f, ts + 3000L))!!
+        assertFalse("re-anchor must NOT be flagged as an outlier", fixed.outlier)
+        val dist = hypot((fixed.lat - 7.5179) * mPerDeg, (fixed.lng - 4.5287) * mPerDeg)
+        assertTrue(
+            "filter must snap to the true location, off by ${dist}m",
+            dist < 20.0,
+        )
+        assertTrue("accuracy must return to GPS scale, got ${fixed.accuracyMeters}m", fixed.accuracyMeters < 30.0)
+    }
+
+    @Test
+    fun `confident filter re-anchors after two agreeing far gps fixes`() {
+        // The wrong-but-confident anchor case: the filter anchored at 5m
+        // accuracy on a fresh GPS-class fix that was itself wrong (a cached
+        // fix from another place). It is "healthy" (accuracy ~5m), so the
+        // degraded-only escape never fires — but the real GPS fixes keep
+        // being rejected forever. Two CONSISTENT far GPS-class fixes must
+        // prove the anchor is wrong and trigger the confirmation re-anchor.
+        val f = LocationFilter()
+        val mPerDeg = mPerDeg()
+        // Wrong anchor, confidently: 5m accuracy, 55km from the true spot.
+        f.update(fix(7.7956, 4.1744, 5f, 0L))
+        var ts = 0L
+        repeat(3) {
+            ts += 3000L
+            f.update(fix(7.7956 + 50.0 / mPerDeg, 4.1744, 5f, ts))
+        }
+        val before = f.lastEstimate()!!
+        assertTrue("precondition: filter is confident", before.accuracyMeters < 20.0)
+
+        // First far GPS-class fix at the TRUE location: rejected, remembered.
+        val e1 = f.update(fix(7.5179, 4.5287, 8f, ts + 3000L))!!
+        assertTrue("first far fix is still an outlier", e1.outlier)
+        // Second far GPS-class fix, agreeing within 100m: re-anchor fires.
+        val e2 = f.update(fix(7.5180, 4.5287, 8f, ts + 6000L))!!
+        assertFalse("second agreeing fix must re-anchor, not reject", e2.outlier)
+        val dist = hypot((e2.lat - 7.5180) * mPerDeg, (e2.lng - 4.5287) * mPerDeg)
+        assertTrue("must snap to the true location, off by ${dist}m", dist < 20.0)
+        assertTrue("accuracy back to GPS scale, got ${e2.accuracyMeters}m", e2.accuracyMeters < 30.0)
+    }
+
+    @Test
+    fun `single far glitch fix never re-anchors a confident filter`() {
+        // One far GPS-class fix (a glitch) while the filter is healthy must
+        // be rejected and NOT confirmed by a subsequent fix back at the
+        // anchor — the filter stays put.
+        val f = LocationFilter()
+        val mPerDeg = mPerDeg()
+        f.update(fix(6.5, 3.4, 5f, 0L))
+        var ts = 0L
+        repeat(3) {
+            ts += 3000L
+            f.update(fix(6.5, 3.4, 5f, ts))
+        }
+        // A far glitch fix: rejected, becomes a candidate.
+        val e1 = f.update(fix(6.5 + 10_000.0 / mPerDeg, 3.4, 5f, ts + 3000L))!!
+        assertTrue("far glitch must be rejected", e1.outlier)
+        // Next fix is back at the anchor — NOT agreeing with the glitch, so
+        // it must be accepted normally and the candidate must clear.
+        val e2 = f.update(fix(6.5 + 20.0 / mPerDeg, 3.4, 5f, ts + 6000L))!!
+        val drift = hypot((e2.lat - 6.5) * mPerDeg, (e2.lng - 3.4) * mPerDeg)
+        assertTrue("filter must hold the anchor, drifted ${drift}m", drift < 100.0)
+        // And a later repeat of the same glitch position must NOT re-anchor
+        // (the candidate was cleared on the accepted fix).
+        val e3 = f.update(fix(6.5 + 10_000.0 / mPerDeg, 3.4, 5f, ts + 9000L))!!
+        assertTrue("stale candidate must not confirm a later glitch", e3.outlier)
+    }
+
+    @Test
+    fun `healthy filter still rejects a far fix without re-anchoring`() {
+        // The escape hatch must NOT fire when the filter is healthy: a
+        // confident filter (accuracy ~5m) receiving a far "good" fix is
+        // seeing a glitch (or genuinely teleported — impossible), and must
+        // keep rejecting it rather than snapping to it.
+        val f = LocationFilter()
+        val mPerDeg = mPerDeg()
+        f.update(fix(6.5, 3.4, 5f, 0L))
+        // A few steady fixes keep the filter confident.
+        var ts = 0L
+        repeat(5) {
+            ts += 3000L
+            f.update(fix(6.5, 3.4, 5f, ts))
+        }
+        val before = f.lastEstimate()!!
+        assertTrue("precondition: filter must be confident (acc=${before.accuracyMeters})", before.accuracyMeters < 30.0)
+        // A 10km-away "GPS" fix arrives. Healthy filter -> rejected, no snap.
+        val e = f.update(fix(6.5 + 10_000.0 / mPerDeg, 3.4, 5f, ts + 3000L))!!
+        assertTrue("far fix must still be gated as an outlier", e.outlier)
+        val drift = hypot((e.lat - 6.5) * mPerDeg, (e.lng - 3.4) * mPerDeg)
+        assertTrue("healthy filter must hold position, drifted ${drift}m", drift < 50.0)
+    }
+
+    @Test
+    fun `coast path decays velocity - a gps-lost phone cannot drift 55km`() {
+        // G1-15 regression (the Ile-Ife drift): when the phone was moving and
+        // then lost GPS, the old coast path kept applying the last-learned
+        // velocity forever — the live pin WALKED from 7.52 to 7.87 (55km)
+        // over ~90 minutes of coasting. The coast path must bleed velocity
+        // to zero so a GPS-denied parked phone holds the last good spot.
+        val f = LocationFilter()
+        val mPerDeg = mPerDeg()
+        // Phone moving north at ~5 m/s, then GPS dies.
+        var ts = 0L
+        repeat(10) {
+            ts += 1000L
+            f.update(fix(6.5 + (5.0 / mPerDeg) * it, 3.4, 5f, ts))
+        }
+        val atLoss = f.lastEstimate()!!
+        assertTrue("precondition: filter is moving", atLoss.speedMps > 3.0)
+
+        // GPS lost: 60 rejected far cell fixes over 3 minutes of coasting.
+        val anchorLat = atLoss.lat
+        var ts2 = ts
+        var last: LocationFilter.Estimate? = null
+        repeat(60) {
+            ts2 += 3000L
+            last = f.update(fix(anchorLat + 500.0 / mPerDeg, 3.4, 400f, ts2))
+        }
+        val coasted = last ?: error("filter must keep producing coasted estimates")
+        // The coasted position must NOT wander with the stale velocity: with
+        // the decay, max additional drift after 60 steps is small (~5 m/s *
+        // 3s * 0.3^k geometric sum ≈ 6m), not the 55km of the incident.
+        val drift = (coasted.lat - anchorLat) * mPerDeg
+        assertTrue(
+            "coasted position must hold, drifted ${drift}m",
+            kotlin.math.abs(drift) < 50.0,
+        )
+        // And it must still recover when GPS returns.
+        val recovered = f.update(fix(anchorLat + 5.0 / mPerDeg, 3.4, 5f, ts2 + 1000L))!!
+        assertFalse(recovered.outlier)
+    }
+
     @Test
     fun `long time gap does not teleport the track`() {
         val f = LocationFilter()

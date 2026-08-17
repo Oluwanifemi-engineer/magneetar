@@ -44,6 +44,44 @@ class LocationFilter(
     /** 5-sigma innovation gate — the default chi-squared threshold for 2 DOF. */
     private val gateChiSq: Double = 25.0,
     /**
+     * INIT GUARD (G1-13, 2026-08-17 — the Ile-Ife 55km-pin incident): the
+     * first fix must be at most this accurate (m) before the filter anchors
+     * on it. The old code absorbed ANY first fix — a cell-centroid fix with
+     * a lying accuracy field (or a cached fused fix from a different place)
+     * anchored the filter at the wrong spot, and the outlier gate then
+     * rejected every real GPS fix FOREVER (pin parked ~55km from truth while
+     * the phone's GPS reported fresh 8.5m fixes). Network fixes are 200m+;
+     * GPS fixes are 3-15m, so 60m cleanly separates GPS-class from garbage.
+     */
+    private val initMaxAccuracyM: Double = 60.0,
+    /**
+     * While waiting for a quality first fix, fall back to the best candidate
+     * after this long (ms) — a GPS-denied device must still report SOMETHING
+     * (with honest degraded accuracy) rather than nothing.
+     */
+    private val initTimeoutMs: Long = 30_000L,
+    /**
+     * ESCAPE HATCH (same incident): a fix at most this accurate (m) is
+     * trusted as GPS-class — trustworthy enough to re-anchor on when the
+     * filter is provably lost (see [reanchorMinFilterAccuracyM]).
+     */
+    private val gpsClassAccuracyM: Double = 30.0,
+    /**
+     * Only re-anchor when the filter's OWN accuracy is at least this
+     * degraded (m). A healthy filter (accuracy ~5m) receiving a far fix is
+     * seeing a glitch and must keep rejecting it; a filter coasting at
+     * 999m KNOWS it is lost, so a fresh GPS-class fix is truth, not noise.
+     */
+    private val reanchorMinFilterAccuracyM: Double = 200.0,
+    /** The good fix must be at least this far (m) from the anchor to re-anchor. */
+    private val reanchorMinDistanceM: Double = 2_000.0,
+    /**
+     * Confirmation tolerance (m): a second rejected GPS-class fix within this
+     * distance of the first is a consistent story — re-anchor on it. Two
+     * agreeing fixes far from the anchor cannot be a single glitch.
+     */
+    private val reanchorAgreeM: Double = 100.0,
+    /**
      * Cap for the COASTED accuracy (meters) while fixes are being rejected.
      *
      * G1 field finding (2026-08-15): with the phone parked and locked, GPS
@@ -68,6 +106,12 @@ class LocationFilter(
         // maxCoastAccuracyM, velocity sigma ≤ 10 m/s (a parked phone with
         // GPS lost cannot legitimately learn more velocity than jitter).
         private const val MAX_COAST_VEL_VAR = 100.0 // 10 m/s squared
+
+        // Init guard: if no quality first fix arrives within this many
+        // candidates (~60s at the 3s ping cadence), fall back to the best
+        // candidate seen (belt-and-braces on top of initTimeoutMs — the
+        // timeout uses fix timestamps, which can be 0 on emulators).
+        private const val MAX_INIT_CANDIDATES = 25
     }
 
     /** A single raw location fix from any provider. */
@@ -115,6 +159,22 @@ class LocationFilter(
     private var prevVy = 0.0
     private var havePrevV = false
 
+    // ── Init guard state ────────────────────────────────────────────────────
+    // The best (lowest-accuracy) fix seen while waiting for a quality first
+    // fix, plus bookkeeping for the timeout fallback. See initMaxAccuracyM.
+    private var pendingInit: Fix? = null
+    private var pendingInitAcc = Float.MAX_VALUE
+    private var pendingInitSinceTs = 0L
+    private var pendingInitCandidates = 0
+
+    // ── Re-anchor confirmation state ────────────────────────────────────────
+    // A rejected GPS-class fix far from the anchor is remembered; if the NEXT
+    // fix also arrives GPS-class and agrees with it (within
+    // [reanchorAgreeM]), the two fixes are a consistent story and the anchor
+    // is the lie — re-anchor on the candidate. A single far fix (a glitch) is
+    // never confirmed and stays rejected.
+    private var reanchorCandidate: Fix? = null
+
     private val z = DoubleArray(2) // reusable measurement [east, north]
     private val y = DoubleArray(2) // innovation
     private val s = DoubleArray(4) // 2x2 innovation covariance, row-major
@@ -130,6 +190,11 @@ class LocationFilter(
         initialized = false
         lastEstimate = null
         havePrevV = false
+        pendingInit = null
+        pendingInitAcc = Float.MAX_VALUE
+        pendingInitSinceTs = 0L
+        pendingInitCandidates = 0
+        reanchorCandidate = null
     }
 
     /**
@@ -155,6 +220,14 @@ class LocationFilter(
             val dt = if (dtSec > 120.0) 120.0 else dtSec
             x[0] += x[2] * dt
             x[1] += x[3] * dt
+            // Coast velocity decay (G1-15): a GPS-lost phone must NOT keep
+            // "walking" at the last-learned velocity forever — that is what
+            // drifted the live pin 55km in the Ile-Ife incident (position
+            // walked 7.52→7.87 while the filter coasted with stale velocity
+            // state). Bleed velocity to zero each coast step so the coasted
+            // position holds the last good spot instead of wandering.
+            x[2] *= 0.3
+            x[3] *= 0.3
             val preP = predictCovariance(dt, hypot(x[2], x[3]) > staticSpeedMps)
             for (i in 0 until 16) p[i] = preP[i]
             // v1.5 fix (G1 field finding): NaN fixes arrive continuously when
@@ -171,11 +244,43 @@ class LocationFilter(
         val sigma = acc.coerceAtLeast(1.0) // floor 1m: never fully trust a single fix
 
         if (!initialized) {
-            // Absorb the first fix: position = measurement, velocity = unknown.
-            init(fix.lat, fix.lng, sigma, fix.timestampMs)
-            val e0 = makeEstimate(outlier = false)
-            lastEstimate = e0
-            return e0
+            // ── Init guard (G1-13): never anchor on garbage. ──────────────
+            // The first fix used to be absorbed unconditionally. A cell
+            // centroid or a cached fused fix (which claims high accuracy but
+            // can be tens of km off — see the Ile-Ife incident comment on
+            // initMaxAccuracyM) anchored the filter at the wrong spot, and
+            // the outlier gate below then rejected every real GPS fix
+            // forever: the filter can only converge if its anchor is roughly
+            // right, and a wrong anchor is indistinguishable from "teleport"
+            // to the 5-sigma gate. So: only anchor on a fix that actually
+            // looks GPS-class; hold the best candidate and fall back after a
+            // timeout so GPS-denied devices still report (degraded).
+            val effectiveAcc = if (fix.accuracyMeters > 0f) fix.accuracyMeters else 50f
+            if (effectiveAcc <= initMaxAccuracyM) {
+                init(fix.lat, fix.lng, sigma, fix.timestampMs)
+                pendingInit = null
+                val e0 = makeEstimate(outlier = false)
+                lastEstimate = e0
+                return e0
+            }
+            if (effectiveAcc < pendingInitAcc) {
+                pendingInit = fix
+                pendingInitAcc = effectiveAcc
+            }
+            if (pendingInitSinceTs == 0L) pendingInitSinceTs = fix.timestampMs
+            pendingInitCandidates++
+            val timedOut = fix.timestampMs - pendingInitSinceTs >= initTimeoutMs
+            if (timedOut || pendingInitCandidates >= MAX_INIT_CANDIDATES) {
+                val p = pendingInit ?: fix
+                pendingInit = null
+                pendingInitAcc = Float.MAX_VALUE
+                val pSigma = if (p.accuracyMeters > 0f) p.accuracyMeters.toDouble() else 50.0
+                init(p.lat, p.lng, pSigma.coerceAtLeast(1.0), p.timestampMs)
+                val e0 = makeEstimate(outlier = false)
+                lastEstimate = e0
+                return e0
+            }
+            return null
         }
 
         val dtSec = (fix.timestampMs - lastTs).coerceAtLeast(1L) / 1000.0
@@ -226,8 +331,54 @@ class LocationFilter(
         val impliedSpeed = hypot(y[0], y[1]) / dt
         val rejected = mahal > gateChiSq || impliedSpeed > maxSpeedMps
         if (rejected) {
+            // ── Escape hatch (G1-13): re-anchor when provably lost. ──────
+            // A Kalman anchored on garbage can NEVER be corrected by the
+            // outlier gate alone — every good fix keeps being rejected, so
+            // the filter coasts on the wrong anchor forever (the Ile-Ife
+            // incident: 15,514 consecutive server rows at exactly the 999m
+            // coast clamp while the phone's GPS was reporting fresh 8.5m
+            // fixes at the TRUE location, 55km away). The discriminator is
+            // the filter's OWN confidence: a filter whose accuracy has blown
+            // up (>200m) KNOWS it is lost — so a fresh GPS-class fix arriving
+            // impossibly far away is truth, not noise, and the anchor is the
+            // lie. Reset + init on the good fix instead of coasting.
+            val preAcc = (kotlin.math.sqrt(preP[0]) + kotlin.math.sqrt(preP[5])) / 2.0
+            val distM = hypot(y[0], y[1])
+            val isGpsClass = fix.accuracyMeters in 1f..gpsClassAccuracyM.toFloat()
+            val farFromAnchor = distM > reanchorMinDistanceM
+            val reanchorNow = isGpsClass && farFromAnchor && (
+                // (1) The filter KNOWS it is lost (accuracy blown up while
+                // coasting) — a single fresh GPS-class fix is truth.
+                preAcc > reanchorMinFilterAccuracyM ||
+                    // (2) The filter is still confident but a far GPS-class
+                    // fix was rejected last step, and this fix AGREES with it
+                    // (within reanchorAgreeM) — two consistent fixes far from
+                    // the anchor mean the anchor is wrong (the wrong-but-
+                    // confident anchor case: a fresh GPS fix from the wrong
+                    // place anchors the filter at 5m accuracy, and the real
+                    // fixes keep being rejected while it stays "healthy").
+                    reanchorCandidate?.let { c ->
+                        hypot((fix.lat - c.lat) * 111_320.0, (fix.lng - c.lng) * 111_320.0) < reanchorAgreeM
+                    } == true
+                )
+            if (reanchorNow) {
+                reanchorCandidate = null
+                init(fix.lat, fix.lng, sigma, fix.timestampMs)
+                val e = makeEstimate(outlier = false)
+                lastEstimate = e
+                return e
+            }
+            // Remember this far GPS-class fix as a re-anchor candidate for
+            // the next step (only if it is fresh — a stale candidate must not
+            // linger and confirm an unrelated fix later).
+            reanchorCandidate = if (isGpsClass && farFromAnchor) fix else null
             // Coast: keep the prediction, inflate P (we learned nothing).
+            // Velocity decay (G1-15): the prediction xe/xn already carried the
+            // stale velocity one step; bleed it hard so a GPS-denied parked
+            // phone cannot wander (the 55km coast-drift in the incident).
             x[0] = xe; x[1] = xn
+            x[2] *= 0.3
+            x[3] *= 0.3
             for (i in 0 until 16) p[i] = preP[i]
             // v1.5 fix (G1 field finding): a rejected fix is still a REAL
             // observation in time — advance lastTs so the next fix computes a
@@ -256,6 +407,10 @@ class LocationFilter(
         val k21 = (preP[9] * s[0] - preP[8] * s[1]) / det
         val k30 = (preP[12] * s[3] - preP[13] * s[2]) / det
         val k31 = (preP[13] * s[0] - preP[12] * s[1]) / det
+
+        // A fix was ACCEPTED — the filter is tracking the real position, so
+        // any pending re-anchor candidate is stale and must not confirm later.
+        reanchorCandidate = null
 
         val x0 = xe + k00 * y[0] + k01 * y[1]
         val x1 = xn + k10 * y[0] + k11 * y[1]
