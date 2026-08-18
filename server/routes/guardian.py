@@ -106,6 +106,10 @@ def _request_dict(db, row) -> dict:
                 "lat": s["lat"],
                 "lng": s["lng"],
                 "note": s["note"],
+                # Offline Device Network relay metadata — the owner sees
+                # "seen directly" (0/false) vs "relayed by N guardians".
+                "hop_count": s["hop_count"] if "hop_count" in s.keys() else 0,
+                "relayed": bool(s["relayed"]) if "relayed" in s.keys() else False,
                 "created_at": s["created_at"],
             }
         )
@@ -436,8 +440,9 @@ async def report_sighting(
 
     now = datetime.now(timezone.utc).isoformat()
     cur = db.execute(
-        """INSERT INTO recovery_sightings (request_id, guardian_id, guardian_handle, lat, lng, note, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO recovery_sightings (request_id, guardian_id, guardian_handle,
+           lat, lng, note, hop_count, relayed, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             request["id"],
             user_id,
@@ -445,6 +450,8 @@ async def report_sighting(
             req.lat,
             req.lng,
             (req.note or "").strip()[:300],
+            req.hop_count if req.hop_count is not None else 0,
+            1 if req.relayed else 0,
             now,
         ),
     )

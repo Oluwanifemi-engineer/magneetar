@@ -18,7 +18,7 @@ from typing import Callable, List, Optional
 logger = logging.getLogger(__name__)
 
 # Current schema version
-CURRENT_VERSION = 15  # Increment when adding migrations
+CURRENT_VERSION = 16  # Increment when adding migrations
 
 
 class Migration:
@@ -416,6 +416,21 @@ def migration_015_location_mode(conn: sqlite3.Connection):
     heartbeat so a Battery-saving/GPS-only device is visible server-side)."""
     try:
         conn.execute("ALTER TABLE devices ADD COLUMN location_mode TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+
+@register_migration(16, "Add relay metadata to recovery_sightings")
+def migration_016_sighting_relay_meta(conn: sqlite3.Connection):
+    """Add hop_count + relayed columns (docs/offline-network-design.md §3.3)
+    so the owner can see whether a sighting was direct or relayed through the
+    mesh. Belt-and-braces alongside the init_db guarded ALTERs."""
+    try:
+        conn.execute("ALTER TABLE recovery_sightings ADD COLUMN hop_count INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute("ALTER TABLE recovery_sightings ADD COLUMN relayed BOOLEAN DEFAULT 0")
     except sqlite3.OperationalError:
         pass
 

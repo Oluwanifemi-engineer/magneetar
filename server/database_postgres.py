@@ -300,6 +300,8 @@ class PostgresDatabase:
                         lat DOUBLE PRECISION NOT NULL,
                         lng DOUBLE PRECISION NOT NULL,
                         note TEXT,
+                        hop_count INTEGER DEFAULT 0,
+                        relayed BOOLEAN DEFAULT FALSE,
                         created_at TIMESTAMPTZ DEFAULT NOW()
                     );
 

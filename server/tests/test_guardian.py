@@ -449,6 +449,42 @@ class TestNearbyAndSightings:
         assert requests[0]["sightings"][0]["guardian_handle"] == "EagleEye"
         assert requests[0]["sightings"][0]["note"] == "Saw it near the bus stop"
 
+    def test_sighting_persists_relay_metadata(self):
+        """Offline Device Network (§3.3): a relayed sighting carries
+        hop_count + relayed; a plain Phase-1 sighting defaults to 0/false."""
+        owner, guardian, req = self._setup()
+        headers = user_headers(guardian["token"])
+
+        # Direct sighting (Phase-1 client, no metadata) → defaults
+        resp = client.post(
+            "/api/recovery/sightings",
+            json={"request_id": req["id"], "lat": 9.08, "lng": 8.67},
+            headers=headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+        # Relayed sighting through 2 guardian hops
+        resp = client.post(
+            "/api/recovery/sightings",
+            json={
+                "request_id": req["id"],
+                "lat": 9.09,
+                "lng": 8.68,
+                "hop_count": 2,
+                "relayed": True,
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+        resp = client.get("/api/recovery/requests", headers=user_headers(owner["token"]))
+        sightings = resp.json()["requests"][0]["sightings"]
+        direct = next(s for s in sightings if s["hop_count"] == 0)
+        relayed = next(s for s in sightings if s["hop_count"] == 2)
+        assert direct["relayed"] is False
+        assert relayed["relayed"] is True
+        assert relayed["guardian_handle"] == "EagleEye"
+
     def test_sighting_on_closed_request_400(self):
         owner, guardian, req = self._setup()
         client.post(

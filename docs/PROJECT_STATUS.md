@@ -26,6 +26,17 @@ device pollution, /health + config leaks, tampered-download-signature 403,
 install-channel fix (Play internal testing), and the marketing-claim
 integrity pass (no fake adoption numbers anywhere). Sentry is live.
 
+**Offline Device Network (2026-08-18, Phase A):** design + locked wire
+contracts for the Find Network mesh scale-out — `docs/offline-network-design.md`
+(relay mesh: lost beacons hop through opted-in guardians with hop/TTL bounds;
+paired P2P: offline location + commands between the owner's own devices over
+Nearby Connections with BLE fallback; opt-in guardian model kept). `MeshBeacon`
+(v2 relay envelope, backward-compatible with the v1 SOS UUID) + `P2pPairing`
+(deterministic discovery id + HMAC-SHA256 handshake) locked by 16 JVM tests;
+server sighting metadata (`hop_count`/`relayed`, guarded ALTERs + migration 16)
+with a relay test. 560 server tests, 128 Android JVM tests per flavor.
+Phases B–D (Android relay + P2P services, pairing UI, dashboard) per roadmap.
+
 **Latest (2026-08-18, v1.4.4):** G1-17 location accuracy (vc15):
 location-MODE detection + heartbeat reporting (`location_mode` persisted
 server-side, once-per-24h degraded-mode nudge), Wi-Fi RTT (802.11mc)

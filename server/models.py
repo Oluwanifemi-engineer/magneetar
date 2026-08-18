@@ -714,6 +714,13 @@ class RecoverySightingCreate(BaseModel):
     lat: float = Field(..., ge=-90, le=90)
     lng: float = Field(..., ge=-180, le=180)
     note: Optional[str] = Field(None, max_length=300)
+    # Offline Device Network (docs/offline-network-design.md §3.3): a relay
+    # mesh sighting is reported by a guardian that received the beacon
+    # DIRECTLY (hop_count 0, relayed false — the Phase-1 default) or through
+    # a chain of guardian relays (hop_count 1..MAX_HOP, relayed true).
+    # Optional so Phase-1 clients and dashboard flows keep working unchanged.
+    hop_count: Optional[int] = Field(None, ge=0, le=10)
+    relayed: Optional[bool] = None
 
 
 # ─── Alert Models ────────────────────────────────────────────────────────────

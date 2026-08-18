@@ -255,6 +255,20 @@ def init_db(db_path: str = None):
     except sqlite3.OperationalError:
         pass  # Column already exists
 
+    # Offline Device Network relay metadata (docs/offline-network-design.md
+    # §3.3): hop_count + relayed let the owner see "seen directly" vs
+    # "relayed by N guardians". Migrated for existing DBs — the ALTERs no-op
+    # on fresh DBs (CREATE TABLE above already has the columns) and on DBs
+    # that predate Phase 1 (no recovery_sightings table yet).
+    try:
+        c.execute("ALTER TABLE recovery_sightings ADD COLUMN hop_count INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    try:
+        c.execute("ALTER TABLE recovery_sightings ADD COLUMN relayed BOOLEAN DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
     # Geofence auto-actions + persisted transition state (v1.5). auto_action
     # is NULL (no reaction beyond the alert) until an owner sets a policy;
     # last_inside is NULL until the device is first observed inside the zone.
@@ -613,6 +627,8 @@ def init_db(db_path: str = None):
             lat REAL NOT NULL,
             lng REAL NOT NULL,
             note TEXT,
+            hop_count INTEGER DEFAULT 0,
+            relayed BOOLEAN DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (request_id) REFERENCES recovery_requests(id)
         );
