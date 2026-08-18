@@ -17,8 +17,8 @@ dossier), **iOS companion app code-complete** (both roles, honest scope,
 build pending a Mac), and a **Docker Compose + Cloudflare Tunnel production
 deploy** (SQLite data plane, healthy).
 
-**All 771 tests pass** (558 backend + 211 dashboard) plus 102 Android JVM
-tests per flavor (204 total, incl. the G1-16 location-resilience suite);
+**All 770 tests pass** (559 backend + 211 dashboard) plus 112 Android JVM
+tests per flavor (224 total, incl. the G1-16/G1-17 location suites);
 typecheck clean; production `/health` green on v1.4.4. Every finding
 from the external security review (F-01…F-09, S-6/S-7/S-10/S-12, G1#1) is
 closed and re-verified live: WS admin bypass, API-key super-account, FCM
@@ -26,7 +26,19 @@ device pollution, /health + config leaks, tampered-download-signature 403,
 install-channel fix (Play internal testing), and the marketing-claim
 integrity pass (no fake adoption numbers anywhere). Sentry is live.
 
-**Latest (2026-08-17, v1.4.4):** G1-16 location resilience (vc14):
+**Latest (2026-08-18, v1.4.4):** G1-17 location accuracy (vc15):
+location-MODE detection + heartbeat reporting (`location_mode` persisted
+server-side, once-per-24h degraded-mode nudge), Wi-Fi RTT (802.11mc)
+indoor ranging through the Kalman (1-2m fixes, graceful no-op elsewhere),
+dashboard degraded-mode badge + display-only road-snapping (≥30m fixes),
+and source-tarball OPSEC hardening. Research + sources in
+`docs/location-accuracy-research.md`. Staged + deployed + live-verified:
+`/apk/checksum` → `c114984a…` (play-clean vc15, 0 SMS perms),
+`/apk/source/checksum` → `69dcd993…`; the vc15 APK is field-installed
+on the tester phone (R9YRA0EZ7NM) and its heartbeats carry
+`location_mode=high_accuracy` into the production DB.
+
+**2026-08-17 — G1-16 location resilience (vc14):**
 raw GPS listener under fused (8-15m fixes survive GMS drops), raw-path
 post throttle (rate-limit-safe), fused self-heal watchdog, and a
 stationary-silence `getCurrentLocation` refresh. Staged + live

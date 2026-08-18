@@ -47,6 +47,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `/apk/checksum` now serve/hash the play-clean bytes (`52113c1e…`).
   The SMS-capable sideload APK stays archived.
 
+### Feature — location accuracy (G1-17, 2026-08-18)
+
+- **System location MODE detection + nudge** — the app only knew location
+  on/off, so Battery-saving (GPS off → 100-500m network fixes) and GPS-only
+  (no WiFi/cell scanning) silently degraded accuracy with no trace. The app
+  now reads `Settings.Secure.LOCATION_MODE`, reports `location_mode` on the
+  heartbeat (server persists it on the devices row via COALESCE + migration
+  15, exposes it on `/api/dashboard/devices`), and fires a once-per-24h
+  notification when the mode is degraded.
+- **Wi-Fi RTT (802.11mc) indoor ranging** — `WifiRttLocator` + pure-JVM
+  `RttTrilateration` (linear-LS + Gauss-Newton, residual-rejected): 1-2m
+  fixes from round-trip-time to RTT-capable access points (API 29+ LCI/LCR),
+  fed through the same Kalman path as GPS. Optional by design — a denied
+  `NEARBY_WIFI_DEVICES` or missing RTT hardware is a graceful no-op.
+- **Dashboard: degraded-mode badge + road-snapping** — device card shows a
+  Battery-saving / GPS-only / Location-off badge; the map snaps the marker
+  to the nearest road (OSRM /nearest) only when accuracy ≥ 30m, display-only
+  (accuracy circle, trail and all data stay raw).
+- **Source-tarball OPSEC hardening** — `make-source-tarball.sh` now strips
+  runtime data (`backups/`, `server/static`, `server/media`, `*.db`, `.db_password`)
+  with a hard name-based guard; a draft build that leaked 180MB of live
+  data was caught and the shipped tarball verified clean.
+- Research + sources: `docs/location-accuracy-research.md`. VersionCode 15;
+  live-verified: `/apk/checksum` → `c114984a…`, `/apk/source/checksum` →
+  `69dcd993…`; deployed to production (2026-08-18).
+
 ### Fix — location resilience (G1-16, field: fused drop + dead-GNSS silence)
 
 - **Raw GPS listener in the fused branch (gated on fused silence)** — the

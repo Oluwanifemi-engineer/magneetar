@@ -211,6 +211,14 @@ def init_db(db_path: str = None):
     except sqlite3.OperationalError:
         pass  # Column already exists — fresh DB or already migrated
 
+    # System location MODE (G1-17) — high_accuracy / battery_saving / gps_only
+    # / off, reported on the heartbeat so a silently-degraded device is visible
+    # server-side. NULL until the first report from an updated app build.
+    try:
+        c.execute("ALTER TABLE devices ADD COLUMN location_mode TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists — fresh DB or already migrated
+
     # Failure reason for a failed command ack — the Android app sends WHY a
     # capture failed (muted mic / blocked camera) so the dashboard isn't a
     # bare red FAILED. Migrated for existing DBs.
@@ -1037,6 +1045,7 @@ def ensure_initialized() -> bool:
         "operating_mode",
         "sentinel_score",
         "capture_armed",
+        "location_mode",
         "alert_phone",
         "alert_email",
         "alert_channels",
