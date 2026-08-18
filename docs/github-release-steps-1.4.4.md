@@ -9,18 +9,20 @@
 |---|---|---|
 | Source tarball | `dist/magneetar-1.4.4-source.tar.gz` | `69dcd993bc1a6e616bac760d144ccc1b7622b35d615f4663cb301268b7913449` |
 | Checksum file | `dist/magneetar-1.4.4-source.tar.gz.sha256` | — (contains the line above) |
-| Play-clean APK (download page, `magneetar-v1.4.4-release.apk` / `magneetar-latest.apk`) | `server/static/apk/` | `c114984af8bd54f27bd60d0e6aa7974249c3eaca66aa41b72df664be89db8a00` |
-| Play AAB (internal testing, versionCode 15) | `server/static/apk/magneetar-v1.4.4-play.aab` | `ba55ef7d1150bac87dfef1c013029dd77ed2eed7cbf5b76cd15eda783842f433` |
-| Sideload APK (SMS-capable, archived) | `server/static/apk/magneetar-v1.4.4-sideload-release.apk` | `b4eb1258c6aa82c6989b281b604f271980b6fd7b0885b14d454cf685aaa2a629` |
+| Play-clean APK (download page, `magneetar-v1.4.4-release.apk` / `magneetar-latest.apk`) | `server/static/apk/` | `a4b1f9c84f79ff994c28f320a80fc79c4f9b97d121eec291daa7ba7a91737b2d` |
+| Play AAB (internal testing, versionCode 16) | `server/static/apk/magneetar-v1.4.4-play.aab` | `b3de09116e539edc38578d8235b94773e8eb230880d26717ad0a2d6188f5c6ec` |
+| Sideload APK (SMS-capable, archived) | `android-app/app/build/outputs/apk/sideload/release/app-sideload-release.apk` | `f2a529e6979b69912b4f15d06ce395c40b4036d15fa1a5c3a994d90b07ef4a20` |
 
 > G1-17 (2026-08-18): location MODE detection + heartbeat reporting (server
 > persists `location_mode`), once-per-24h degraded-mode nudge, Wi-Fi RTT
 > (802.11mc) indoor ranging, dashboard road-snapping (display-only) — see
 > `docs/location-accuracy-research.md`. Live-verified: `/apk/checksum` =
-> `c114984a…` (0 SMS perms, versionCode 15), `/apk/source/checksum` =
+> `a4b1f9c8…` (0 SMS perms, versionCode 16 — includes G1-15/16/17 location
+> work + Offline Device Network Phases A–C), `/apk/source/checksum` =
 > `69dcd993…`. Source tarball integrity re-scanned clean (no backups/DBs/
 > credentials — the make-source-tarball.sh strip list was hardened after a
-> leak was caught in a draft build).
+> leak was caught in a draft build). vc16 is field-installed on the tester
+> phone and heartbeating into prod.
 
 Upload the **source tarball + its .sha256** to the release (the APK/AAB live on
 the product site and Play — don't duplicate them here; the release is the

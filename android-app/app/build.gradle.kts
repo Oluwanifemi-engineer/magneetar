@@ -174,7 +174,7 @@ android {
         // G1-16 location resilience (raw GPS fallback + self-heal watchdog +
         // stationary-silence refresh), 15 = v1.4.4 with G1-17 (location
         // MODE detection + Wi-Fi RTT indoor ranging).
-        versionCode = 15
+        versionCode = 16
         versionName = appVersion
 
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")

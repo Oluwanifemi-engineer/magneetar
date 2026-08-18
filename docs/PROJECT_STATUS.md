@@ -44,7 +44,15 @@ Keystore-backed `PairVault`, AES-GCM `P2pMessage` codec 11 tests, and
 `P2pOfflineService` — Nearby CLUSTER with mutual HMAC handshake, offline
 siren/lock/lost_mode/ping + ack, SIGHTING_CARRIER mesh density, lost-mode
 auto-advertise). 569 server tests, 150 Android JVM tests per flavor.
-Phase D (dashboard mesh visibility, battery/telemetry monitoring) pending.
+Phase D (this round): the dashboard sighting feed now tags relayed sightings
+"VIA MESH · N hops" (server already serialized hop_count/relayed).
+Handshake extracted to a pure-JVM `P2pHandshake` state machine (+9 tests).
+All of A–C + the Phase D tag are DEPLOYED (2026-08-18): p2p routes live,
+migrations 16–17 applied; **vc16** (0 SMS perms) staged (`/apk/checksum` →
+`a4b1f9c8…`, AAB `b3de0911…`) and field-installed on the tester phone
+(heartbeats flowing seconds-fresh). Tests: 569 server, 159 Android ×2,
+216 dashboard. Remaining: 2-phone paired-P2P field E2E (roster, only one
+device on adb today), BLE fallback, battery/telemetry monitoring.
 
 **Latest (2026-08-18, v1.4.4):** G1-17 location accuracy (vc15):
 location-MODE detection + heartbeat reporting (`location_mode` persisted

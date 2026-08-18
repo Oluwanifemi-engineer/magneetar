@@ -31,6 +31,7 @@ jest.mock('lucide-react', () => ({
   Bell: () => null,
   X: () => null,
   Heart: () => null,
+  Share2: () => null,
 }));
 
 jest.mock('@/lib/utils', () => ({
@@ -159,6 +160,51 @@ describe('GuardianPanel Component', () => {
     expect(screen.getByText('EagleEye')).toBeInTheDocument();
     expect(screen.getByText('Saw it at the bus stop')).toBeInTheDocument();
     expect(screen.getByText('Mark Recovered & Close')).toBeInTheDocument();
+  });
+
+  it('tags relayed sightings as via mesh (Offline Device Network)', async () => {
+    mockDevices = [{ id: 'device-001', is_stolen: true, sentinel_score: 90 }];
+    mockSelectedDeviceId = 'device-001';
+    mockRequests = [
+      {
+        id: 'rec-1',
+        device_id: 'device-001',
+        status: 'active',
+        description: 'Grey Pixel',
+        sighting_count: 2,
+        sightings: [
+          {
+            id: 1,
+            guardian_handle: 'EagleEye',
+            lat: 9.083,
+            lng: 8.676,
+            note: null,
+            created_at: '2026-08-01T10:00:00Z',
+            hop_count: 0,
+            relayed: false,
+          },
+          {
+            id: 2,
+            guardian_handle: 'NightWatch',
+            lat: 9.09,
+            lng: 8.68,
+            note: null,
+            created_at: '2026-08-01T11:00:00Z',
+            hop_count: 3,
+            relayed: true,
+          },
+        ],
+        created_at: '2026-08-01T09:00:00Z',
+        closed_at: null,
+        closed_reason: null,
+      },
+    ];
+
+    await renderPanel();
+    // Direct sighting: no mesh tag.
+    expect(screen.queryByText(/VIA MESH/)).toBeInTheDocument();
+    // Relayed sighting: tagged with the hop count.
+    expect(screen.getByText(/VIA MESH · 3 hops/)).toBeInTheDocument();
   });
 
   it('closes the active request and marks recovered', async () => {

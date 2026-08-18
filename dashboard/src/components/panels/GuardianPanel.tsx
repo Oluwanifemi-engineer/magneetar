@@ -13,6 +13,7 @@ import {
   Bell,
   X,
   Heart,
+  Share2,
 } from 'lucide-react';
 import {
   GuardianProfile,
@@ -368,6 +369,19 @@ export function GuardianPanel() {
                       <MapPin size={9} />
                       {s.lat.toFixed(4)}, {s.lng.toFixed(4)}
                     </div>
+                    {/* Mesh relay tag — Offline Device Network §2: a sighting
+                        that reached the server through a relay chain is
+                        marked so the owner knows it wasn't a direct hit. */}
+                    {(s.hop_count ?? 0) > 0 && (
+                      <div
+                        title="Relayed through the offline mesh (store-and-forward, minutes-to-hours freshness)"
+                        className="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-mag-secondary/10 border border-mag-secondary/30 text-[9px] font-mono text-mag-secondary"
+                      >
+                        <Share2 size={9} />
+                        VIA MESH · {s.hop_count} hop{s.hop_count !== 1 ? 's' : ''}
+                        {s.relayed === false ? ' · direct' : ''}
+                      </div>
+                    )}
                     {s.note && <div className="mt-1 text-[11px] text-mag-text/80">{s.note}</div>}
                   </div>
                 ))}

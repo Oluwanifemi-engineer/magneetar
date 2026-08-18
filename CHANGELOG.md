@@ -42,9 +42,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   LAST_KNOWN / CMD / ACK / SIGHTING_CARRIER, command dedup + execution
   through TrackingService, lost-mode auto-advertise, never always-on).
 - Deployed to production (2026-08-18): migrations 16–17 applied, pairing
-  endpoints live, the vc15 tester phone still heartbeating
-  `location_mode=high_accuracy`. Field E2E (2 paired phones, both offline)
-  remains a G1 roster task; Phase D (dashboard mesh visibility) pending.
+  endpoints live. The P2P handshake was extracted to a pure-JVM
+  `P2pHandshake` state machine (+9 tests: mutual auth, wrong secret / wrong
+  peer / replay / tamper all fail closed).
+
+### Feature — Phase D: dashboard mesh visibility + vc16 field install
+
+- The dashboard's recovery sighting feed now tags relayed sightings
+  **"VIA MESH · N hops"** (the server already serialized `hop_count`/
+  `relayed`; the dashboard type dropped them and the feed didn't show them).
+  Direct sightings stay untagged; a 3-hop relayed sighting is unmistakable.
+- **vc16** (versionCode 16, 0 SMS permissions) built with Phases A–C + the
+  handshake extraction, staged (`/apk/checksum` → `a4b1f9c8…`, Play AAB
+  `b3de0911…`) and **field-installed on the tester phone** — boot + watchdog
+  restart + heartbeats verified flowing into prod (`location_mode=
+  high_accuracy`, seconds-fresh). The 2-phone paired-P2P E2E remains a G1
+  roster task (only one device on adb); BLE fallback + battery/telemetry
+  monitoring remain on the roadmap.
 
 ### Feature — iOS companion app (code-complete, build pending a Mac)
 

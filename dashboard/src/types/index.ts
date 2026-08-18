@@ -368,6 +368,11 @@ export interface RecoverySighting {
   lng: number;
   note: string | null;
   created_at: string | null;
+  /** Offline Device Network §2: 0 = guardian saw the beacon directly;
+   *  >0 = this sighting was relayed hop-by-hop through N guardians. */
+  hop_count?: number;
+  /** True when the sighting reached the server via a relay chain. */
+  relayed?: boolean;
 }
 
 export interface RecoveryRequest {

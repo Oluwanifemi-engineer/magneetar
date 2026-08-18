@@ -65,6 +65,13 @@ class P2pOfflineService : Service() {
         private const val CHANNEL_ID = "mt_p2p"
         private const val NOTIF_ID = 7717
 
+        /** Handshake message types driven by the P2pHandshake state machine. */
+        private val HANDSHAKE_TYPES = setOf(
+            P2pMessage.TYPE_HELLO,
+            P2pMessage.TYPE_CHALLENGE,
+            P2pMessage.TYPE_AUTH,
+        )
+
         const val ACTION_START = "com.magneetar.app.action.P2P_START"
         const val ACTION_STOP = "com.magneetar.app.action.P2P_STOP"
 
@@ -102,18 +109,15 @@ class P2pOfflineService : Service() {
     /** endpointId → service id the connection was made under (discoverer). */
     private val endpointServiceIds = HashMap<String, String>()
 
+    /** endpointId → handshake state machine for the connection. */
+    private val handshakes = HashMap<String, P2pHandshake>()
+
     /** Our own device id (from the pairing/registration prefs). */
     private val ownDeviceId: String
         get() = getSharedPreferences("mt", Context.MODE_PRIVATE).getString("device_id", "") ?: ""
 
-    /** The known peer device id for an endpoint, learned from HELLO. */
-    private val peerDeviceIds = HashMap<String, String>()
-
     /** Endpoints that passed the HMAC handshake. */
     private val authenticated = HashSet<String>()
-
-    /** The challenge nonce we sent to each endpoint (hex), for AUTH verify. */
-    private val sentNonces = HashMap<String, String>()
 
     override fun onCreate() {
         super.onCreate()
@@ -196,10 +200,16 @@ class P2pOfflineService : Service() {
                     cleanup(endpointId)
                     return
                 }
-                val nonce = randomNonceHex()
-                sentNonces[endpointId] = nonce
-                send(endpointId, P2pMessage.Envelope(type = P2pMessage.TYPE_HELLO, deviceId = ownDeviceId))
-                send(endpointId, P2pMessage.Envelope(type = P2pMessage.TYPE_CHALLENGE, nonce = nonce))
+                val (pairedA, pairedB) = pairingFor(endpointId) ?: run {
+                    connectionsClient.disconnectFromEndpoint(endpointId)
+                    cleanup(endpointId)
+                    return
+                }
+                val handshake = P2pHandshake(ownDeviceId, secret.hexToBytes(), pairedA to pairedB)
+                handshakes[endpointId] = handshake
+                for (msg in handshake.onConnected()) {
+                    send(endpointId, msg)
+                }
             } else {
                 Log.w(TAG, "Connection to $endpointId failed: ${resolution.status.statusCode}")
                 cleanup(endpointId)
@@ -253,54 +263,28 @@ class P2pOfflineService : Service() {
     }
 
     private suspend fun handleMessage(endpointId: String, msg: P2pMessage.Envelope) {
-        when (msg.type) {
-            P2pMessage.TYPE_HELLO -> {
-                peerDeviceIds[endpointId] = msg.deviceId
-                // Cross-check the secret the connection was made under: the
-                // peer's device id must belong to the same pairing. A HELLO
-                // that doesn't match the pairing → drop the connection.
-                val expected = sessions[endpointId]?.hexToBytes()
-                val actual = resolveSecretByPeerId(msg.deviceId)
-                if (expected == null || actual == null || !expected.contentEquals(actual)) {
-                    Log.w(TAG, "HELLO from device ${msg.deviceId} does not match the pairing — disconnecting")
-                    connectionsClient.disconnectFromEndpoint(endpointId)
-                    cleanup(endpointId)
-                }
-            }
-
-            P2pMessage.TYPE_CHALLENGE -> {
-                // Respond with the HMAC over the peer's nonce, ids in
-                // lexicographic order (both sides agree on this ordering).
-                val myId = ownDeviceId
-                val peerId = peerDeviceIds[endpointId] ?: return
-                val secret = sessions[endpointId]?.hexToBytes() ?: return
-                val (idA, idB) = if (myId <= peerId) myId to peerId else peerId to myId
-                val nonceBytes = msg.nonce.hexToBytes()
-                if (nonceBytes.size != 16) return
-                val mac = P2pPairing.hmacResponse(secret, nonceBytes, idA, idB)
-                send(endpointId, P2pMessage.Envelope(type = P2pMessage.TYPE_AUTH, nonce = msg.nonce, mac = mac.toHex()))
-            }
-
-            P2pMessage.TYPE_AUTH -> {
-                // Verify the peer's AUTH against the nonce we sent.
-                val expected = sentNonces[endpointId]
-                val secret = sessions[endpointId]?.hexToBytes() ?: return
-                val myId = ownDeviceId
-                val peerId = peerDeviceIds[endpointId] ?: return
-                val (idA, idB) = if (myId <= peerId) myId to peerId else peerId to myId
-                val ok = expected != null &&
-                    msg.nonce == expected &&
-                    P2pPairing.verify(secret, expected.hexToBytes(), idA, idB, msg.mac.hexToBytes())
-                if (ok) {
+        // Handshake messages are driven by the state machine; everything else
+        // only flows after authentication.
+        val handshake = handshakes[endpointId]
+        if (handshake != null && msg.type in HANDSHAKE_TYPES) {
+            when (val r = handshake.onMessage(msg)) {
+                is P2pHandshake.Result.Send -> for (out in r.envelopes) send(endpointId, out)
+                P2pHandshake.Result.Authenticated -> {
                     authenticated.add(endpointId)
                     Log.i(TAG, "Handshake verified with $endpointId — P2P authenticated")
-                } else {
+                    sendLastKnown(endpointId)
+                }
+                P2pHandshake.Result.Failed -> {
                     Log.w(TAG, "Handshake FAILED with $endpointId — disconnecting")
                     connectionsClient.disconnectFromEndpoint(endpointId)
                     cleanup(endpointId)
                 }
+                P2pHandshake.Result.Ignore -> Unit
             }
+            return
+        }
 
+        when (msg.type) {
             P2pMessage.TYPE_LAST_KNOWN -> {
                 if (endpointId !in authenticated) return
                 storePeerLastKnown(msg)
@@ -399,6 +383,41 @@ class P2pOfflineService : Service() {
             P2pPairing.serviceUuidFor(p.secret).toString() == serviceId
         }?.secret
 
+    /** The paired device ids for an endpoint's connection (both halves). */
+    private fun pairingFor(endpointId: String): Pair<String, String>? {
+        val secretHex = sessions[endpointId] ?: return null
+        val p = PairVault.list(this).firstOrNull { it.secret.toHex() == secretHex } ?: return null
+        return p.deviceA to p.deviceB
+    }
+
+    /** After auth, best-effort share our last-known fix with the peer. */
+    private fun sendLastKnown(endpointId: String) {
+        val loc = lastKnownLocation() ?: return
+        send(
+            endpointId,
+            P2pMessage.Envelope(
+                type = P2pMessage.TYPE_LAST_KNOWN,
+                lat = loc.first,
+                lng = loc.second,
+                accuracy = 0.0,
+                provider = "last_known",
+                timestamp = System.currentTimeMillis(),
+            )
+        )
+    }
+
+    private fun lastKnownLocation(): Pair<Double, Double>? {
+        return try {
+            val lm = getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+            val loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                ?: lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+                ?: return null
+            loc.latitude to loc.longitude
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     private fun storePeerLastKnown(msg: P2pMessage.Envelope) {
         val json = JSONObject().apply {
             put("lat", msg.lat)
@@ -424,10 +443,9 @@ class P2pOfflineService : Service() {
 
     private fun cleanup(endpointId: String) {
         sessions.remove(endpointId)
-        peerDeviceIds.remove(endpointId)
         authenticated.remove(endpointId)
-        sentNonces.remove(endpointId)
         endpointServiceIds.remove(endpointId)
+        handshakes.remove(endpointId)
     }
 
     private fun randomNonceHex(): String {
