@@ -190,8 +190,8 @@ id on the receiver).
 
 | Phase | Contents | Gate |
 |---|---|---|
-| **A (this commit)** | Design doc + `MeshBeacon.kt` + `P2pPairing.kt` + tests; server sighting metadata (columns + payload + tests) | wire contracts locked by JVM tests |
-| **B** | Android relay: outbox store, re-advertiser in `GuardianBeaconScanner`, outbox flush; server metadata live | L2 works end-to-end on 2 phones, 1 offline |
+| **A (shipped 2026-08-18)** | Design doc + `MeshBeacon.kt` + `P2pPairing.kt` + tests; server sighting metadata (columns + payload + tests) | wire contracts locked by JVM tests |
+| **B (shipped 2026-08-18)** | Android relay: `RelayOutbox` (persisted offline sightings + re-advertise bookkeeping, 11 tests), envelope decode + metadata sightings + queue-on-offline + relay re-advertising (hop+1, relayed=1, 10s bursts, 15-min per-beacon cooldown, MAX_HOP/24h-TTL gated) + flush-on-internet, all inside `GuardianBeaconScanner` | 139 JVM tests per flavor; field E2E (2 phones, 1 offline) is a G1 roster task |
 | **C** | Android P2P: pairing endpoints + UI (code entry), `P2pOfflineService` (Nearby + BLE fallback), command execution + ack | offline siren/lock between paired devices, both offline |
 | **D** | Offline Find UI on dashboard (device sees "last seen via mesh"), battery/telemetry monitoring, Play disclosure copy | G1-field-tested on the roster |
 

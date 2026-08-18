@@ -8,8 +8,12 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanRecord
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
+import android.bluetooth.le.AdvertiseCallback
+import android.bluetooth.le.AdvertiseData
+import android.bluetooth.le.AdvertiseSettings
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -23,8 +27,10 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
@@ -78,6 +84,17 @@ class GuardianBeaconScanner : Service() {
         private const val SCAN_PAUSE_SCREEN_OFF_MS = 5 * 60_000L
         private const val SCAN_PAUSE_LOW_BATTERY_MS = 10 * 60_000L
 
+        // ── Relay mesh (docs/offline-network-design.md §3.2) ────────────────
+        // The relay re-advertises a beacon it saw (hop+1, relayed=1) so the
+        // beacon hops onward through phones that never met the lost device.
+        // One short burst per scan cycle; RelayOutbox gates how often each
+        // beacon is re-advertised (15 min) and stops at MAX_HOP / stale origin.
+        private const val RELAY_MANUFACTURER_ID = 0xFFFF // MeshBeacon envelope
+        private const val RELAY_ADVERTISE_MS = 10_000L
+        // Flush queued offline sightings at most once per ~5 scan cycles so a
+        // dead network can't hammer the endpoint every 90s.
+        private const val FLUSH_EVERY_CYCLES = 5
+
         /** Start (or re-arm) the scanner. Safe to call repeatedly. */
         fun start(context: Context) {
             try {
@@ -97,6 +114,7 @@ class GuardianBeaconScanner : Service() {
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
     private val tracker by lazy { SosBeaconTracker.persistent(this) }
+    private val outbox by lazy { RelayOutbox.persistent(this) }
 
     @SuppressLint("ForegroundServiceType")
     override fun onCreate() {
@@ -130,6 +148,7 @@ class GuardianBeaconScanner : Service() {
 
     override fun onDestroy() {
         stopScan()
+        stopRelayAdvertising()
         scope.cancel()
         super.onDestroy()
     }
@@ -138,6 +157,7 @@ class GuardianBeaconScanner : Service() {
 
     private suspend fun scanLoop() {
         var optedIn = false
+        var cycle = 0
         while (scope.isActive) {
             try {
                 // Only scan for accounts that actually opted in as guardians —
@@ -148,11 +168,18 @@ class GuardianBeaconScanner : Service() {
                 optedIn = guardianOptedIn()
                 if (optedIn && !isBatteryCritical()) {
                     scanOnce()
+                    // Relay pass: re-advertise ONE beacon we saw (hop+1) so
+                    // the beacon hops onward through the mesh. Best-effort.
+                    relayOnce()
+                    // Flush pass: deliver offline-queued sightings when we
+                    // have connectivity again (throttled to every 5th cycle).
+                    if (cycle % FLUSH_EVERY_CYCLES == 0) flushOutbox()
+                    cycle++
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "scan cycle failed: ${e.message}")
             }
-            kotlinx.coroutines.delay(nextPauseMs())
+            delay(nextPauseMs())
         }
     }
 
@@ -245,11 +272,25 @@ class GuardianBeaconScanner : Service() {
             val uuid = record.serviceUuids?.firstOrNull()?.uuid ?: return
             val token = SosBeacon.tokenFromServiceUuid(uuid) ?: return
 
+            // Relay metadata (Layer 2): the v2 manufacturer-data envelope tells
+            // us how many hops this beacon has survived + when it originated.
+            // A Phase-1 beacon without the envelope is a direct sighting
+            // (hop 0, unknown origin, not a relay).
+            val envelope = decodeRelayEnvelope(record)
+            val hop = envelope?.hop ?: 0
+            val originTs = envelope?.originUnixSecs ?: 0L
+            val relayed = envelope?.relayed ?: false
+
             // Cooldown: this beacon was already reported recently — skip.
             if (tracker.isInCooldown(token)) return
             tracker.rememberReported(token)
 
-            scope.launch { reportSighting(token) }
+            // Ensure the outbox knows the beacon (relay bookkeeping). The
+            // sighting itself is reported live below; if THAT fails (offline),
+            // reportSighting queues it for a later flush.
+            outbox.queue(token, hop, originTs, 0.0, 0.0, relayed, needsFlush = false)
+
+            scope.launch { reportSighting(token, hop, originTs, relayed) }
         }
 
         override fun onScanFailed(errorCode: Int) {
@@ -257,11 +298,23 @@ class GuardianBeaconScanner : Service() {
         }
     }
 
+    /** Decode the v2 relay envelope from the advertisement's manufacturer data. */
+    private fun decodeRelayEnvelope(record: ScanRecord): MeshBeacon.RelayMeta? {
+        // getManufacturerSpecificData returns the payload AFTER the 2-byte
+        // manufacturer id — which is exactly our envelope (starts "MG").
+        val payload = record.getManufacturerSpecificData(RELAY_MANUFACTURER_ID) ?: return null
+        return MeshBeacon.decode(payload)
+    }
+
     /**
-     * POST /api/recovery/sightings {beacon_token, lat, lng} with the user's
-     * account token. Only real opted-in accounts pass the server gate.
+     * POST /api/recovery/sightings {beacon_token, lat, lng, hop_count,
+     * relayed} with the user's account token. Only real opted-in accounts
+     * pass the server gate. On a NETWORK failure the sighting is queued in
+     * the relay outbox and flushed on a later cycle (offline operation);
+     * server rejections (403/429/400/404) are expected non-errors and never
+     * queued.
      */
-    private suspend fun reportSighting(token: String) {
+    private suspend fun reportSighting(token: String, hop: Int, originTs: Long, relayed: Boolean) {
         val userToken = TokenVault.accessToken(this)
         if (userToken.isEmpty()) return // no signed-in account -> cannot report
 
@@ -274,6 +327,8 @@ class GuardianBeaconScanner : Service() {
             put("beacon_token", token)
             put("lat", lat)
             put("lng", lng)
+            put("hop_count", hop)
+            put("relayed", relayed)
         }.toString().toRequestBody("application/json".toMediaType())
 
         val request = Request.Builder()
@@ -282,10 +337,12 @@ class GuardianBeaconScanner : Service() {
             .addHeader("Authorization", "Bearer $userToken")
             .build()
 
+        var delivered = false
         try {
             client.newCall(request).execute().use { resp ->
                 if (resp.code in 200..299) {
-                    Log.d(TAG, "Sighting reported for token ${token.take(6)}...")
+                    delivered = true
+                    Log.d(TAG, "Sighting reported for token ${token.take(6)}... (hop $hop)")
                 } else {
                     // 403 = not opted in, 429 = rate limit, 400/404 = closed
                     // request. All are expected non-errors — log quietly.
@@ -293,7 +350,47 @@ class GuardianBeaconScanner : Service() {
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "sighting report failed: ${e.message}")
+            // Network failure = offline. Queue for a later flush; the relay
+            // outbox keeps one entry per token and marks it pending.
+            Log.w(TAG, "sighting report failed — queued for flush: ${e.message}")
+            outbox.queue(token, hop, originTs, lat, lng, relayed, needsFlush = true)
+        }
+        if (delivered) outbox.markFlushed(token)
+    }
+
+    /**
+     * Deliver offline-queued sightings now that we have connectivity. Server
+     * rejections keep the entry pending (retried next flush cycle); only a
+     * 2xx clears it. Stops at the first network failure (still offline).
+     */
+    private suspend fun flushOutbox() {
+        val userToken = TokenVault.accessToken(this)
+        if (userToken.isEmpty()) return
+        for (entry in outbox.pendingFlush()) {
+            val body = JSONObject().apply {
+                put("beacon_token", entry.token)
+                put("lat", entry.lat)
+                put("lng", entry.lng)
+                put("hop_count", entry.hop)
+                put("relayed", entry.relayed)
+            }.toString().toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url("${BuildConfig.SERVER_URL}/api/recovery/sightings")
+                .post(body)
+                .addHeader("Authorization", "Bearer $userToken")
+                .build()
+            try {
+                client.newCall(request).execute().use { resp ->
+                    if (resp.code in 200..299) {
+                        outbox.markFlushed(entry.token)
+                        Log.d(TAG, "Flushed queued sighting for ${entry.token.take(6)}...")
+                    }
+                    // else: keep pending (rate limit / closed request) — retry later
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "flush still offline: ${e.message}")
+                break // still no connectivity — try again next flush window
+            }
         }
     }
 
@@ -356,6 +453,106 @@ class GuardianBeaconScanner : Service() {
         } catch (e: Exception) {
             Log.w(TAG, "scan stop failed: ${e.message}")
         }
+    }
+
+    // ── Relay mesh: re-advertise beacons we saw (hop+1, relayed=1) ──────────
+
+    private var relayAdvertiseJob: Job? = null
+    private var relayAdvertisingToken: String? = null
+
+    /**
+     * Pick ONE beacon from the outbox and re-advertise it (hop+1, relayed=1)
+     * so the beacon hops onward through the mesh. The outbox gates frequency
+     * (15 min per beacon), hop (MAX_HOP) and freshness (24h origin TTL).
+     * Best-effort: any failure just means this beacon isn't relayed this cycle.
+     */
+    private fun relayOnce() {
+        if (relayAdvertisingToken != null) return // one relay at a time
+        val entry = outbox.advertiseCandidates().firstOrNull() ?: return
+        advertiseRelay(entry)
+    }
+
+    /** Advertise the service UUID + v2 envelope for RELAY_ADVERTISE_MS. */
+    @SuppressLint("MissingPermission") // guarded by hasAdvertisePermission()
+    private fun advertiseRelay(entry: RelayOutbox.RelayEntry) {
+        if (!hasAdvertisePermission()) return
+        val advertiser = bluetoothLeAdvertiser() ?: return
+        val uuid = SosBeacon.serviceUuidFor(entry.token) ?: return
+        // Re-anchor unknown origins at the relay's now — a direct beacon the
+        // lost device is still advertising right now; bounds mesh lifetime to
+        // RELAY_TTL_S from the last direct sighting.
+        val originTs = if (entry.originTs > 0) entry.originTs else System.currentTimeMillis() / 1000
+        val envelope = MeshBeacon.encode(entry.token, entry.hop + 1, originTs, relayed = true) ?: return
+
+        val data = AdvertiseData.Builder()
+            .addServiceUuid(android.os.ParcelUuid(uuid))
+            .addManufacturerData(RELAY_MANUFACTURER_ID, envelope)
+            .setIncludeDeviceName(false)
+            .build()
+        val settings = AdvertiseSettings.Builder()
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+            .setConnectable(false)
+            .build()
+
+        relayAdvertisingToken = entry.token
+        relayAdvertiseJob = scope.launch {
+            try {
+                advertiser.startAdvertising(settings, data, relayAdvertiseCallback)
+                delay(RELAY_ADVERTISE_MS)
+            } catch (e: Exception) {
+                Log.w(TAG, "relay advertise start failed: ${e.message}")
+            } finally {
+                stopRelayAdvertising()
+            }
+        }
+    }
+
+    private val relayAdvertiseCallback = object : AdvertiseCallback() {
+        override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
+            Log.d(TAG, "relay advertising ${relayAdvertisingToken?.take(6)}...")
+            relayAdvertisingToken?.let { outbox.markAdvertised(it) }
+        }
+
+        override fun onStartFailure(errorCode: Int) {
+            // e.g. ADVERTISE_FAILED_TOO_MANY_ADVERTISERS (the SOS broadcaster
+            // may hold the slot on this device) — skip, try another cycle.
+            Log.w(TAG, "relay advertise failed: code $errorCode")
+            relayAdvertisingToken = null
+        }
+    }
+
+    // Only stops a relay advertisement this service started (permission was
+    // held when advertiseRelay ran) — lint can't see the runtime guard.
+    @SuppressLint("MissingPermission")
+    private fun stopRelayAdvertising() {
+        val token = relayAdvertisingToken
+        if (token == null && relayAdvertiseJob == null) return
+        relayAdvertiseJob?.cancel()
+        relayAdvertiseJob = null
+        try {
+            bluetoothLeAdvertiser()?.stopAdvertising(relayAdvertiseCallback)
+        } catch (e: Exception) {
+            Log.w(TAG, "relay advertise stop failed: ${e.message}")
+        }
+        relayAdvertisingToken = null
+    }
+
+    private fun bluetoothLeAdvertiser(): android.bluetooth.le.BluetoothLeAdvertiser? = try {
+        val manager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        manager.adapter?.bluetoothLeAdvertiser
+    } catch (e: Exception) {
+        null
+    }
+
+    private fun hasAdvertisePermission(): Boolean {
+        // BLUETOOTH_ADVERTISE is a runtime permission on API 31+; on older
+        // devices advertising rides on the classic BLUETOOTH permission.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return checkSelfPermission(android.Manifest.permission.BLUETOOTH_ADVERTISE) ==
+                PackageManager.PERMISSION_GRANTED
+        }
+        return true
     }
 
     private fun createNotificationChannel() {
