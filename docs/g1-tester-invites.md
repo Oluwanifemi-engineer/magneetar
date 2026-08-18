@@ -6,9 +6,11 @@
 > permission profile, so Play internal testing is the only friction-free path
 > that keeps the "no public release before validation" rule intact.
 >
-> **Status (2026-08-16):** v1.4.4 AAB (versionCode 11) is staged for the
-> internal track. This doc is the invite checklist + email copy. **Owner
-> step:** add the tester emails in the Play Console, then send the invite
+> **Status (2026-08-18):** v1.4.4 AAB (**versionCode 15**, `ba55ef7d…`,
+> includes G1-15/16/17 location work) is staged for the internal track at
+> `server/static/apk/magneetar-v1.4.4-play.aab`. This doc is the invite
+> checklist + email copy. **Owner step:** upload the AAB to the internal
+> track, add the tester emails in the Play Console, then send the invite
 > links (or share this email).
 
 ---
@@ -20,8 +22,9 @@
 2. Add tester **email addresses** (below — replace with the real cohort).
 3. **Copy the invite link** (shown on the same page) — every tester opens
    that link, opts in, and the app becomes installable for them.
-4. Upload the AAB (v1.4.4, versionCode 11) if not already on the track, and
-   **Create release**.
+4. Upload the AAB (v1.4.4, versionCode 15, `ba55ef7d…` — already staged at
+   `server/static/apk/magneetar-v1.4.4-play.aab`) if not already on the
+   track, and **Create release**.
 5. Send each tester the invite email (copy below) with their invite link.
 
 > Note: each tester must be **opted-in with their link before** the release is
