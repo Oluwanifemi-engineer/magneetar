@@ -7,7 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — 2026-08-16
+## [Unreleased] — 2026-08-18
+
+### Feature — Offline Device Network (Phases A–C, the Find Network mesh scale-out)
+
+- **Design + locked wire contracts** (`docs/offline-network-design.md`): the
+  live Find Network (Phase 1: lost phone BLE-advertises its token; opt-in
+  guardians scan + report sightings with their OWN coords) is scaled into a
+  mesh. Three layers: L1 broadcast (existing), L2 relay mesh (guardians
+  carry + re-advertise beacons with hop≤3 / 24h TTL, flushing sightings when
+  any node reaches internet), L3 paired P2P (the owner's own devices talk
+  directly, fully offline). Honest physics: store-and-forward, ~10–30 m BLE /
+  ~100 m Nearby per hop — the same model as Find My at billions-of-devices
+  scale.
+- **Phase A — wire contracts locked by JVM tests:** `MeshBeacon` (v2 relay
+  envelope, backward-compatible with the v1 SOS UUID) + `P2pPairing`
+  (deterministic discovery id + HMAC-SHA256 handshake bound to both device
+  ids). Server: `recovery_sightings` gains `hop_count`/`relayed` (guarded
+  ALTERs + migration 16 + Postgres parity) so a relayed sighting is
+  distinguishable from a direct one.
+- **Phase B — Android relay mesh:** `RelayOutbox` (persisted offline
+  sightings, 500-entry/7-day bound, per-beacon 15-min re-advertise cooldown,
+  hop/TTL gating) + `GuardianBeaconScanner` now decodes the v2 envelope,
+  reports hop/relayed metadata, queues sightings when offline and flushes on
+  connectivity, and re-advertises one beacon per scan cycle (hop+1, 10 s
+  burst, never concurrent with the SOS broadcaster).
+- **Phase C — paired P2P, offline siren/lock:** server `/api/p2p/pair/*`
+  (single-use 8-hex codes, 15 min TTL, stored hashed; shared 32-byte
+  pair_secret encrypted at rest; `p2p_pairings` table + migration 17;
+  owner-scoped). Android: `PairingApi` + `PairingActivity` (generate/enter
+  code UI), `PairVault` (Keystore-backed pair secrets), `P2pMessage`
+  (AES-GCM encrypted JSON codec), `P2pOfflineService` (Nearby Connections
+  P2P_CLUSTER: secret-derived service ids, mutual HMAC handshake, HELLO /
+  LAST_KNOWN / CMD / ACK / SIGHTING_CARRIER, command dedup + execution
+  through TrackingService, lost-mode auto-advertise, never always-on).
+- Deployed to production (2026-08-18): migrations 16–17 applied, pairing
+  endpoints live, the vc15 tester phone still heartbeating
+  `location_mode=high_accuracy`. Field E2E (2 paired phones, both offline)
+  remains a G1 roster task; Phase D (dashboard mesh visibility) pending.
 
 ### Feature — iOS companion app (code-complete, build pending a Mac)
 

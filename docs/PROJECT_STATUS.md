@@ -1,6 +1,6 @@
 # Magneetar — Project Status Report
 
-**Generated:** August 16, 2026  
+**Generated:** August 18, 2026  
 **Version:** 1.4.4  
 **Status:** 🟢 Production Ready — G1 real-world validation in progress; Play submission gated (ADR-0006)
 
@@ -17,9 +17,10 @@ dossier), **iOS companion app code-complete** (both roles, honest scope,
 build pending a Mac), and a **Docker Compose + Cloudflare Tunnel production
 deploy** (SQLite data plane, healthy).
 
-**All 770 tests pass** (559 backend + 211 dashboard) plus 112 Android JVM
-tests per flavor (224 total, incl. the G1-16/G1-17 location suites);
-typecheck clean; production `/health` green on v1.4.4. Every finding
+**All 780 tests pass** (569 backend + 211 dashboard) plus 150 Android JVM
+tests per flavor (300 total, incl. the G1-16/G1-17 location suites and the
+offline-network Phase A–C codec/relay suites); typecheck clean; production
+`/health` green on v1.4.4. Every finding
 from the external security review (F-01…F-09, S-6/S-7/S-10/S-12, G1#1) is
 closed and re-verified live: WS admin bypass, API-key super-account, FCM
 device pollution, /health + config leaks, tampered-download-signature 403,
@@ -34,7 +35,7 @@ Nearby Connections with BLE fallback; opt-in guardian model kept). `MeshBeacon`
 (v2 relay envelope, backward-compatible with the v1 SOS UUID) + `P2pPairing`
 (deterministic discovery id + HMAC-SHA256 handshake) locked by 16 JVM tests;
 server sighting metadata (`hop_count`/`relayed`, guarded ALTERs + migration 16)
-with a relay test. 560 server tests, 128 Android JVM tests per flavor.
+with a relay test. 569 server tests, 150 Android JVM tests per flavor.
 Phases B + C shipped same day: Android relay mesh (`RelayOutbox` + envelope
 decode/re-advertise/flush in `GuardianBeaconScanner`, 11 tests) and paired P2P
 (server `/api/p2p/pair/*` with hashed single-use codes + encrypted-at-rest
@@ -99,10 +100,10 @@ browser tab — the server/DB/device were all verified correct at the time.
 
 | Test Suite | Count | Status |
 |------------|-------|--------|
-| **Backend (server/)** | **558** | ✅ **All pass, 4 skipped** (2026-08-16 run — full suite incl. security: TOTP 2FA lifecycle, step-up password gates, device-share RBAC, geofence auto-actions, evidence chain, rate limits) |
-| **Dashboard (dashboard/)** | **211** | ✅ **All pass, 24 suites** (2026-08-16 run, `tsc --noEmit` clean) |
-| **Grand Total** | **769** | ✅ **All pass** (558 backend + 211 dashboard) |
-| **Android JVM Tests** | **43+** | ✅ **All pass** (both flavors; LostMode, SOS beacon wire contract, etc.) |
+| **Backend (server/)** | **569** | ✅ **All pass, 4 skipped** (2026-08-18 run — full suite incl. security: TOTP 2FA lifecycle, step-up password gates, device-share RBAC, geofence auto-actions, evidence chain, rate limits, offline-network pairing + relay metadata) |
+| **Dashboard (dashboard/)** | **211** | ✅ **All pass, 24 suites** (2026-08-18 run, `tsc --noEmit` clean) |
+| **Grand Total** | **780** | ✅ **All pass** (569 backend + 211 dashboard) |
+| **Android JVM Tests** | **150** | ✅ **All pass × both flavors** (G1-15/16/17 location suites, SOS beacon wire contract, relay outbox, P2P codec + pairing, etc.) |
 | **iOS unit tests** | 6 | ⏳ Written (`MagneetarTests`) — run on first Mac build |
 | **Live verification** | — | ✅ Recovery drill 12/12 · sharing-RBAC 27/27 · geofence exit/capture/siren · 2FA flow · theft-flood fix (G1-9) · trigger-first audio lifecycle |
 
