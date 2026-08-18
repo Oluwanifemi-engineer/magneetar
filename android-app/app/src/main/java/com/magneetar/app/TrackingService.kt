@@ -452,6 +452,51 @@ class TrackingService : Service() {
     }
 
     /**
+     * G1-17: once-per-24h nudge when the system location MODE silently
+     * degrades tracking. Battery-saving mode disables GPS (100-500m network
+     * fixes only, even outdoors); GPS-only disables WiFi/cell scanning (no
+     * fixes indoors at all) — yet "location enabled" still reads true, so
+     * the old on/off check never caught either. The tap opens the location
+     * settings page. Never blocks: a denial just means the next heartbeat
+     * re-checks 24h later.
+     */
+    private fun notifyLocationModeNudge() {
+        val mode = LocationModeReader.current(this)
+        if (!LocationModePolicy.isAccuracyDegraded(mode)) return
+        val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
+        val last = prefs.getLong("location_mode_nudge_at", 0L)
+        if (!LocationModePolicy.nudgeDue(last, System.currentTimeMillis())) return
+        prefs.edit().putLong("location_mode_nudge_at", System.currentTimeMillis()).apply()
+
+        val message = when (mode) {
+            LocationMode.BATTERY_SAVING ->
+                "Battery-saving mode disables GPS — Magneetar can only get 100-500m fixes. " +
+                "Switch to High accuracy for precise tracking."
+            LocationMode.SENSORS_ONLY ->
+                "GPS-only mode turns off Wi-Fi/cell scanning — Magneetar can't locate indoors. " +
+                "Switch to High accuracy for precise tracking."
+            else -> return
+        }
+        val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val settingsIntent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+        val pi = PendingIntent.getActivity(
+            this, 0, settingsIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        mgr.notify(
+            NOTIF_ID + 4,
+            NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("Magneetar — location accuracy is degraded")
+                .setContentText(message)
+                .setContentIntent(pi)
+                .setSmallIcon(android.R.drawable.ic_menu_compass)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true)
+                .build()
+        )
+    }
+
+    /**
      * Returns true when a fresh user token is in prefs. Refreshes via
      * /api/auth/user/refresh when the stored token is missing or within
      * 15 minutes of expiry. Silently returns false when no refresh token
@@ -836,6 +881,24 @@ class TrackingService : Service() {
      */
     private val locationFilter = LocationFilter()
 
+    /**
+     * G1-17: Wi-Fi RTT (802.11mc) indoor locator — 1-2m fixes from the
+     * round-trip time to nearby RTT-capable access points (each AP reports
+     * its own position via LCI/LCR on API 29+). Null when the device lacks
+     * RTT support, so unsupported phones behave exactly as before. Runs in
+     * the stationary-silence refresh window: GPS dead + WiFi present is
+     * precisely the indoor case RTT exists for. Fixes route through the
+     * SAME onRawLocation → Kalman path as GPS/network, so the filter's
+     * outlier gates protect the track from a lying AP position.
+     */
+    private var wifiRttLocator: WifiRttLocator? = null
+
+    /** Dispatches onto the main looper — keeps the Kalman filter
+     *  single-threaded no matter which thread a fix source fires from. */
+    private val mainExecutor = java.util.concurrent.Executor { r ->
+        Handler(Looper.getMainLooper()).post(r)
+    }
+
     // Fused requestLocationUpdates needs ACCESS_FINE_LOCATION (runtime-granted
     // during onboarding). The call is wrapped in try/catch(Exception) below and
     // the raw-LocationManager fallback catches SecurityException explicitly —
@@ -963,11 +1026,50 @@ class TrackingService : Service() {
             }
             android.util.Log.w("TrackingService", "Single-fix refresh failed: ${e.message}")
         }
+
+        // G1-17: Wi-Fi RTT — when GPS is dead but WiFi is present (the indoor
+        // case this refresh window exists for), ask nearby RTT-capable access
+        // points for their own position (API 29+ LCI/LCR) and trilaterate: a
+        // 1-2m fix the Kalman weights above any network fix. Fire-and-forget;
+        // onFix is dispatched on the MAIN looper so the Kalman filter stays
+        // single-threaded like every other fix source. RTT is permitted here
+        // because TrackingService is a foreground location service (the API
+        // forbids background ranging).
+        val rtt = wifiRttLocator
+        if (rtt != null) {
+            try {
+                rtt.tryRangeOnce(mainExecutor) { fix ->
+                    val loc = Location("wifi_rtt").apply {
+                        latitude = fix.lat
+                        longitude = fix.lng
+                        accuracy = fix.accuracyMeters.toFloat()
+                        time = System.currentTimeMillis()
+                    }
+                    android.util.Log.i(
+                        "TrackingService",
+                        "Refresh: Wi-Fi RTT fix (${fix.accuracyMeters.toInt()}m, provider wifi_rtt) — posting"
+                    )
+                    onRawLocation(loc)
+                }
+            } catch (e: Exception) {
+                // Non-fatal: RTT is a bonus stream; the fused/raw paths still run.
+            }
+        }
     }
 
     @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+
+        // G1-17: Wi-Fi RTT (802.11mc) — 1-2m indoor fixes. Optional by
+        // design: unsupported devices (no FEATURE_WIFI_RTT) get a null
+        // locator and the stream is byte-identical to before.
+        wifiRttLocator = try {
+            val locator = WifiRttLocator(this)
+            if (locator.isSupported()) locator else null
+        } catch (e: Exception) {
+            null
+        }
 
         // Get initial battery
         updateDeviceState()
@@ -1483,6 +1585,12 @@ class TrackingService : Service() {
                     // heartbeat — the designed belt-and-braces path.
                     put("is_location_enabled", isLocationEnabled())
                     put("is_airplane_mode", isAirplaneMode())
+                    // G1-17: system location MODE (high_accuracy / battery_
+                    // saving / gps_only / off). The old check only knew on/off
+                    // — a user in Battery-saving mode silently degraded to
+                    // 100-500m network fixes with no trace. Now the server can
+                    // see the mode and the app nudges the user (below).
+                    put("location_mode", LocationModeReader.current(this@TrackingService).label)
                 }.toString().toRequestBody(JSON)
 
                 val response = post("/api/device/heartbeat", body)
@@ -1499,6 +1607,11 @@ class TrackingService : Service() {
                     // — don't keep showing a stale "Connected".
                     updateNotification("Reconnecting…")
                 }
+
+                // G1-17: nudge the owner when the system location MODE silently
+                // degrades the tracker (battery-saving = no GPS, gps-only = no
+                // WiFi/cell). Once per 24h; never a hard block.
+                try { notifyLocationModeNudge() } catch (e: Exception) { e.printStackTrace() }
             } catch (e: Exception) {
                 e.printStackTrace()
             }

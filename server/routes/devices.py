@@ -1081,10 +1081,15 @@ async def post_heartbeat(
     )
 
     # COALESCE keeps the last known armed state when an old app build omits
-    # the field (None) — a fresh report never wipes it to NULL.
+    # the field (None) — a fresh report never wipes it to NULL. Same for
+    # location_mode (G1-17): the system location MODE persists on the device
+    # row so the dashboard can show why fixes may be degraded (Battery-saving
+    # = no GPS, GPS-only = no WiFi/cell scanning).
     db.execute(
-        "UPDATE devices SET last_seen=?, app_version=?, capture_armed=COALESCE(?, capture_armed) WHERE id=?",
-        (now, hb.app_version, hb.capture_armed, device_id),
+        """UPDATE devices SET last_seen=?, app_version=?,
+           capture_armed=COALESCE(?, capture_armed),
+           location_mode=COALESCE(?, location_mode) WHERE id=?""",
+        (now, hb.app_version, hb.capture_armed, hb.location_mode, device_id),
     )
 
     # Fresh heartbeat un-archives a device that came back online.

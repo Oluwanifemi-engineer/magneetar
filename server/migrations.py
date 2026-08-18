@@ -18,7 +18,7 @@ from typing import Callable, List, Optional
 logger = logging.getLogger(__name__)
 
 # Current schema version
-CURRENT_VERSION = 14  # Increment when adding migrations
+CURRENT_VERSION = 15  # Increment when adding migrations
 
 
 class Migration:
@@ -408,6 +408,16 @@ def migration_014_guardian(conn: sqlite3.Connection):
     """
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_recovery_sightings_request ON recovery_sightings(request_id)")
+
+
+@register_migration(15, "Add location_mode to devices")
+def migration_015_location_mode(conn: sqlite3.Connection):
+    """Add location_mode column (G1-17: system location MODE reported on the
+    heartbeat so a Battery-saving/GPS-only device is visible server-side)."""
+    try:
+        conn.execute("ALTER TABLE devices ADD COLUMN location_mode TEXT")
+    except sqlite3.OperationalError:
+        pass
 
 
 def init_migrations():

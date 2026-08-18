@@ -57,7 +57,8 @@ rm -rf \
     "$STAGE/.git" \
     "$STAGE/.env" "$STAGE"/*/.env "$STAGE"/**/.env 2>/dev/null || true
 find "$STAGE" -name '*.jks' -o -name '*.keystore' -o -name '*.keystore.*' \
-    -o -name '*.p12' -o -name 'id_*' -o -name '*.env' -o -name '.env*' | while read -r f; do
+    -o -name '*.p12' -o -name 'id_*' -o -name '*.env' -o -name '.env*' \
+    -o -name '.db_password' | while read -r f; do
     rm -f "$f"
 done
 rm -f "$STAGE"/android-app/release.keystore.* 2>/dev/null || true
@@ -76,11 +77,27 @@ rm -rf \
     "$STAGE"/android-app/app/build \
     "$STAGE"/android-app/build \
     "$STAGE"/dashboard/build \
-    "$STAGE"/server/static/apk \
+    "$STAGE"/server/static \
     "$STAGE"/server/venv \
     "$STAGE"/server/.venv \
     "$STAGE"/server/__pycache__ \
+    "$STAGE"/server/media \
+    "$STAGE"/backups \
+    "$STAGE"/.pytest_cache \
+    "$STAGE"/**/.pytest_cache \
+    "$STAGE"/.cache \
+    "$STAGE"/**/.cache \
     "$STAGE"/server/**/__pycache__ 2>/dev/null || true
+
+# LIVE DATA GUARD: the working-tree copy drags runtime data along (nightly
+# DB dumps in backups/, the dev sqlite DB, uploaded evidence). A source
+# tarball with any of these would leak real device/user data — hard-fail on
+# the file NAMES here (the secret grep below only checks content).
+find "$STAGE"/server -maxdepth 2 \( -name '*.db' -o -name '*.db.gz' -o -name '*.sqlite' \) -delete 2>/dev/null || true
+if find "$STAGE" \( -path '*/backups/*' -o -name '*.db' -o -name '*.db.gz' -o -name '*.sqlite' -o -name '.db_password' \) 2>/dev/null | grep -q .; then
+    echo "ERROR: database/backup/credential file found in tarball — aborting (live data must never ship)" >&2
+    exit 1
+fi
 find "$STAGE" -name '*.apk' -o -name '*.aab' -o -name '*.pyc' | while read -r f; do rm -f "$f"; done
 
 echo "==> Verifying no secrets leaked into the tarball"
@@ -89,6 +106,7 @@ echo "==> Verifying no secrets leaked into the tarball"
 if grep -rIlE \
     --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=venv \
     --exclude-dir=.venv --exclude-dir=dist --exclude-dir=build \
+    --exclude=make-source-tarball.sh \
     -e '-----BEGIN [A-Z ]*PRIVATE KEY-----' \
     -e 'MT_API_KEY=[0-9a-f]{16,}' \
     -e 'MT_JWT_SECRET=[0-9a-f]{16,}' \

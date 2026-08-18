@@ -447,6 +447,17 @@ class PermissionsActivity : AppCompatActivity() {
             missing.add(Manifest.permission.BLUETOOTH_CONNECT)
         }
 
+        // Wi-Fi RTT (802.11mc) indoor ranging is OPTIONAL (G1-17): on API 33+
+        // NEARBY_WIFI_DEVICES is a runtime permission. A denial just means no
+        // 1-2m indoor fixes — the fused/GPS/network streams are unaffected,
+        // so it never blocks onboarding (same posture as SMS/Bluetooth).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.NEARBY_WIFI_DEVICES) !=
+                PackageManager.PERMISSION_GRANTED
+        ) {
+            missing.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        }
+
         if (missing.isNotEmpty()) {
             ActivityCompat.requestPermissions(
                 this, missing.toTypedArray(), PERM_REQUEST_CODE

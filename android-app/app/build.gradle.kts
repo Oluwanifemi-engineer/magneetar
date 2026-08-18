@@ -170,8 +170,11 @@ android {
         // the G1-8/9/10 fixed build (10 was the pre-fix staged AAB), 12 =
         // v1.4.4 with G1-11 trigger-first audio, 13 = v1.4.4 with G1-13
         // location accuracy (Kalman init guard + re-anchor escape hatch +
-        // fused wait-for-accurate / no-cached-first-fix).
-        versionCode = 14
+        // fused wait-for-accurate / no-cached-first-fix), 14 = v1.4.4 with
+        // G1-16 location resilience (raw GPS fallback + self-heal watchdog +
+        // stationary-silence refresh), 15 = v1.4.4 with G1-17 (location
+        // MODE detection + Wi-Fi RTT indoor ranging).
+        versionCode = 15
         versionName = appVersion
 
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")

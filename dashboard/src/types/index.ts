@@ -16,6 +16,11 @@ export interface Device {
   battery_percent: number | null;
   is_online: boolean;
   capture_armed: boolean | null;
+  // G1-17: system location MODE reported on the heartbeat (high_accuracy /
+  // battery_saving / gps_only / off). Lets the UI explain degraded accuracy
+  // instead of guessing — Battery-saving disables GPS (100-500m network fixes
+  // even outdoors); GPS-only disables WiFi/cell scanning (no fixes indoors).
+  location_mode: string | null;
   alert_phone: string | null;
   alert_email: string | null;
   alert_channels: string[] | null;

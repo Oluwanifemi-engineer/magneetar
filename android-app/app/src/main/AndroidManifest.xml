@@ -25,6 +25,18 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- Wi-Fi RTT (802.11mc) indoor ranging (G1-17): ACCESS_WIFI_STATE and
+         CHANGE_WIFI_STATE are normal install-time permissions; NEARBY_WIFI_DEVICES
+         is a runtime permission on API 33+. It deliberately does NOT carry
+         usesPermissionFlags="neverForLocation" — Magneetar derives physical
+         location from Wi-Fi (the whole point of RTT), so the flag would be a
+         policy lie and would break ranging on modern Android. RTT is OPTIONAL:
+         a denied NEARBY_WIFI_DEVICES just means no 1-2m indoor fixes; the
+         fused/GPS/network streams are unaffected. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+
     <!-- PROMINENT DISCLOSURE — background location (required by Google Play
          policy, enforced for targetSdk 30+):
 

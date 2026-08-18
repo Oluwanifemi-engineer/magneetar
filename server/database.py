@@ -126,6 +126,7 @@ def init_db(db_path: str = None):
             operating_mode TEXT DEFAULT 'normal',
             sentinel_score INTEGER DEFAULT 0,
             capture_armed BOOLEAN,
+            location_mode TEXT,
             alert_phone TEXT,
             alert_email TEXT,
             -- Per-device alert preferences (NULL = global defaults)

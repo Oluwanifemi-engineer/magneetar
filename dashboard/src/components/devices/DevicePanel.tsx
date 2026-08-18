@@ -16,6 +16,21 @@ const ROLE_LABEL: Record<string, string> = {
   device_only: 'Device-only',
 };
 
+// G1-17: system location MODE labels + explanations. The badge only renders
+// for DEGRADED modes — high_accuracy is the healthy state and stays silent.
+const LOCATION_MODE_LABEL: Record<string, string> = {
+  battery_saving: 'Battery-saving',
+  gps_only: 'GPS only',
+  off: 'Location off',
+};
+const LOCATION_MODE_HINT: Record<string, string> = {
+  battery_saving:
+    'Battery-saving mode disables GPS — fixes are network-only (100-500m), even outdoors. Switch the phone to High accuracy for precise tracking.',
+  gps_only:
+    'GPS-only mode turns off Wi-Fi/cell scanning — the device cannot be located indoors. Switch to High accuracy for precise tracking.',
+  off: 'Location services are OFF on the device — no fixes at all until re-enabled.',
+};
+
 // All toggleable alert types, mirroring server alerts.ALL_ALERT_TYPES. The
 // emergency types (theft, SIM change, factory reset) always deliver and are
 // locked in the UI; the rest can be silenced per-device. Keeping the list in
@@ -356,6 +371,23 @@ export function DevicePanel() {
               }`}
             >
               {ROLE_LABEL[accessRole] ?? accessRole}
+            </span>
+          )}
+          {/* G1-17 location MODE badge — only when accuracy is silently
+              degraded (Battery-saving = no GPS, GPS-only = no WiFi/cell,
+              off = nothing). high_accuracy/unknown stay silent; the phone's
+              own 24h nudge covers the fix, this badge explains it. */}
+          {device.location_mode && LOCATION_MODE_LABEL[device.location_mode] && (
+            <span
+              className={cn(
+                'text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0',
+                device.location_mode === 'off'
+                  ? 'border-red-500/40 text-red-400 bg-red-500/10'
+                  : 'border-amber-500/40 text-amber-400 bg-amber-500/10'
+              )}
+              title={LOCATION_MODE_HINT[device.location_mode]}
+            >
+              {LOCATION_MODE_LABEL[device.location_mode]}
             </span>
           )}
           {editingName ? (

@@ -326,6 +326,13 @@ class HeartbeatPacket(BaseModel):
     # location stream (same as admin_disabled), so the state is carried here.
     is_location_enabled: Optional[bool] = None
     is_airplane_mode: Optional[bool] = None
+    # System location MODE (G1-17): "high_accuracy" / "battery_saving" /
+    # "gps_only" / "off" (Settings.Secure.LOCATION_MODE). The old on/off
+    # check couldn't tell Battery-saving (network-only 100-500m fixes) from
+    # High accuracy (GPS + WiFi/cell), so a degraded mode silently wrecked
+    # accuracy with no server-side trace. Persisted on the devices row
+    # (COALESCE) so the dashboard can see it; None = older app build.
+    location_mode: Optional[str] = None
 
 
 # ─── Auth Models ─────────────────────────────────────────────────────────────

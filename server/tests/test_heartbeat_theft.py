@@ -59,6 +59,7 @@ TEST_API_KEY = config.settings.API_KEY
 DEVICE_ADMIN_INACTIVE = "hb-device-001"
 DEVICE_ADMIN_ACTIVE = "hb-device-002"
 DEVICE_THRESHOLD = "hb-device-003"
+DEVICE_LOCATION_MODE = "hb-device-004"
 
 
 def api_key_headers() -> dict:
@@ -173,3 +174,47 @@ def test_auto_activate_theft_mode_requires_threshold_score():
         ).fetchone()[0]
     assert cases == 1
     assert cmds >= 3
+
+
+def test_heartbeat_persists_location_mode():
+    """G1-17: the heartbeat carries the system location MODE (high_accuracy /
+    battery_saving / gps_only / off) so a silently-degraded device is visible
+    server-side. The mode persists on the devices row (COALESCE — a later
+    bare heartbeat from an old build must not wipe it), and a degraded mode
+    never flips the device to stolen (escalation stays on the location path)."""
+    token = register_device(DEVICE_LOCATION_MODE)["token"]
+
+    resp = client.post(
+        "/api/device/heartbeat",
+        headers=device_headers(token),
+        json={
+            "device_id": DEVICE_LOCATION_MODE,
+            "battery_percent": 75,
+            "is_charging": False,
+            "app_version": "1.0.0",
+            "is_location_enabled": True,
+            "location_mode": "battery_saving",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    row = get_device_row(DEVICE_LOCATION_MODE)
+    assert row["location_mode"] == "battery_saving"
+    # Degraded mode is a quality signal, not a theft signal
+    assert row["operating_mode"] == "normal"
+    assert row["is_stolen"] == 0
+
+    # A later heartbeat WITHOUT the field (older build) must not wipe it
+    resp = client.post(
+        "/api/device/heartbeat",
+        headers=device_headers(token),
+        json={
+            "device_id": DEVICE_LOCATION_MODE,
+            "battery_percent": 80,
+            "is_charging": True,
+            "app_version": "1.0.0",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    row = get_device_row(DEVICE_LOCATION_MODE)
+    assert row["location_mode"] == "battery_saving"

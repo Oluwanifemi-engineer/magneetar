@@ -3,15 +3,24 @@
 > Everything is staged. This is a **web-UI-only** step — no code, no CLI,
 > no secrets. The notes and artifacts below are ready to paste/upload.
 
-## Artifacts (already staged, checksums verified)
+## Artifacts (already staged, checksums verified — **v1.4.4 build 15, includes G1-17**)
 
 | File | Path | SHA-256 |
 |---|---|---|
-| Source tarball | `dist/magneetar-1.4.4-source.tar.gz` | `75dafdd256b12ffdd022567ccc19eefa07f7e935eb9d68e1faa00afff5ce8507` |
+| Source tarball | `dist/magneetar-1.4.4-source.tar.gz` | `69dcd993bc1a6e616bac760d144ccc1b7622b35d615f4663cb301268b7913449` |
 | Checksum file | `dist/magneetar-1.4.4-source.tar.gz.sha256` | — (contains the line above) |
-| Play-clean APK (download page, `magneetar-v1.4.4-release.apk` / `magneetar-latest.apk`) | `server/static/apk/` | `29d71ee5617b37bcf6125fcde063643d7c73cca544ad956cabee29cf32488e14` |
-| Play AAB (internal testing, versionCode 12) | `server/static/apk/magneetar-v1.4.4-play.aab` | `aa7d2d240cbb89d0c04021d912ef2da4a096187085185c0788a41c691fbf4e17` |
-| Sideload APK (SMS-capable, archived) | `server/static/apk/magneetar-v1.4.4-sideload-release.apk` | `60330fb93993bd10cb9405c9106bf38f05ca2045c35053bf042b1fa4f5b25a7b` |
+| Play-clean APK (download page, `magneetar-v1.4.4-release.apk` / `magneetar-latest.apk`) | `server/static/apk/` | `c114984af8bd54f27bd60d0e6aa7974249c3eaca66aa41b72df664be89db8a00` |
+| Play AAB (internal testing, versionCode 15) | `server/static/apk/magneetar-v1.4.4-play.aab` | `ba55ef7d1150bac87dfef1c013029dd77ed2eed7cbf5b76cd15eda783842f433` |
+| Sideload APK (SMS-capable, archived) | `server/static/apk/magneetar-v1.4.4-sideload-release.apk` | `b4eb1258c6aa82c6989b281b604f271980b6fd7b0885b14d454cf685aaa2a629` |
+
+> G1-17 (2026-08-18): location MODE detection + heartbeat reporting (server
+> persists `location_mode`), once-per-24h degraded-mode nudge, Wi-Fi RTT
+> (802.11mc) indoor ranging, dashboard road-snapping (display-only) — see
+> `docs/location-accuracy-research.md`. Live-verified: `/apk/checksum` =
+> `c114984a…` (0 SMS perms, versionCode 15), `/apk/source/checksum` =
+> `69dcd993…`. Source tarball integrity re-scanned clean (no backups/DBs/
+> credentials — the make-source-tarball.sh strip list was hardened after a
+> leak was caught in a draft build).
 
 Upload the **source tarball + its .sha256** to the release (the APK/AAB live on
 the product site and Play — don't duplicate them here; the release is the

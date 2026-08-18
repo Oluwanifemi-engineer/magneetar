@@ -351,6 +351,10 @@ async def list_devices(
                 "capture_armed": (
                     bool(d["capture_armed"]) if "capture_armed" in d.keys() and d["capture_armed"] is not None else None
                 ),
+                # G1-17: system location MODE (high_accuracy/battery_saving/
+                # gps_only/off) reported on the heartbeat — lets the dashboard
+                # explain degraded accuracy instead of guessing.
+                "location_mode": (d["location_mode"] if "location_mode" in d.keys() else None),
                 "archived_at": d["archived_at"] if "archived_at" in d.keys() else None,
                 "alert_phone": (
                     d["alert_phone"] if "alert_phone" in d.keys() and access_role != "device_only" else None

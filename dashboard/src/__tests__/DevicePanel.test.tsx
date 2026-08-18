@@ -344,3 +344,39 @@ describe('DevicePanel — password-gated permanent deletion (step-up)', () => {
     expect(screen.getByText('Archived')).toBeInTheDocument();
   });
 });
+
+describe('DevicePanel — location mode badge (G1-17)', () => {
+  beforeEach(() => {
+    mockDevices = [baseDevice()];
+    mockSelectedDeviceId = 'dev-1';
+    mockLatestLocation = null;
+  });
+
+  it('shows a degraded-mode badge for battery_saving with an explanation', () => {
+    mockDevices = [baseDevice({ location_mode: 'battery_saving' })];
+    render(<DevicePanel />);
+    const badge = screen.getByText('Battery-saving');
+    expect(badge).toBeInTheDocument();
+    expect(badge.closest('span')?.getAttribute('title')).toMatch(/network-only/i);
+  });
+
+  it('shows a degraded-mode badge for gps_only', () => {
+    mockDevices = [baseDevice({ location_mode: 'gps_only' })];
+    render(<DevicePanel />);
+    expect(screen.getByText('GPS only')).toBeInTheDocument();
+  });
+
+  it('shows a red badge when location services are off', () => {
+    mockDevices = [baseDevice({ location_mode: 'off' })];
+    render(<DevicePanel />);
+    expect(screen.getByText('Location off')).toBeInTheDocument();
+  });
+
+  it('stays silent for the healthy high_accuracy mode', () => {
+    mockDevices = [baseDevice({ location_mode: 'high_accuracy' })];
+    render(<DevicePanel />);
+    expect(screen.queryByText('Battery-saving')).not.toBeInTheDocument();
+    expect(screen.queryByText('GPS only')).not.toBeInTheDocument();
+    expect(screen.queryByText('Location off')).not.toBeInTheDocument();
+  });
+});

@@ -93,6 +93,7 @@ class PostgresDatabase:
                         operating_mode TEXT DEFAULT 'normal',
                         sentinel_score INTEGER DEFAULT 0,
                         capture_armed BOOLEAN,
+                        location_mode TEXT,
                         archived_at TIMESTAMP,
                         -- Per-device alert recipients/preferences (NULL = global defaults)
                         alert_phone TEXT,

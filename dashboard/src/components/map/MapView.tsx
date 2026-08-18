@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useStore } from '@/store/useStore';
 import { cn, openGoogleMapsDirections, formatDistance, formatDuration, isOnline, relativeTime, formatTimestamp, locationTimestamp } from '@/lib/utils';
-import { getOSRMRoute, NavigationRoute } from '@/services/navigation';
+import { getOSRMRoute, snapToRoad, NavigationRoute } from '@/services/navigation';
 import type { Location } from '@/types';
 
 // ─── Reverse Geocoding ─────────────────────────────────────────────────────
@@ -14,6 +14,20 @@ import type { Location } from '@/types';
 // operator sees "14 Broad St, Lagos" not just "6.5244, 3.3792".
 const geocodeCache = new Map<string, string>();
 const GEOCODE_CACHE_MAX = 50;
+
+// ─── Road snapping (display-only, G1-17) ───────────────────────────────────
+// Coarse fixes (>= SNAP_MIN_ACCURACY_M) get their MARKER snapped to the
+// nearest road via OSRM /nearest so the pin reads as street truth; the
+// accuracy circle, trail, replay and ALL server data stay RAW. Sub-threshold
+// fixes are never snapped (they're already on the road). The cache keys on
+// rounded coords so the per-3s poll doesn't hammer the public OSRM server.
+const snapCache = new Map<string, [number, number]>();
+const SNAP_CACHE_MAX = 100;
+const SNAP_MIN_ACCURACY_M = 30; // below this the fix is already street-level
+
+function snapCacheKey(lat: number, lng: number): string {
+  return `${lat.toFixed(4)},${lng.toFixed(4)}`;
+}
 
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
@@ -521,9 +535,16 @@ export function MapView() {
   // and always beats an IP-derived browser fix. Survives reloads.
   const [userPinned, setUserPinned] = useState<[number, number] | null>(loadPinnedPosition);
   const [pinning, setPinning] = useState(false);
+  // G1-17: snapped device marker position (display-only) — the effective
+  // marker sits on the nearest road when the fix is coarse; all data stays raw.
+  const [snappedDevicePos, setSnappedDevicePos] = useState<[number, number] | null>(null);
 
   // Effective operator position: pin wins over the browser fix.
   const effectiveUserPos = userPinned ?? userPosition;
+  // Effective DEVICE marker position: the road-snapped point when a coarse
+  // fix was snapped (display-only), otherwise the raw server fix.
+  const deviceMarkerPos: [number, number] | null = snappedDevicePos ?? (latestLocation ? [latestLocation.lat, latestLocation.lng] : null);
+  const isDeviceSnapped = snappedDevicePos != null;
   // Routing is safe from a pinned position (the operator chose the exact
   // point), or from a browser fix whose reported accuracy is street-level.
   // Routing from an IP-derived fix would send the operator to the wrong city.
@@ -590,6 +611,39 @@ export function MapView() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- coord deps are deliberate: re-geocode only when lat/lng actually move (see comment above the hook)
   }, [latestLocation?.lat, latestLocation?.lng]);
+
+  // G1-17: snap the device MARKER to the nearest road when the fix is coarse
+  // (>= 30m) — a presentation transform only. The accuracy circle, trail,
+  // replay and server data all keep the RAW fix; the popup annotates the
+  // snap as estimated. Same primitive-deps pattern as the geocode hook so a
+  // per-ping object identity change never triggers a re-snap.
+  useEffect(() => {
+    if (!latestLocation || latestLocation.accuracy == null || latestLocation.accuracy < SNAP_MIN_ACCURACY_M) {
+      setSnappedDevicePos(null);
+      return;
+    }
+    const { lat, lng } = latestLocation;
+    const key = snapCacheKey(lat, lng);
+    const cached = snapCache.get(key);
+    if (cached) {
+      setSnappedDevicePos(cached);
+      return;
+    }
+    let cancelled = false;
+    snapToRoad(lat, lng).then((pos) => {
+      if (cancelled) return;
+      if (pos) {
+        if (snapCache.size >= SNAP_CACHE_MAX) {
+          const firstKey = snapCache.keys().next().value;
+          if (firstKey) snapCache.delete(firstKey);
+        }
+        snapCache.set(key, pos);
+      }
+      setSnappedDevicePos(pos);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- primitive coord deps are deliberate (same pattern as the geocode hook above)
+  }, [latestLocation?.lat, latestLocation?.lng, latestLocation?.accuracy]);
 
   // Initialize Leaflet icons and map
   useEffect(() => {
@@ -799,17 +853,20 @@ export function MapView() {
           )}
 
           {/* Device Marker — click flies to it (street level) and resumes
-              follow, so the operator never fights the per-second re-centre */}
-          {latestLocation && iconsReady && deviceIcon && (
+              follow, so the operator never fights the per-second re-centre.
+              Position is the road-snapped point for coarse fixes (G1-17); the
+              popup still shows the RAW server coords + accuracy so the snap is
+              never mistaken for truth. */}
+          {latestLocation && deviceMarkerPos && iconsReady && deviceIcon && (
             <Marker
-              position={[latestLocation.lat, latestLocation.lng]}
+              position={deviceMarkerPos}
               icon={deviceIcon}
               eventHandlers={{
                 click: () => {
                   if (!mapRef.current) return;
                   setFollowDevice(true);
                   mapRef.current.flyTo(
-                    [latestLocation.lat, latestLocation.lng],
+                    deviceMarkerPos,
                     Math.max(mapRef.current.getZoom(), 16),
                     { animate: true, duration: 0.8 }
                   );
@@ -825,6 +882,11 @@ export function MapView() {
                   {deviceAddress && (
                     <div className="text-mag-text text-xs font-bold mb-2 leading-tight">
                       📍 {deviceAddress}
+                    </div>
+                  )}
+                  {isDeviceSnapped && (
+                    <div className="text-[10px] font-mono text-mag-warning font-bold mb-2 leading-tight">
+                      ⚠ Marker snapped to nearest road — fix accuracy ±{latestLocation.accuracy?.toFixed(0) || '?'}m. The circle shows the true uncertainty.
                     </div>
                   )}
                   <div className="space-y-1 text-mag-text-dim">

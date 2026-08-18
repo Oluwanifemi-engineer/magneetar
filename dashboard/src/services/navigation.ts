@@ -74,6 +74,36 @@ export async function getOSRMRoute(
   }
 }
 
+/**
+ * Snap a coarse fix to the nearest drivable road — DISPLAY-ONLY (G1-17).
+ * Uses OSRM's /nearest service (same free stack as getOSRMRoute) so a 30-80m
+ * fix reads as street truth on the map. Returns the snapped [lat, lng], or
+ * null when the fix is more than ~500m from any road (the snap would be a
+ * lie) or OSRM fails — callers MUST fall back to the raw fix. NEVER used for
+ * the trail/history/evidence and never persisted: this is a presentation
+ * transform; the accuracy circle and server data stay raw.
+ */
+export async function snapToRoad(lat: number, lng: number): Promise<[number, number] | null> {
+  try {
+    const url = `https://router.project-osrm.org/nearest/v1/driving/${lng},${lat}?number=1`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('OSRM nearest request failed');
+    const data = await response.json();
+    if (data.code !== 'Ok' || !data.waypoints || data.waypoints.length === 0) return null;
+    const waypoint = data.waypoints[0];
+    const snapDistanceM = typeof waypoint.distance === 'number' ? waypoint.distance : Infinity;
+    // OSRM always returns a waypoint; reject snaps that moved the fix a long
+    // way (middle of a field / bad geocoding) — beyond ~500m it's a lie.
+    if (snapDistanceM > 500) return null;
+    const location: number[] = waypoint.location; // [lng, lat]
+    if (!Array.isArray(location) || location.length < 2) return null;
+    return [location[1], location[0]];
+  } catch (e) {
+    console.warn('[Navigation] snapToRoad failed:', e);
+    return null;
+  }
+}
+
 function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1).replace(/-/g, ' ');
 }
