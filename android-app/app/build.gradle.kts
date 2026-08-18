@@ -283,7 +283,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-nearby:19.2.0")
 
     // Sentry crash reporting
-    implementation("io.sentry:sentry-android:7.14.0")
+    implementation("io.sentry:sentry-android:8.53.0")
 
     // JVM unit tests (pure logic only — e.g. CaptureRoutingTest). No
     // Robolectric: anything touching Android APIs stays out of src/test.
