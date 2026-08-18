@@ -133,6 +133,14 @@ class NoOpEncryption:
     def decrypt_location(self, encrypted_data: str, device_id: str) -> tuple[float, float]:
         raise NotImplementedError("Encryption not configured")
 
+    def encrypt_field(self, plaintext: str, device_id: str) -> str:
+        """NoOp mode stores the field as plaintext (matches encrypt_location)."""
+        return plaintext
+
+    def decrypt_field(self, encrypted_b64: str, device_id: str) -> str:
+        """NoOp mode reads the field back as plaintext."""
+        return encrypted_b64
+
 
 # ── At-rest store/read helpers (the wired contract) ─────────────────────────
 

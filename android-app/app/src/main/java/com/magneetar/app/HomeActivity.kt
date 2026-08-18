@@ -162,6 +162,7 @@ class HomeActivity : AppCompatActivity() {
             "Open Dashboard",
             "Toggle Remote Capture",
             "Toggle Always-Listen Audio",
+            "Pair a Device (Offline P2P)",
             "Battery Optimization",
             "Auto-start",
             "Change PIN",
@@ -179,6 +180,7 @@ class HomeActivity : AppCompatActivity() {
                     "Open Dashboard" -> openDashboard()
                     "Toggle Remote Capture" -> toggleCapture()
                     "Toggle Always-Listen Audio" -> toggleAlwaysListen()
+                    "Pair a Device (Offline P2P)" -> startActivity(Intent(this, PairingActivity::class.java))
                     "Toggle SMS Commands" -> toggleSmsCommands()
                     "Battery Optimization" -> requestBatteryOptimization()
                     "Auto-start" -> OEMUtils.openAutoStartSettings(this)

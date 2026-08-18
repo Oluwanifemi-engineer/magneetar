@@ -635,6 +635,25 @@ def init_db(db_path: str = None):
 
         CREATE INDEX IF NOT EXISTS idx_recovery_sightings_request ON recovery_sightings(request_id);
 
+        -- Offline Device Network (docs/offline-network-design.md §4): paired
+        -- P2P. A pairing links two of the OWNER's devices with a shared
+        -- 32-byte pair_secret (encrypted at rest, field-level AES-256-GCM
+        -- keyed on the pair id), minted after an out-of-band single-use
+        -- pair_code bootstrap. device_b + secret stay NULL until confirm.
+        CREATE TABLE IF NOT EXISTS p2p_pairings (
+            id TEXT PRIMARY KEY,
+            owner_user_id TEXT NOT NULL,
+            device_a TEXT NOT NULL,
+            device_b TEXT,
+            pair_secret_enc TEXT,
+            pair_code_hash TEXT,
+            pair_code_expires TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_p2p_pairings_owner ON p2p_pairings(owner_user_id);
+        CREATE INDEX IF NOT EXISTS idx_p2p_pairings_code ON p2p_pairings(pair_code_hash);
+
         -- ─── Audit Log (never deleted) ──────────────────────────────────────
         CREATE TABLE IF NOT EXISTS audit_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1030,6 +1049,7 @@ def ensure_initialized() -> bool:
         "guardian_profiles",
         "recovery_requests",
         "recovery_sightings",
+        "p2p_pairings",  # Offline Device Network §4 — paired P2P
         "audit_log",
         "fcm_tokens",
         "rate_limits",

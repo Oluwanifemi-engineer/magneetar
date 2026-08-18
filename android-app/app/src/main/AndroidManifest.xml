@@ -196,6 +196,13 @@
             android:theme="@style/AppTheme"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- ─── Pairing (Offline Device Network §4) ────────────────────── -->
+        <activity
+            android:name=".PairingActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- ─── Lost Mode ───────────────────────────────────────────────── -->
         <!-- Full-screen recovery lock (v1.5). showWhenLocked + turnScreenOn
              surface the message over a locked screen; excludeFromRecents
@@ -275,6 +282,18 @@
 
         <service
             android:name=".GuardianBeaconScanner"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync"
+            android:stopWithTask="false" />
+
+        <!-- ─── Offline Device Network: paired P2P (Nearby CLUSTER) ────── -->
+        <!-- Started explicitly (Offline Find screen / pairing UI) or when a
+             paired device is in lost mode; never always-on (§4.4). Nearby
+             Connections runs on the already-granted ACCESS_FINE_LOCATION +
+             install-time CHANGE_WIFI_STATE/BLUETOOTH permissions. -->
+        <service
+            android:name=".P2pOfflineService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync"

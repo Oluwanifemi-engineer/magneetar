@@ -276,6 +276,12 @@ dependencies {
     // Coroutine extensions for Google Play Services Tasks (await())
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
 
+    // Nearby Connections — P2P_CLUSTER mesh for the offline paired-device
+    // network (Layer 3, docs/offline-network-design.md §4). ~100m range,
+    // encrypted channel, mesh topology; used for offline siren/lock commands
+    // and last-known exchange between the owner's own devices.
+    implementation("com.google.android.gms:play-services-nearby:19.2.0")
+
     // Sentry crash reporting
     implementation("io.sentry:sentry-android:7.14.0")
 

@@ -307,6 +307,20 @@ class PostgresDatabase:
 
                     CREATE INDEX IF NOT EXISTS idx_recovery_sightings_request ON recovery_sightings(request_id);
 
+                    CREATE TABLE IF NOT EXISTS p2p_pairings (
+                        id TEXT PRIMARY KEY,
+                        owner_user_id TEXT NOT NULL,
+                        device_a TEXT NOT NULL,
+                        device_b TEXT,
+                        pair_secret_enc TEXT,
+                        pair_code_hash TEXT,
+                        pair_code_expires TIMESTAMPTZ,
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        completed_at TIMESTAMPTZ
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_p2p_pairings_owner ON p2p_pairings(owner_user_id);
+                    CREATE INDEX IF NOT EXISTS idx_p2p_pairings_code ON p2p_pairings(pair_code_hash);
+
                     CREATE TABLE IF NOT EXISTS audit_log (
                         id BIGSERIAL PRIMARY KEY,
                         timestamp TIMESTAMPTZ DEFAULT NOW(),

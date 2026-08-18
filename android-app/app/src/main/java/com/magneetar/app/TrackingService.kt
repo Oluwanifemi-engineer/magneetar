@@ -373,6 +373,20 @@ class TrackingService : Service() {
                 }
             }
         }
+        // Offline Device Network §4: a verified P2P command from a paired
+        // device (P2pOfflineService). Executes through the SAME handler path
+        // (siren/lock/lost_mode/ping work with zero internet); the ack travels
+        // back over the P2P channel, not the network poll.
+        if (intent?.action == P2pOfflineService.ACTION_P2P_COMMAND && intent.hasExtra(SmsCommandReceiver.EXTRA_COMMAND_ID)) {
+            val commandId = intent.getIntExtra(SmsCommandReceiver.EXTRA_COMMAND_ID, -1)
+            val command = intent.getStringExtra(SmsCommandReceiver.EXTRA_COMMAND) ?: ""
+            val params = intent.getStringExtra(SmsCommandReceiver.EXTRA_PARAMS) ?: ""
+            if (commandId > 0 && command.isNotEmpty()) {
+                scope.launch {
+                    handleCommand(commandId, command, params)
+                }
+            }
+        }
         return START_STICKY
     }
 
@@ -1834,6 +1848,10 @@ class TrackingService : Service() {
                     // restart (LostModeManager.reapply in onCreate), so the
                     // lock survives reboots until the owner exits it.
                     LostModeManager.enter(this, params)
+                    // Offline Device Network §4.4: a lost device advertises
+                    // over P2P so the owner's other paired devices can find
+                    // it even with no internet.
+                    runCatching { P2pOfflineService.start(this) }
                     ackCommand(id, "executed")
                 }
                 else -> ackFailed(id, "Unknown command: '$command'")

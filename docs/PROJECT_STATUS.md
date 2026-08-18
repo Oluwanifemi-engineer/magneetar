@@ -35,7 +35,15 @@ Nearby Connections with BLE fallback; opt-in guardian model kept). `MeshBeacon`
 (deterministic discovery id + HMAC-SHA256 handshake) locked by 16 JVM tests;
 server sighting metadata (`hop_count`/`relayed`, guarded ALTERs + migration 16)
 with a relay test. 560 server tests, 128 Android JVM tests per flavor.
-Phases B–D (Android relay + P2P services, pairing UI, dashboard) per roadmap.
+Phases B + C shipped same day: Android relay mesh (`RelayOutbox` + envelope
+decode/re-advertise/flush in `GuardianBeaconScanner`, 11 tests) and paired P2P
+(server `/api/p2p/pair/*` with hashed single-use codes + encrypted-at-rest
+secrets, migration 17, 9 tests; Android `PairingApi`/`PairingActivity` UI,
+Keystore-backed `PairVault`, AES-GCM `P2pMessage` codec 11 tests, and
+`P2pOfflineService` — Nearby CLUSTER with mutual HMAC handshake, offline
+siren/lock/lost_mode/ping + ack, SIGHTING_CARRIER mesh density, lost-mode
+auto-advertise). 569 server tests, 150 Android JVM tests per flavor.
+Phase D (dashboard mesh visibility, battery/telemetry monitoring) pending.
 
 **Latest (2026-08-18, v1.4.4):** G1-17 location accuracy (vc15):
 location-MODE detection + heartbeat reporting (`location_mode` persisted

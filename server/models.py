@@ -723,6 +723,32 @@ class RecoverySightingCreate(BaseModel):
     relayed: Optional[bool] = None
 
 
+# ─── P2P Pairing Models (Offline Device Network §4) ─────────────────────────
+
+
+class P2pPairInitiate(BaseModel):
+    """Start pairing THIS device with another of the owner's devices.
+
+    Returns a single-use 8-hex pair_code (15 min TTL) the owner types into
+    the other device — the out-of-band bootstrap that proves a human is
+    pairing the right two devices. The code is stored hashed, never plaintext.
+    """
+
+    device_id: str = Field(..., min_length=3, max_length=64)
+
+
+class P2pPairConfirm(BaseModel):
+    """The second device completes the pairing with the code.
+
+    Mints the shared pair_secret (32 random bytes), stores it encrypted at
+    rest (AES-256-GCM keyed on the pair id), and returns it to the confirming
+    device. The first device pulls the same secret via GET /api/p2p/pair/status.
+    """
+
+    device_id: str = Field(..., min_length=3, max_length=64)
+    pair_code: str = Field(..., min_length=8, max_length=8)
+
+
 # ─── Alert Models ────────────────────────────────────────────────────────────
 
 

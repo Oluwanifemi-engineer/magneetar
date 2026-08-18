@@ -437,6 +437,10 @@ from routes.guardian import router as guardian_router  # noqa: E402
 
 app.include_router(guardian_router)
 
+from routes.p2p import router as p2p_router  # noqa: E402
+
+app.include_router(p2p_router)
+
 # Metrics and observability endpoints
 from routes.metrics import router as metrics_router  # noqa: E402
 

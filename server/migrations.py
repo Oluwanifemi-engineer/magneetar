@@ -18,7 +18,7 @@ from typing import Callable, List, Optional
 logger = logging.getLogger(__name__)
 
 # Current schema version
-CURRENT_VERSION = 16  # Increment when adding migrations
+CURRENT_VERSION = 17  # Increment when adding migrations
 
 
 class Migration:
@@ -433,6 +433,28 @@ def migration_016_sighting_relay_meta(conn: sqlite3.Connection):
         conn.execute("ALTER TABLE recovery_sightings ADD COLUMN relayed BOOLEAN DEFAULT 0")
     except sqlite3.OperationalError:
         pass
+
+
+@register_migration(17, "Create p2p_pairings table")
+def migration_017_p2p_pairings(conn: sqlite3.Connection):
+    """Create the paired-P2P table (docs/offline-network-design.md §4)."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS p2p_pairings (
+            id TEXT PRIMARY KEY,
+            owner_user_id TEXT NOT NULL,
+            device_a TEXT NOT NULL,
+            device_b TEXT,
+            pair_secret_enc TEXT,
+            pair_code_hash TEXT,
+            pair_code_expires TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_p2p_pairings_owner ON p2p_pairings(owner_user_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_p2p_pairings_code ON p2p_pairings(pair_code_hash)")
 
 
 def init_migrations():
