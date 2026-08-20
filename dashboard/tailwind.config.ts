@@ -11,18 +11,18 @@ const config: Config = {
       colors: {
         // Premium Dark Security Palette — Black & White Focus
         mag: {
-          // Background layers — deep navy-charcoal
-          bg: '#0B1120',
-          panel: '#111827',
-          surface: '#1F2937',
-          border: '#374151',
-          'border-bright': '#4B5563',
+          // Background layers — white/light
+          bg: '#FFFFFF',
+          panel: '#F9FAFB',
+          surface: '#F3F4F6',
+          border: '#E5E7EB',
+          'border-bright': '#D1D5DB',
 
-          // Primary — Clean White
-          primary: '#FFFFFF',
-          'primary-dim': '#D1D5DB',
-          'primary-glow': 'rgba(255, 255, 255, 0.12)',
-          'primary-bright': '#FFFFFF',
+          // Primary — Dark (CTAs, emphasis)
+          primary: '#111827',
+          'primary-dim': '#374151',
+          'primary-glow': 'rgba(17, 24, 39, 0.08)',
+          'primary-bright': '#111827',
 
           // Accent — Bright Green for positive states
           accent: '#10B981',
@@ -39,15 +39,15 @@ const config: Config = {
           'warning-dim': '#D97706',
           'warning-glow': 'rgba(245, 158, 11, 0.15)',
 
-          // Secondary — Light Gray
-          secondary: '#9CA3AF',
-          'secondary-dim': '#6B7280',
-          'secondary-glow': 'rgba(156, 163, 175, 0.12)',
+          // Secondary — Gray
+          secondary: '#6B7280',
+          'secondary-dim': '#4B5563',
+          'secondary-glow': 'rgba(107, 114, 128, 0.12)',
 
-          // Text — crisp white to soft gray
-          text: '#F9FAFB',
-          'text-dim': '#9CA3AF',
-          'text-bright': '#FFFFFF',
+          // Text — dark to soft gray
+          text: '#111827',
+          'text-dim': '#6B7280',
+          'text-bright': '#111827',
         },
       },
       fontFamily: {

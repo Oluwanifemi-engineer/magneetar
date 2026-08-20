@@ -230,13 +230,7 @@ export default function LoginPage() {
           <div className="relative">
             {/* Brand */}
             <Link href="/" className="inline-flex items-center gap-2.5 group">
-              <div className="w-9 h-9 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden"><svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
-                  <path
-                    d="M 29,90 V 43 C 29,25 68,25 68,43 V 90 L 91,29 V 90"
-                    fill="#111827"
-                  />
-                </svg>
-              </div>
+              <img src="/magneetar-mhalf.svg" alt="Magneetar" className="w-9 h-9 rounded-lg" />
               <div className="leading-none">
                 <div className="text-gray-900 text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
                 <div className="text-[8px] font-mono text-gray-900/30 tracking-[0.3em] mt-1">COMMAND CENTER</div>
@@ -392,14 +386,7 @@ export default function LoginPage() {
           <div className={cn('w-full max-w-md transition-all duration-700', mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4')}>
             {/* Mobile brand */}
             <Link href="/" className="lg:hidden inline-flex items-center gap-2.5 mb-10">
-              <div className="w-9 h-9 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
-                <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
-                  <path
-                    d="M 29,90 V 43 C 29,25 68,25 68,43 V 90 L 91,29 V 90"
-                    fill="#111827"
-                  />
-                </svg>
-              </div>
+              <img src="/magneetar-mhalf.svg" alt="Magneetar" className="w-9 h-9 rounded-lg" />
               <div className="leading-none">
                 <div className="text-gray-900 text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
                 <div className="text-[8px] font-mono text-gray-900/30 tracking-[0.3em] mt-1">COMMAND CENTER</div>
