@@ -19,7 +19,6 @@ import {
   Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PRODUCT_STATS } from '@/lib/productStats';
 
 type LoginMode = 'account' | 'apikey';
 
@@ -234,7 +233,7 @@ export default function LoginPage() {
               <div className="w-9 h-9 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden"><svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
                   <path
                     d="M 29,90 V 43 C 29,25 68,25 68,43 V 90 L 91,29 V 90"
-                    fill="white"
+                    fill="#111827"
                   />
                 </svg>
               </div>
@@ -282,9 +281,9 @@ export default function LoginPage() {
                 <div className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent animate-scan-line" aria-hidden="true" />
                 {/* Radar ping — emerald */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14" aria-hidden="true">
-                  <span className="absolute inset-0 rounded-full border border-mag-accent/40 animate-radar-ping" />
-                  <span className="absolute inset-0 rounded-full border border-mag-accent/25 animate-radar-ping" style={{ animationDelay: '1.2s' }} />
-                  <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-mag-accent shadow-[0_0_16px_rgba(16,185,129,0.8)]" />
+                  <span className="absolute inset-0 rounded-full border border-emerald-400/40 animate-radar-ping" />
+                  <span className="absolute inset-0 rounded-full border border-emerald-400/25 animate-radar-ping" style={{ animationDelay: '1.2s' }} />
+                  <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-emerald-500 shadow-[0_0_16px_rgba(16,185,129,0.8)]" />
                 </div>
                 {/* Decorative route — aqua gradient */}
                 <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 220" fill="none" preserveAspectRatio="none" aria-hidden="true">
@@ -294,12 +293,12 @@ export default function LoginPage() {
                     strokeWidth="1.5"
                     className="dash-flow"
                   />
-                  <circle cx="40" cy="180" r="3" fill="#06B6D4" />
-                  <circle cx="380" cy="50" r="3" fill="#14B8A6" />
+                  <circle cx="40" cy="180" r="3" fill="#111827" />
+                  <circle cx="380" cy="50" r="3" fill="#6B7280" />
                   <defs>
                     <linearGradient id="route-grad" x1="40" y1="180" x2="380" y2="50">
-                      <stop offset="0%" stopColor="#06B6D4" />
-                      <stop offset="100%" stopColor="#14B8A6" />
+                      <stop offset="0%" stopColor="#111827" />
+                      <stop offset="100%" stopColor="#6B7280" />
                     </linearGradient>
                   </defs>
                 </svg>
@@ -320,7 +319,7 @@ export default function LoginPage() {
                 <div className="bg-white px-4 py-3">
                   <div className="text-[8px] font-mono text-gray-900/30 tracking-widest font-bold mb-1.5">THREAT</div>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-mag-accent shadow-[0_0_8px_rgba(16,185,129,0.7)]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]" />
                     <span className="text-gray-900 text-sm font-bold font-mono">SAFE</span>
                   </div>
                 </div>
@@ -362,36 +361,24 @@ export default function LoginPage() {
             {/* Floating chips */}
             <div className="absolute -top-4 -right-3 sm:-right-6 px-3.5 py-2 rounded-xl border border-gray-200 bg-white  shadow-xl shadow-black/50 animate-float-slow flex items-center gap-2">
               <span className="relative flex w-2 h-2">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-mag-accent opacity-60 animate-ping" />
-                <span className="relative inline-flex rounded-full w-2 h-2 bg-mag-accent" />
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
+                <span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-500" />
               </span>
-              <span className="text-[10px] font-mono font-bold text-gray-700">Pixel 8 · Demo device</span>
+              <span className="text-[10px] font-mono font-bold text-gray-700">Galaxy S24 · Demo device</span>
             </div>
             <div className="absolute -bottom-4 -left-3 sm:-left-6 px-3.5 py-2 rounded-xl border border-gray-200 bg-white  shadow-xl shadow-black/50 animate-float-slow flex items-center gap-2" style={{ animationDelay: '-2.5s' }}>
-              <span className="w-4 h-4 rounded-full bg-mag-accent/15 border border-mag-accent/30 flex items-center justify-center">
-                <Check size={9} className="text-mag-accent" />
+              <span className="w-4 h-4 rounded-full bg-emerald-500/15 border border-emerald-200 flex items-center justify-center">
+                <Check size={9} className="text-emerald-600" />
               </span>
               <span className="text-[10px] font-mono font-bold text-gray-700">Recovery enabled</span>
             </div>
           </div>
 
-          {/* ─── Verifiable signals (no fabricated adoption numbers — the
-              project shows real counts only when real users exist; values are
-              single-sourced from @/lib/productStats) */}
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 animate-fade-slide" style={{ animationDelay: '0.2s' }}>
-            {PRODUCT_STATS.map((stat) => (
-              <div key={stat.label} className="flex items-baseline gap-1.5">
-                <span className="text-sm font-bold font-mono text-gray-900">{stat.display}</span>
-                <span className="text-[10px] font-mono font-bold tracking-wider text-gray-900/35 uppercase">{stat.label}</span>
-              </div>
-            ))}
-          </div>
-
           {/* Footer strip */}
           <div className="mt-10 flex items-center gap-3 animate-fade-slide" style={{ animationDelay: '0.25s' }}>
             <span className="relative flex w-2 h-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-mag-accent opacity-60 animate-ping" />
-              <span className="relative inline-flex rounded-full w-2 h-2 bg-mag-accent" />
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
+              <span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-500" />
             </span>
             <span className="text-[11px] font-mono font-bold tracking-wider text-gray-400">
               ALL SYSTEMS OPERATIONAL
@@ -409,7 +396,7 @@ export default function LoginPage() {
                 <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
                   <path
                     d="M 29,90 V 43 C 29,25 68,25 68,43 V 90 L 91,29 V 90"
-                    fill="white"
+                    fill="#111827"
                   />
                 </svg>
               </div>
@@ -423,8 +410,8 @@ export default function LoginPage() {
             <div className="mb-8">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 bg-gray-50 mb-4">
                 <span className="relative flex w-1.5 h-1.5">
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-mag-accent opacity-60 animate-ping" />
-                  <span className="relative inline-flex rounded-full w-1.5 h-1.5 bg-mag-accent" />
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
+                  <span className="relative inline-flex rounded-full w-1.5 h-1.5 bg-emerald-500" />
                 </span>
                 <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-gray-500">SECURE ACCESS</span>
               </div>
@@ -438,7 +425,7 @@ export default function LoginPage() {
             <div
               ref={cardRef}
               onMouseMove={handleCardMove}
-              className="spotlight-card relative rounded-2xl border border-white/[0.08] bg-white  p-7 sm:p-8 shadow-2xl shadow-black/50"
+              className="spotlight-card relative rounded-2xl border border-gray-200 bg-white  p-7 sm:p-8 shadow-2xl shadow-black/50"
             >
               <div className="relative z-10">
                 {/* ── 2FA second-factor step ─────────────────────────────── */}
@@ -493,7 +480,7 @@ export default function LoginPage() {
                         <button
                           type="submit"
                           disabled={loading}
-                          className="group relative w-full py-3.5 rounded-xl text-[12px] font-bold uppercase tracking-[0.2em] font-mono bg-gradient-to-r from-gray-900 to-gray-700 text-gray-900 shadow-lg shadow-gray-900/20 hover:shadow-gray-900/35 hover:brightness-110 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] overflow-hidden"
+                          className="group relative w-full py-3.5 rounded-xl text-[12px] font-bold uppercase tracking-[0.2em] font-mono bg-gray-900 text-white shadow-lg shadow-gray-900/20 hover:shadow-gray-900/35 hover:brightness-110 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] overflow-hidden"
                         >
                           {loading ? (
                             <span className="flex items-center justify-center gap-2.5">
@@ -522,11 +509,11 @@ export default function LoginPage() {
                 ) : (
                   <>
                 {/* Mode toggle */}
-                <div role="group" aria-label="Login mode" className="relative flex bg-gray-50 rounded-xl p-1 mb-7 border border-white/[0.05]">
+                <div role="group" aria-label="Login mode" className="relative flex bg-gray-100 rounded-xl p-1 mb-7 border border-gray-200">
                   <div
                     aria-hidden="true"
                     className={cn(
-                      'absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-lg bg-gradient-to-r from-gray-900/20 to-gray-700/15 border border-white/[0.08] shadow-sm transition-transform duration-300 ease-out',
+                      'absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-lg bg-gradient-to-r from-white bg-white border border-gray-200 shadow-sm shadow-sm transition-transform duration-300 ease-out',
                       mode === 'apikey' ? 'translate-x-full' : 'translate-x-0'
                     )}
                   />
@@ -669,7 +656,7 @@ export default function LoginPage() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="group relative w-full py-3.5 rounded-xl text-[12px] font-bold uppercase tracking-[0.2em] font-mono bg-gradient-to-r from-gray-900 to-gray-700 text-gray-900 shadow-lg shadow-gray-900/20 hover:shadow-gray-900/35 hover:brightness-110 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] overflow-hidden"
+                      className="group relative w-full py-3.5 rounded-xl text-[12px] font-bold uppercase tracking-[0.2em] font-mono bg-gray-900 text-white shadow-lg shadow-gray-900/20 hover:shadow-gray-900/35 hover:brightness-110 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] overflow-hidden"
                     >
                       <span className="absolute inset-y-0 -left-full w-1/2 bg-white/15 blur-md animate-shimmer" />
                       <span className="relative flex items-center justify-center gap-2.5">

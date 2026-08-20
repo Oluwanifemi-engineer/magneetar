@@ -128,7 +128,7 @@ export default function SignupPage() {
                 <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
                   <path
                     d="M 29,90 V 43 C 29,25 68,25 68,43 V 90 L 91,29 V 90"
-                    fill="white"
+                    fill="#111827"
                   />
                 </svg>
               </div>
@@ -153,8 +153,8 @@ export default function SignupPage() {
           <div className="relative my-10 space-y-4 animate-fade-slide" style={{ animationDelay: '0.15s' }}>
             {PERKS.map((perk) => (
               <div key={perk} className="flex items-start gap-3.5">
-                <div className="w-6 h-6 rounded-full border border-mag-accent/25 bg-mag-accent/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <Check size={12} className="text-mag-accent" />
+                <div className="w-6 h-6 rounded-full border border-emerald-200/25 bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Check size={12} className="text-emerald-600" />
                 </div>
                 <span className="text-gray-900/55 text-[13.5px] leading-relaxed">{perk}</span>
               </div>
@@ -180,8 +180,8 @@ export default function SignupPage() {
           {/* Footer strip */}
           <div className="mt-10 flex items-center gap-3 animate-fade-slide" style={{ animationDelay: '0.25s' }}>
             <span className="relative flex w-2 h-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-mag-accent opacity-60 animate-ping" />
-              <span className="relative inline-flex rounded-full w-2 h-2 bg-mag-accent" />
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
+              <span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-500" />
             </span>
             <span className="text-[11px] font-mono font-bold tracking-wider text-gray-400">
               FREE TO START · NO CARD REQUIRED
@@ -198,7 +198,7 @@ export default function SignupPage() {
                 <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
                   <path
                     d="M 29,90 V 43 C 29,25 68,25 68,43 V 90 L 91,29 V 90"
-                    fill="white"
+                    fill="#111827"
                   />
                 </svg>
               </div>
@@ -224,7 +224,7 @@ export default function SignupPage() {
             <div
               ref={cardRef}
               onMouseMove={handleCardMove}
-              className="spotlight-card relative rounded-2xl border border-white/[0.08] bg-white  p-7 sm:p-8 shadow-2xl shadow-black/50"
+              className="spotlight-card relative rounded-2xl border border-gray-200 bg-white  p-7 sm:p-8 shadow-2xl shadow-black/50"
             >
               <div className="relative z-10">
                 <form onSubmit={handleSignup} noValidate>
@@ -356,7 +356,7 @@ export default function SignupPage() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="group relative w-full py-3.5 rounded-xl text-[12px] font-bold uppercase tracking-[0.2em] font-mono bg-gradient-to-r from-gray-900 to-gray-700 text-gray-900 shadow-lg shadow-gray-900/20 hover:shadow-gray-900/35 hover:brightness-110 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] overflow-hidden"
+                      className="group relative w-full py-3.5 rounded-xl text-[12px] font-bold uppercase tracking-[0.2em] font-mono bg-gradient-to-r bg-gray-900 text-white shadow-lg shadow-gray-900/20 hover:shadow-gray-900/35 hover:brightness-110 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] overflow-hidden"
                     >
                       <span className="absolute inset-y-0 -left-full w-1/2 bg-white/15 blur-md animate-shimmer" />
                       <span className="relative flex items-center justify-center gap-2.5">
