@@ -273,8 +273,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   const stepupInputClass =
-    'w-full px-3 py-2 bg-mag-bg/60 border border-mag-border/40 rounded-lg text-[11px] font-mono text-mag-text ' +
-    'placeholder:text-mag-text-dim/40 focus:outline-none focus:border-mag-accent/50 focus:ring-1 focus:ring-mag-accent/20 transition-all';
+    'w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-[11px] font-mono text-gray-900 ' +
+    'placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200 transition-all';
 
   // Rendered through a portal into document.body. The modal used to live
   // inside the <header>, whose backdrop-blur (backdrop-filter) establishes a
@@ -288,88 +288,88 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       aria-modal="true"
       aria-label="Settings"
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      {/* Backdrop — light overlay, not dark */}
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative mag-panel w-full max-w-md p-6 space-y-6 animate-fade-in shadow-2xl">
+      <div className="relative bg-white rounded-2xl border border-gray-200 shadow-2xl w-full max-w-md p-6 space-y-6 animate-fade-in">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-mag-text tracking-wide">SETTINGS</h2>
-            <div className="text-[9px] font-mono text-mag-text-dim/50 uppercase tracking-[0.2em] font-bold mt-0.5">
+            <h2 className="text-base font-bold text-gray-900 tracking-wide">SETTINGS</h2>
+            <div className="text-[9px] font-mono text-gray-400 uppercase tracking-[0.2em] font-bold mt-0.5">
               Account &amp; security
             </div>
           </div>
           <button
             onClick={onClose}
             aria-label="Close settings"
-            className="w-8 h-8 rounded-lg border border-mag-border/40 text-mag-text-dim/60 hover:text-mag-text hover:border-mag-border flex items-center justify-center transition-all"
+            className="w-8 h-8 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-900 hover:border-gray-300 flex items-center justify-center transition-all"
           >
             <X size={14} />
           </button>
         </div>
 
         {/* Account */}
-        <div className="bg-mag-surface/30 border border-mag-border/30 rounded-xl p-4 space-y-2">
-          <div className="text-[10px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold mb-1">
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2">
+          <div className="text-[10px] font-mono text-gray-500 uppercase tracking-wider font-bold mb-1">
             Account
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[11px] font-mono text-mag-text-dim/60 font-bold">Auth Mode</span>
-            <span className="text-[11px] font-mono text-mag-accent font-bold">
+            <span className="text-[11px] font-mono text-gray-500 font-bold">Auth Mode</span>
+            <span className="text-[11px] font-mono text-gray-900 font-bold">
               {authMode === 'user' ? 'USER ACCOUNT' : 'API KEY'}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[11px] font-mono text-mag-text-dim/60 font-bold">Server</span>
-            <span className="text-[11px] font-mono text-mag-text font-bold truncate max-w-[220px]">
+            <span className="text-[11px] font-mono text-gray-500 font-bold">Server</span>
+            <span className="text-[11px] font-mono text-gray-900 font-bold truncate max-w-[220px]">
               {serverUrl}
             </span>
           </div>
-          <div className="text-[10px] font-mono text-mag-text-dim/40 leading-relaxed pt-2 border-t border-mag-border/20">
+          <div className="text-[10px] font-mono text-gray-400 leading-relaxed pt-2 border-t border-gray-200">
             Alert recipients (SMS / WhatsApp / email) are set per device under Location →
             Alert Settings.
           </div>
         </div>
 
         {/* Plan */}
-        <div className="bg-mag-surface/30 border border-mag-border/30 rounded-xl p-4">
-          <div className="text-[10px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold mb-2">
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+          <div className="text-[10px] font-mono text-gray-500 uppercase tracking-wider font-bold mb-2">
             Plan
           </div>
           {authMode === 'user' && profile ? (
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-mag-text-dim/60 font-bold">Current plan</span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-mag-accent/10 border border-mag-accent/30 text-[10px] font-mono font-bold text-mag-accent uppercase tracking-wider">
+                <span className="text-[11px] font-mono text-gray-500 font-bold">Current plan</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 border border-gray-200 text-[10px] font-mono font-bold text-gray-900 uppercase tracking-wider">
                   <Crown size={10} />
                   {PLAN_LABELS[profile.tier] || profile.tier.toUpperCase()}
                 </span>
               </div>
               <div>
                 <div className="flex items-center justify-between text-[11px] font-mono">
-                  <span className="text-mag-text-dim/60 font-bold">Devices</span>
-                  <span className={atLimit ? 'text-amber-400 font-bold' : 'text-mag-text font-bold'}>
+                  <span className="text-gray-500 font-bold">Devices</span>
+                  <span className={atLimit ? 'text-amber-600 font-bold' : 'text-gray-900 font-bold'}>
                     {profile.device_count} / {profile.max_devices >= 999 ? '∞' : profile.max_devices}
                   </span>
                 </div>
-                <div className="mt-1.5 h-1 rounded-full bg-white/10 overflow-hidden">
+                <div className="mt-1.5 h-1 rounded-full bg-gray-200 overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
                       atLimit
-                        ? 'bg-amber-400'
-                        : 'bg-gradient-to-r from-white to-gray-400'
+                        ? 'bg-amber-500'
+                        : 'bg-gray-900'
                     }`}
                     style={{ width: `${usagePct}%` }}
                   />
                 </div>
               </div>
               {atLimit ? (
-                <div className="text-[10px] font-mono text-amber-300/80 leading-relaxed">
+                <div className="text-[10px] font-mono text-amber-600 leading-relaxed">
                   Device limit reached — upgrade your plan to protect more devices.
                 </div>
               ) : (
-                <div className="text-[10px] font-mono text-mag-text-dim/50 leading-relaxed">
+                <div className="text-[10px] font-mono text-gray-500 leading-relaxed">
                   Free plans protect 1 device. Upgrade for up to 3 (₦500/mo) or 10 (₦1500/mo).
                 </div>
               )}
@@ -377,20 +377,20 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 href="/#pricing"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-mag-accent hover:text-emerald-300 transition-colors"
+                className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-gray-900 hover:text-gray-600 transition-colors"
               >
                 See plans &amp; pricing
                 <ArrowUpRight size={11} />
               </a>
             </div>
           ) : authMode === 'user' && profileUnavailable ? (
-            <div className="text-[10px] font-mono text-mag-text-dim/50">
+            <div className="text-[10px] font-mono text-gray-500">
               Plan info unavailable — check your connection.
             </div>
           ) : (
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono text-mag-text-dim/60 font-bold">Access</span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-mono font-bold text-emerald-300 uppercase tracking-wider">
+              <span className="text-[11px] font-mono text-gray-500 font-bold">Access</span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 border border-gray-200 text-[10px] font-mono font-bold text-gray-900 uppercase tracking-wider">
                 <Crown size={10} />
                 ADMIN · UNLIMITED
               </span>
@@ -400,39 +400,39 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
         {/* Security (user accounts only — API-key admins have no account row) */}
         {authMode === 'user' && (
-          <div className="bg-mag-surface/30 border border-mag-border/30 rounded-xl p-4 space-y-3">
-            <div className="flex items-center gap-1.5 text-[10px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold">
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-500 uppercase tracking-wider font-bold">
               <ShieldCheck size={12} />
               Security
             </div>
 
             {securityMsg && (
-              <div className="text-[10px] font-mono text-emerald-300/90 bg-emerald-500/[0.06] border border-emerald-500/20 rounded-lg px-3 py-2 leading-relaxed">
+              <div className="text-[10px] font-mono text-gray-700 bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 leading-relaxed">
                 {securityMsg}
               </div>
             )}
             {securityError && (
-              <div className="text-[10px] font-mono text-red-400/90 bg-red-500/[0.06] border border-red-500/20 rounded-lg px-3 py-2 leading-relaxed" role="alert">
+              <div className="text-[10px] font-mono text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 leading-relaxed" role="alert">
                 {securityError}
               </div>
             )}
 
             {/* Email verification */}
-            <div className="rounded-lg border border-mag-border/20 p-3 space-y-2">
+            <div className="rounded-lg border border-gray-200 p-3 space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-[11px] font-mono text-mag-text font-bold">
-                  <Mail size={12} className="text-mag-text-dim/60" />
+                <div className="flex items-center gap-2 text-[11px] font-mono text-gray-900 font-bold">
+                  <Mail size={12} className="text-gray-400" />
                   Email verified
                 </div>
                 {profile?.email_verified ? (
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[9px] font-mono font-bold text-emerald-300 uppercase tracking-wider">
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-[9px] font-mono font-bold text-emerald-600 uppercase tracking-wider">
                     VERIFIED
                   </span>
                 ) : (
                   <button
                     onClick={resendVerification}
                     disabled={securityBusy}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-mag-border/40 text-[9px] font-mono font-bold text-mag-accent hover:text-emerald-300 hover:border-mag-accent/40 transition-all disabled:opacity-50"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-[9px] font-mono font-bold text-gray-900 hover:bg-gray-100 hover:border-gray-300 transition-all disabled:opacity-50"
                   >
                     <RefreshCw size={9} />
                     {securityBusy ? 'SENDING...' : 'RESEND EMAIL'}
@@ -440,7 +440,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 )}
               </div>
               {!profile?.email_verified && (
-                <div className="text-[9px] font-mono text-mag-text-dim/50 leading-relaxed">
+                <div className="text-[9px] font-mono text-gray-500 leading-relaxed">
                   Verifying your email unlocks account recovery — a reset link can only be sent to a
                   verified address.
                 </div>
@@ -448,21 +448,21 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             </div>
 
             {/* Two-factor authentication */}
-            <div className="rounded-lg border border-mag-border/20 p-3 space-y-2">
+            <div className="rounded-lg border border-gray-200 p-3 space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-[11px] font-mono text-mag-text font-bold">
-                  <Smartphone size={12} className="text-mag-text-dim/60" />
+                <div className="flex items-center gap-2 text-[11px] font-mono text-gray-900 font-bold">
+                  <Smartphone size={12} className="text-gray-400" />
                   Two-factor auth
                 </div>
                 {profile?.totp_enabled ? (
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[9px] font-mono font-bold text-emerald-300 uppercase tracking-wider">
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-[9px] font-mono font-bold text-emerald-600 uppercase tracking-wider">
                     ENABLED
                   </span>
                 ) : (
                   <button
                     onClick={startTwoFactorSetup}
                     disabled={securityBusy}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-mag-border/40 text-[9px] font-mono font-bold text-mag-accent hover:text-emerald-300 hover:border-mag-accent/40 transition-all disabled:opacity-50"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-[9px] font-mono font-bold text-gray-900 hover:bg-gray-100 hover:border-gray-300 transition-all disabled:opacity-50"
                   >
                     <ShieldCheck size={9} />
                     {securityBusy ? 'STARTING...' : 'ENABLE'}
@@ -472,7 +472,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
               {twoFaStep === 'setup' && (
                 <div className="space-y-3 animate-fade-in">
-                  <div className="text-[9px] font-mono text-mag-text-dim/50 leading-relaxed">
+                  <div className="text-[9px] font-mono text-gray-500 leading-relaxed">
                     Scan the QR code with Google Authenticator (or any TOTP app), then confirm with your
                     password + a fresh code.
                   </div>
@@ -482,12 +482,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                       <img
                         src={qrDataUri}
                         alt="TOTP setup QR code"
-                        className="w-28 h-28 rounded-lg border border-mag-border/40 bg-white p-1"
+                        className="w-28 h-28 rounded-lg border border-gray-200 bg-white p-1"
                       />
                     )}
-                    <div className="text-[9px] font-mono text-mag-text-dim/50 leading-relaxed">
+                    <div className="text-[9px] font-mono text-gray-500 leading-relaxed">
                       Can&apos;t scan? Manual secret:
-                      <div className="mt-1 font-mono text-[10px] text-mag-text font-bold break-all select-all">
+                      <div className="mt-1 font-mono text-[10px] text-gray-900 font-bold break-all select-all">
                         {totpSecret}
                       </div>
                     </div>
@@ -512,13 +512,13 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                     <button
                       onClick={confirmTwoFactorEnable}
                       disabled={securityBusy}
-                      className="flex-1 py-2 rounded-lg bg-mag-accent/90 hover:bg-mag-accent disabled:opacity-50 text-white text-[10px] font-mono font-bold uppercase tracking-wider transition-all"
+                      className="flex-1 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white text-[10px] font-mono font-bold uppercase tracking-wider transition-all"
                     >
                       {securityBusy ? 'CONFIRMING...' : 'Confirm & Enable'}
                     </button>
                     <button
                       onClick={() => { setTwoFaStep('idle'); setTotpSecret(''); setQrDataUri(''); setSecurityError(''); }}
-                      className="px-3 py-2 rounded-lg border border-mag-border/40 text-mag-text-dim/70 hover:text-mag-text text-[10px] font-mono font-bold transition-all"
+                      className="px-3 py-2 rounded-lg border border-gray-200 text-gray-500 hover:text-gray-900 text-[10px] font-mono font-bold transition-all"
                     >
                       Cancel
                     </button>
@@ -528,7 +528,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
               {profile?.totp_enabled && (
                 <div className="space-y-2 animate-fade-in">
-                  <div className="text-[9px] font-mono text-mag-text-dim/50 leading-relaxed">
+                  <div className="text-[9px] font-mono text-gray-500 leading-relaxed">
                     Sign-in now requires a code from your authenticator app. Disabling requires your
                     account password.
                   </div>
@@ -544,7 +544,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                     <button
                       onClick={disableTwoFactor}
                       disabled={securityBusy}
-                      className="px-4 py-2 rounded-lg border border-mag-danger/30 text-mag-danger/90 hover:text-mag-danger hover:border-mag-danger/60 text-[10px] font-mono font-bold uppercase tracking-wider transition-all whitespace-nowrap"
+                      className="px-4 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 text-[10px] font-mono font-bold uppercase tracking-wider transition-all whitespace-nowrap"
                     >
                       {securityBusy ? 'DISABLING...' : 'Disable'}
                     </button>
@@ -557,9 +557,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
         {/* Developer API keys (user accounts only — for third-party integrations) */}
         {authMode === 'user' && (
-          <div className="bg-mag-surface/30 border border-mag-border/30 rounded-xl p-4 space-y-3">
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[10px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-500 uppercase tracking-wider font-bold">
                 <KeyRound size={12} />
                 Developer API Keys
               </div>
@@ -571,52 +571,52 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                   setKeyMsg('');
                   if (!apiKeys.length && !apiKeysLoading) loadApiKeys();
                 }}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-mag-border/40 text-[9px] font-mono font-bold text-mag-accent hover:text-emerald-300 hover:border-mag-accent/40 transition-all"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-[9px] font-mono font-bold text-gray-900 hover:bg-gray-100 hover:border-gray-300 transition-all"
               >
                 <Plus size={9} />
                 {apiKeys.length ? 'MANAGE' : 'CREATE KEY'}
               </button>
             </div>
 
-            <div className="text-[9px] font-mono text-mag-text-dim/50 leading-relaxed">
+            <div className="text-[9px] font-mono text-gray-500 leading-relaxed">
               Scoped keys for external integrations (scripts, resellers, custom dashboards). Keys
               can never exceed your account&apos;s own access — a viewer-shared device stays read-only
               through a key too.
             </div>
 
             {keyMsg && (
-              <div className="text-[10px] font-mono text-emerald-300/90 bg-emerald-500/[0.06] border border-emerald-500/20 rounded-lg px-3 py-2 leading-relaxed">
+              <div className="text-[10px] font-mono text-gray-700 bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 leading-relaxed">
                 {keyMsg}
               </div>
             )}
             {keyError && (
-              <div className="text-[10px] font-mono text-red-400/90 bg-red-500/[0.06] border border-red-500/20 rounded-lg px-3 py-2 leading-relaxed" role="alert">
+              <div className="text-[10px] font-mono text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 leading-relaxed" role="alert">
                 {keyError}
               </div>
             )}
 
             {showCreateKey && (
-              <div className="space-y-3 animate-fade-in rounded-lg border border-mag-border/20 p-3">
+              <div className="space-y-3 animate-fade-in rounded-lg border border-gray-200 p-3">
                 {/* Full key — shown exactly once */}
                 {createdKey && (
-                  <div className="space-y-2 bg-mag-bg/60 border border-emerald-500/30 rounded-lg p-3">
+                  <div className="space-y-2 bg-white border border-gray-200 rounded-lg p-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-mono text-emerald-300 font-bold uppercase tracking-wider">
+                      <span className="text-[9px] font-mono text-gray-600 font-bold uppercase tracking-wider">
                         New key — copy it now, it won&apos;t be shown again
                       </span>
                       <button
                         onClick={copyFullKey}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-emerald-500/40 text-[9px] font-mono font-bold text-emerald-300 hover:bg-emerald-500/10 transition-all"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-300 text-[9px] font-mono font-bold text-gray-900 hover:bg-gray-100 transition-all"
                       >
                         {copiedKey ? <Check size={9} /> : <Copy size={9} />}
                         {copiedKey ? 'COPIED' : 'COPY'}
                       </button>
                     </div>
-                    <div className="text-[10px] font-mono text-mag-text font-bold break-all select-all leading-relaxed">
+                    <div className="text-[10px] font-mono text-gray-900 font-bold break-all select-all leading-relaxed">
                       {createdKey.key}
                     </div>
-                    <div className="text-[9px] font-mono text-mag-text-dim/50">
-                      Prefix <span className="text-mag-text-dim/80">{createdKey.key_prefix}…</span> ·
+                    <div className="text-[9px] font-mono text-gray-500">
+                      Prefix <span className="text-gray-700">{createdKey.key_prefix}…</span> ·
                       {createdKey.key_type === 'readonly' ? ' read-only · ' : ' live · '}
                       scopes {createdKey.scopes.join(', ')}
                     </div>
@@ -638,17 +638,15 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                       onClick={() => setKeyType(t)}
                       className={`flex-1 py-1.5 rounded-md border text-[9px] font-mono font-bold uppercase tracking-wider transition-all ${
                         newKeyType === t
-                          ? t === 'readonly'
-                            ? 'border-mag-accent/60 bg-mag-accent/10 text-mag-accent'
-                            : 'border-mag-accent/60 bg-mag-accent/10 text-mag-accent'
-                          : 'border-mag-border/30 text-mag-text-dim/50 hover:text-mag-text-dim/80'
+                          ? 'border-gray-900 bg-gray-900 text-white'
+                          : 'border-gray-200 text-gray-500 hover:text-gray-700'
                       }`}
                     >
                       {t === 'readonly' ? 'Read-only' : 'Live'}
                     </button>
                   ))}
                 </div>
-                <div className="text-[9px] font-mono text-mag-text-dim/50 -mt-1">
+                <div className="text-[9px] font-mono text-gray-500 -mt-1">
                   {newKeyType === 'readonly'
                     ? 'Read-only keys can never issue wipe/lock commands — enforced by the server even if leaked.'
                     : 'Live keys may carry write scopes (issue commands).'}
@@ -662,8 +660,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                         key={s.value}
                         className={`flex items-center gap-2 text-[10px] font-mono transition-colors ${
                           writeLocked
-                            ? 'cursor-not-allowed text-mag-text-dim/30'
-                            : 'cursor-pointer text-mag-text-dim/70 hover:text-mag-text'
+                            ? 'cursor-not-allowed text-gray-400'
+                            : 'cursor-pointer text-gray-600 hover:text-gray-900'
                         }`}
                       >
                         <input
@@ -671,7 +669,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                           checked={newKeyScopes.includes(s.value)}
                           disabled={writeLocked}
                           onChange={() => toggleScope(s.value)}
-                          className="accent-[#06B6D4]"
+                          className="accent-gray-900"
                         />
                         {s.label}
                         {writeLocked && ' (unavailable for read-only)'}
@@ -691,7 +689,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 <button
                   onClick={createApiKey}
                   disabled={keyBusy}
-                  className="w-full py-2 rounded-lg bg-mag-accent/90 hover:bg-mag-accent disabled:opacity-50 text-white text-[10px] font-mono font-bold uppercase tracking-wider transition-all"
+                  className="w-full py-2 rounded-lg bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white text-[10px] font-mono font-bold uppercase tracking-wider transition-all"
                 >
                   {keyBusy ? 'CREATING...' : 'Create Key'}
                 </button>
@@ -699,7 +697,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             )}
 
             {apiKeysLoading && (
-              <div className="text-[9px] font-mono text-mag-text-dim/50 animate-pulse">Loading keys…</div>
+              <div className="text-[9px] font-mono text-gray-400 animate-pulse">Loading keys…</div>
             )}
 
             {apiKeys.length > 0 && (
@@ -707,13 +705,13 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 {apiKeys.map((k) => (
                   <div
                     key={k.id}
-                    className="rounded-lg border border-mag-border/20 p-3 space-y-1.5"
+                    className="rounded-lg border border-gray-200 p-3 space-y-1.5"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-[11px] font-mono text-mag-text font-bold truncate">
+                      <div className="text-[11px] font-mono text-gray-900 font-bold truncate">
                         {k.name}
                       </div>
-                      <div className="text-[9px] font-mono text-mag-text-dim/50">
+                      <div className="text-[9px] font-mono text-gray-500">
                         {k.key_prefix}…
                       </div>
                     </div>
@@ -721,17 +719,17 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                       <span
                         className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
                           k.key_type === 'readonly'
-                            ? 'bg-mag-accent/10 text-mag-accent'
-                            : 'bg-mag-border/20 text-mag-text-dim/60'
+                            ? 'bg-gray-100 text-gray-600 border border-gray-200'
+                            : 'bg-gray-100 text-gray-500 border border-gray-200'
                         }`}
                       >
                         {k.key_type === 'readonly' ? 'read-only' : 'live'}
                       </span>
-                      <span className="text-[9px] font-mono text-mag-text-dim/50">
+                      <span className="text-[9px] font-mono text-gray-500">
                         {k.request_count} req
                       </span>
                     </div>
-                    <div className="text-[9px] font-mono text-mag-text-dim/50 break-all">
+                    <div className="text-[9px] font-mono text-gray-500 break-all">
                       {k.scopes.join(' · ')}
                       {k.expires_at && ` · expires ${new Date(k.expires_at).toLocaleDateString()}`}
                       {k.last_used_at && ` · used ${new Date(k.last_used_at).toLocaleDateString()}`}
@@ -740,7 +738,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                       <button
                         onClick={() => rotateApiKey(k.id)}
                         disabled={keyBusy}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-mag-border/40 text-[9px] font-mono font-bold text-mag-text-dim/70 hover:text-mag-accent transition-all disabled:opacity-50"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 text-[9px] font-mono font-bold text-gray-500 hover:text-gray-900 hover:border-gray-300 transition-all disabled:opacity-50"
                       >
                         <RotateCcw size={9} />
                         Rotate
@@ -748,7 +746,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                       <button
                         onClick={() => revokeApiKey(k.id)}
                         disabled={keyBusy}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-mag-danger/30 text-[9px] font-mono font-bold text-mag-danger/80 hover:text-mag-danger transition-all disabled:opacity-50"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-red-200 text-[9px] font-mono font-bold text-red-600 hover:bg-red-50 transition-all disabled:opacity-50"
                       >
                         <Ban size={9} />
                         Revoke
@@ -762,32 +760,32 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Danger Zone */}
-        <div className="bg-mag-danger/[0.03] border border-mag-danger/20 rounded-xl p-4">
-          <div className="flex items-center gap-1.5 text-[10px] font-mono text-mag-danger uppercase tracking-wider font-bold mb-2">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-red-600 uppercase tracking-wider font-bold mb-2">
             <ShieldAlert size={12} />
             Danger Zone
           </div>
           {!confirmDelete ? (
             <button
               onClick={() => { setConfirmDelete(true); setError(''); }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-mag-danger/30 text-mag-danger/90 hover:text-mag-danger hover:border-mag-danger/60 hover:bg-mag-danger/[0.05] text-[11px] font-mono font-bold uppercase tracking-wider transition-all"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-100 hover:border-red-400 text-[11px] font-mono font-bold uppercase tracking-wider transition-all"
             >
               <Trash2 size={13} />
               Delete Account Permanently
             </button>
           ) : (
             <div className="space-y-2.5">
-              <div className="text-[11px] font-mono text-mag-danger/90 leading-relaxed">
+              <div className="text-[11px] font-mono text-red-600 leading-relaxed">
                 Permanently delete this account and ALL linked devices? Every location,
                 media file, evidence case, alert and recovery request is erased. This
                 cannot be undone.
               </div>
-              {error && <div className="text-[10px] font-mono text-red-400">{error}</div>}
+              {error && <div className="text-[10px] font-mono text-red-600">{error}</div>}
               <div className="flex gap-2">
                 <button
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-mag-danger/90 hover:bg-mag-danger disabled:opacity-50 text-white text-[11px] font-bold transition-all"
+                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-[11px] font-bold transition-all"
                 >
                   <Trash2 size={12} />
                   {deleting ? 'DELETING...' : 'Yes, Delete Everything'}
@@ -795,7 +793,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 <button
                   onClick={() => setConfirmDelete(false)}
                   disabled={deleting}
-                  className="px-4 py-2 rounded-lg border border-mag-border/40 text-mag-text-dim/70 hover:text-mag-text text-[11px] font-bold transition-all"
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-gray-500 hover:text-gray-900 hover:bg-gray-50 text-[11px] font-bold transition-all"
                 >
                   Cancel
                 </button>

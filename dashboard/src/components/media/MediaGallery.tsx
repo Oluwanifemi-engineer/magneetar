@@ -167,11 +167,11 @@ export function MediaGallery() {
             <button
               onClick={handleClose}
               aria-label="Back to media grid"
-              className="text-mag-text-dim/60 hover:text-mag-text transition-colors"
+              className="text-gray-600/60 hover:text-gray-900 transition-colors"
             >
               <ChevronLeft size={18} />
             </button>
-            <span className="text-[11px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold flex-1 truncate">
+            <span className="text-[11px] font-mono text-gray-600/70 uppercase tracking-wider font-bold flex-1 truncate">
               {selectedItem.type === 'photo' ? 'PHOTO' : 'AUDIO'} — {formatTimestamp(viewerTimestamp)}
             </span>
             {/* Single-item delete (step-up password) — owner/admin only */}
@@ -183,7 +183,7 @@ export function MediaGallery() {
                   setDeleteOpen(true);
                 }}
                 aria-label="Delete this media item"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold text-mag-danger/80 hover:text-mag-danger hover:bg-mag-danger/[0.06] border border-mag-danger/25 hover:border-mag-danger/50 transition-all"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold text-red-600/80 hover:text-red-600 hover:bg-red-50/[0.06] border border-red-300/25 hover:border-red-300/50 transition-all"
               >
                 <Trash2 size={11} />
                 DELETE
@@ -191,7 +191,7 @@ export function MediaGallery() {
             )}
           </div>
 
-          <div className="bg-mag-surface/30 border border-mag-border/30 rounded-xl overflow-hidden">
+          <div className="bg-gray-50/30 border border-gray-200/30 rounded-xl overflow-hidden">
             {itemData?.type === 'photo' && itemData?.data_b64 && (
               <img
                 src={`data:image/jpeg;base64,${itemData.data_b64}`}
@@ -201,8 +201,8 @@ export function MediaGallery() {
             )}
             {itemData?.type === 'audio' && itemData?.data_b64 && (
               <div className="p-6 text-center">
-                <div className="w-16 h-16 rounded-full bg-mag-primary/10 border border-mag-primary/30 flex items-center justify-center mx-auto mb-4">
-                  <Music size={24} className="text-mag-primary" />
+                <div className="w-16 h-16 rounded-full bg-gray-100/10 border border-gray-900/30 flex items-center justify-center mx-auto mb-4">
+                  <Music size={24} className="text-gray-900" />
                 </div>
                 <button
                   onClick={togglePlay}
@@ -222,14 +222,14 @@ export function MediaGallery() {
                   }}
                 />
                 {playError && (
-                  <div className="mt-3 text-[10px] font-mono text-mag-danger/80 animate-fade-in">
+                  <div className="mt-3 text-[10px] font-mono text-red-600/80 animate-fade-in">
                     {playError}
                   </div>
                 )}
                 <a
                   href={`data:audio/mp4;base64,${itemData.data_b64}`}
                   download={`evidence_${selectedItem.id}.m4a`}
-                  className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-mag-text-dim/60 hover:text-mag-primary transition-colors"
+                  className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-gray-600/60 hover:text-gray-900 transition-colors"
                 >
                   <ChevronLeft size={11} className="rotate-90" />
                   DOWNLOAD FILE
@@ -238,7 +238,7 @@ export function MediaGallery() {
             )}
             {!itemData && (
               <div className="p-8 text-center">
-                <div className="text-mag-text-dim/40 text-xs font-mono">Loading...</div>
+                <div className="text-gray-600/40 text-xs font-mono">Loading...</div>
               </div>
             )}
           </div>
@@ -246,8 +246,8 @@ export function MediaGallery() {
           <div className="mt-3 space-y-1.5">
             {selectedItem.lat && selectedItem.lng && (
               <div className="flex justify-between text-[10px] font-mono">
-                <span className="text-mag-text-dim/60 font-bold">Location</span>
-                <span className="text-mag-text font-bold">{selectedItem.lat.toFixed(6)}, {selectedItem.lng.toFixed(6)}</span>
+                <span className="text-gray-600/60 font-bold">Location</span>
+                <span className="text-gray-900 font-bold">{selectedItem.lat.toFixed(6)}, {selectedItem.lng.toFixed(6)}</span>
               </div>
             )}
           </div>
@@ -255,11 +255,11 @@ export function MediaGallery() {
       ) : (
         /* ─── Media Grid ───────────────────────────────────────────────── */
         <div>
-          <div className="flex items-center gap-1.5 text-[11px] font-mono text-mag-text-dim/70 uppercase tracking-wider font-bold mb-3 px-1">
-            <Camera size={12} className="text-mag-primary" />
+          <div className="flex items-center gap-1.5 text-[11px] font-mono text-gray-600/70 uppercase tracking-wider font-bold mb-3 px-1">
+            <Camera size={12} className="text-gray-900" />
             Captured Media
             {manageMode && (
-              <span className="ml-auto flex items-center gap-1 text-mag-text-dim/50">
+              <span className="ml-auto flex items-center gap-1 text-gray-600/50">
                 <Lock size={9} />
                 delete requires password
               </span>
@@ -267,7 +267,7 @@ export function MediaGallery() {
             {canManage && !manageMode && (
               <button
                 onClick={toggleManage}
-                className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg border border-mag-border/40 text-mag-text-dim/50 hover:text-mag-text hover:border-mag-border text-[9px] font-mono font-bold transition-all"
+                className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-200/40 text-gray-600/50 hover:text-gray-900 hover:border-gray-200 text-[9px] font-mono font-bold transition-all"
               >
                 <Trash2 size={9} />
                 MANAGE
@@ -276,7 +276,7 @@ export function MediaGallery() {
           </div>
 
           {deleted && (
-            <div className="mb-2.5 flex items-center gap-2 px-3 py-2 rounded-lg bg-mag-accent/[0.06] border border-mag-accent/25 text-mag-accent text-[10px] font-mono font-bold animate-fade-in">
+            <div className="mb-2.5 flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100/[0.06] border border-gray-900/25 text-gray-900 text-[10px] font-mono font-bold animate-fade-in">
               <ShieldCheck size={11} />
               {deleted}
             </div>
@@ -284,12 +284,12 @@ export function MediaGallery() {
 
           {media.length === 0 ? (
             <div className="text-center py-10">
-              <div className="w-14 h-14 rounded-2xl bg-mag-surface/40 border border-mag-border/30 flex items-center justify-center mx-auto mb-3">
-                <ImageOff size={22} className="text-mag-text-dim/20" />
+              <div className="w-14 h-14 rounded-2xl bg-gray-50/40 border border-gray-200/30 flex items-center justify-center mx-auto mb-3">
+                <ImageOff size={22} className="text-gray-600/20" />
               </div>
-              <div className="text-mag-text-dim/60 text-sm font-bold mb-1">No media captured</div>
-              <div className="text-mag-text-dim/35 text-xs font-mono leading-relaxed max-w-[220px] mx-auto">
-                Use the <span className="text-mag-primary/60 font-bold">Commands</span> tab to capture photos and audio remotely. All media is stored as evidence with cryptographic integrity.
+              <div className="text-gray-600/60 text-sm font-bold mb-1">No media captured</div>
+              <div className="text-gray-600/35 text-xs font-mono leading-relaxed max-w-[220px] mx-auto">
+                Use the <span className="text-gray-900/60 font-bold">Commands</span> tab to capture photos and audio remotely. All media is stored as evidence with cryptographic integrity.
               </div>
             </div>
           ) : (
@@ -302,8 +302,8 @@ export function MediaGallery() {
                       key={item.id}
                       onClick={() => (manageMode ? toggleSelected(item.id) : handleSelect(item))}
                       className={cn(
-                        'mag-card text-left hover:border-mag-primary/30 hover:shadow-mag-glow transition-all duration-200 p-3 relative',
-                        manageMode && checked && 'border-mag-primary/60 ring-1 ring-mag-primary/40'
+                        'mag-card text-left hover:border-gray-900/30 hover:shadow-sm transition-all duration-200 p-3 relative',
+                        manageMode && checked && 'border-gray-900/60 ring-1 ring-mag-primary/40'
                       )}
                     >
                       {manageMode && (
@@ -311,27 +311,27 @@ export function MediaGallery() {
                           className={cn(
                             'absolute top-2 right-2 w-4 h-4 rounded border flex items-center justify-center text-[9px] font-bold transition-all',
                             checked
-                              ? 'bg-mag-primary border-mag-primary text-white'
-                              : 'border-mag-border text-transparent'
+                              ? 'bg-gray-100 border-gray-900 text-white'
+                              : 'border-gray-200 text-transparent'
                           )}
                         >
                           ✓
                         </span>
                       )}
-                      <div className="flex items-center justify-center h-16 mb-2 rounded-lg bg-mag-bg/40">
+                      <div className="flex items-center justify-center h-16 mb-2 rounded-lg bg-white/40">
                         {item.type === 'photo' ? (
-                          <Camera size={20} className="text-mag-primary/40" />
+                          <Camera size={20} className="text-gray-900/40" />
                         ) : (
-                          <Music size={20} className="text-mag-secondary/40" />
+                          <Music size={20} className="text-gray-600/40" />
                         )}
                       </div>
-                      <div className="font-mono text-[11px] text-mag-text font-bold flex items-center gap-1.5">
-                        <span className={item.type === 'photo' ? 'text-mag-primary' : 'text-mag-secondary'}>
+                      <div className="font-mono text-[11px] text-gray-900 font-bold flex items-center gap-1.5">
+                        <span className={item.type === 'photo' ? 'text-gray-900' : 'text-gray-600'}>
                           {item.type === 'photo' ? '📷' : '🎤'}
                         </span>
                         {item.type.toUpperCase()}
                       </div>
-                      <div className="font-mono text-[10px] text-mag-text-dim/50 mt-0.5 font-bold">
+                      <div className="font-mono text-[10px] text-gray-600/50 mt-0.5 font-bold">
                         {formatTimestamp(locationTimestamp(item))}
                       </div>
                     </button>
@@ -344,13 +344,13 @@ export function MediaGallery() {
                 <div className="mt-3 flex items-center gap-2">
                   <button
                     onClick={() => setSelectedIds(new Set(media.map((m) => m.id)))}
-                    className="px-3 py-2 rounded-lg border border-mag-border/40 text-mag-text-dim/60 hover:text-mag-text text-[10px] font-mono font-bold transition-all"
+                    className="px-3 py-2 rounded-lg border border-gray-200/40 text-gray-600/60 hover:text-gray-900 text-[10px] font-mono font-bold transition-all"
                   >
                     Select all
                   </button>
                   <button
                     onClick={() => setSelectedIds(new Set())}
-                    className="px-3 py-2 rounded-lg border border-mag-border/40 text-mag-text-dim/60 hover:text-mag-text text-[10px] font-mono font-bold transition-all"
+                    className="px-3 py-2 rounded-lg border border-gray-200/40 text-gray-600/60 hover:text-gray-900 text-[10px] font-mono font-bold transition-all"
                   >
                     Clear
                   </button>
@@ -361,14 +361,14 @@ export function MediaGallery() {
                       setDeleteOpen(true);
                     }}
                     disabled={selectedIds.size === 0}
-                    className="ml-auto flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-mag-danger/90 hover:bg-mag-danger disabled:opacity-40 text-white text-[10px] font-mono font-bold uppercase tracking-wider transition-all"
+                    className="ml-auto flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-red-50/90 hover:bg-red-50 disabled:opacity-40 text-white text-[10px] font-mono font-bold uppercase tracking-wider transition-all"
                   >
                     <Trash2 size={11} />
                     Delete ({selectedIds.size})
                   </button>
                   <button
                     onClick={toggleManage}
-                    className="px-3 py-2 rounded-lg border border-mag-border/40 text-mag-text-dim/60 hover:text-mag-text text-[10px] font-mono font-bold transition-all"
+                    className="px-3 py-2 rounded-lg border border-gray-200/40 text-gray-600/60 hover:text-gray-900 text-[10px] font-mono font-bold transition-all"
                   >
                     <X size={11} className="inline -mt-0.5 mr-1" />
                     Exit
@@ -385,39 +385,39 @@ export function MediaGallery() {
         createPortal(
           <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Confirm deletion">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !deleting && setDeleteOpen(false)} />
-            <div className="relative mag-panel w-full max-w-sm p-5 space-y-4 animate-fade-in shadow-2xl">
+            <div className="relative bg-white border border-gray-200 shadow-sm w-full max-w-sm p-5 space-y-4 animate-fade-in shadow-2xl">
               <div className="flex items-start gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-mag-danger/15 border border-mag-danger/30 flex items-center justify-center shrink-0">
-                  <Trash2 size={14} className="text-mag-danger" />
+                <div className="w-8 h-8 rounded-lg bg-red-50/15 border border-red-300/30 flex items-center justify-center shrink-0">
+                  <Trash2 size={14} className="text-red-600" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-sm font-bold text-mag-text tracking-wide">
+                  <div className="text-sm font-bold text-gray-900 tracking-wide">
                     DELETE MEDIA
                   </div>
-                  <div className="text-[9px] font-mono text-mag-text-dim/50 uppercase tracking-[0.15em] font-bold mt-0.5">
+                  <div className="text-[9px] font-mono text-gray-600/50 uppercase tracking-[0.15em] font-bold mt-0.5">
                     {selectedIds.size > 0 ? `${selectedIds.size} item(s)` : '1 item'} · irreversible
                   </div>
                 </div>
                 <button
                   onClick={() => !deleting && setDeleteOpen(false)}
                   aria-label="Close"
-                  className="ml-auto w-7 h-7 rounded-lg border border-mag-border/40 text-mag-text-dim/60 hover:text-mag-text flex items-center justify-center transition-all"
+                  className="ml-auto w-7 h-7 rounded-lg border border-gray-200/40 text-gray-600/60 hover:text-gray-900 flex items-center justify-center transition-all"
                 >
                   <X size={13} />
                 </button>
               </div>
 
-              <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-mag-warning/[0.05] border border-mag-warning/20">
-                <Lock size={12} className="text-mag-warning shrink-0 mt-0.5" />
-                <div className="text-[10px] font-mono text-mag-text-dim/70 leading-relaxed">
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50/[0.05] border border-amber-400/20">
+                <Lock size={12} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-[10px] font-mono text-gray-600/70 leading-relaxed">
                   For security, deletions require a step-up password. This session
-                  verifies with <span className="font-bold text-mag-text-dim/90">{stepUpPasswordHint()}</span>.
+                  verifies with <span className="font-bold text-gray-600/90">{stepUpPasswordHint()}</span>.
                   Deleting evidence cannot be undone.
                 </div>
               </div>
 
               <div>
-                <label className="text-[10px] font-mono text-mag-text-dim/60 font-bold mb-1 block">
+                <label className="text-[10px] font-mono text-gray-600/60 font-bold mb-1 block">
                   Password
                 </label>
                 <input
@@ -427,7 +427,7 @@ export function MediaGallery() {
                   onKeyDown={(e) => e.key === 'Enter' && handleDelete()}
                   autoFocus
                   aria-label="Password"
-                  className="w-full bg-mag-bg/60 border border-mag-border/40 rounded-lg px-3 py-2 text-xs font-mono text-mag-text placeholder:text-mag-text-dim/30 focus:outline-none focus:border-mag-primary/60 transition-colors"
+                  className="w-full bg-white/60 border border-gray-200/40 rounded-lg px-3 py-2 text-xs font-mono text-gray-900 placeholder:text-gray-600/30 focus:outline-none focus:border-gray-900/60 transition-colors"
                   placeholder="Enter password"
                 />
               </div>
@@ -440,7 +440,7 @@ export function MediaGallery() {
                 <button
                   onClick={handleDelete}
                   disabled={deleting || !deletePassword}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-mag-danger/90 hover:bg-mag-danger disabled:opacity-40 text-white text-[10px] font-mono font-bold uppercase tracking-wider transition-all"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-red-50/90 hover:bg-red-50 disabled:opacity-40 text-white text-[10px] font-mono font-bold uppercase tracking-wider transition-all"
                 >
                   <Trash2 size={11} />
                   {deleting ? 'Deleting...' : 'Confirm delete'}
@@ -448,7 +448,7 @@ export function MediaGallery() {
                 <button
                   onClick={() => setDeleteOpen(false)}
                   disabled={deleting}
-                  className="px-3 py-2 rounded-lg border border-mag-border/40 text-mag-text-dim/70 hover:text-mag-text text-[10px] font-mono font-bold transition-all"
+                  className="px-3 py-2 rounded-lg border border-gray-200/40 text-gray-600/70 hover:text-gray-900 text-[10px] font-mono font-bold transition-all"
                 >
                   Cancel
                 </button>

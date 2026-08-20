@@ -73,18 +73,18 @@ export function ErrorPanel() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Bug size={16} className="text-mag-primary" />
-          <span className="text-sm font-bold text-mag-text font-display tracking-wider">ERROR LOG</span>
+          <Bug size={16} className="text-gray-900" />
+          <span className="text-sm font-bold text-gray-900 font-display tracking-wider">ERROR LOG</span>
         </div>
         <div className="flex items-center gap-2">
           {unresolvedCount > 0 && (
-            <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-mag-danger/10 text-mag-danger border border-mag-danger/30 rounded">
+            <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-red-50/10 text-red-600 border border-red-300/30 rounded">
               {unresolvedCount} open
             </span>
           )}
           <button
             onClick={fetchErrors}
-            className="p-1.5 rounded hover:bg-mag-surface/50 text-mag-text-dim/60 hover:text-mag-text-dim transition-colors"
+            className="p-1.5 rounded hover:bg-gray-50/50 text-gray-600/60 hover:text-gray-600 transition-colors"
             title="Refresh"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -98,22 +98,22 @@ export function ErrorPanel() {
           onClick={() => setShowUnresolvedOnly(!showUnresolvedOnly)}
           className={`px-3 py-1 text-[10px] font-mono font-bold rounded border transition-all ${
             showUnresolvedOnly
-              ? 'bg-mag-warning/10 border-mag-warning/30 text-mag-warning'
-              : 'bg-mag-surface/20 border-mag-border/30 text-mag-text-dim/60 hover:text-mag-text-dim/80'
+              ? 'bg-amber-50/10 border-amber-400/30 text-amber-600'
+              : 'bg-gray-50/20 border-gray-200/30 text-gray-600/60 hover:text-gray-600/80'
           }`}
         >
           Unresolved only
         </button>
-        <span className="text-[10px] font-mono text-mag-text-dim/40">
+        <span className="text-[10px] font-mono text-gray-600/40">
           {totalCount} total
         </span>
       </div>
 
       {/* Error Message */}
       {errorMessage && (
-        <div className="px-3 py-2 bg-mag-danger/5 border border-mag-danger/20 rounded-lg flex items-center gap-2">
-          <XCircle size={12} className="text-mag-danger" />
-          <span className="text-[11px] font-mono text-mag-danger">{errorMessage}</span>
+        <div className="px-3 py-2 bg-red-50/5 border border-red-300/20 rounded-lg flex items-center gap-2">
+          <XCircle size={12} className="text-red-600" />
+          <span className="text-[11px] font-mono text-red-600">{errorMessage}</span>
         </div>
       )}
 
@@ -125,13 +125,13 @@ export function ErrorPanel() {
       {/* Empty State */}
       {!loading && errors.length === 0 && (
         <div className="py-12 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-mag-accent/10 border border-mag-accent/20 flex items-center justify-center mx-auto mb-3">
-            <ShieldCheck size={24} className="text-mag-accent/60" />
+          <div className="w-14 h-14 rounded-2xl bg-gray-100/10 border border-gray-900/20 flex items-center justify-center mx-auto mb-3">
+            <ShieldCheck size={24} className="text-gray-900/60" />
           </div>
-          <div className="text-sm font-bold text-mag-text-dim/60 mb-1">
+          <div className="text-sm font-bold text-gray-600/60 mb-1">
             {showUnresolvedOnly ? 'All resolved' : 'All clear'}
           </div>
-          <div className="text-[10px] font-mono text-mag-text-dim/35 leading-relaxed max-w-[200px] mx-auto">
+          <div className="text-[10px] font-mono text-gray-600/35 leading-relaxed max-w-[200px] mx-auto">
             {showUnresolvedOnly
               ? 'All errors have been resolved. Toggle the filter to see the full history.'
               : 'No errors recorded. The server is running smoothly.'}
@@ -146,8 +146,8 @@ export function ErrorPanel() {
             key={error.id}
             className={`border rounded-lg transition-all duration-200 ${
               error.resolved
-                ? 'border-mag-border/20 bg-mag-surface/10 opacity-60'
-                : 'border-mag-border/40 bg-mag-surface/20 hover:bg-mag-surface/30'
+                ? 'border-gray-200/20 bg-gray-50/10 opacity-60'
+                : 'border-gray-200/40 bg-gray-50/20 hover:bg-gray-50/30'
             }`}
           >
             {/* Error Header */}
@@ -157,39 +157,39 @@ export function ErrorPanel() {
             >
               <div className="mt-0.5 flex-shrink-0">
                 {error.level === 'CRITICAL' ? (
-                  <AlertTriangle size={14} className="text-mag-danger" />
+                  <AlertTriangle size={14} className="text-red-600" />
                 ) : (
-                  <Bug size={14} className="text-mag-warning" />
+                  <Bug size={14} className="text-amber-600" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
                     error.level === 'CRITICAL'
-                      ? 'bg-mag-danger/10 text-mag-danger'
-                      : 'bg-mag-warning/10 text-mag-warning'
+                      ? 'bg-red-50/10 text-red-600'
+                      : 'bg-amber-50/10 text-amber-600'
                   }`}>
                     {error.level}
                   </span>
-                  <span className="text-[10px] font-mono text-mag-text-dim/50 truncate flex-1">
+                  <span className="text-[10px] font-mono text-gray-600/50 truncate flex-1">
                     {error.request_path || error.source || 'unknown'}
                   </span>
                   {expandedId === error.id ? (
-                    <ChevronUp size={12} className="text-mag-text-dim/40 flex-shrink-0" />
+                    <ChevronUp size={12} className="text-gray-600/40 flex-shrink-0" />
                   ) : (
-                    <ChevronDown size={12} className="text-mag-text-dim/40 flex-shrink-0" />
+                    <ChevronDown size={12} className="text-gray-600/40 flex-shrink-0" />
                   )}
                 </div>
-                <div className="text-xs text-mag-text font-medium truncate">
+                <div className="text-xs text-gray-900 font-medium truncate">
                   {error.message}
                 </div>
                 <div className="flex items-center gap-3 mt-1">
-                  <span className="flex items-center gap-1 text-[9px] font-mono text-mag-text-dim/40">
+                  <span className="flex items-center gap-1 text-[9px] font-mono text-gray-600/40">
                     <Clock size={9} />
                     {formatTimestamp(error.timestamp)}
                   </span>
                   {error.request_ip && (
-                    <span className="flex items-center gap-1 text-[9px] font-mono text-mag-text-dim/40">
+                    <span className="flex items-center gap-1 text-[9px] font-mono text-gray-600/40">
                       <Wifi size={9} />
                       {error.request_ip}
                     </span>
@@ -200,43 +200,43 @@ export function ErrorPanel() {
 
             {/* Expanded Details */}
             {expandedId === error.id && (
-              <div className="px-3 pb-3 space-y-2 animate-fade-in border-t border-mag-border/20 pt-2 mt-1">
+              <div className="px-3 pb-3 space-y-2 animate-fade-in border-t border-gray-200/20 pt-2 mt-1">
                 {error.request_method && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono text-mag-text-dim/40 w-16">Method:</span>
-                    <span className="text-[10px] font-mono text-mag-text font-bold">{error.request_method}</span>
+                    <span className="text-[9px] font-mono text-gray-600/40 w-16">Method:</span>
+                    <span className="text-[10px] font-mono text-gray-900 font-bold">{error.request_method}</span>
                   </div>
                 )}
                 {error.request_path && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono text-mag-text-dim/40 w-16">Path:</span>
-                    <span className="text-[10px] font-mono text-mag-text-dim/80 truncate">{error.request_path}</span>
+                    <span className="text-[9px] font-mono text-gray-600/40 w-16">Path:</span>
+                    <span className="text-[10px] font-mono text-gray-600/80 truncate">{error.request_path}</span>
                   </div>
                 )}
                 {error.request_ip && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono text-mag-text-dim/40 w-16">Client IP:</span>
-                    <span className="text-[10px] font-mono text-mag-text-dim/80">{error.request_ip}</span>
+                    <span className="text-[9px] font-mono text-gray-600/40 w-16">Client IP:</span>
+                    <span className="text-[10px] font-mono text-gray-600/80">{error.request_ip}</span>
                   </div>
                 )}
                 {error.device_id && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono text-mag-text-dim/40 w-16">Device:</span>
-                    <span className="text-[10px] font-mono text-mag-text-dim/80 font-bold text-mag-accent">{error.device_id}</span>
+                    <span className="text-[9px] font-mono text-gray-600/40 w-16">Device:</span>
+                    <span className="text-[10px] font-mono text-gray-600/80 font-bold text-gray-900">{error.device_id}</span>
                   </div>
                 )}
                 {error.traceback && (
                   <div className="mt-2">
-                    <span className="text-[9px] font-mono text-mag-text-dim/40 block mb-1">Traceback:</span>
-                    <pre className="text-[9px] font-mono text-mag-text-dim/70 bg-mag-bg/50 border border-mag-border/20 rounded p-2 overflow-x-auto max-h-32 leading-relaxed">
+                    <span className="text-[9px] font-mono text-gray-600/40 block mb-1">Traceback:</span>
+                    <pre className="text-[9px] font-mono text-gray-600/70 bg-white/50 border border-gray-200/20 rounded p-2 overflow-x-auto max-h-32 leading-relaxed">
                       {error.traceback}
                     </pre>
                   </div>
                 )}
                 {error.resolved && (
                   <div className="flex items-center gap-2 pt-1">
-                    <CheckCircle size={10} className="text-mag-accent" />
-                    <span className="text-[9px] font-mono text-mag-accent/80">
+                    <CheckCircle size={10} className="text-gray-900" />
+                    <span className="text-[9px] font-mono text-gray-900/80">
                       Resolved by {error.resolved_by || 'unknown'} {error.resolved_at ? formatTimestamp(error.resolved_at) : ''}
                     </span>
                   </div>
@@ -247,7 +247,7 @@ export function ErrorPanel() {
                       e.stopPropagation();
                       handleResolve(error.id);
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono font-bold text-mag-accent border border-mag-accent/30 rounded hover:bg-mag-accent/5 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono font-bold text-gray-900 border border-gray-900/30 rounded hover:bg-gray-100/5 transition-colors"
                   >
                     <CheckCircle size={10} />
                     Mark Resolved
