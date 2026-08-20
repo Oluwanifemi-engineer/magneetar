@@ -64,7 +64,7 @@ export function ClaimDeviceModal({ onClose }: { onClose: () => void }) {
     >
       <div className="w-full max-w-md rounded-2xl border border-mag-border/50 bg-mag-panel/95 backdrop-blur-xl shadow-2xl shadow-black/60 overflow-hidden animate-fade-slide">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-mag-border/30">
-          <div className="w-8 h-8 rounded-lg bg-mag-primary/15 border border-mag-primary/30 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-gray-900/15 border border-mag-primary/30 flex items-center justify-center shrink-0">
             <Link2 size={14} className="text-mag-accent" />
           </div>
           <div className="flex-1 min-w-0">
@@ -141,7 +141,7 @@ export function ClaimDeviceModal({ onClose }: { onClose: () => void }) {
             <button
               type="submit"
               disabled={claiming}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-mag-primary/90 hover:bg-mag-primary disabled:opacity-50 text-white text-xs font-bold transition-all"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gray-900 hover:bg-gray-900 disabled:opacity-50 text-white text-xs font-bold transition-all"
             >
               {claiming ? <Loader2 size={13} className="animate-spin" /> : <Link2 size={13} />}
               {claiming ? 'Linking…' : 'Link Device'}

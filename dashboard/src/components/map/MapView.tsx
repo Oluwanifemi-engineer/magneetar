@@ -1019,8 +1019,8 @@ export function MapView() {
                 className={cn(
                   'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold border transition-all',
                   pathPlaying
-                    ? 'border-gray-900/40 text-gray-900 bg-gray-100/10'
-                    : 'border-gray-200/60 text-gray-700 hover:border-gray-200'
+                    ? 'border-gray-900 text-gray-900 '
+                    : 'border-gray-300 text-gray-700 hover:border-gray-200'
                 )}
               >
                 {pathPlaying ? (
@@ -1033,7 +1033,7 @@ export function MapView() {
               <select
                 value={pathSpeed}
                 onChange={(e) => setPathSpeed(Number(e.target.value))}
-                className="bg-gray-50/40 border border-gray-200/40 rounded-lg px-1.5 py-1 text-[9px] font-mono font-bold text-gray-700 focus:outline-none focus:border-gray-900/40"
+                className="bg-gray-50/40 border border-gray-200/40 rounded-lg px-1.5 py-1 text-[9px] font-mono font-bold text-gray-700 focus:outline-none focus:border-gray-900"
               >
                 <option value={1}>1x</option>
                 <option value={2}>2x</option>
@@ -1073,10 +1073,10 @@ export function MapView() {
                 className={cn(
                   'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-all',
                   pinning
-                    ? 'border-amber-400/60 text-amber-600 bg-amber-50/10 animate-pulse'
+                    ? 'border-amber-400/60 text-amber-600  '
                     : userPinned
-                      ? 'border-gray-400/40 text-gray-700 bg-gray-100/10'
-                      : 'border-gray-200/60 text-gray-700 hover:border-gray-200'
+                      ? 'border-gray-900 text-gray-700 '
+                      : 'border-gray-300 text-gray-700 hover:border-gray-200'
                 )}
                 title={
                   pinning
@@ -1092,7 +1092,7 @@ export function MapView() {
               {userPinned && (
                 <button
                   onClick={() => { setUserPinned(null); savePinnedPosition(null); }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-gray-200/60 text-gray-700 hover:text-red-600 hover:border-red-300/40 transition-all"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-gray-300 text-gray-700 hover:text-red-600 hover:border-red-300/40 transition-all"
                   title="Clear the pin and fall back to the browser position"
                 >
                   USE GPS
@@ -1116,8 +1116,8 @@ export function MapView() {
                 className={cn(
                   'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-all',
                   followDevice
-                    ? 'border-gray-900/40 text-gray-900 bg-gray-100/10 shadow-sm'
-                    : 'border-gray-200/60 text-gray-700 hover:border-gray-200'
+                    ? 'border-gray-900 text-gray-900  shadow-sm'
+                    : 'border-gray-300 text-gray-700 hover:border-gray-200'
                 )}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
@@ -1128,8 +1128,8 @@ export function MapView() {
                 className={cn(
                   'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-all',
                   showTrail
-                    ? 'border-gray-400/40 text-gray-700 bg-gray-100/10'
-                    : 'border-gray-200/60 text-gray-700 hover:border-gray-200'
+                    ? 'border-gray-900 text-gray-700 '
+                    : 'border-gray-300 text-gray-700 hover:border-gray-200'
                 )}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 4-8"/></svg>
@@ -1141,8 +1141,8 @@ export function MapView() {
                 className={cn(
                   'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-all',
                   showSatellite
-                    ? 'border-gray-900/40 text-gray-900 bg-gray-100/10'
-                    : 'border-gray-200/60 text-gray-700 hover:border-gray-200'
+                    ? 'border-gray-900 text-gray-900 '
+                    : 'border-gray-300 text-gray-700 hover:border-gray-200'
                 )}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"/></svg>
@@ -1175,8 +1175,8 @@ export function MapView() {
                 className={cn(
                   'flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-all w-full',
                   showPathTracker
-                    ? 'border-gray-900/40 text-gray-900 bg-gray-100/10 shadow-sm'
-                    : 'border-gray-200/60 text-gray-700 hover:border-gray-200'
+                    ? 'border-gray-900 text-gray-900  shadow-sm'
+                    : 'border-gray-300 text-gray-700 hover:border-gray-200'
                 )}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -1207,11 +1207,11 @@ export function MapView() {
               {navigationRoute ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 bg-gray-100/10 border border-gray-400/20 rounded-lg px-3 py-1.5">
+                    <div className="flex items-center gap-2  border border-gray-400/20 rounded-lg px-3 py-1.5">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-700"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                       <span className="font-mono text-xs text-gray-700 font-bold">{formatDistance(navigationRoute.distance)}</span>
                     </div>
-                    <div className="flex items-center gap-2 bg-gray-100/10 border border-gray-900/20 rounded-lg px-3 py-1.5">
+                    <div className="flex items-center gap-2  border border-gray-900/20 rounded-lg px-3 py-1.5">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-900"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                       <span className="font-mono text-xs text-gray-900 font-bold">{formatDuration(navigationRoute.duration)}</span>
                     </div>
@@ -1234,14 +1234,14 @@ export function MapView() {
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={() => openGoogleMapsDirections(latestLocation.lat, latestLocation.lng)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200/60 text-[10px] font-mono font-bold text-gray-700 hover:text-gray-900 hover:border-gray-200 transition-all"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 text-[10px] font-mono font-bold text-gray-700 hover:text-gray-900 hover:border-gray-200 transition-all"
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
                       Google Maps
                     </button>
                     <button
                       onClick={() => window.open(`https://waze.com/ul?ll=${latestLocation.lat},${latestLocation.lng}&navigate=yes`, '_blank')}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200/60 text-[10px] font-mono font-bold text-gray-700 hover:text-gray-900 hover:border-gray-200 transition-all"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 text-[10px] font-mono font-bold text-gray-700 hover:text-gray-900 hover:border-gray-200 transition-all"
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                       Waze
@@ -1254,7 +1254,7 @@ export function MapView() {
                     onClick={handleNavigate}
                     disabled={!userPosition || !userNavigationUsable || navigating}
                     title={!userNavigationUsable ? 'No usable position to route from — tap PIN POSITION and tap the map where you are.' : undefined}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono font-bold border border-gray-900/40 text-gray-900 bg-gray-100/8 hover:bg-gray-100/15 transition-all disabled:opacity-40"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-mono font-bold border border-gray-900 text-gray-900  hover: transition-all disabled:opacity-40"
                   >
                     {navigating ? (
                       <span className="flex items-center gap-2">
@@ -1270,7 +1270,7 @@ export function MapView() {
                   </button>
                   <button
                     onClick={() => openGoogleMapsDirections(latestLocation.lat, latestLocation.lng)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-mono font-bold border border-gray-200/60 text-gray-700 hover:text-gray-900 hover:border-gray-200 transition-all"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-mono font-bold border border-gray-300 text-gray-700 hover:text-gray-900 hover:border-gray-200 transition-all"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
                     EXT MAPS

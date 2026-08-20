@@ -73,22 +73,22 @@ export function KeyboardShortcutsHelp() {
   const categories = [...new Set(SHORTCUTS.map(s => s.category))];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-mag-bg/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm">
       <div className="premium-card w-full max-w-2xl mx-5 p-6 max-h-[80vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-mag-primary/10 border border-mag-primary/20 flex items-center justify-center">
-              <Keyboard size={20} className="text-mag-primary" />
+            <div className="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center">
+              <Keyboard size={20} className="text-gray-900" />
             </div>
             <div>
-              <h2 className="text-lg font-display font-extrabold text-white">Keyboard Shortcuts</h2>
-              <p className="text-[11px] font-mono text-white/40">Navigate faster with shortcuts</p>
+              <h2 className="text-lg font-display font-extrabold text-gray-900">Keyboard Shortcuts</h2>
+              <p className="text-[11px] font-mono text-gray-400">Navigate faster with shortcuts</p>
             </div>
           </div>
           <button
             onClick={() => setIsOpen(false)}
-            className="w-8 h-8 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center text-white/50 hover:text-white hover:bg-white/[0.06] transition-all"
+            className="w-8 h-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-all"
           >
             <X size={16} />
           </button>
@@ -98,7 +98,7 @@ export function KeyboardShortcutsHelp() {
         <div className="space-y-6">
           {categories.map((category) => (
             <div key={category}>
-              <div className="text-[10px] font-mono font-bold text-white/40 uppercase tracking-wider mb-3">
+              <div className="text-[10px] font-mono font-bold text-gray-400 uppercase tracking-wider mb-3">
                 {category}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -107,15 +107,15 @@ export function KeyboardShortcutsHelp() {
                     key={i}
                     className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02] border border-white/[0.04]"
                   >
-                    <span className="text-[12px] text-white/60">{shortcut.description}</span>
+                    <span className="text-[12px] text-gray-600">{shortcut.description}</span>
                     <div className="flex items-center gap-1">
                       {shortcut.keys.map((key, j) => (
                         <span key={j}>
-                          <kbd className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-md bg-mag-surface/60 border border-mag-border/40 text-[11px] font-mono font-bold text-white/70">
+                          <kbd className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-md bg-gray-100 border border-gray-200 text-[11px] font-mono font-bold text-gray-700">
                             {key}
                           </kbd>
                           {j < shortcut.keys.length - 1 && (
-                            <span className="text-white/30 mx-1">+</span>
+                            <span className="text-gray-400 mx-1">+</span>
                           )}
                         </span>
                       ))}
@@ -129,8 +129,8 @@ export function KeyboardShortcutsHelp() {
 
         {/* Footer */}
         <div className="mt-6 pt-4 border-t border-white/[0.06] text-center">
-          <p className="text-[11px] font-mono text-white/30">
-            Press <kbd className="px-1.5 py-0.5 rounded bg-mag-surface/60 border border-mag-border/40 text-white/50">?</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-mag-surface/60 border border-mag-border/40 text-white/50">K</kbd> to toggle this panel
+          <p className="text-[11px] font-mono text-gray-400">
+            Press <kbd className="px-1.5 py-0.5 rounded bg-gray-100 border border-gray-200 text-gray-500">?</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-gray-100 border border-gray-200 text-gray-500">K</kbd> to toggle this panel
           </p>
         </div>
       </div>
