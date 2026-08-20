@@ -52,7 +52,7 @@ export function Header() {
           <span className="text-sm font-display font-bold tracking-[0.25em] text-gray-900">
             MAGNEETAR
           </span>
-          <span className="mt-1 text-[7px] font-mono tracking-[0.3em] text-gray-400 font-bold">
+          <span className="mt-1 text-[7px] font-mono tracking-[0.3em] text-gray-700 font-bold">
             COMMAND CENTER
           </span>
         </div>
@@ -66,7 +66,7 @@ export function Header() {
         )} />
         <span className={cn(
           'text-[10px] font-mono uppercase tracking-widest font-bold transition-colors',
-          isConnected ? 'text-emerald-600' : 'text-gray-400'
+          isConnected ? 'text-emerald-600' : 'text-gray-700'
         )}>
           {connecting ? 'CONNECTING...' : isConnected ? 'CONNECTED' : 'DISCONNECTED'}
         </span>
@@ -79,7 +79,7 @@ export function Header() {
       {!isAuthenticated && (
         <div className="flex items-center gap-2 ml-auto">
           <div className="relative">
-            <Settings size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Settings size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-700" />
             <input
               type="text"
               value={inputUrl}
@@ -122,7 +122,7 @@ export function Header() {
       {isAuthenticated && (
         <div className="flex items-center gap-4 ml-auto">
           {/* Server URL */}
-          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-500 px-2 py-1 rounded-lg bg-gray-50 border border-gray-200">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-700 px-2 py-1 rounded-lg bg-gray-50 border border-gray-200">
             <Settings size={11} className="shrink-0" />
             <span className="truncate max-w-[140px]">{serverUrl}</span>
           </div>
@@ -140,7 +140,7 @@ export function Header() {
           {/* Disconnect button */}
           <button
             onClick={handleDisconnect}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold text-gray-500 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold text-gray-700 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all"
           >
             <LogOut size={11} />
             DISCONNECT
@@ -151,7 +151,7 @@ export function Header() {
           <button
             onClick={() => setSettingsOpen(true)}
             title="Settings"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold text-gray-500 hover:text-gray-900 hover:bg-gray-100 border border-transparent hover:border-gray-200 transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold text-gray-700 hover:text-gray-900 hover:bg-gray-100 border border-transparent hover:border-gray-200 transition-all"
           >
             <Settings size={11} />
             SETTINGS

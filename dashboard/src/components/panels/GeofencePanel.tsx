@@ -155,16 +155,16 @@ export function GeofencePanel() {
   if (!selectedDeviceId) {
     return (
       <div className="p-4 space-y-4">
-        <div className="flex items-center gap-1.5 text-[11px] font-mono text-gray-600/70 uppercase tracking-wider font-bold mb-3 px-1">
+        <div className="flex items-center gap-1.5 text-[11px] font-mono text-gray-700/70 uppercase tracking-wider font-bold mb-3 px-1">
           <Fence size={12} className="text-gray-900" />
           Geofence Zones
         </div>
         <div className="text-center py-8">
           <div className="w-10 h-10 rounded-xl bg-gray-50/30 border border-gray-200/20 flex items-center justify-center mx-auto mb-2">
-            <MapPin size={16} className="text-gray-600/20" />
+            <MapPin size={16} className="text-gray-700/20" />
           </div>
-          <div className="text-gray-600/40 text-[11px] font-bold">No device selected</div>
-          <div className="text-gray-600/25 text-[10px] font-mono mt-1 max-w-[220px] mx-auto leading-relaxed">
+          <div className="text-gray-700/40 text-[11px] font-bold">No device selected</div>
+          <div className="text-gray-700/25 text-[10px] font-mono mt-1 max-w-[220px] mx-auto leading-relaxed">
             Select a device from the sidebar to manage its geofence zones.
           </div>
         </div>
@@ -174,7 +174,7 @@ export function GeofencePanel() {
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-center gap-1.5 text-[11px] font-mono text-gray-600/70 uppercase tracking-wider font-bold mb-3 px-1">
+      <div className="flex items-center gap-1.5 text-[11px] font-mono text-gray-700/70 uppercase tracking-wider font-bold mb-3 px-1">
         <Fence size={12} className="text-gray-900" />
         Geofence Zones
       </div>
@@ -183,15 +183,15 @@ export function GeofencePanel() {
       <div className="space-y-2">
         {loading && !zones ? (
           <div className="text-center py-8">
-            <Loader size={16} className="animate-spin mx-auto text-gray-600/30" />
+            <Loader size={16} className="animate-spin mx-auto text-gray-700/30" />
           </div>
         ) : !zones || zones.length === 0 ? (
           <div className="text-center py-8 bg-gray-50/30 border border-gray-200/30 rounded-xl">
             <div className="w-10 h-10 rounded-xl bg-gray-50/40 border border-gray-200/20 flex items-center justify-center mx-auto mb-2">
-              <MapPin size={16} className="text-gray-600/25" />
+              <MapPin size={16} className="text-gray-700/25" />
             </div>
-            <div className="text-gray-600/50 text-[11px] font-bold mb-1">No zones yet</div>
-            <div className="text-gray-600/30 text-[10px] font-mono leading-relaxed max-w-[220px] mx-auto">
+            <div className="text-gray-700/50 text-[11px] font-bold mb-1">No zones yet</div>
+            <div className="text-gray-700/30 text-[10px] font-mono leading-relaxed max-w-[220px] mx-auto">
               Create a safe zone to get an alert (and an optional capture / siren reaction) the moment
               the device leaves it.
             </div>
@@ -219,9 +219,9 @@ export function GeofencePanel() {
                 </span>
               </div>
 
-              <div className="text-[10px] font-mono text-gray-600/60 leading-relaxed">
+              <div className="text-[10px] font-mono text-gray-700/60 leading-relaxed">
                 {formatCoordinate(zone.center_lat, 'lat')}, {formatCoordinate(zone.center_lng, 'lng')}
-                <span className="text-gray-600/35"> · radius {Math.round(zone.radius_meters)}m</span>
+                <span className="text-gray-700/35"> · radius {Math.round(zone.radius_meters)}m</span>
               </div>
 
               <div className="flex items-center justify-between gap-2">
@@ -254,7 +254,7 @@ export function GeofencePanel() {
                       'px-2 py-1.5 rounded-md border text-[9px] font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-40 shrink-0',
                       confirmDeleteId === zone.id
                         ? 'border-red-300/60 bg-red-50/15 text-red-600'
-                        : 'border-gray-200/40 text-gray-600/40 hover:text-red-600 hover:border-red-300/40'
+                        : 'border-gray-200/40 text-gray-700/40 hover:text-red-600 hover:border-red-300/40'
                     )}
                   >
                     {deletingId === zone.id ? (
@@ -274,25 +274,25 @@ export function GeofencePanel() {
 
       {/* Create zone — owner/admin only */}
       {!canManage ? (
-        <p className="text-center text-[10px] font-mono text-gray-600/40 py-2">
+        <p className="text-center text-[10px] font-mono text-gray-700/40 py-2">
           You have read-only access — only the owner or an admin can change zones.
         </p>
       ) : !formOpen ? (
         <button
           onClick={() => { setFormOpen(true); setError(''); }}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-gray-200/40 text-gray-600/70 hover:text-gray-900 hover:border-gray-900/50 transition-all text-xs font-bold"
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-gray-200/40 text-gray-700/70 hover:text-gray-900 hover:border-gray-900/50 transition-all text-xs font-bold"
         >
           <Plus size={14} />
           Add Zone
         </button>
       ) : (
         <form onSubmit={createZone} className="bg-gray-50/30 border border-gray-200/30 rounded-xl p-4 space-y-3">
-          <div className="text-[11px] font-mono text-gray-600/80 uppercase tracking-wider font-bold">
+          <div className="text-[11px] font-mono text-gray-700/80 uppercase tracking-wider font-bold">
             New Zone
           </div>
 
           <div>
-            <label className="text-[10px] font-mono text-gray-600/60 font-bold mb-1 block">
+            <label className="text-[10px] font-mono text-gray-700/60 font-bold mb-1 block">
               Name (optional)
             </label>
             <input
@@ -301,13 +301,13 @@ export function GeofencePanel() {
               maxLength={60}
               placeholder="e.g. Home, School, Office"
               aria-label="Zone name"
-              className="w-full bg-white/60 border border-gray-200/40 rounded-lg px-3 py-2 text-xs font-mono text-gray-900 placeholder:text-gray-600/30 focus:outline-none focus:border-gray-900/60 transition-colors"
+              className="w-full bg-white/60 border border-gray-200/40 rounded-lg px-3 py-2 text-xs font-mono text-gray-900 placeholder:text-gray-700/30 focus:outline-none focus:border-gray-900/60 transition-colors"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[10px] font-mono text-gray-600/60 font-bold mb-1 block">
+              <label className="text-[10px] font-mono text-gray-700/60 font-bold mb-1 block">
                 Latitude
               </label>
               <input
@@ -319,7 +319,7 @@ export function GeofencePanel() {
               />
             </div>
             <div>
-              <label className="text-[10px] font-mono text-gray-600/60 font-bold mb-1 block">
+              <label className="text-[10px] font-mono text-gray-700/60 font-bold mb-1 block">
                 Longitude
               </label>
               <input
@@ -333,7 +333,7 @@ export function GeofencePanel() {
           </div>
 
           <div>
-            <label className="text-[10px] font-mono text-gray-600/60 font-bold mb-1 block">
+            <label className="text-[10px] font-mono text-gray-700/60 font-bold mb-1 block">
               Radius (meters)
             </label>
             <input
@@ -353,7 +353,7 @@ export function GeofencePanel() {
               aria-label="Safe zone"
               className="accent-mag-accent w-4 h-4"
             />
-            <span className="text-[10px] font-mono text-gray-600/70 font-bold">
+            <span className="text-[10px] font-mono text-gray-700/70 font-bold">
               Safe zone (alert when the device LEAVES it)
             </span>
           </label>
@@ -364,7 +364,7 @@ export function GeofencePanel() {
           )}
 
           <div>
-            <label className="text-[10px] font-mono text-gray-600/60 font-bold mb-1 block">
+            <label className="text-[10px] font-mono text-gray-700/60 font-bold mb-1 block">
               Auto-action on exit
             </label>
             <div className="space-y-1.5">
@@ -388,7 +388,7 @@ export function GeofencePanel() {
                   />
                   <span>
                     <span className="block text-[10px] font-mono font-bold text-gray-900">{opt.label}</span>
-                    <span className="block text-[9px] font-mono text-gray-600/50 leading-relaxed">{opt.hint}</span>
+                    <span className="block text-[9px] font-mono text-gray-700/50 leading-relaxed">{opt.hint}</span>
                   </span>
                 </label>
               ))}
@@ -410,7 +410,7 @@ export function GeofencePanel() {
               type="button"
               onClick={() => { setFormOpen(false); setError(''); }}
               disabled={creating}
-              className="px-4 py-2 rounded-lg border border-gray-200/40 text-gray-600/70 hover:text-gray-900 text-[11px] font-bold transition-all disabled:opacity-40"
+              className="px-4 py-2 rounded-lg border border-gray-200/40 text-gray-700/70 hover:text-gray-900 text-[11px] font-bold transition-all disabled:opacity-40"
             >
               Cancel
             </button>

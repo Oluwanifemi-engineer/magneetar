@@ -14,12 +14,12 @@ export function SentinelPanel() {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
         <div className="w-14 h-14 rounded-2xl bg-gray-50/40 border border-gray-200/30 flex items-center justify-center mb-4">
-          <Smartphone size={24} className="text-gray-600/25" />
+          <Smartphone size={24} className="text-gray-700/25" />
         </div>
-        <div className="text-gray-600/60 text-sm font-bold mb-1">
+        <div className="text-gray-700/60 text-sm font-bold mb-1">
           No device selected
         </div>
-        <div className="text-gray-600/35 text-xs font-mono leading-relaxed max-w-[200px]">
+        <div className="text-gray-700/35 text-xs font-mono leading-relaxed max-w-[200px]">
           Select a device from the sidebar to view its threat assessment and security status.
         </div>
       </div>
@@ -30,14 +30,14 @@ export function SentinelPanel() {
     <div className="p-4 space-y-4">
       {/* Sentinel Score */}
       <div className="bg-gray-50/40 border border-gray-200/40 rounded-xl p-4">
-        <div className="flex items-center gap-1.5 text-[11px] font-mono text-gray-600/70 uppercase tracking-wider font-bold mb-3">
+        <div className="flex items-center gap-1.5 text-[11px] font-mono text-gray-700/70 uppercase tracking-wider font-bold mb-3">
           <Shield size={12} className="text-gray-900" />
           Threat Assessment
         </div>
 
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono text-gray-600/60">Score</span>
+            <span className="text-[11px] font-mono text-gray-700/60">Score</span>
             <span className={cn(
               'text-2xl font-mono font-bold tabular-nums',
               device.sentinel_score >= 70 ? 'text-red-600' :
@@ -73,7 +73,7 @@ export function SentinelPanel() {
       {/* Device Info Grid */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-gray-50/30 border border-gray-200/30 rounded-lg p-3">
-          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-600/60 mb-1">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-700/60 mb-1">
             <Battery size={10} className="text-gray-900" />
             Battery
           </div>
@@ -83,8 +83,8 @@ export function SentinelPanel() {
         </div>
 
         <div className="bg-gray-50/30 border border-gray-200/30 rounded-lg p-3">
-          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-600/60 mb-1">
-            <Wifi size={10} className="text-gray-600" />
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-700/60 mb-1">
+            <Wifi size={10} className="text-gray-700" />
             Speed
           </div>
           <span className="font-mono text-sm font-bold text-gray-900">
@@ -93,7 +93,7 @@ export function SentinelPanel() {
         </div>
 
         <div className="bg-gray-50/30 border border-gray-200/30 rounded-lg p-3">
-          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-600/60 mb-1">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-700/60 mb-1">
             <MapPin size={10} className="text-gray-900" />
             Accuracy
           </div>
@@ -103,7 +103,7 @@ export function SentinelPanel() {
         </div>
 
         <div className="bg-gray-50/30 border border-gray-200/30 rounded-lg p-3">
-          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-600/60 mb-1">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-700/60 mb-1">
             <Clock size={10} className="text-amber-600" />
             Last Seen
           </div>
@@ -120,7 +120,7 @@ export function SentinelPanel() {
             <AlertTriangle size={14} />
             DEVICE MARKED AS STOLEN
           </div>
-          <div className="text-[10px] font-mono text-gray-600/60 mt-1">
+          <div className="text-[10px] font-mono text-gray-700/60 mt-1">
             All tracking data is being logged for evidence.
           </div>
         </div>

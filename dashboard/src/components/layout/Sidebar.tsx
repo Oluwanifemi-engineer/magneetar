@@ -105,9 +105,9 @@ export function Sidebar() {
         aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
       >
         {sidebarOpen ? (
-          <ChevronLeft size={13} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
+          <ChevronLeft size={13} className="text-gray-700 group-hover:text-gray-700 transition-colors" />
         ) : (
-          <ChevronRight size={13} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
+          <ChevronRight size={13} className="text-gray-700 group-hover:text-gray-700 transition-colors" />
         )}
       </button>
 
@@ -118,7 +118,7 @@ export function Sidebar() {
             <img src="/magneetar-mhalf.svg" alt="Magneetar" className="w-7 h-7 rounded-lg shrink-0" />
             <div>
               <div className="text-[11px] font-bold tracking-[0.2em] text-gray-900">MAGNEETAR</div>
-              <div className="text-[8px] font-mono text-gray-400 tracking-[0.2em] font-bold">COMMAND CENTER</div>
+              <div className="text-[8px] font-mono text-gray-700 tracking-[0.2em] font-bold">COMMAND CENTER</div>
             </div>
             <div className="ml-auto w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]" />
           </div>
@@ -127,23 +127,23 @@ export function Sidebar() {
           {stats && (
             <div className="px-4 py-3 border-b border-gray-200 shrink-0">
               <div className="flex items-center gap-1.5 mb-2.5">
-                <BarChart3 size={11} className="text-gray-400" />
-                <span className="text-[9px] font-mono text-gray-400 uppercase tracking-[0.15em] font-bold">
+                <BarChart3 size={11} className="text-gray-700" />
+                <span className="text-[9px] font-mono text-gray-700 uppercase tracking-[0.15em] font-bold">
                   Overview
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 text-center transition-all duration-200 hover:border-gray-300 hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
                   <div className="font-mono text-sm font-bold text-gray-900 tabular-nums">{stats.total_devices}</div>
-                  <div className="text-[7px] font-mono text-gray-400 font-bold uppercase tracking-wider">Total</div>
+                  <div className="text-[7px] font-mono text-gray-700 font-bold uppercase tracking-wider">Total</div>
                 </div>
                 <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-center transition-all duration-200 hover:border-emerald-300 hover:shadow-[0_2px_8px_rgba(16,185,129,0.04)]">
                   <div className="font-mono text-sm font-bold text-emerald-600 tabular-nums">{stats.active_devices}</div>
-                  <div className="text-[7px] font-mono text-gray-400 font-bold uppercase tracking-wider">Active</div>
+                  <div className="text-[7px] font-mono text-gray-700 font-bold uppercase tracking-wider">Active</div>
                 </div>
                 <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-center transition-all duration-200 hover:border-red-300 hover:shadow-[0_2px_8px_rgba(239,68,68,0.04)]">
                   <div className="font-mono text-sm font-bold text-red-500 tabular-nums">{stats.stolen_devices}</div>
-                  <div className="text-[7px] font-mono text-gray-400 font-bold uppercase tracking-wider">Stolen</div>
+                  <div className="text-[7px] font-mono text-gray-700 font-bold uppercase tracking-wider">Stolen</div>
                 </div>
               </div>
               {stats.alerts_today > 0 && (
@@ -161,15 +161,15 @@ export function Sidebar() {
           {/* ─── Devices Section Header ────────────────────────────────────── */}
           <div className="px-4 py-2.5 border-b border-gray-200 shrink-0">
             <div className="flex items-center gap-2">
-              <Smartphone size={12} className="text-gray-400" />
-              <span className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.2em] font-bold">
+              <Smartphone size={12} className="text-gray-700" />
+              <span className="text-[10px] font-mono text-gray-700 uppercase tracking-[0.2em] font-bold">
                 Devices
               </span>
               <span className="ml-auto flex items-center gap-2 text-[10px] font-mono font-bold tabular-nums">
                 {archivedDevices.length > 0 && (
                   <span className="text-amber-500">{archivedDevices.length} archived</span>
                 )}
-                <span className="text-gray-400">{activeDevices.length}</span>
+                <span className="text-gray-700">{activeDevices.length}</span>
               </span>
               {/* Link a device — claim an ownerless phone via its pairing code */}
               <button
@@ -203,10 +203,10 @@ export function Sidebar() {
             ) : devices.length === 0 ? (
               <div className="p-6 text-center">
                 <Smartphone size={22} className="mx-auto text-gray-300 mb-3" />
-                <div className="text-gray-500 text-sm font-bold">
+                <div className="text-gray-700 text-sm font-bold">
                   No devices registered.
                 </div>
-                <div className="text-gray-400 text-[10px] font-mono mt-1">
+                <div className="text-gray-700 text-[10px] font-mono mt-1">
                   Connect to server first.
                 </div>
               </div>
@@ -256,7 +256,7 @@ export function Sidebar() {
                               ? 'border-emerald-300 text-emerald-600 bg-emerald-50'
                               : device.access_role === 'viewer'
                                 ? 'border-blue-300 text-blue-600 bg-blue-50'
-                                : 'border-gray-300 text-gray-500 bg-gray-100'
+                                : 'border-gray-300 text-gray-700 bg-gray-100'
                           )}
                           title={`Shared access — ${device.access_role} role`}
                         >
@@ -270,7 +270,7 @@ export function Sidebar() {
                       />
                     </div>
 
-                    <div className="font-mono text-[9px] text-gray-400 truncate font-bold mb-0.5">
+                    <div className="font-mono text-[9px] text-gray-700 truncate font-bold mb-0.5">
                       {device.id}
                     </div>
 
@@ -279,7 +279,7 @@ export function Sidebar() {
                         'w-1.5 h-1.5 rounded-full',
                         online ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]' : 'bg-gray-300'
                       )} />
-                      <span className="font-mono text-[9px] text-gray-400 font-bold">
+                      <span className="font-mono text-[9px] text-gray-700 font-bold">
                         {relativeTime(device.last_seen)}
                       </span>
                     </div>
@@ -306,8 +306,8 @@ export function Sidebar() {
                     {/* Last-known coordinates + battery + copy (works offline) */}
                     {(device.lat != null && device.lng != null) && (
                       <div className="flex items-center gap-1.5 mt-1">
-                        <MapPin size={8} className="text-gray-400 shrink-0" />
-                        <span className="font-mono text-[8px] text-gray-400 font-bold truncate">
+                        <MapPin size={8} className="text-gray-700 shrink-0" />
+                        <span className="font-mono text-[8px] text-gray-700 font-bold truncate">
                           {device.lat.toFixed(4)}, {device.lng.toFixed(4)}
                         </span>
                         <span
@@ -318,12 +318,12 @@ export function Sidebar() {
                             navigator.clipboard?.writeText(`${device.lat},${device.lng}`);
                           }}
                           title="Copy coordinates"
-                          className="text-gray-400 hover:text-emerald-600 cursor-pointer transition-colors shrink-0"
+                          className="text-gray-700 hover:text-emerald-600 cursor-pointer transition-colors shrink-0"
                         >
                           <Copy size={9} />
                         </span>
                         {device.battery_percent != null && (
-                          <span className="ml-auto flex items-center gap-1 text-[8px] font-mono text-gray-400 font-bold tabular-nums">
+                          <span className="ml-auto flex items-center gap-1 text-[8px] font-mono text-gray-700 font-bold tabular-nums">
                             <Battery size={9} className={cn(device.battery_percent <= 20 ? 'text-red-500' : 'text-emerald-500')} />
                             {device.battery_percent}%
                           </span>
@@ -343,12 +343,12 @@ export function Sidebar() {
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.3)]" />
                 <span className="text-emerald-600 tabular-nums">{onlineCount}</span>
-                <span className="text-gray-400">online</span>
+                <span className="text-gray-700">online</span>
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
-                <span className="text-gray-500 tabular-nums">{offlineCount}</span>
-                <span className="text-gray-400">offline</span>
+                <span className="text-gray-700 tabular-nums">{offlineCount}</span>
+                <span className="text-gray-700">offline</span>
               </span>
             </div>
 
@@ -369,7 +369,7 @@ export function Sidebar() {
                 <div className="text-[11px] font-mono text-amber-600 font-bold uppercase tracking-wider">
                   Delete {archivedDevices.length} archived device{archivedDevices.length !== 1 ? 's' : ''}
                 </div>
-                <div className="text-[10px] font-mono text-gray-500 mt-1 leading-relaxed">
+                <div className="text-[10px] font-mono text-gray-700 mt-1 leading-relaxed">
                   These devices have been silent beyond the archive threshold. All their
                   locations, media, evidence & alerts are erased permanently. This cannot
                   be undone.
@@ -389,11 +389,11 @@ export function Sidebar() {
                   confirmPurgeArchived();
                 }
               }}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 transition-colors"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-900 placeholder:text-gray-700 focus:outline-none focus:border-gray-400 transition-colors"
             />
             {purgeError && <div className="text-[10px] font-mono text-red-500">{purgeError}</div>}
-            <div className="text-[10px] font-mono text-gray-400 leading-relaxed">
-              This session verifies with <span className="font-bold text-gray-600">{stepUpPasswordHint()}</span>.
+            <div className="text-[10px] font-mono text-gray-700 leading-relaxed">
+              This session verifies with <span className="font-bold text-gray-700">{stepUpPasswordHint()}</span>.
             </div>
             <div className="flex gap-2">
               <button
@@ -407,7 +407,7 @@ export function Sidebar() {
               <button
                 onClick={() => { setConfirmPurge(false); setPurgePassword(''); setPurgeError(''); }}
                 disabled={purging}
-                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-gray-200 text-gray-500 hover:text-gray-900 hover:bg-gray-50 text-[11px] font-bold transition-all"
+                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:text-gray-900 hover:bg-gray-50 text-[11px] font-bold transition-all"
               >
                 <X size={12} />
                 Cancel

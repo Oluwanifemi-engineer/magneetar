@@ -84,7 +84,7 @@ export function ErrorPanel() {
           )}
           <button
             onClick={fetchErrors}
-            className="p-1.5 rounded hover:bg-gray-50/50 text-gray-600/60 hover:text-gray-600 transition-colors"
+            className="p-1.5 rounded hover:bg-gray-50/50 text-gray-700/60 hover:text-gray-700 transition-colors"
             title="Refresh"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -99,12 +99,12 @@ export function ErrorPanel() {
           className={`px-3 py-1 text-[10px] font-mono font-bold rounded border transition-all ${
             showUnresolvedOnly
               ? 'bg-amber-50/10 border-amber-400/30 text-amber-600'
-              : 'bg-gray-50/20 border-gray-200/30 text-gray-600/60 hover:text-gray-600/80'
+              : 'bg-gray-50/20 border-gray-200/30 text-gray-700/60 hover:text-gray-700/80'
           }`}
         >
           Unresolved only
         </button>
-        <span className="text-[10px] font-mono text-gray-600/40">
+        <span className="text-[10px] font-mono text-gray-700/40">
           {totalCount} total
         </span>
       </div>
@@ -128,10 +128,10 @@ export function ErrorPanel() {
           <div className="w-14 h-14 rounded-2xl bg-gray-100/10 border border-gray-900/20 flex items-center justify-center mx-auto mb-3">
             <ShieldCheck size={24} className="text-gray-900/60" />
           </div>
-          <div className="text-sm font-bold text-gray-600/60 mb-1">
+          <div className="text-sm font-bold text-gray-700/60 mb-1">
             {showUnresolvedOnly ? 'All resolved' : 'All clear'}
           </div>
-          <div className="text-[10px] font-mono text-gray-600/35 leading-relaxed max-w-[200px] mx-auto">
+          <div className="text-[10px] font-mono text-gray-700/35 leading-relaxed max-w-[200px] mx-auto">
             {showUnresolvedOnly
               ? 'All errors have been resolved. Toggle the filter to see the full history.'
               : 'No errors recorded. The server is running smoothly.'}
@@ -171,25 +171,25 @@ export function ErrorPanel() {
                   }`}>
                     {error.level}
                   </span>
-                  <span className="text-[10px] font-mono text-gray-600/50 truncate flex-1">
+                  <span className="text-[10px] font-mono text-gray-700/50 truncate flex-1">
                     {error.request_path || error.source || 'unknown'}
                   </span>
                   {expandedId === error.id ? (
-                    <ChevronUp size={12} className="text-gray-600/40 flex-shrink-0" />
+                    <ChevronUp size={12} className="text-gray-700/40 flex-shrink-0" />
                   ) : (
-                    <ChevronDown size={12} className="text-gray-600/40 flex-shrink-0" />
+                    <ChevronDown size={12} className="text-gray-700/40 flex-shrink-0" />
                   )}
                 </div>
                 <div className="text-xs text-gray-900 font-medium truncate">
                   {error.message}
                 </div>
                 <div className="flex items-center gap-3 mt-1">
-                  <span className="flex items-center gap-1 text-[9px] font-mono text-gray-600/40">
+                  <span className="flex items-center gap-1 text-[9px] font-mono text-gray-700/40">
                     <Clock size={9} />
                     {formatTimestamp(error.timestamp)}
                   </span>
                   {error.request_ip && (
-                    <span className="flex items-center gap-1 text-[9px] font-mono text-gray-600/40">
+                    <span className="flex items-center gap-1 text-[9px] font-mono text-gray-700/40">
                       <Wifi size={9} />
                       {error.request_ip}
                     </span>
@@ -203,32 +203,32 @@ export function ErrorPanel() {
               <div className="px-3 pb-3 space-y-2 animate-fade-in border-t border-gray-200/20 pt-2 mt-1">
                 {error.request_method && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono text-gray-600/40 w-16">Method:</span>
+                    <span className="text-[9px] font-mono text-gray-700/40 w-16">Method:</span>
                     <span className="text-[10px] font-mono text-gray-900 font-bold">{error.request_method}</span>
                   </div>
                 )}
                 {error.request_path && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono text-gray-600/40 w-16">Path:</span>
-                    <span className="text-[10px] font-mono text-gray-600/80 truncate">{error.request_path}</span>
+                    <span className="text-[9px] font-mono text-gray-700/40 w-16">Path:</span>
+                    <span className="text-[10px] font-mono text-gray-700/80 truncate">{error.request_path}</span>
                   </div>
                 )}
                 {error.request_ip && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono text-gray-600/40 w-16">Client IP:</span>
-                    <span className="text-[10px] font-mono text-gray-600/80">{error.request_ip}</span>
+                    <span className="text-[9px] font-mono text-gray-700/40 w-16">Client IP:</span>
+                    <span className="text-[10px] font-mono text-gray-700/80">{error.request_ip}</span>
                   </div>
                 )}
                 {error.device_id && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono text-gray-600/40 w-16">Device:</span>
-                    <span className="text-[10px] font-mono text-gray-600/80 font-bold text-gray-900">{error.device_id}</span>
+                    <span className="text-[9px] font-mono text-gray-700/40 w-16">Device:</span>
+                    <span className="text-[10px] font-mono text-gray-700/80 font-bold text-gray-900">{error.device_id}</span>
                   </div>
                 )}
                 {error.traceback && (
                   <div className="mt-2">
-                    <span className="text-[9px] font-mono text-gray-600/40 block mb-1">Traceback:</span>
-                    <pre className="text-[9px] font-mono text-gray-600/70 bg-white/50 border border-gray-200/20 rounded p-2 overflow-x-auto max-h-32 leading-relaxed">
+                    <span className="text-[9px] font-mono text-gray-700/40 block mb-1">Traceback:</span>
+                    <pre className="text-[9px] font-mono text-gray-700/70 bg-white/50 border border-gray-200/20 rounded p-2 overflow-x-auto max-h-32 leading-relaxed">
                       {error.traceback}
                     </pre>
                   </div>

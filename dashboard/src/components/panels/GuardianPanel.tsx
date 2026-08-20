@@ -211,7 +211,7 @@ export function GuardianPanel() {
   return (
     <div className="p-4 space-y-4">
       {/* ── Mode header ─────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 text-[11px] font-mono text-gray-600/70 uppercase tracking-wider font-bold">
+      <div className="flex items-center gap-2 text-[11px] font-mono text-gray-700/70 uppercase tracking-wider font-bold">
         <ShieldCheck size={12} className="text-gray-900" />
         Guardian Network
       </div>
@@ -239,7 +239,7 @@ export function GuardianPanel() {
         <>
           {/* ── Find Network status ────────────────────────────────────── */}
           <div className="bg-gray-50/40 border border-gray-200/40 rounded-xl p-4">
-            <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-600/60 mb-3">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-700/60 mb-3">
               <Radar size={11} className="text-gray-900" />
               Find Network
             </div>
@@ -248,7 +248,7 @@ export function GuardianPanel() {
                   beacon while a recovery request is active; nearby guardian
                   phones auto-detect it and report sightings. */}
               <div className="px-3 py-2 rounded-lg bg-white/40 border border-gray-200/20">
-                <div className="text-[9px] font-mono text-gray-600/50 uppercase tracking-wider font-bold">
+                <div className="text-[9px] font-mono text-gray-700/50 uppercase tracking-wider font-bold">
                   Owner Beacon
                 </div>
                 <div className="flex items-center gap-1.5 mt-1">
@@ -260,12 +260,12 @@ export function GuardianPanel() {
                   )} />
                   <span className={cn(
                     'text-[11px] font-mono font-bold',
-                    activeRequest ? 'text-gray-900' : 'text-gray-600/50'
+                    activeRequest ? 'text-gray-900' : 'text-gray-700/50'
                   )}>
                     {activeRequest ? 'BROADCASTING' : 'STANDBY'}
                   </span>
                 </div>
-                <div className="text-[9px] text-gray-600/40 mt-0.5 leading-tight">
+                <div className="text-[9px] text-gray-700/40 mt-0.5 leading-tight">
                   {activeRequest
                     ? 'Nearby guardians can detect this device over BLE'
                     : 'No active recovery request for this device'}
@@ -274,7 +274,7 @@ export function GuardianPanel() {
               {/* Guardian scanner — when guardian mode is on, this account's
                   phone auto-scans for SOS beacons in the background. */}
               <div className="px-3 py-2 rounded-lg bg-white/40 border border-gray-200/20">
-                <div className="text-[9px] font-mono text-gray-600/50 uppercase tracking-wider font-bold">
+                <div className="text-[9px] font-mono text-gray-700/50 uppercase tracking-wider font-bold">
                   Guardian Scanner
                 </div>
                 <div className="flex items-center gap-1.5 mt-1">
@@ -286,12 +286,12 @@ export function GuardianPanel() {
                   )} />
                   <span className={cn(
                     'text-[11px] font-mono font-bold',
-                    isGuardian ? 'text-gray-900' : 'text-gray-600/50'
+                    isGuardian ? 'text-gray-900' : 'text-gray-700/50'
                   )}>
                     {isGuardian ? 'SCANNING' : 'OFF'}
                   </span>
                 </div>
-                <div className="text-[9px] text-gray-600/40 mt-0.5 leading-tight">
+                <div className="text-[9px] text-gray-700/40 mt-0.5 leading-tight">
                   {isGuardian
                     ? 'Auto-detecting SOS beacons nearby'
                     : 'Turn on Guardian Mode to help others'}
@@ -302,7 +302,7 @@ export function GuardianPanel() {
 
           {/* ── Owner: launch / track recovery ─────────────────────────── */}
           <div className="bg-gray-50/40 border border-gray-200/40 rounded-xl p-4">
-            <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-600/60 mb-3">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-700/60 mb-3">
               <Radar size={11} className="text-gray-900" />
               My Recovery Requests
             </div>
@@ -310,10 +310,10 @@ export function GuardianPanel() {
             {!device ? (
               <div className="text-center py-6">
                 <div className="w-10 h-10 rounded-xl bg-gray-50/40 border border-gray-200/30 flex items-center justify-center mx-auto mb-2">
-                  <Radar size={16} className="text-gray-600/25" />
+                  <Radar size={16} className="text-gray-700/25" />
                 </div>
-                <div className="text-gray-600/50 text-xs font-bold">Select a device</div>
-                <div className="text-gray-600/30 text-[10px] font-mono mt-1">Choose a device from the sidebar to manage recovery.</div>
+                <div className="text-gray-700/50 text-xs font-bold">Select a device</div>
+                <div className="text-gray-700/30 text-[10px] font-mono mt-1">Choose a device from the sidebar to manage recovery.</div>
               </div>
             ) : isStolen && !activeRequest ? (
               <button
@@ -341,11 +341,11 @@ export function GuardianPanel() {
               </div>
             ) : (
               <div className="text-center py-4">
-                <Heart size={20} className="mx-auto text-gray-600/15 mb-2" />
-                <div className="text-gray-600/50 text-[11px] font-bold">
+                <Heart size={20} className="mx-auto text-gray-700/15 mb-2" />
+                <div className="text-gray-700/50 text-[11px] font-bold">
                   {requests.length === 0 ? 'No recovery requests yet' : 'Device is secure'}
                 </div>
-                <div className="text-gray-600/30 text-[10px] font-mono mt-1 leading-relaxed max-w-[220px] mx-auto">
+                <div className="text-gray-700/30 text-[10px] font-mono mt-1 leading-relaxed max-w-[220px] mx-auto">
                   {requests.length === 0
                     ? 'When a device is marked stolen, you can launch a community recovery request to get help from nearby guardians.'
                     : 'Your device is not currently stolen. No recovery action needed.'}
@@ -361,11 +361,11 @@ export function GuardianPanel() {
                     <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-900 font-bold">
                       <Users size={10} />
                       {s.guardian_handle}
-                      <span className="ml-auto text-gray-600/30 normal-case font-medium">
+                      <span className="ml-auto text-gray-700/30 normal-case font-medium">
                         {s.created_at ? new Date(s.created_at).toLocaleString() : ''}
                       </span>
                     </div>
-                    <div className="mt-1 flex items-center gap-1 text-[10px] font-mono text-gray-600/60">
+                    <div className="mt-1 flex items-center gap-1 text-[10px] font-mono text-gray-700/60">
                       <MapPin size={9} />
                       {s.lat.toFixed(4)}, {s.lng.toFixed(4)}
                     </div>
@@ -375,7 +375,7 @@ export function GuardianPanel() {
                     {(s.hop_count ?? 0) > 0 && (
                       <div
                         title="Relayed through the offline mesh (store-and-forward, minutes-to-hours freshness)"
-                        className="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100/10 border border-gray-400/30 text-[9px] font-mono text-gray-600"
+                        className="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100/10 border border-gray-400/30 text-[9px] font-mono text-gray-700"
                       >
                         <Share2 size={9} />
                         VIA MESH · {s.hop_count} hop{s.hop_count !== 1 ? 's' : ''}
@@ -391,8 +391,8 @@ export function GuardianPanel() {
 
           {/* ── Guardian: opt in & nearby ─────────────────────────────── */}
           <div className="bg-gray-50/40 border border-gray-200/40 rounded-xl p-4">
-            <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-600/60 mb-3">
-              <Users size={11} className="text-gray-600" />
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-700/60 mb-3">
+              <Users size={11} className="text-gray-700" />
               Guardian Mode
             </div>
 
@@ -421,7 +421,7 @@ export function GuardianPanel() {
             {isGuardian && (
               <>
                 <div className="grid grid-cols-2 gap-2 mb-2">
-                  <label className="text-[10px] font-mono text-gray-600/50">
+                  <label className="text-[10px] font-mono text-gray-700/50">
                     Radius (km)
                     <input
                       type="number"
@@ -429,10 +429,10 @@ export function GuardianPanel() {
                       max={500}
                       value={optRadius}
                       onChange={e => setOptRadius(parseInt(e.target.value) || 20)}
-                      className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 mt-1 text-xs py-1.5"
+                      className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-700 focus:outline-none focus:border-gray-400 mt-1 text-xs py-1.5"
                     />
                   </label>
-                  <label className="text-[10px] font-mono text-gray-600/50">
+                  <label className="text-[10px] font-mono text-gray-700/50">
                     Public handle
                     <input
                       type="text"
@@ -440,7 +440,7 @@ export function GuardianPanel() {
                       value={optHandle}
                       onChange={e => setOptHandle(e.target.value)}
                       placeholder="e.g. NightWatch"
-                      className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 mt-1 text-xs py-1.5"
+                      className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-700 focus:outline-none focus:border-gray-400 mt-1 text-xs py-1.5"
                     />
                   </label>
                 </div>
@@ -467,9 +467,9 @@ export function GuardianPanel() {
                           </span>
                         </div>
                         {r.description && (
-                          <div className="mt-0.5 text-[10px] text-gray-600/60 truncate">{r.description}</div>
+                          <div className="mt-0.5 text-[10px] text-gray-700/60 truncate">{r.description}</div>
                         )}
-                        <div className="mt-1 text-[9px] font-mono text-gray-600/40">
+                        <div className="mt-1 text-[9px] font-mono text-gray-700/40">
                           Area ≈ {r.blurred_lat.toFixed(2)}, {r.blurred_lng.toFixed(2)} · {r.sighting_count} sightings
                         </div>
                         <button
@@ -486,7 +486,7 @@ export function GuardianPanel() {
 
                 {activeNearby && (
                   <div className="mt-3 space-y-2 p-3 rounded-lg bg-white/40 border border-gray-900/25">
-                    <div className="text-[10px] font-mono text-gray-600/60">
+                    <div className="text-[10px] font-mono text-gray-700/60">
                       Report sighting — {activeNearby.device_model || 'device'} (~{activeNearby.distance_km} km away)
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -496,7 +496,7 @@ export function GuardianPanel() {
                         value={sightingLat}
                         onChange={e => setSightingLat(e.target.value)}
                         placeholder="Latitude"
-                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 text-xs py-1.5"
+                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-700 focus:outline-none focus:border-gray-400 text-xs py-1.5"
                       />
                       <input
                         type="number"
@@ -504,7 +504,7 @@ export function GuardianPanel() {
                         value={sightingLng}
                         onChange={e => setSightingLng(e.target.value)}
                         placeholder="Longitude"
-                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 text-xs py-1.5"
+                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-700 focus:outline-none focus:border-gray-400 text-xs py-1.5"
                       />
                     </div>
                     <input
@@ -513,7 +513,7 @@ export function GuardianPanel() {
                       value={sightingNote}
                       onChange={e => setSightingNote(e.target.value)}
                       placeholder="Where did you see it? (optional)"
-                      className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 text-xs py-1.5"
+                      className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-700 focus:outline-none focus:border-gray-400 text-xs py-1.5"
                     />
                     <button
                       onClick={handleReportSighting}

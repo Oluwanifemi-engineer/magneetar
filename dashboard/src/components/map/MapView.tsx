@@ -150,8 +150,8 @@ async function initIcons() {
     className: '',
     html: `
       <div style="position:relative;width:40px;height:40px;">
-        <div style="position:absolute;top:4px;left:4px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.2);animation:marker-pulse 2s infinite;"></div>
-        <div style="position:absolute;top:8px;left:8px;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#FFFFFF,#C4176E);border:3px solid #fff;box-shadow:0 2px 16px rgba(255,255,255,0.6);"></div>
+        <div style="position:absolute;top:4px;left:4px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.2);animation:none;"></div>
+        <div style="position:absolute;top:8px;left:8px;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#FFFFFF,#C4176E);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></div>
         <div style="position:absolute;top:14px;left:14px;width:12px;height:12px;border-radius:50%;background:#fff;opacity:0.9;"></div>
       </div>
     `,
@@ -164,8 +164,8 @@ async function initIcons() {
     className: '',
     html: `
       <div style="position:relative;width:24px;height:24px;">
-        <div style="position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:rgba(6,182,212,0.3);animation:user-pulse 2s infinite;"></div>
-        <div style="position:absolute;top:4px;left:4px;width:16px;height:16px;border-radius:50%;background:#06B6D4;border:3px solid #fff;box-shadow:0 0 10px rgba(6,182,212,0.8);"></div>
+        <div style="position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:rgba(6,182,212,0.3);animation:none;"></div>
+        <div style="position:absolute;top:4px;left:4px;width:16px;height:16px;border-radius:50%;background:#06B6D4;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></div>
       </div>
     `,
     iconSize: [24, 24],
@@ -191,7 +191,7 @@ async function initIcons() {
   // Trail dot
   trailDotIcon = L.divIcon({
     className: '',
-    html: `<div style="width:8px;height:8px;border-radius:50%;background:#FFFFFF;border:2px solid #fff;box-shadow:0 0 6px rgba(255,255,255,0.5);"></div>`,
+    html: `<div style="width:8px;height:8px;border-radius:50%;background:#FFFFFF;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></div>`,
     iconSize: [8, 8],
     iconAnchor: [4, 4],
   });
@@ -316,14 +316,14 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
   if (offline) {
     return (
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000]">
-        <div className="bg-white border border-gray-200 shadow-sm px-4 py-2.5 flex items-center gap-2.5 animate-fade-in">
-          <div className="w-2 h-2 rounded-full bg-amber-50 shadow-[0_0_10px_rgba(245,158,11,0.6)] animate-pulse-slow" />
+        <div className="bg-white border border-gray-200 px-4 py-2.5 flex items-center gap-2.5 animate-fade-in">
+          <div className="w-2 h-2 rounded-full bg-amber-50 bg-amber-500 " />
           <span className="font-mono text-[10px] text-amber-600 font-bold uppercase tracking-wider">OFFLINE</span>
           <div className="h-4 w-px bg-gray-200" />
           <span className="font-mono text-[11px] text-gray-700 font-bold">
             Last seen {relativeTime(lastSeen)}
           </span>
-          <span className="font-mono text-[10px] text-gray-500 font-bold hidden sm:inline">
+          <span className="font-mono text-[10px] text-gray-700 font-bold hidden sm:inline">
             · {deviceLat.toFixed(5)}, {deviceLng.toFixed(5)}
           </span>
         </div>
@@ -337,8 +337,8 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
   if (!userPos) {
     return (
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000]">
-        <div className="bg-white border border-gray-200 shadow-sm px-4 py-2.5 flex items-center gap-2.5 animate-fade-in">
-          <div className="w-2 h-2 rounded-full bg-amber-50 shadow-[0_0_10px_rgba(245,158,11,0.6)] animate-pulse-slow" />
+        <div className="bg-white border border-gray-200 px-4 py-2.5 flex items-center gap-2.5 animate-fade-in">
+          <div className="w-2 h-2 rounded-full bg-amber-50 bg-amber-500 " />
           <span className="font-mono text-[10px] text-amber-600 font-bold uppercase tracking-wider">
             SET YOUR POSITION
           </span>
@@ -360,9 +360,9 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
   if (!userPinned && userAccuracy != null && userAccuracy > USER_ACCURACY_IP_FALLBACK) {
     return (
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] max-w-lg">
-        <div className="bg-white border border-gray-200 shadow-sm px-4 py-3 animate-fade-in">
+        <div className="bg-white border border-gray-200 px-4 py-3 animate-fade-in">
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-2 h-2 rounded-full bg-gray-100 shadow-[0_0_10px_rgba(255,255,255,0.6)]" />
+            <div className="w-2 h-2 rounded-full bg-gray-100 bg-white" />
             <span className="font-mono text-[10px] text-gray-900 font-bold uppercase tracking-wider">DEVICE TRACKED</span>
             <div className="h-3 w-px bg-gray-200" />
             <span className="font-mono text-[10px] text-gray-900 font-bold">{formatDistance(distance)} away (approx)</span>
@@ -373,7 +373,7 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
               <line x1="12" y1="9" x2="12" y2="13"/>
               <line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
-            <div className="text-[10px] font-mono text-gray-600 leading-relaxed">
+            <div className="text-[10px] font-mono text-gray-700 leading-relaxed">
               <span className="text-amber-600 font-bold">Your browser position is IP-derived (±{formatAccuracyMeters(userAccuracy!)})</span>
               — desktop browsers have no GPS. The distance above is approximate.
               <span className="text-gray-900 font-bold"> Tap PIN POSITION below, then tap the map where you actually are</span>
@@ -387,17 +387,17 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
 
   return (
     <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000]">
-      <div className="bg-white border border-gray-200 shadow-sm px-4 py-2.5 flex items-center gap-4 animate-fade-in">
+      <div className="bg-white border border-gray-200 px-4 py-2.5 flex items-center gap-4 animate-fade-in">
         <button
           onClick={flyToYou}
           disabled={!userPos}
           title={userPos ? 'Fly to your location (stops device follow)' : 'No position yet'}
           className="flex items-center gap-2 group/y disabled:opacity-50"
         >
-          <div className="w-2 h-2 rounded-full bg-gray-100 shadow-[0_0_10px_rgba(6,182,212,0.6)] group-hover/y:scale-125 transition-transform" />
-          <span className="font-mono text-[11px] text-gray-600 font-bold group-hover/y:text-gray-600 group-hover/y:underline underline-offset-2 transition-colors">YOU</span>
+          <div className="w-2 h-2 rounded-full bg-gray-100 bg-gray-900 group-hover/y:scale-125 transition-transform" />
+          <span className="font-mono text-[11px] text-gray-700 font-bold group-hover/y:text-gray-700 group-hover/y:underline underline-offset-2 transition-colors">YOU</span>
         </button>
-        <svg width="16" height="16" viewBox="0 0 16 16" className="text-gray-500">
+        <svg width="16" height="16" viewBox="0 0 16 16" className="text-gray-700">
           <path d="M1 8h14M8 1l7 7-7 7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
         <button
@@ -405,14 +405,14 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
           title="Fly to the device (resumes follow)"
           className="flex items-center gap-2 group/d"
         >
-          <div className="w-2 h-2 rounded-full bg-gray-100 shadow-[0_0_10px_rgba(255,255,255,0.6)] group-hover/d:scale-125 transition-transform" />
-          <span className="font-mono text-[11px] text-gray-600 font-bold group-hover/d:text-gray-900 group-hover/d:underline underline-offset-2 transition-colors">DEVICE</span>
+          <div className="w-2 h-2 rounded-full bg-gray-100 bg-white group-hover/d:scale-125 transition-transform" />
+          <span className="font-mono text-[11px] text-gray-700 font-bold group-hover/d:text-gray-900 group-hover/d:underline underline-offset-2 transition-colors">DEVICE</span>
         </button>
         <div className="h-4 w-px bg-gray-200" />
         <span className="font-mono text-sm font-bold text-gray-900 tabular-nums">
           {formatDistance(distance)}
         </span>
-        <span className="font-mono text-[10px] text-gray-500 font-bold">away</span>
+        <span className="font-mono text-[10px] text-gray-700 font-bold">away</span>
         {!userPinned && userAccuracy != null && userAccuracy > USER_ACCURACY_DISTANCE_MAX && (
           <span className="font-mono text-[9px] text-amber-600 font-bold">
             ±{formatAccuracyMeters(userAccuracy)} IP fix — pin your spot
@@ -750,14 +750,14 @@ export function MapView() {
           {/* Location permission denied — distance/routing can't work at all */}
           {userGeoDenied && (
             <div className="absolute top-3 right-3 z-[1000] max-w-xs">
-              <div className="bg-white border border-gray-200 shadow-sm px-3 py-2 flex items-start gap-2 animate-fade-in">
+              <div className="bg-white border border-gray-200 px-3 py-2 flex items-start gap-2 animate-fade-in">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-600 shrink-0 mt-0.5">
                   <path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/>
                   <path d="M2 12h20"/>
                 </svg>
-                <div className="text-[10px] font-mono text-gray-600 font-bold leading-tight">
+                <div className="text-[10px] font-mono text-gray-700 font-bold leading-tight">
                   <span className="text-amber-600">LOCATION PERMISSION DENIED</span>
-                  <span className="block mt-0.5 text-gray-600">
+                  <span className="block mt-0.5 text-gray-700">
                     Distance and routing need browser location. Allow it in your
                     browser settings.
                   </span>
@@ -889,7 +889,7 @@ export function MapView() {
                       ⚠ Marker snapped to nearest road — fix accuracy ±{latestLocation.accuracy?.toFixed(0) || '?'}m. The circle shows the true uncertainty.
                     </div>
                   )}
-                  <div className="space-y-1 text-gray-600">
+                  <div className="space-y-1 text-gray-700">
                     <div className="flex justify-between">
                       <span className="font-mono text-[11px] font-bold">Latitude</span>
                       <span className="font-mono text-[11px] text-gray-900 font-bold">{latestLocation.lat.toFixed(6)}</span>
@@ -913,7 +913,7 @@ export function MapView() {
                       </div>
                     )}
                   </div>
-                  <div className="mt-2 pt-2 border-t border-gray-200/50 text-gray-500 font-mono text-[10px] font-bold">
+                  <div className="mt-2 pt-2 border-t border-gray-200/50 text-gray-700 font-mono text-[10px] font-bold">
                     {formatTimestamp(locationTimestamp(latestLocation))}
                   </div>
                 </div>
@@ -956,20 +956,20 @@ export function MapView() {
             >
               <Popup>
                 <div className="font-sans text-sm min-w-[160px]">
-                  <div className="font-bold text-gray-600 mb-1 flex items-center gap-1.5">
+                  <div className="font-bold text-gray-700 mb-1 flex items-center gap-1.5">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="10"/></svg>
                     {userPinned ? 'PINNED POSITION' : 'YOUR LOCATION'}
                   </div>
-                  <div className="text-gray-600 font-mono text-[11px] font-bold">
+                  <div className="text-gray-700 font-mono text-[11px] font-bold">
                     {effectiveUserPos[0].toFixed(6)}, {effectiveUserPos[1].toFixed(6)}
                   </div>
                   {userPinned ? (
-                    <div className="text-gray-600 font-mono text-[10px] font-bold mt-1">
+                    <div className="text-gray-700 font-mono text-[10px] font-bold mt-1">
                       Set by you on the map — used for distance & route
                     </div>
                   ) : (
                     userAccuracy != null && (
-                      <div className="text-gray-600 font-mono text-[10px] font-bold mt-1">
+                      <div className="text-gray-700 font-mono text-[10px] font-bold mt-1">
                         Accuracy ±{formatAccuracyMeters(userAccuracy)}
                         {userAccuracy > USER_ACCURACY_DISTANCE_MAX && (
                           <span className="text-amber-600"> — IP-based, not GPS</span>
@@ -994,8 +994,8 @@ export function MapView() {
                 <Popup>
                   <div className="font-sans text-xs max-w-[200px]">
                     <div className="font-bold text-gray-900 mb-1">Step {idx}</div>
-                    <div className="text-gray-600 font-bold">{step.instruction}</div>
-                    <div className="text-gray-500 mt-1 font-mono text-[10px] font-bold">
+                    <div className="text-gray-700 font-bold">{step.instruction}</div>
+                    <div className="text-gray-700 mt-1 font-mono text-[10px] font-bold">
                       {formatDistance(step.distance)} • {formatDuration(Math.round(step.duration))}
                     </div>
                   </div>
@@ -1008,9 +1008,9 @@ export function MapView() {
 
       {/* ── Trail Replay Timeline (video-scrubber style) ────────────────── */}
       {showPathTracker && latestLocation && trailLocations.length > 2 && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[1000] w-[min(520px,calc(100%-2rem))] bg-white border border-gray-200 shadow-sm px-4 py-3 animate-fade-in">
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[1000] w-[min(520px,calc(100%-2rem))] bg-white border border-gray-200 px-4 py-3 animate-fade-in">
           <div className="flex items-center justify-between gap-3 mb-2">
-            <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-gray-500">
+            <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-gray-700">
               Trail Replay
             </span>
             <div className="flex items-center gap-1.5">
@@ -1020,7 +1020,7 @@ export function MapView() {
                   'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold border transition-all',
                   pathPlaying
                     ? 'border-gray-900/40 text-gray-900 bg-gray-100/10'
-                    : 'border-gray-200/60 text-gray-600 hover:border-gray-200'
+                    : 'border-gray-200/60 text-gray-700 hover:border-gray-200'
                 )}
               >
                 {pathPlaying ? (
@@ -1033,7 +1033,7 @@ export function MapView() {
               <select
                 value={pathSpeed}
                 onChange={(e) => setPathSpeed(Number(e.target.value))}
-                className="bg-gray-50/40 border border-gray-200/40 rounded-lg px-1.5 py-1 text-[9px] font-mono font-bold text-gray-600 focus:outline-none focus:border-gray-900/40"
+                className="bg-gray-50/40 border border-gray-200/40 rounded-lg px-1.5 py-1 text-[9px] font-mono font-bold text-gray-700 focus:outline-none focus:border-gray-900/40"
               >
                 <option value={1}>1x</option>
                 <option value={2}>2x</option>
@@ -1054,7 +1054,7 @@ export function MapView() {
             className="w-full accent-[#FFFFFF] cursor-pointer"
           />
 
-          <div className="flex items-center justify-between mt-1 text-[8px] font-mono text-gray-400 font-bold">
+          <div className="flex items-center justify-between mt-1 text-[8px] font-mono text-gray-700 font-bold">
             <span>{formatTimestamp(locationTimestamp(trailLocations[0]))}</span>
             <span className="text-gray-900">{formatTimestamp(locationTimestamp(trailLocations[pathIndex]))}</span>
             <span>{formatTimestamp(locationTimestamp(trailLocations[trailLocations.length - 1]))}</span>
@@ -1067,7 +1067,7 @@ export function MapView() {
         {/* Left: Position / Follow / Trail controls */}
         <div className="pointer-events-auto space-y-2">
           {latestLocation && (
-            <div className="bg-white border border-gray-200 shadow-sm px-3 py-2 flex items-center gap-2">
+            <div className="bg-white border border-gray-200 px-3 py-2 flex items-center gap-2">
               <button
                 onClick={() => { setPinning(!pinning); }}
                 className={cn(
@@ -1075,8 +1075,8 @@ export function MapView() {
                   pinning
                     ? 'border-amber-400/60 text-amber-600 bg-amber-50/10 animate-pulse'
                     : userPinned
-                      ? 'border-gray-400/40 text-gray-600 bg-gray-100/10'
-                      : 'border-gray-200/60 text-gray-600 hover:border-gray-200'
+                      ? 'border-gray-400/40 text-gray-700 bg-gray-100/10'
+                      : 'border-gray-200/60 text-gray-700 hover:border-gray-200'
                 )}
                 title={
                   pinning
@@ -1092,7 +1092,7 @@ export function MapView() {
               {userPinned && (
                 <button
                   onClick={() => { setUserPinned(null); savePinnedPosition(null); }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-gray-200/60 text-gray-600 hover:text-red-600 hover:border-red-300/40 transition-all"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-gray-200/60 text-gray-700 hover:text-red-600 hover:border-red-300/40 transition-all"
                   title="Clear the pin and fall back to the browser position"
                 >
                   USE GPS
@@ -1117,7 +1117,7 @@ export function MapView() {
                   'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-all',
                   followDevice
                     ? 'border-gray-900/40 text-gray-900 bg-gray-100/10 shadow-sm'
-                    : 'border-gray-200/60 text-gray-600 hover:border-gray-200'
+                    : 'border-gray-200/60 text-gray-700 hover:border-gray-200'
                 )}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
@@ -1128,8 +1128,8 @@ export function MapView() {
                 className={cn(
                   'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-all',
                   showTrail
-                    ? 'border-gray-400/40 text-gray-600 bg-gray-100/10'
-                    : 'border-gray-200/60 text-gray-600 hover:border-gray-200'
+                    ? 'border-gray-400/40 text-gray-700 bg-gray-100/10'
+                    : 'border-gray-200/60 text-gray-700 hover:border-gray-200'
                 )}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 4-8"/></svg>
@@ -1142,7 +1142,7 @@ export function MapView() {
                   'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-all',
                   showSatellite
                     ? 'border-gray-900/40 text-gray-900 bg-gray-100/10'
-                    : 'border-gray-200/60 text-gray-600 hover:border-gray-200'
+                    : 'border-gray-200/60 text-gray-700 hover:border-gray-200'
                 )}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"/></svg>
@@ -1153,7 +1153,7 @@ export function MapView() {
 
           {/* Path Animation toggle */}
           {latestLocation && locations.length > 2 && (
-            <div className="bg-white border border-gray-200 shadow-sm px-3 py-2">
+            <div className="bg-white border border-gray-200 px-3 py-2">
               <button
                 onClick={() => {
                   if (showPathTracker) {
@@ -1176,7 +1176,7 @@ export function MapView() {
                   'flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-all w-full',
                   showPathTracker
                     ? 'border-gray-900/40 text-gray-900 bg-gray-100/10 shadow-sm'
-                    : 'border-gray-200/60 text-gray-600 hover:border-gray-200'
+                    : 'border-gray-200/60 text-gray-700 hover:border-gray-200'
                 )}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -1189,15 +1189,15 @@ export function MapView() {
         {/* Right: Navigation Panel */}
         <div className="ml-auto pointer-events-auto max-w-sm">
           {latestLocation && (
-            <div className="bg-white border border-gray-200 shadow-sm px-4 py-3 space-y-2 animate-fade-in">
+            <div className="bg-white border border-gray-200 px-4 py-3 space-y-2 animate-fade-in">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-gray-600 uppercase tracking-wider font-bold">
+                <span className="text-[11px] font-mono text-gray-700 uppercase tracking-wider font-bold">
                   {navigationRoute ? 'ROUTE ACTIVE' : 'NAVIGATE'}
                 </span>
                 {navigationRoute && (
                   <button
                     onClick={() => { setNavigationRoute(null); }}
-                    className="text-gray-500 hover:text-red-600 transition-colors"
+                    className="text-gray-700 hover:text-red-600 transition-colors"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
@@ -1208,8 +1208,8 @@ export function MapView() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 bg-gray-100/10 border border-gray-400/20 rounded-lg px-3 py-1.5">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                      <span className="font-mono text-xs text-gray-600 font-bold">{formatDistance(navigationRoute.distance)}</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-700"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                      <span className="font-mono text-xs text-gray-700 font-bold">{formatDistance(navigationRoute.distance)}</span>
                     </div>
                     <div className="flex items-center gap-2 bg-gray-100/10 border border-gray-900/20 rounded-lg px-3 py-1.5">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-900"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -1224,7 +1224,7 @@ export function MapView() {
                           <span className="text-sm shrink-0 mt-0.5">{step.maneuverIcon}</span>
                           <div className="min-w-0">
                             <div className="text-[10px] font-mono text-gray-900 leading-tight font-bold">{step.instruction}</div>
-                            <div className="text-[9px] font-mono text-gray-500 font-bold">{formatDistance(step.distance)}</div>
+                            <div className="text-[9px] font-mono text-gray-700 font-bold">{formatDistance(step.distance)}</div>
                           </div>
                         </div>
                       ))}
@@ -1234,14 +1234,14 @@ export function MapView() {
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={() => openGoogleMapsDirections(latestLocation.lat, latestLocation.lng)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200/60 text-[10px] font-mono font-bold text-gray-600 hover:text-gray-900 hover:border-gray-200 transition-all"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200/60 text-[10px] font-mono font-bold text-gray-700 hover:text-gray-900 hover:border-gray-200 transition-all"
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
                       Google Maps
                     </button>
                     <button
                       onClick={() => window.open(`https://waze.com/ul?ll=${latestLocation.lat},${latestLocation.lng}&navigate=yes`, '_blank')}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200/60 text-[10px] font-mono font-bold text-gray-600 hover:text-gray-900 hover:border-gray-200 transition-all"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200/60 text-[10px] font-mono font-bold text-gray-700 hover:text-gray-900 hover:border-gray-200 transition-all"
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                       Waze
@@ -1270,7 +1270,7 @@ export function MapView() {
                   </button>
                   <button
                     onClick={() => openGoogleMapsDirections(latestLocation.lat, latestLocation.lng)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-mono font-bold border border-gray-200/60 text-gray-600 hover:text-gray-900 hover:border-gray-200 transition-all"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-mono font-bold border border-gray-200/60 text-gray-700 hover:text-gray-900 hover:border-gray-200 transition-all"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
                     EXT MAPS

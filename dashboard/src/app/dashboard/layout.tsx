@@ -42,19 +42,19 @@ function PremiumLoadingScreen() {
       <div className="absolute inset-0 mag-grid-bg opacity-40" />
 
       {/* Center content */}
-      <div className="text-center relative z-10">
-        {/* Logo */}
+      <div className="text-center relative z-10 flex flex-col items-center justify-center">
+        {/* Logo — large and centered */}
         <img
           src="/magneetar-mhalf.svg"
           alt="Magneetar"
-          className="w-20 h-20 rounded-2xl mb-8"
+          className="w-32 h-32 rounded-3xl mb-6"
         />
 
         {/* Brand name */}
-        <div className="text-2xl font-display font-bold tracking-[0.3em] mb-2 text-gray-900">
+        <div className="text-3xl font-display font-bold tracking-[0.3em] mb-2 text-gray-900">
           MAGNEETAR
         </div>
-        <div className="text-[10px] font-mono text-gray-400 tracking-[0.25em] mb-8">
+        <div className="text-[11px] font-mono text-gray-400 tracking-[0.25em] mb-10">
           COMMAND CENTER
         </div>
 
