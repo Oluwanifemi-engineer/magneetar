@@ -37,11 +37,9 @@ function PremiumLoadingScreen() {
   }, []);
 
   return (
-    <div className="h-screen flex items-center justify-center bg-mag-bg relative overflow-hidden">
-      {/* Ambient aurora effects */}
-      <div className="absolute -top-32 -left-32 w-[480px] h-[480px] rounded-full bg-mag-primary/[0.07] blur-[120px] animate-aurora pointer-events-none" />
-      <div className="absolute -bottom-40 -right-32 w-[520px] h-[520px] rounded-full bg-mag-secondary/[0.05] blur-[130px] animate-aurora pointer-events-none" style={{ animationDelay: '4s' }} />
-      <div className="absolute inset-0 mag-grid-bg opacity-20" />
+    <div className="h-screen flex items-center justify-center bg-white relative overflow-hidden">
+      {/* Subtle grid background */}
+      <div className="absolute inset-0 mag-grid-bg opacity-40" />
 
       {/* Center content */}
       <div className="text-center relative z-10">
@@ -53,25 +51,25 @@ function PremiumLoadingScreen() {
         />
 
         {/* Brand name */}
-        <div className="text-2xl font-display font-bold tracking-[0.3em] mb-2 text-white">
+        <div className="text-2xl font-display font-bold tracking-[0.3em] mb-2 text-gray-900">
           MAGNEETAR
         </div>
-        <div className="text-[10px] font-mono text-white/40 tracking-[0.25em] mb-8">
+        <div className="text-[10px] font-mono text-gray-400 tracking-[0.25em] mb-8">
           COMMAND CENTER
         </div>
 
         {/* Progress bar */}
         <div className="w-64 mx-auto mb-4">
-          <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-mag-primary to-mag-secondary rounded-full transition-all duration-500 ease-out"
+              className="h-full bg-gray-900 rounded-full transition-all duration-500 ease-out"
               style={{ width: `${progress}%` }}
             />
           </div>
         </div>
 
         {/* Status text */}
-        <div className="flex items-center justify-center gap-2 text-white/50 text-[11px] font-mono font-bold">
+        <div className="flex items-center justify-center gap-2 text-gray-500 text-[11px] font-mono font-bold">
           <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
           </svg>
@@ -79,9 +77,9 @@ function PremiumLoadingScreen() {
         </div>
 
         {/* Security badge */}
-        <div className="mt-8 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.03]">
-          <div className="w-1.5 h-1.5 rounded-full bg-mag-primary animate-pulse" />
-          <span className="text-[9px] font-mono font-bold text-white/40 tracking-wider">SECURE CHANNEL</span>
+        <div className="mt-8 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-gray-50">
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[9px] font-mono font-bold text-gray-400 tracking-wider">SECURE CHANNEL</span>
         </div>
       </div>
     </div>
@@ -134,10 +132,7 @@ export default function DashboardLayout({
   return (
     <ToastProvider>
     <div className="h-screen flex flex-col overflow-hidden">
-      {/* Ambient aurora — same design language as the auth pages */}
-      <div className="fixed -top-40 -left-40 w-[560px] h-[560px] rounded-full bg-mag-primary/[0.05] blur-[130px] animate-aurora pointer-events-none z-0" />
-      <div className="fixed -bottom-48 -right-40 w-[600px] h-[600px] rounded-full bg-mag-secondary/[0.04] blur-[140px] animate-aurora pointer-events-none z-0" style={{ animationDelay: '6s' }} />
-      {/* Subtle background grid */}
+      {/* Subtle background grid — military feel */}
       <div className="fixed inset-0 mag-grid-bg opacity-[0.03] pointer-events-none z-0" />
 
       <Header />

@@ -41,21 +41,18 @@ export function Header() {
   };
 
   return (
-    <header className="h-14 bg-mag-panel/95 backdrop-blur-xl border-b border-mag-border/60 flex items-center px-5 gap-4 z-50 shadow-mag-panel relative overflow-hidden">
-      {/* Top gradient hairline — aqua */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-mag-primary/40 to-transparent pointer-events-none" />
-
-      {/* Ambient aurora hint (right side) — aqua */}
-      <div className="absolute -right-20 top-1/2 -translate-y-1/2 w-64 h-24 rounded-full bg-mag-primary/[0.05] blur-3xl pointer-events-none" />
+    <header className="h-14 bg-white border-b border-gray-200 flex items-center px-5 gap-4 z-50 relative">
+      {/* Subtle top hairline */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent pointer-events-none" />
 
       {/* ─── Brand — M Logo ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 shrink-0 relative">
         <img src="/magneetar-mhalf.svg" alt="Magneetar" className="w-8 h-8 rounded-lg" />
         <div className="flex flex-col leading-none">
-          <span className="text-sm font-display font-bold tracking-[0.25em] text-gradient-primary">
+          <span className="text-sm font-display font-bold tracking-[0.25em] text-gray-900">
             MAGNEETAR
           </span>
-          <span className="mt-1 text-[7px] font-mono tracking-[0.3em] text-mag-text-dim/30 font-bold">
+          <span className="mt-1 text-[7px] font-mono tracking-[0.3em] text-gray-400 font-bold">
             COMMAND CENTER
           </span>
         </div>
@@ -65,24 +62,24 @@ export function Header() {
       <div className="flex items-center gap-2.5">
         <div className={cn(
           'w-2 h-2 rounded-full transition-all duration-300',
-          isConnected ? 'bg-mag-accent shadow-[0_0_12px_rgba(16,185,129,0.5)] animate-pulse-slow' : 'bg-mag-text-dim/30'
+          isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse-slow' : 'bg-gray-300'
         )} />
         <span className={cn(
           'text-[10px] font-mono uppercase tracking-widest font-bold transition-colors',
-          isConnected ? 'text-mag-accent' : 'text-mag-text-dim/40'
+          isConnected ? 'text-emerald-600' : 'text-gray-400'
         )}>
           {connecting ? 'CONNECTING...' : isConnected ? 'CONNECTED' : 'DISCONNECTED'}
         </span>
       </div>
 
       {/* Vertical divider */}
-      <div className="h-5 w-px bg-mag-border/30 shrink-0" />
+      <div className="h-5 w-px bg-gray-200 shrink-0" />
 
       {/* ─── Connection Form (shown when not authenticated) ──────────────── */}
       {!isAuthenticated && (
         <div className="flex items-center gap-2 ml-auto">
           <div className="relative">
-            <Settings size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-mag-text-dim/30" />
+            <Settings size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               value={inputUrl}
@@ -106,7 +103,7 @@ export function Header() {
           >
             {connecting ? (
               <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                <path d="M21 12a9 9 0 0 1 14.08 0"/>
               </svg>
             ) : (
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -125,7 +122,7 @@ export function Header() {
       {isAuthenticated && (
         <div className="flex items-center gap-4 ml-auto">
           {/* Server URL */}
-          <div className="flex items-center gap-1.5 text-[10px] font-mono text-mag-text-dim/40 px-2 py-1 rounded-lg bg-mag-surface/20 border border-mag-border/20">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-500 px-2 py-1 rounded-lg bg-gray-50 border border-gray-200">
             <Settings size={11} className="shrink-0" />
             <span className="truncate max-w-[140px]">{serverUrl}</span>
           </div>
@@ -133,8 +130,8 @@ export function Header() {
           {/* Alerts indicator */}
           {unreadAlertCount > 0 && (
             <button className="relative hover:opacity-80 transition-opacity group">
-              <Bell size={16} className="text-mag-warning/80 group-hover:text-mag-warning" />
-              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] bg-mag-danger text-[9px] font-bold text-white rounded-full flex items-center justify-center px-1 shadow-lg shadow-mag-danger/30">
+              <Bell size={16} className="text-amber-500 group-hover:text-amber-600" />
+              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] bg-red-500 text-[9px] font-bold text-white rounded-full flex items-center justify-center px-1 shadow-lg shadow-red-500/30">
                 {unreadAlertCount > 9 ? '9+' : unreadAlertCount}
               </span>
             </button>
@@ -143,7 +140,7 @@ export function Header() {
           {/* Disconnect button */}
           <button
             onClick={handleDisconnect}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold text-mag-text-dim/50 hover:text-mag-danger hover:bg-mag-danger/[0.04] border border-transparent hover:border-mag-danger/15 transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold text-gray-500 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all"
           >
             <LogOut size={11} />
             DISCONNECT
@@ -154,7 +151,7 @@ export function Header() {
           <button
             onClick={() => setSettingsOpen(true)}
             title="Settings"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold text-mag-text-dim/50 hover:text-mag-text hover:bg-white/[0.04] border border-transparent hover:border-mag-border/20 transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold text-gray-500 hover:text-gray-900 hover:bg-gray-100 border border-transparent hover:border-gray-200 transition-all"
           >
             <Settings size={11} />
             SETTINGS

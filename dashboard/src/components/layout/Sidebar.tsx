@@ -93,90 +93,90 @@ export function Sidebar() {
 
   return (
     <aside className={cn(
-      'bg-mag-panel/90 backdrop-blur-xl border-r border-mag-border/60 flex flex-col transition-all duration-300 ease-out relative overflow-hidden',
+      'bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-out relative overflow-hidden',
       sidebarOpen ? 'w-72' : 'w-12'
     )}>
-      {/* Left gradient accent rail — aqua */}
-      <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-mag-primary/25 to-transparent pointer-events-none" />
+      {/* Subtle left accent rail */}
+      <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent pointer-events-none" />
       {/* ─── Toggle ──────────────────────────────────────────────────────── */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="h-10 flex items-center justify-center border-b border-mag-border/30 hover:bg-mag-surface/20 transition-colors group shrink-0"
+        className="h-10 flex items-center justify-center border-b border-gray-200 hover:bg-gray-50 transition-colors group shrink-0"
         aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
       >
         {sidebarOpen ? (
-          <ChevronLeft size={13} className="text-mag-text-dim/40 group-hover:text-mag-text-dim transition-colors" />
+          <ChevronLeft size={13} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
         ) : (
-          <ChevronRight size={13} className="text-mag-text-dim/40 group-hover:text-mag-text-dim transition-colors" />
+          <ChevronRight size={13} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
         )}
       </button>
 
       {sidebarOpen && (
         <>
           {/* ─── M Brand Bar ──────────────────────────────────────────────── */}
-          <div className="px-4 py-3 border-b border-mag-border/30 flex items-center gap-3 shrink-0 relative">
+          <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-3 shrink-0 relative">
             <img src="/magneetar-mhalf.svg" alt="Magneetar" className="w-7 h-7 rounded-lg shrink-0" />
             <div>
-              <div className="text-[11px] font-bold tracking-[0.2em] text-gradient-primary">MAGNEETAR</div>
-              <div className="text-[8px] font-mono text-mag-text-dim/30 tracking-[0.2em] font-bold">COMMAND CENTER</div>
+              <div className="text-[11px] font-bold tracking-[0.2em] text-gray-900">MAGNEETAR</div>
+              <div className="text-[8px] font-mono text-gray-400 tracking-[0.2em] font-bold">COMMAND CENTER</div>
             </div>
-            <div className="ml-auto w-1 h-1 rounded-full bg-mag-accent shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
+            <div className="ml-auto w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]" />
           </div>
 
           {/* ─── Stats Overview ────────────────────────────────────────────── */}
           {stats && (
-            <div className="px-4 py-3 border-b border-mag-border/30 shrink-0">
+            <div className="px-4 py-3 border-b border-gray-200 shrink-0">
               <div className="flex items-center gap-1.5 mb-2.5">
-                <BarChart3 size={11} className="text-mag-primary/60" />
-                <span className="text-[9px] font-mono text-mag-text-dim/50 uppercase tracking-[0.15em] font-bold">
+                <BarChart3 size={11} className="text-gray-400" />
+                <span className="text-[9px] font-mono text-gray-400 uppercase tracking-[0.15em] font-bold">
                   Overview
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-1.5">
-                <div className="bg-mag-surface/20 border border-mag-border/25 rounded-lg p-2 text-center transition-all duration-200 hover:border-mag-primary/25 hover:shadow-[0_0_12px_rgba(6,182,212,0.06)]">
-                  <div className="font-mono text-sm font-bold text-white tabular-nums">{stats.total_devices}</div>
-                  <div className="text-[7px] font-mono text-mag-text-dim/40 font-bold uppercase tracking-wider">Total</div>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 text-center transition-all duration-200 hover:border-gray-300 hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+                  <div className="font-mono text-sm font-bold text-gray-900 tabular-nums">{stats.total_devices}</div>
+                  <div className="text-[7px] font-mono text-gray-400 font-bold uppercase tracking-wider">Total</div>
                 </div>
-                <div className="bg-mag-accent/[0.04] border border-mag-accent/15 rounded-lg p-2 text-center transition-all duration-200 hover:border-mag-accent/35 hover:shadow-[0_0_12px_rgba(16,185,129,0.08)]">
-                  <div className="font-mono text-sm font-bold text-mag-accent tabular-nums">{stats.active_devices}</div>
-                  <div className="text-[7px] font-mono text-mag-text-dim/40 font-bold uppercase tracking-wider">Active</div>
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-center transition-all duration-200 hover:border-emerald-300 hover:shadow-[0_2px_8px_rgba(16,185,129,0.04)]">
+                  <div className="font-mono text-sm font-bold text-emerald-600 tabular-nums">{stats.active_devices}</div>
+                  <div className="text-[7px] font-mono text-gray-400 font-bold uppercase tracking-wider">Active</div>
                 </div>
-                <div className="bg-mag-danger/[0.04] border border-mag-danger/15 rounded-lg p-2 text-center transition-all duration-200 hover:border-mag-danger/35 hover:shadow-[0_0_12px_rgba(239,68,68,0.08)]">
-                  <div className="font-mono text-sm font-bold text-mag-danger tabular-nums">{stats.stolen_devices}</div>
-                  <div className="text-[7px] font-mono text-mag-text-dim/40 font-bold uppercase tracking-wider">Stolen</div>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-center transition-all duration-200 hover:border-red-300 hover:shadow-[0_2px_8px_rgba(239,68,68,0.04)]">
+                  <div className="font-mono text-sm font-bold text-red-500 tabular-nums">{stats.stolen_devices}</div>
+                  <div className="text-[7px] font-mono text-gray-400 font-bold uppercase tracking-wider">Stolen</div>
                 </div>
               </div>
               {stats.alerts_today > 0 && (
-                <div className="flex items-center gap-1.5 mt-2 px-2 py-1.5 bg-mag-warning/[0.04] border border-mag-warning/10 rounded-lg">
-                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-mag-warning shrink-0">
+                <div className="flex items-center gap-1.5 mt-2 px-2 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500 shrink-0">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                     <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                   </svg>
-                  <span className="text-[8px] font-mono text-mag-warning font-bold">{stats.alerts_today} alert{stats.alerts_today !== 1 ? 's' : ''} today</span>
+                  <span className="text-[8px] font-mono text-amber-600 font-bold">{stats.alerts_today} alert{stats.alerts_today !== 1 ? 's' : ''} today</span>
                 </div>
               )}
             </div>
           )}
 
           {/* ─── Devices Section Header ────────────────────────────────────── */}
-          <div className="px-4 py-2.5 border-b border-mag-border/30 shrink-0">
+          <div className="px-4 py-2.5 border-b border-gray-200 shrink-0">
             <div className="flex items-center gap-2">
-              <Smartphone size={12} className="text-mag-primary/60" />
-              <span className="text-[10px] font-mono text-mag-text-dim/60 uppercase tracking-[0.2em] font-bold">
+              <Smartphone size={12} className="text-gray-400" />
+              <span className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.2em] font-bold">
                 Devices
               </span>
               <span className="ml-auto flex items-center gap-2 text-[10px] font-mono font-bold tabular-nums">
                 {archivedDevices.length > 0 && (
-                  <span className="text-amber-400/70">{archivedDevices.length} archived</span>
+                  <span className="text-amber-500">{archivedDevices.length} archived</span>
                 )}
-                <span className="text-mag-text-dim/40">{activeDevices.length}</span>
+                <span className="text-gray-400">{activeDevices.length}</span>
               </span>
               {/* Link a device — claim an ownerless phone via its pairing code */}
               <button
                 onClick={() => setShowClaimModal(true)}
                 title="Link a device (pairing code)"
                 aria-label="Link a device"
-                className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider text-mag-accent/80 hover:text-mag-accent hover:bg-mag-accent/10 border border-mag-accent/25 transition-all"
+                className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border border-emerald-200 transition-all"
               >
                 <Link2 size={10} />
                 Link
@@ -188,7 +188,7 @@ export function Sidebar() {
                 onClick={() => { setConfirmPurge(true); setPurgeError(''); }}
                 title={`Delete all ${archivedDevices.length} archived device(s) permanently (requires password)`}
                 aria-label="Delete all archived devices"
-                className="mt-2 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10 border border-amber-500/25 transition-all"
+                className="mt-2 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider text-amber-600 hover:text-amber-700 hover:bg-amber-50 border border-amber-200 transition-all"
               >
                 <Trash2 size={10} />
                 Delete {archivedDevices.length} archived
@@ -202,11 +202,11 @@ export function Sidebar() {
               <SidebarSkeleton />
             ) : devices.length === 0 ? (
               <div className="p-6 text-center">
-                <Smartphone size={22} className="mx-auto text-mag-text-dim/15 mb-3" />
-                <div className="text-mag-text-dim/40 text-sm font-bold">
+                <Smartphone size={22} className="mx-auto text-gray-300 mb-3" />
+                <div className="text-gray-500 text-sm font-bold">
                   No devices registered.
                 </div>
-                <div className="text-mag-text-dim/25 text-[10px] font-mono mt-1">
+                <div className="text-gray-400 text-[10px] font-mono mt-1">
                   Connect to server first.
                 </div>
               </div>
@@ -216,33 +216,33 @@ export function Sidebar() {
                 const online = isOnline(device.last_seen);
                 const signal = getSignalLevel(device.last_seen);
                 const scoreColor =
-                  device.is_stolen || device.sentinel_score >= 70 ? 'bg-mag-danger' :
-                  device.sentinel_score >= 40 ? 'bg-mag-warning' :
-                  'bg-mag-accent';
+                  device.is_stolen || device.sentinel_score >= 70 ? 'bg-red-500' :
+                  device.sentinel_score >= 40 ? 'bg-amber-500' :
+                  'bg-emerald-500';
                 const scoreText =
-                  device.is_stolen ? 'text-mag-danger bg-mag-danger/10' :
-                  device.sentinel_score >= 70 ? 'text-mag-danger bg-mag-danger/10' :
-                  device.sentinel_score >= 40 ? 'text-mag-warning bg-mag-warning/10' :
-                  'text-mag-accent bg-mag-accent/10';
+                  device.is_stolen ? 'text-red-600 bg-red-50 border border-red-200' :
+                  device.sentinel_score >= 70 ? 'text-red-600 bg-red-50 border border-red-200' :
+                  device.sentinel_score >= 40 ? 'text-amber-600 bg-amber-50 border border-amber-200' :
+                  'text-emerald-600 bg-emerald-50 border border-emerald-200';
 
                 return (
                   <button
                     key={device.id}
                     onClick={() => selectDevice(device.id)}
                     className={cn(
-                      'w-full text-left px-4 py-2.5 border-b border-mag-border/15 transition-all duration-150',
-                      'hover:bg-mag-surface/15 group',
-                      selectedDeviceId === device.id && 'bg-mag-primary/[0.02] border-l-[2px] border-l-mag-primary/40',
+                      'w-full text-left px-4 py-2.5 border-b border-gray-100 transition-all duration-150',
+                      'hover:bg-gray-50 group',
+                      selectedDeviceId === device.id && 'bg-gray-100 border-l-[2px] border-l-gray-900',
                       archived && 'opacity-45 hover:opacity-70'
                     )}
                     style={{ animationDelay: `${idx * 30}ms` }}
                   >
                     <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-sm font-bold text-mag-text truncate group-hover:text-mag-text-bright transition-colors max-w-[55%]">
+                      <span className="text-sm font-bold text-gray-900 truncate group-hover:text-gray-900 transition-colors max-w-[55%]">
                         {deviceDisplayName(device)}
                       </span>
                       {archived && (
-                        <span className="text-[8px] font-mono font-bold uppercase tracking-wider px-1 py-0.5 rounded border border-amber-500/25 text-amber-400 bg-amber-500/10 shrink-0">
+                        <span className="text-[8px] font-mono font-bold uppercase tracking-wider px-1 py-0.5 rounded border border-amber-200 text-amber-600 bg-amber-50 shrink-0">
                           Archived
                         </span>
                       )}
@@ -253,10 +253,10 @@ export function Sidebar() {
                           className={cn(
                             'text-[7px] font-mono font-bold uppercase tracking-wider px-1 py-0.5 rounded border shrink-0',
                             device.access_role === 'admin'
-                              ? 'border-mag-primary/40 text-mag-accent bg-mag-primary/10'
+                              ? 'border-emerald-300 text-emerald-600 bg-emerald-50'
                               : device.access_role === 'viewer'
-                                ? 'border-mag-accent/40 text-mag-accent bg-mag-accent/10'
-                                : 'border-mag-text-dim/40 text-mag-text-dim/70 bg-mag-text-dim/10'
+                                ? 'border-blue-300 text-blue-600 bg-blue-50'
+                                : 'border-gray-300 text-gray-500 bg-gray-100'
                           )}
                           title={`Shared access — ${device.access_role} role`}
                         >
@@ -270,16 +270,16 @@ export function Sidebar() {
                       />
                     </div>
 
-                    <div className="font-mono text-[9px] text-mag-text-dim/40 truncate font-bold mb-0.5">
+                    <div className="font-mono text-[9px] text-gray-400 truncate font-bold mb-0.5">
                       {device.id}
                     </div>
 
                     <div className="flex items-center gap-2">
                       <span className={cn(
                         'w-1.5 h-1.5 rounded-full',
-                        online ? 'bg-mag-accent shadow-[0_0_6px_rgba(16,185,129,0.4)]' : 'bg-mag-text-dim/20'
+                        online ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]' : 'bg-gray-300'
                       )} />
-                      <span className="font-mono text-[9px] text-mag-text-dim/35 font-bold">
+                      <span className="font-mono text-[9px] text-gray-400 font-bold">
                         {relativeTime(device.last_seen)}
                       </span>
                     </div>
@@ -292,10 +292,10 @@ export function Sidebar() {
                       )}>
                         {device.is_stolen ? 'STOLEN' : sentinelLevel(device.sentinel_score)}
                       </span>
-                      <span className="text-[9px] font-mono font-bold text-mag-text tabular-nums">
+                      <span className="text-[9px] font-mono font-bold text-gray-900 tabular-nums">
                         {device.sentinel_score}
                       </span>
-                      <div className="flex-1 h-1 rounded-full bg-mag-bg/50 overflow-hidden">
+                      <div className="flex-1 h-1 rounded-full bg-gray-200 overflow-hidden">
                         <div
                           className={cn('h-full rounded-full transition-all duration-500', scoreColor)}
                           style={{ width: `${Math.min(device.sentinel_score, 100)}%` }}
@@ -306,8 +306,8 @@ export function Sidebar() {
                     {/* Last-known coordinates + battery + copy (works offline) */}
                     {(device.lat != null && device.lng != null) && (
                       <div className="flex items-center gap-1.5 mt-1">
-                        <MapPin size={8} className="text-mag-text-dim/30 shrink-0" />
-                        <span className="font-mono text-[8px] text-mag-text-dim/40 font-bold truncate">
+                        <MapPin size={8} className="text-gray-400 shrink-0" />
+                        <span className="font-mono text-[8px] text-gray-400 font-bold truncate">
                           {device.lat.toFixed(4)}, {device.lng.toFixed(4)}
                         </span>
                         <span
@@ -318,13 +318,13 @@ export function Sidebar() {
                             navigator.clipboard?.writeText(`${device.lat},${device.lng}`);
                           }}
                           title="Copy coordinates"
-                          className="text-mag-text-dim/40 hover:text-mag-accent cursor-pointer transition-colors shrink-0"
+                          className="text-gray-400 hover:text-emerald-600 cursor-pointer transition-colors shrink-0"
                         >
                           <Copy size={9} />
                         </span>
                         {device.battery_percent != null && (
-                          <span className="ml-auto flex items-center gap-1 text-[8px] font-mono text-mag-text-dim/45 font-bold tabular-nums">
-                            <Battery size={9} className={cn(device.battery_percent <= 20 ? 'text-mag-danger' : 'text-mag-accent')} />
+                          <span className="ml-auto flex items-center gap-1 text-[8px] font-mono text-gray-400 font-bold tabular-nums">
+                            <Battery size={9} className={cn(device.battery_percent <= 20 ? 'text-red-500' : 'text-emerald-500')} />
                             {device.battery_percent}%
                           </span>
                         )}
@@ -337,18 +337,18 @@ export function Sidebar() {
           </div>
 
           {/* ─── Footer ────────────────────────────────────────────────────── */}
-          <div className="px-4 py-3 border-t border-mag-border/30 bg-mag-bg/20 shrink-0">
+          <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 shrink-0">
             {/* Online/Offline counts */}
             <div className="flex items-center justify-between text-[10px] font-mono font-bold mb-2.5">
               <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-mag-accent shadow-[0_0_6px_rgba(16,185,129,0.3)]" />
-                <span className="text-mag-accent/70 tabular-nums">{onlineCount}</span>
-                <span className="text-mag-text-dim/30">online</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.3)]" />
+                <span className="text-emerald-600 tabular-nums">{onlineCount}</span>
+                <span className="text-gray-400">online</span>
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-mag-text-dim/30" />
-                <span className="text-mag-text-dim/50 tabular-nums">{offlineCount}</span>
-                <span className="text-mag-text-dim/30">offline</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
+                <span className="text-gray-500 tabular-nums">{offlineCount}</span>
+                <span className="text-gray-400">offline</span>
               </span>
             </div>
 
@@ -361,15 +361,15 @@ export function Sidebar() {
 
       {/* Purge archived devices — step-up password confirm */}
       {confirmPurge && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-mag-bg/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-amber-500/30 bg-mag-panel/95 shadow-2xl p-4 space-y-3 animate-fade-in">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-amber-200 bg-white shadow-2xl p-4 space-y-3 animate-fade-in">
             <div className="flex items-start gap-2">
-              <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+              <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
               <div>
-                <div className="text-[11px] font-mono text-amber-400 font-bold uppercase tracking-wider">
+                <div className="text-[11px] font-mono text-amber-600 font-bold uppercase tracking-wider">
                   Delete {archivedDevices.length} archived device{archivedDevices.length !== 1 ? 's' : ''}
                 </div>
-                <div className="text-[10px] font-mono text-mag-text-dim/70 mt-1 leading-relaxed">
+                <div className="text-[10px] font-mono text-gray-500 mt-1 leading-relaxed">
                   These devices have been silent beyond the archive threshold. All their
                   locations, media, evidence & alerts are erased permanently. This cannot
                   be undone.
@@ -389,17 +389,17 @@ export function Sidebar() {
                   confirmPurgeArchived();
                 }
               }}
-              className="w-full bg-mag-bg/60 border border-mag-border/40 rounded-lg px-3 py-2 text-xs font-mono text-mag-text placeholder:text-mag-text-dim/30 focus:outline-none focus:border-mag-primary/60 transition-colors"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 transition-colors"
             />
-            {purgeError && <div className="text-[10px] font-mono text-red-400">{purgeError}</div>}
-            <div className="text-[10px] font-mono text-mag-text-dim/50 leading-relaxed">
-              This session verifies with <span className="font-bold text-mag-text-dim/70">{stepUpPasswordHint()}</span>.
+            {purgeError && <div className="text-[10px] font-mono text-red-500">{purgeError}</div>}
+            <div className="text-[10px] font-mono text-gray-400 leading-relaxed">
+              This session verifies with <span className="font-bold text-gray-600">{stepUpPasswordHint()}</span>.
             </div>
             <div className="flex gap-2">
               <button
                 onClick={confirmPurgeArchived}
                 disabled={purging}
-                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-amber-500/90 hover:bg-amber-500 disabled:opacity-50 text-white text-[11px] font-bold transition-all"
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-[11px] font-bold transition-all"
               >
                 <Trash2 size={12} />
                 {purging ? 'Deleting...' : 'Yes, Delete'}
@@ -407,7 +407,7 @@ export function Sidebar() {
               <button
                 onClick={() => { setConfirmPurge(false); setPurgePassword(''); setPurgeError(''); }}
                 disabled={purging}
-                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-mag-border/40 text-mag-text-dim/70 hover:text-mag-text text-[11px] font-bold transition-all"
+                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-gray-200 text-gray-500 hover:text-gray-900 hover:bg-gray-50 text-[11px] font-bold transition-all"
               >
                 <X size={12} />
                 Cancel

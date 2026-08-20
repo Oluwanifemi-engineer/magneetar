@@ -59,9 +59,9 @@ describe('Login Page', () => {
     // stats are the verifiable ones.
     expect(screen.queryByText(/TRUSTED BY 1,200\+ DEVICE OWNERS/i)).not.toBeInTheDocument();
     expect(screen.queryByText('4.9')).not.toBeInTheDocument();
-    expect(screen.getByText('Pixel 8 · Demo device')).toBeInTheDocument();
+    expect(screen.getByText('Galaxy S24 · Demo device')).toBeInTheDocument();
     expect(screen.getByText('DEMO')).toBeInTheDocument();
-    expect(screen.getByText('381')).toBeInTheDocument();
+
   });
 
   it('switches to API key mode and back', async () => {

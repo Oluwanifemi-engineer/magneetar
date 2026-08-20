@@ -49,35 +49,35 @@
 
 /* ─── Components ───────────────────────────────────────────────────────────── */
 @layer components {
-  /* Premium Panel with glass effect */
+  /* Military Panel — clean, functional */
   .mag-panel {
-    @apply bg-mag-panel/90 backdrop-blur-xl border border-mag-border/60 rounded-xl;
-    @apply shadow-mag-panel;
+    @apply bg-white border border-gray-200 rounded-xl;
+    @apply shadow-[0_1px_3px_rgba(0,0,0,0.04)];
   }
 
-  /* Premium Card */
+  /* Military Card — subtle depth */
   .mag-card {
-    @apply bg-mag-surface/40 border border-mag-border/50 rounded-lg p-4;
-    @apply hover:border-mag-border transition-all duration-200;
-    @apply shadow-mag-card;
+    @apply bg-white border border-gray-200 rounded-lg p-4;
+    @apply hover:border-gray-300 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)];
+    @apply transition-all duration-200;
   }
 
   /* Glow border on hover */
   .mag-glow-border {
-    @apply border border-mag-border/50 rounded-lg transition-all duration-200;
+    @apply border border-gray-200 rounded-lg transition-all duration-200;
   }
   .mag-glow-border:hover {
-    @apply border-mag-primary/30 shadow-mag-glow;
+    @apply border-gray-400 shadow-[0_2px_12px_rgba(0,0,0,0.08)];
   }
 
-  /* HUD Corner Brackets */
+  /* HUD Corner Brackets — tactical feel */
   .mag-hud-frame {
     @apply relative;
   }
   .mag-hud-frame::before,
   .mag-hud-frame::after {
     content: '';
-    @apply absolute w-2.5 h-2.5 border-mag-primary/30;
+    @apply absolute w-2.5 h-2.5 border-gray-400;
   }
   .mag-hud-frame::before {
     @apply top-0 left-0 border-t border-l;
@@ -86,22 +86,22 @@
     @apply bottom-0 right-0 border-b border-r;
   }
 
-  /* Status Dot */
+  /* Status Dot — military clarity */
   .mag-status-dot {
     @apply w-2 h-2 rounded-full;
   }
   .mag-status-dot.online {
-    @apply bg-mag-accent shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse-slow;
+    @apply bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse-slow;
   }
   .mag-status-dot.offline {
-    @apply bg-mag-text-dim/40;
+    @apply bg-gray-300;
   }
 
-  /* Grid Background */
+  /* Grid Background — subtle tactical grid */
   .mag-grid-bg {
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+      linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
     background-size: 48px 48px;
   }
 
@@ -115,76 +115,76 @@
 
   .mag-btn-primary {
     @apply mag-btn;
-    @apply border-mag-primary/40 text-mag-primary bg-mag-primary/10;
-    @apply hover:bg-mag-primary/20 hover:border-mag-primary/60 hover:shadow-mag-glow-strong;
-    @apply focus:ring-mag-primary/30;
+    @apply border-gray-900 text-white bg-gray-900;
+    @apply hover:bg-gray-800 hover:border-gray-800;
+    @apply focus:ring-gray-900/30;
   }
 
   .mag-btn-secondary {
     @apply mag-btn;
-    @apply border-white/10 text-white/60 bg-white/[0.03];
-    @apply hover:bg-white/[0.06] hover:border-white/20 hover:text-white/80;
-    @apply focus:ring-white/10;
+    @apply border-gray-300 text-gray-700 bg-white;
+    @apply hover:bg-gray-50 hover:border-gray-400;
+    @apply focus:ring-gray-900/10;
   }
 
   .mag-btn-danger {
     @apply mag-btn;
-    @apply border-mag-danger/40 text-mag-danger bg-mag-danger/10;
-    @apply hover:bg-mag-danger/20 hover:border-mag-danger/60 hover:shadow-mag-danger;
-    @apply focus:ring-mag-danger/30;
+    @apply border-red-500 text-red-600 bg-red-50;
+    @apply hover:bg-red-100 hover:border-red-600;
+    @apply focus:ring-red-500/30;
   }
 
   .mag-btn-warning {
     @apply mag-btn;
-    @apply border-mag-warning/40 text-mag-warning bg-mag-warning/10;
-    @apply hover:bg-mag-warning/20 hover:border-mag-warning/60;
-    @apply focus:ring-mag-warning/30;
+    @apply border-amber-500 text-amber-600 bg-amber-50;
+    @apply hover:bg-amber-100 hover:border-amber-600;
+    @apply focus:ring-amber-500/30;
   }
 
   .mag-btn-ghost {
     @apply mag-btn;
-    @apply border-transparent text-mag-text-dim/60 bg-transparent;
-    @apply hover:text-mag-text hover:bg-mag-surface/40;
+    @apply border-transparent text-gray-500 bg-transparent;
+    @apply hover:text-gray-900 hover:bg-gray-100;
   }
 
-  /* Tab Component */
+  /* Tab Component — clean military tabs */
   .mag-tab {
     @apply flex items-center justify-center gap-1.5 px-3 py-3;
     @apply text-[10px] font-bold tracking-wide font-mono uppercase;
-    @apply text-mag-text-dim/50 cursor-pointer transition-all duration-200;
+    @apply text-gray-400 cursor-pointer transition-all duration-200;
     @apply border-b-2 border-transparent;
   }
   .mag-tab:hover {
-    @apply text-mag-text/70;
+    @apply text-gray-600;
   }
   .mag-tab.active {
-    @apply text-mag-primary border-mag-primary;
-    @apply bg-mag-primary/[0.03];
+    @apply text-gray-900 border-gray-900;
+    @apply bg-gray-50;
   }
 
-  /* Input */
+  /* Input — clean, functional */
   .mag-input {
-    @apply w-full px-4 py-3 bg-mag-surface/40 border border-mag-border/60 rounded-lg;
-    @apply text-mag-text text-sm font-medium font-sans placeholder:text-mag-text-dim/40;
-    @apply focus:outline-none focus:border-mag-primary/50 focus:ring-2 focus:ring-mag-primary/10;
+    @apply w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg;
+    @apply text-gray-900 text-sm font-medium font-sans placeholder:text-gray-400;
+    @apply focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100;
     @apply transition-all duration-150;
   }
 
-  /* Badge */
+  /* Badge — military status */
   .mag-badge {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider;
   }
   .mag-badge-online {
-    @apply mag-badge bg-mag-accent/10 text-mag-accent border border-mag-accent/25;
+    @apply mag-badge bg-emerald-50 text-emerald-600 border border-emerald-200;
   }
   .mag-badge-offline {
-    @apply mag-badge bg-mag-warning/10 text-mag-warning border border-mag-warning/25;
+    @apply mag-badge bg-gray-100 text-gray-500 border border-gray-200;
   }
   .mag-badge-danger {
-    @apply mag-badge bg-mag-danger/10 text-mag-danger border border-mag-danger/25;
+    @apply mag-badge bg-red-50 text-red-600 border border-red-200;
   }
   .mag-badge-info {
-    @apply mag-badge bg-mag-primary/10 text-mag-primary border border-mag-primary/25;
+    @apply mag-badge bg-gray-100 text-gray-700 border border-gray-200;
   }
 
   /* M-Brand Logo */
@@ -196,36 +196,35 @@
   }
 
   .mag-m-logo-ring {
-    @apply absolute rounded-full border border-white/[0.08];
+    @apply absolute rounded-full border border-gray-200;
   }
 }
 
 /* ─── Leaflet Overrides — Clean & Modern ──────────────────────────────────── */
 .leaflet-container {
-  @apply bg-mag-bg;
+  @apply bg-gray-100;
   font-family: inherit;
 }
 
 .leaflet-control-zoom {
-  @apply !border-mag-border/60 !rounded-xl overflow-hidden !shadow-mag-card;
+  @apply !border-gray-200 !rounded-xl overflow-hidden !shadow-[0_1px_3px_rgba(0,0,0,0.1)];
 }
 
 .leaflet-control-zoom a {
-  @apply !bg-mag-panel/90 !text-mag-text !w-10 !h-10 !leading-10 !text-lg;
-  @apply !border-mag-border/60 hover:!bg-mag-surface !transition-colors;
+  @apply !bg-white !text-gray-900 !w-10 !h-10 !leading-10 !text-lg;
+  @apply !border-gray-200 hover:!bg-gray-50 !transition-colors;
 }
 
 .leaflet-control-zoom a:first-child {
-  @apply !border-b-mag-border/60;
+  @apply !border-b-gray-200;
 }
 
 .leaflet-popup-content-wrapper {
-  @apply !bg-mag-panel/95 !text-mag-text !rounded-xl !border !border-mag-border/60 !shadow-mag-panel;
-  @apply !backdrop-blur-xl;
+  @apply !bg-white !text-gray-900 !rounded-xl !border !border-gray-200 !shadow-[0_4px_16px_rgba(0,0,0,0.1)];
 }
 
 .leaflet-popup-tip {
-  @apply !bg-mag-panel/95;
+  @apply !bg-white;
 }
 
 .leaflet-popup-content {
@@ -233,11 +232,11 @@
 }
 
 .leaflet-control-attribution {
-  @apply !bg-transparent !text-mag-text-dim/30 !text-[9px];
+  @apply !bg-transparent !text-gray-400 !text-[9px];
 }
 
 .leaflet-control-attribution a {
-  @apply !text-mag-text-dim/40;
+  @apply !text-gray-500;
 }
 
 /* Custom marker pulse animation */
@@ -255,8 +254,8 @@
 
 /* ─── Path Animation ────────────────────────────────────────────────────────── */
 @keyframes pathGlow {
-  0%, 100% { filter: drop-shadow(0 0 3px rgba(6, 182, 212, 0.4)); }
-  50% { filter: drop-shadow(0 0 8px rgba(6, 182, 212, 0.8)); }
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.2)); }
+  50% { filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.3)); }
 }
 
 .animate-path-glow {
@@ -299,8 +298,8 @@
 
 /* ─── Dashboard Subtle Animations ──────────────────────────────────────────── */
 @keyframes dataPulse {
-  0%, 100% { border-color: rgba(255,255,255,0.06); }
-  50% { border-color: rgba(255,255,255,0.12); }
+  0%, 100% { border-color: rgba(0,0,0,0.06); }
+  50% { border-color: rgba(0,0,0,0.12); }
 }
 
 .animate-data-pulse {
@@ -342,17 +341,17 @@
 }
 
 .animate-data-flow {
-  background-image: linear-gradient(90deg, transparent, rgba(6,182,212,0.15), transparent);
+  background-image: linear-gradient(90deg, transparent, rgba(0,0,0,0.05), transparent);
   background-size: 200% 100%;
   background-position: 0% 0;
   animation: data-flow 2s linear infinite;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   Premium Design System — Aqua/Cyan Security Theme
+   Military Grade Design System — White & Gray Focus
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* Premium gradient border effect */
+/* Military border effect */
 .gradient-border {
   position: relative;
   border-radius: 16px;
@@ -365,7 +364,7 @@
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.5), rgba(16, 185, 129, 0.5), rgba(6, 182, 212, 0.3));
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.15));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -377,51 +376,47 @@
   opacity: 1;
 }
 
-/* Premium glass panel */
+/* Military glass panel */
 .glass-panel {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(249, 250, 251, 0.9) 100%);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
-    0 20px 60px -20px rgba(0, 0, 0, 0.5);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8),
+    0 4px 16px -4px rgba(0, 0, 0, 0.08);
 }
 
-/* Premium card with layered shadows */
+/* Military card with layered shadows */
 .premium-card {
-  background: linear-gradient(180deg, #111827 0%, #0B1120 100%);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, #FFFFFF 0%, #F9FAFB 100%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 16px;
   box-shadow:
-    0 1px 1px hsl(200deg 60% 50% / 0.03),
-    0 2px 2px hsl(200deg 60% 50% / 0.03),
-    0 4px 4px hsl(200deg 60% 50% / 0.03),
-    0 8px 8px hsl(200deg 60% 50% / 0.03),
-    0 16px 16px hsl(200deg 60% 50% / 0.03),
-    0 32px 32px hsl(200deg 60% 50% / 0.03);
+    0 1px 1px rgba(0,0,0,0.02),
+    0 2px 2px rgba(0,0,0,0.02),
+    0 4px 4px rgba(0,0,0,0.02),
+    0 8px 8px rgba(0,0,0,0.02);
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .premium-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(0, 0, 0, 0.12);
   box-shadow:
-    0 1px 1px hsl(0deg 0% 100% / 0.04),
-    0 2px 2px hsl(0deg 0% 100% / 0.04),
-    0 4px 4px hsl(0deg 0% 100% / 0.04),
-    0 8px 8px hsl(0deg 0% 100% / 0.04),
-    0 16px 16px hsl(0deg 0% 100% / 0.04),
-    0 32px 32px hsl(0deg 0% 100% / 0.04),
-    0 0 80px -20px rgba(255, 255, 255, 0.08);
-  transform: translateY(-4px);
+    0 1px 1px rgba(0,0,0,0.03),
+    0 2px 2px rgba(0,0,0,0.03),
+    0 4px 4px rgba(0,0,0,0.03),
+    0 8px 8px rgba(0,0,0,0.03),
+    0 16px 16px rgba(0,0,0,0.03);
+  transform: translateY(-2px);
 }
 
-/* Premium button with shimmer */
+/* Military button with shimmer */
 .btn-premium {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #FFFFFF 0%, #D1D5DB 100%);
-  color: #0B1120;
+  background: linear-gradient(135deg, #111827 0%, #1F2937 100%);
+  color: #FFFFFF;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -432,7 +427,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
   transition: left 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -441,8 +436,8 @@
 }
 
 .btn-premium:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 10px 40px -10px rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.2);
 }
 
 .btn-premium:active {
@@ -462,7 +457,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.06) 0%, transparent 50%);
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(0, 0, 0, 0.04) 0%, transparent 50%);
   opacity: 0;
   transition: opacity 0.3s ease;
   pointer-events: none;
@@ -473,7 +468,7 @@
   opacity: 1;
 }
 
-/* Premium badge */
+/* Military badge */
 .badge-premium {
   display: inline-flex;
   align-items: center;
@@ -484,18 +479,18 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   border-radius: 9999px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.8);
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0.03) 100%);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.7);
 }
 
-/* Premium divider */
+/* Military divider */
 .divider-premium {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.1), transparent);
 }
 
-/* ─── Landing Page — Premium Security SaaS Effects ─────────────────────────── */
+/* ─── Landing Page — Military Grade Effects ─────────────────────────────────── */
 
 /* Gradient text — dark monochrome for light theme */
 .text-gradient-primary {
@@ -599,8 +594,8 @@
 
 /* Timeline dot pulse */
 @keyframes timelinePulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.3); }
-  50% { box-shadow: 0 0 0 4px rgba(255,255,255,0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,0,0,0.2); }
+  50% { box-shadow: 0 0 0 4px rgba(0,0,0,0); }
 }
 
 /* Live dot blink */
@@ -673,7 +668,7 @@
   left: 0;
   width: 50%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.02), transparent);
   animation: cardShimmer 6s ease-in-out infinite;
   pointer-events: none;
 }
@@ -773,8 +768,8 @@
   transition: opacity 0.35s ease;
   background: radial-gradient(
     360px circle at var(--mx, 50%) var(--my, 50%),
-    rgba(6, 182, 212, 0.13),
-    rgba(16, 185, 129, 0.07) 45%,
+    rgba(0, 0, 0, 0.06),
+    rgba(0, 0, 0, 0.03) 45%,
     transparent 65%
   );
   z-index: 1;
@@ -790,8 +785,8 @@
   inset: auto 0 0 0;
   height: 38%;
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
   background-size: 42px 42px;
   transform: perspective(420px) rotateX(58deg);
   transform-origin: bottom center;
@@ -800,12 +795,12 @@
   pointer-events: none;
 }
 
-/* Dark-theme autofill fix */
+/* Light-theme autofill fix */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
-  -webkit-text-fill-color: rgba(255, 255, 255, 0.85);
-  -webkit-box-shadow: 0 0 0 1000px #111827 inset;
+  -webkit-text-fill-color: rgba(17, 24, 39, 0.9);
+  -webkit-box-shadow: 0 0 0 1000px #F9FAFB inset;
   transition: background-color 9999s ease-in-out 0s;
 }
 
@@ -837,44 +832,44 @@ input:-webkit-autofill:focus {
 }
 
 .card-glow:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 0 40px rgba(255, 255, 255, 0.04), 0 12px 48px rgba(0, 0, 0, 0.5);
-  transform: translateY(-4px);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
 }
 
-/* ═══ Premium Action Panel (Prey-style) ════════════════════════════════════════ */
+/* ═══ Premium Action Panel (Military Style) ════════════════════════════════════════ */
 .action-item {
   @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer;
-  @apply border border-transparent hover:border-mag-primary/20 hover:bg-mag-primary/[0.04];
+  @apply border border-transparent hover:border-gray-300 hover:bg-gray-50;
 }
 
 .action-item:hover {
-  @apply shadow-[0_0_20px_rgba(255,255,255,0.04)];
+  @apply shadow-[0_2px_8px_rgba(0,0,0,0.04)];
 }
 
 .action-icon {
   @apply w-10 h-10 rounded-xl flex items-center justify-center;
-  @apply bg-mag-surface/60 border border-mag-border/40;
+  @apply bg-gray-100 border border-gray-200;
   @apply transition-all duration-200;
 }
 
 .action-item:hover .action-icon {
-  @apply bg-mag-primary/10 border-mag-primary/30;
+  @apply bg-gray-900 border-gray-900 text-white;
 }
 
-/* ═══ Premium Sidebar (Prey-style) ════════════════════════════════════════════ */
+/* ═══ Premium Sidebar (Military Style) ════════════════════════════════════════════ */
 .sidebar-item {
   @apply flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 cursor-pointer;
-  @apply border border-transparent hover:bg-mag-surface/40 hover:border-mag-border/30;
+  @apply border border-transparent hover:bg-gray-100 hover:border-gray-200;
 }
 
 .sidebar-item.active {
-  @apply bg-mag-primary/[0.06] border-mag-primary/20;
+  @apply bg-gray-100 border-gray-200;
 }
 
 /* ═══ Premium Map Overlay ════════════════════════════════════════════════════════ */
 .map-overlay {
-  background: linear-gradient(180deg, rgba(11, 17, 32, 0.8) 0%, transparent 30%, transparent 70%, rgba(11, 17, 32, 0.8) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, transparent 30%, transparent 70%, rgba(255, 255, 255, 0.8) 100%);
   pointer-events: none;
 }
 
@@ -887,7 +882,7 @@ input:-webkit-autofill:focus {
   inset: 0;
   z-index: 9999;
   pointer-events: none;
-  opacity: 0.025;
+  opacity: 0.02;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 200px 200px;
@@ -905,21 +900,21 @@ input:-webkit-autofill:focus {
   position: absolute;
   border-radius: 50%;
   filter: blur(100px);
-  opacity: 0.035;
+  opacity: 0.02;
   animation: meshDrift 20s ease-in-out infinite alternate;
 }
 
 .gradient-mesh .orb-1 {
   width: 600px; height: 600px;
   top: -10%; left: 20%;
-  background: white;
+  background: #000;
   animation-delay: 0s;
 }
 
 .gradient-mesh .orb-2 {
   width: 500px; height: 500px;
   top: 30%; right: -5%;
-  background: white;
+  background: #000;
   animation-delay: -7s;
   animation-duration: 25s;
 }
@@ -927,7 +922,7 @@ input:-webkit-autofill:focus {
 .gradient-mesh .orb-3 {
   width: 400px; height: 400px;
   bottom: -5%; left: 10%;
-  background: white;
+  background: #000;
   animation-delay: -14s;
   animation-duration: 22s;
 }
@@ -952,7 +947,7 @@ input:-webkit-autofill:focus {
   left: 0;
   width: 0;
   height: 1px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(0, 0, 0, 0.6);
   transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1001,7 +996,7 @@ input:-webkit-autofill:focus {
   inset: 0;
   background: radial-gradient(
     600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    rgba(255, 255, 255, 0.06),
+    rgba(0, 0, 0, 0.04),
     transparent 40%
   );
   opacity: 0;
@@ -1024,7 +1019,7 @@ input:-webkit-autofill:focus {
   position: absolute;
   inset: -1px;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent 50%, rgba(255,255,255,0.05));
+  background: linear-gradient(135deg, rgba(0,0,0,0.1), transparent 50%, rgba(0,0,0,0.05));
   opacity: 0;
   transition: opacity 0.4s ease;
   z-index: -1;
@@ -1057,19 +1052,19 @@ input:-webkit-autofill:focus {
 
 /* Stats counter glow */
 .stat-glow {
-  text-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+  text-shadow: 0 0 30px rgba(0, 0, 0, 0.1);
 }
 
-/* Premium divider with gradient */
+/* Military divider with gradient */
 .premium-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.08), transparent);
 }
 
 /* Animated border on focus */
 @keyframes borderGlow {
-  0%, 100% { border-color: rgba(255,255,255,0.06); }
-  50% { border-color: rgba(255,255,255,0.15); }
+  0%, 100% { border-color: rgba(0,0,0,0.06); }
+  50% { border-color: rgba(0,0,0,0.15); }
 }
 
 /* Horizontal scroll ticker */
@@ -1105,12 +1100,12 @@ input:-webkit-autofill:focus {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.1);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.15);
+  background: rgba(0,0,0,0.2);
 }
 
 /* Reduced motion */

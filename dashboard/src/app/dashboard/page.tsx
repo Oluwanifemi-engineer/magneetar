@@ -49,22 +49,20 @@ export default function DashboardPage() {
       {/* Map (Main Area) */}
       <MapView />
 
-      {/* Right Panel */}
-      <div className={`bg-mag-panel/90 backdrop-blur-xl border-l border-mag-border/60 flex flex-col transition-all duration-300 ease-out relative ${rightPanelOpen ? 'w-80' : 'w-0 overflow-hidden'}`}>
-        {/* Left gradient accent rail on the panel */}
-        <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-mag-primary/20 to-transparent pointer-events-none" />
-        {/* Top gradient hairline */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-mag-primary/30 to-transparent pointer-events-none" />
+      {/* Right Panel — Military Grade White */}
+      <div className={`bg-white border-l border-gray-200 flex flex-col transition-all duration-300 ease-out relative ${rightPanelOpen ? 'w-80' : 'w-0 overflow-hidden'}`}>
+        {/* Subtle left accent rail */}
+        <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent pointer-events-none" />
 
         {/* Panel Toggle */}
         <button
           onClick={() => setRightPanelOpen(!rightPanelOpen)}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-50 w-5 h-10 flex items-center justify-center bg-mag-panel/90 border border-mag-border/60 rounded-l-lg hover:bg-mag-surface transition-colors shadow-sm group"
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-50 w-5 h-10 flex items-center justify-center bg-white border border-gray-200 rounded-l-lg hover:bg-gray-50 transition-colors shadow-sm group"
         >
           <svg
             width="10" height="10" viewBox="0 0 24 24"
             fill="none" stroke="currentColor" strokeWidth="2"
-            className={`text-mag-text-dim/40 group-hover:text-mag-text-dim transition-transform duration-200 ${rightPanelOpen ? 'rotate-180' : ''}`}
+            className={`text-gray-400 group-hover:text-gray-600 transition-transform duration-200 ${rightPanelOpen ? 'rotate-180' : ''}`}
           >
             <polyline points="15 18 9 12 15 6" />
           </svg>
@@ -72,7 +70,7 @@ export default function DashboardPage() {
 
         {rightPanelOpen && (
           <>
-            {/* Tabs */}
+            {/* Tabs — Military Style */}
             <Tabs
               tabs={visibleTabs}
               activeTab={effectiveTab}
@@ -91,13 +89,13 @@ export default function DashboardPage() {
               {effectiveTab === 'errors' && <ErrorPanel />}
             </div>
 
-            {/* Panel footer */}
-            <div className="px-4 py-2 border-t border-mag-border/30 flex items-center justify-between relative">
+            {/* Panel footer — Military Status */}
+            <div className="px-4 py-2 border-t border-gray-200 flex items-center justify-between relative">
               <div className="flex items-center gap-1.5">
-                <span className="w-1 h-1 rounded-full bg-mag-accent shadow-[0_0_6px_rgba(34,197,94,0.5)] animate-pulse-slow" />
-                <span className="text-[8px] font-mono text-mag-accent/50 font-bold uppercase tracking-wider">Live</span>
+                <span className="w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)] animate-pulse-slow" />
+                <span className="text-[8px] font-mono text-emerald-600 font-bold uppercase tracking-wider">Live</span>
               </div>
-              <span className="text-[8px] font-mono text-mag-text-dim/25 font-bold uppercase tracking-wider">Magneetar OS</span>
+              <span className="text-[8px] font-mono text-gray-400 font-bold uppercase tracking-wider">Magneetar OS</span>
             </div>
           </>
         )}
