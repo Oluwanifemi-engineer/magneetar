@@ -50,9 +50,7 @@ export function Header() {
 
       {/* ─── Brand — M Logo ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 shrink-0 relative">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-mag-primary/15 via-transparent to-mag-secondary/10 border border-white/[0.08] flex items-center justify-center overflow-hidden shadow-[0_0_16px_rgba(6,182,212,0.12)]">
-          <img src="/m-logo.svg" alt="M" className="w-5 h-5 drop-shadow-[0_0_6px_rgba(6,182,212,0.5)]" />
-        </div>
+        <img src="/magneetar-mhalf.svg" alt="Magneetar" className="w-8 h-8 rounded-lg" />
         <div className="flex flex-col leading-none">
           <span className="text-sm font-display font-bold tracking-[0.25em] text-gradient-primary">
             MAGNEETAR

@@ -101,23 +101,23 @@ export default function SignupPage() {
   };
 
   const inputClass =
-    'w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900/85 text-sm ' +
-    'placeholder:text-gray-900/15 focus:outline-none focus:border-mag-primary/40 focus:bg-gray-50 ' +
-    'focus:ring-1 focus:ring-mag-primary/15 transition-all duration-200';
+    'w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm ' +
+    'placeholder:text-gray-400 focus:outline-none focus:border-gray-900 focus:bg-gray-50 ' +
+    'focus:ring-1 focus:ring-gray-900/10 transition-all duration-200';
 
   return (
     <div className="min-h-screen bg-white text-gray-900 relative overflow-hidden">
       {/* Ambient background */}
       <div className="absolute inset-0 landing-vignette pointer-events-none" />
       <div className="absolute inset-0 landing-grid opacity-40 pointer-events-none" />
-      <div className="absolute -top-40 left-1/3 w-[600px] h-[400px] rounded-full bg-mag-primary/10 blur-[130px] animate-aurora pointer-events-none" aria-hidden="true" />
-      <div className="absolute top-1/3 -right-32 w-[480px] h-[480px] rounded-full bg-mag-secondary/8 blur-[120px] animate-aurora pointer-events-none" style={{ animationDelay: '-6s' }} aria-hidden="true" />
-      <div className="absolute -bottom-40 -left-24 w-[520px] h-[380px] rounded-full bg-mag-primary/8 blur-[130px] animate-aurora pointer-events-none" style={{ animationDelay: '-11s' }} aria-hidden="true" />
+      <div className="absolute -top-40 left-1/3 w-[600px] h-[400px] rounded-full bg-gray-100 blur-[130px] animate-aurora pointer-events-none" aria-hidden="true" />
+      <div className="absolute top-1/3 -right-32 w-[480px] h-[480px] rounded-full bg-gray-100 blur-[120px] animate-aurora pointer-events-none" style={{ animationDelay: '-6s' }} aria-hidden="true" />
+      <div className="absolute -bottom-40 -left-24 w-[520px] h-[380px] rounded-full bg-gray-100 blur-[130px] animate-aurora pointer-events-none" style={{ animationDelay: '-11s' }} aria-hidden="true" />
 
       {/* ─── Split Layout ─────────────────────────────────────────────────── */}
       <div className="relative min-h-screen grid lg:grid-cols-2">
         {/* ─── Left — Brand Showcase ─────────────────────────────────────── */}
-        <div className="hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-gray-100 bg-mag-panel/30 backdrop-blur-xl relative overflow-hidden">
+        <div className="hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-gray-200 bg-gray-50  relative overflow-hidden">
           {/* Perspective grid floor */}
           <div className="grid-floor" aria-hidden="true" />
 
@@ -211,7 +211,7 @@ export default function SignupPage() {
             {/* Heading */}
             <div className="mb-8">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 bg-gray-50 mb-4">
-                <ShieldCheck size={11} className="text-mag-primary" />
+                <ShieldCheck size={11} className="text-gray-900" />
                 <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-gray-500">FREE · NO CARD REQUIRED</span>
               </div>
               <h2 className="text-2xl font-display font-extrabold tracking-tight text-gray-900">Create your account</h2>
@@ -224,7 +224,7 @@ export default function SignupPage() {
             <div
               ref={cardRef}
               onMouseMove={handleCardMove}
-              className="spotlight-card relative rounded-2xl border border-white/[0.08] bg-mag-panel/85 backdrop-blur-xl p-7 sm:p-8 shadow-2xl shadow-black/50"
+              className="spotlight-card relative rounded-2xl border border-white/[0.08] bg-white  p-7 sm:p-8 shadow-2xl shadow-black/50"
             >
               <div className="relative z-10">
                 <form onSubmit={handleSignup} noValidate>
@@ -381,7 +381,7 @@ export default function SignupPage() {
             {/* Login prompt */}
             <p className="mt-7 text-center text-[13px] text-gray-400">
               Already have an account?{' '}
-              <Link href="/login" className="text-mag-primary hover:text-mag-primary-bright font-semibold transition-colors">
+              <Link href="/login" className="text-gray-900 hover:text-gray-900 font-semibold transition-colors">
                 Sign in
               </Link>
             </p>

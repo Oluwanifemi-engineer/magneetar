@@ -45,20 +45,15 @@ function PremiumLoadingScreen() {
 
       {/* Center content */}
       <div className="text-center relative z-10">
-        {/* Logo with glow animation */}
-        <div className="relative inline-block mb-8">
-          <img
-            src="/m-logo.svg"
-            alt="Magneetar"
-            className="w-20 h-20 animate-m-glow drop-shadow-[0_0_40px_rgba(6,182,212,0.5)]"
-          />
-          {/* Rotating ring around logo */}
-          <div className="absolute inset-0 -m-4 rounded-full border border-mag-primary/20 animate-slow-spin" />
-          <div className="absolute inset-0 -m-8 rounded-full border border-dashed border-mag-primary/10 animate-slow-spin" style={{ animationDirection: 'reverse', animationDuration: '20s' }} />
-        </div>
+        {/* Logo */}
+        <img
+          src="/magneetar-mhalf.svg"
+          alt="Magneetar"
+          className="w-20 h-20 rounded-2xl mb-8"
+        />
 
         {/* Brand name */}
-        <div className="text-2xl font-display font-bold tracking-[0.3em] mb-2 text-gradient-primary">
+        <div className="text-2xl font-display font-bold tracking-[0.3em] mb-2 text-white">
           MAGNEETAR
         </div>
         <div className="text-[10px] font-mono text-white/40 tracking-[0.25em] mb-8">

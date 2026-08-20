@@ -115,9 +115,7 @@ export function Sidebar() {
         <>
           {/* ─── M Brand Bar ──────────────────────────────────────────────── */}
           <div className="px-4 py-3 border-b border-mag-border/30 flex items-center gap-3 shrink-0 relative">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-mag-primary/15 via-transparent to-mag-secondary/10 border border-white/[0.08] flex items-center justify-center shrink-0 overflow-hidden shadow-[0_0_14px_rgba(6,182,212,0.12)]">
-              <img src="/m-logo.svg" alt="M" className="w-4 h-4 drop-shadow-[0_0_5px_rgba(6,182,212,0.45)]" />
-            </div>
+            <img src="/magneetar-mhalf.svg" alt="Magneetar" className="w-7 h-7 rounded-lg shrink-0" />
             <div>
               <div className="text-[11px] font-bold tracking-[0.2em] text-gradient-primary">MAGNEETAR</div>
               <div className="text-[8px] font-mono text-mag-text-dim/30 tracking-[0.2em] font-bold">COMMAND CENTER</div>
@@ -136,7 +134,7 @@ export function Sidebar() {
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 <div className="bg-mag-surface/20 border border-mag-border/25 rounded-lg p-2 text-center transition-all duration-200 hover:border-mag-primary/25 hover:shadow-[0_0_12px_rgba(6,182,212,0.06)]">
-                  <div className="font-mono text-sm font-bold text-gradient-primary tabular-nums">{stats.total_devices}</div>
+                  <div className="font-mono text-sm font-bold text-white tabular-nums">{stats.total_devices}</div>
                   <div className="text-[7px] font-mono text-mag-text-dim/40 font-bold uppercase tracking-wider">Total</div>
                 </div>
                 <div className="bg-mag-accent/[0.04] border border-mag-accent/15 rounded-lg p-2 text-center transition-all duration-200 hover:border-mag-accent/35 hover:shadow-[0_0_12px_rgba(16,185,129,0.08)]">

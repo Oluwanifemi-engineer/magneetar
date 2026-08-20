@@ -199,24 +199,24 @@ export default function LoginPage() {
   };
 
   const inputClass =
-    'w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900/85 text-sm ' +
-    'placeholder:text-gray-900/15 focus:outline-none focus:border-mag-primary/40 focus:bg-gray-50 ' +
-    'focus:ring-1 focus:ring-mag-primary/15 transition-all duration-200';
+    'w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 text-sm ' +
+    'placeholder:text-gray-400 focus:outline-none focus:border-gray-900 focus:bg-gray-50 ' +
+    'focus:ring-1 focus:ring-gray-900/10 transition-all duration-200';
 
   return (
     <div className="min-h-screen bg-white text-gray-900 relative overflow-hidden">
       {/* Ambient background */}
       <div className="absolute inset-0 landing-vignette pointer-events-none" />
       <div className="absolute inset-0 landing-grid opacity-40 pointer-events-none" />
-      <div className="absolute -top-40 left-1/3 w-[600px] h-[400px] rounded-full bg-mag-primary/10 blur-[130px] animate-aurora pointer-events-none" aria-hidden="true" />
-      <div className="absolute top-1/3 -right-32 w-[480px] h-[480px] rounded-full bg-mag-secondary/8 blur-[120px] animate-aurora pointer-events-none" style={{ animationDelay: '-6s' }} aria-hidden="true" />
-      <div className="absolute -bottom-40 -left-24 w-[520px] h-[380px] rounded-full bg-mag-primary/8 blur-[130px] animate-aurora pointer-events-none" style={{ animationDelay: '-11s' }} aria-hidden="true" />
+      <div className="absolute -top-40 left-1/3 w-[600px] h-[400px] rounded-full bg-gray-100 blur-[130px] animate-aurora pointer-events-none" aria-hidden="true" />
+      <div className="absolute top-1/3 -right-32 w-[480px] h-[480px] rounded-full bg-gray-100 blur-[120px] animate-aurora pointer-events-none" style={{ animationDelay: '-6s' }} aria-hidden="true" />
+      <div className="absolute -bottom-40 -left-24 w-[520px] h-[380px] rounded-full bg-gray-100 blur-[130px] animate-aurora pointer-events-none" style={{ animationDelay: '-11s' }} aria-hidden="true" />
       {/* Floating particles */}
       {[0, 1, 2, 3, 4].map((i) => (
         <div
           key={i}
           aria-hidden="true"
-          className="absolute w-1 h-1 rounded-full bg-white/25 animate-float-particle"
+          className="absolute w-1 h-1 rounded-full bg-gray-300 animate-float-particle"
           style={{ left: `${8 + i * 20}%`, top: `${20 + (i % 3) * 28}%`, animationDelay: `${i * 1.9}s` }}
         />
       ))}
@@ -224,7 +224,7 @@ export default function LoginPage() {
       {/* ─── Split Layout ─────────────────────────────────────────────────── */}
       <div className="relative min-h-screen grid lg:grid-cols-2">
         {/* ─── Left — Brand Showcase ─────────────────────────────────────── */}
-        <div className="hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-gray-100 bg-mag-panel/30 backdrop-blur-xl relative overflow-hidden">
+        <div className="hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-gray-200 bg-gray-50  relative overflow-hidden">
           {/* Perspective grid floor */}
           <div className="grid-floor" aria-hidden="true" />
 
@@ -258,9 +258,9 @@ export default function LoginPage() {
 
           {/* ─── Live Command-Center Telemetry ──────────────────────────── */}
           <div className="relative my-10 animate-fade-slide" style={{ animationDelay: '0.15s' }}>
-            <div className="relative rounded-2xl border border-gray-200 bg-mag-panel/90 backdrop-blur-xl shadow-2xl shadow-black/60 overflow-hidden">
+            <div className="relative rounded-2xl border border-gray-200 bg-gray-900  shadow-2xl shadow-black/60 overflow-hidden">
               {/* Window chrome */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 bg-gray-50">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]" />
                 <span className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E]" />
                 <span className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
@@ -279,7 +279,7 @@ export default function LoginPage() {
               <div className="relative h-44 overflow-hidden">
                 <div className="absolute inset-0 landing-grid opacity-80" />
                 {/* Scan line — aqua */}
-                <div className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-mag-primary/50 to-transparent animate-scan-line" aria-hidden="true" />
+                <div className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent animate-scan-line" aria-hidden="true" />
                 {/* Radar ping — emerald */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14" aria-hidden="true">
                   <span className="absolute inset-0 rounded-full border border-mag-accent/40 animate-radar-ping" />
@@ -310,7 +310,7 @@ export default function LoginPage() {
                   </span>
                 </div>
                 <div className="absolute bottom-3 right-3 px-2.5 py-1.5 rounded-lg bg-black/50 border border-gray-200 backdrop-blur-md flex items-center gap-1.5">
-                  <MapPin size={10} className="text-mag-primary" />
+                  <MapPin size={10} className="text-gray-900" />
                   <span className="text-[9px] font-mono font-bold tracking-wider text-gray-600">12 m · 38 km/h</span>
                 </div>
               </div>
@@ -336,7 +336,7 @@ export default function LoginPage() {
                 <div className="bg-white px-4 py-3">
                   <div className="text-[8px] font-mono text-gray-900/30 tracking-widest font-bold mb-1.5">EVIDENCE</div>
                   <div className="flex items-center gap-1.5">
-                    <Camera size={12} className="text-mag-secondary" />
+                    <Camera size={12} className="text-gray-500" />
                     <span className="text-gray-900 text-sm font-bold font-mono">3 files</span>
                   </div>
                 </div>
@@ -349,7 +349,7 @@ export default function LoginPage() {
                     <div key={copy}>
                       {TICKER_LINES.map((line) => (
                         <div key={`${copy}-${line}`} className="px-4 py-1 text-[9px] font-mono text-gray-900/35 tracking-wider whitespace-nowrap leading-[18px]">
-                          <span className="text-mag-primary/70 mr-1.5">▸</span>
+                          <span className="text-gray-500 mr-1.5">▸</span>
                           {line}
                         </div>
                       ))}
@@ -360,14 +360,14 @@ export default function LoginPage() {
             </div>
 
             {/* Floating chips */}
-            <div className="absolute -top-4 -right-3 sm:-right-6 px-3.5 py-2 rounded-xl border border-gray-200 bg-white backdrop-blur-xl shadow-xl shadow-black/50 animate-float-slow flex items-center gap-2">
+            <div className="absolute -top-4 -right-3 sm:-right-6 px-3.5 py-2 rounded-xl border border-gray-200 bg-white  shadow-xl shadow-black/50 animate-float-slow flex items-center gap-2">
               <span className="relative flex w-2 h-2">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-mag-accent opacity-60 animate-ping" />
                 <span className="relative inline-flex rounded-full w-2 h-2 bg-mag-accent" />
               </span>
               <span className="text-[10px] font-mono font-bold text-gray-700">Pixel 8 · Demo device</span>
             </div>
-            <div className="absolute -bottom-4 -left-3 sm:-left-6 px-3.5 py-2 rounded-xl border border-gray-200 bg-white backdrop-blur-xl shadow-xl shadow-black/50 animate-float-slow flex items-center gap-2" style={{ animationDelay: '-2.5s' }}>
+            <div className="absolute -bottom-4 -left-3 sm:-left-6 px-3.5 py-2 rounded-xl border border-gray-200 bg-white  shadow-xl shadow-black/50 animate-float-slow flex items-center gap-2" style={{ animationDelay: '-2.5s' }}>
               <span className="w-4 h-4 rounded-full bg-mag-accent/15 border border-mag-accent/30 flex items-center justify-center">
                 <Check size={9} className="text-mag-accent" />
               </span>
@@ -438,15 +438,15 @@ export default function LoginPage() {
             <div
               ref={cardRef}
               onMouseMove={handleCardMove}
-              className="spotlight-card relative rounded-2xl border border-white/[0.08] bg-mag-panel/85 backdrop-blur-xl p-7 sm:p-8 shadow-2xl shadow-black/50"
+              className="spotlight-card relative rounded-2xl border border-white/[0.08] bg-white  p-7 sm:p-8 shadow-2xl shadow-black/50"
             >
               <div className="relative z-10">
                 {/* ── 2FA second-factor step ─────────────────────────────── */}
                 {step2fa ? (
                   <div className="animate-fade-in">
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="w-10 h-10 rounded-xl bg-mag-primary/10 border border-mag-primary/25 flex items-center justify-center">
-                        <ShieldCheck size={17} className="text-mag-primary" />
+                      <div className="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center">
+                        <ShieldCheck size={17} className="text-gray-900" />
                       </div>
                       <div>
                         <h3 className="text-[15px] font-display font-extrabold tracking-tight text-gray-900">Two-factor authentication</h3>
@@ -603,7 +603,7 @@ export default function LoginPage() {
                             <label htmlFor="login-password" className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em] font-bold">
                               Password
                             </label>
-                            <Link href="/forgot-password" className="text-[10px] font-mono text-mag-primary/70 hover:text-mag-primary-bright font-bold transition-colors">
+                            <Link href="/forgot-password" className="text-[10px] font-mono text-gray-500 hover:text-gray-900 font-bold transition-colors">
                               Forgot password?
                             </Link>
                           </div>
@@ -696,7 +696,7 @@ export default function LoginPage() {
             {/* Signup prompt */}
             <p className="mt-7 text-center text-[13px] text-gray-400">
               New to Magneetar?{' '}
-              <Link href="/signup" className="text-mag-primary hover:text-mag-primary-bright font-semibold transition-colors">
+              <Link href="/signup" className="text-gray-900 hover:text-gray-900 font-semibold transition-colors">
                 Create an account
               </Link>
             </p>
