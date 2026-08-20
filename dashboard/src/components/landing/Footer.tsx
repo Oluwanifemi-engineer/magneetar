@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { FileArchive } from 'lucide-react';
-import { useLiveServerInfo, statusDotClass, type ServerStatus } from './VersionBadge';
+import { useLiveServerInfo, statusDotClass } from './VersionBadge';
 import { SOURCE_TARBALL_URL } from '@/lib/utils';
 
 const FOOTER_LINKS = [
@@ -35,30 +35,24 @@ const FOOTER_LINKS = [
 ];
 
 export function Footer() {
-  // Live version + system status from the server /health endpoint.
   const { version, status } = useLiveServerInfo();
   return (
-    <footer className="relative border-t border-white/[0.06] bg-mag-panel/40">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-mag-primary/30 to-transparent" />
+    <footer className="relative border-t border-gray-200 bg-gray-50">
       <div className="max-w-7xl mx-auto px-5 sm:px-8 py-14">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-          {/* Brand — aqua M tile */}
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="relative group">
-                <img
-                  src="/m-logo.svg"
-                  alt="Magneetar"
-                  className="w-8 h-8 rounded-lg transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 drop-shadow-[0_0_12px_rgba(6,182,212,0.35)] group-hover:drop-shadow-[0_0_20px_rgba(6,182,212,0.6)]"
-                />
-                <div className="absolute inset-0 rounded-lg bg-mag-primary/0 group-hover:bg-mag-primary/10 transition-all duration-300" />
-              </div>
+              <img
+                src="/magneetar-mhalf.svg"
+                alt="Magneetar"
+                className="w-9 h-9 rounded-lg"
+              />
               <div className="leading-none">
-                <div className="text-white text-sm font-bold tracking-[0.25em]">MAGNEETAR</div>
-                <div className="text-[8px] font-mono text-white/50 tracking-[0.3em] mt-1">TRACK · PROTECT · RECOVER</div>
+                <div className="text-gray-900 text-sm font-bold tracking-[0.25em]">MAGNEETAR</div>
+                <div className="text-[8px] font-mono text-gray-400 tracking-[0.3em] mt-1">TRACK · PROTECT · RECOVER</div>
               </div>
             </div>
-            <p className="mt-5 text-[13px] leading-relaxed text-white/60 max-w-sm">
+            <p className="mt-5 text-[13px] leading-relaxed text-gray-500 max-w-sm">
               Military-grade anti-theft tracking and live location circles for Android. Stealth
               monitoring, intelligent detection, and forensic-grade evidence — protecting what matters
               most, and keeping who matters close.
@@ -68,9 +62,8 @@ export function Footer() {
                 href={SOURCE_TARBALL_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-9 h-9 rounded-lg border border-white/[0.08] bg-white/[0.03] flex items-center justify-center text-white/60 hover:text-white hover:border-white/20 hover:bg-white/[0.06] transition-all"
-                aria-label="Source code (per-release tarball)"
-                title="Source code — per-release tarball"
+                className="w-9 h-9 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:text-gray-900 hover:border-gray-300 transition-all"
+                aria-label="Source code"
               >
                 <FileArchive size={15} />
               </a>
@@ -78,14 +71,8 @@ export function Footer() {
                 href="https://api.magneetar.me/health"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-3.5 h-9 rounded-lg border border-white/[0.08] bg-white/[0.03] text-[10px] font-mono font-bold tracking-wider text-white/60 hover:text-white hover:border-white/20 hover:bg-white/[0.06] transition-all"
-                title={
-                  status === 'online'
-                    ? `Live: api.magneetar.me reports online (v${version})`
-                    : status === 'offline'
-                      ? 'Live health check unreachable — see /health'
-                      : 'Checking live server status…'
-                }
+                className="inline-flex items-center gap-2 px-3.5 h-9 rounded-lg border border-gray-200 bg-white text-[10px] font-mono font-bold tracking-wider text-gray-500 hover:text-gray-900 hover:border-gray-300 transition-all"
+                title={`Live: api.magneetar.me reports ${status}`}
               >
                 <span className="relative flex w-1.5 h-1.5">
                   <span
@@ -98,10 +85,9 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Link columns */}
           {FOOTER_LINKS.map((col) => (
             <div key={col.title}>
-              <div className="text-[10px] font-mono font-bold tracking-[0.25em] text-white/60 uppercase mb-4">
+              <div className="text-[10px] font-mono font-bold tracking-[0.25em] text-gray-400 uppercase mb-4">
                 {col.title}
               </div>
               <ul className="space-y-2.5">
@@ -111,7 +97,7 @@ export function Footer() {
                       href={link.href}
                       target={link.href.startsWith('http') ? '_blank' : undefined}
                       rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                      className="text-[13px] text-white/50 hover:text-mag-primary transition-colors"
+                      className="text-[13px] text-gray-500 hover:text-gray-900 transition-colors"
                     >
                       {link.label}
                     </a>
@@ -122,11 +108,11 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="mt-12 pt-6 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-3">
-          <span className="text-[11px] font-mono text-white/40">
+        <div className="mt-12 pt-6 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <span className="text-[11px] font-mono text-gray-400">
             © {new Date().getFullYear()} Magneetar · BSL 1.1 (source-available)
           </span>
-          <span className="text-[11px] font-mono text-white/40 tracking-wider">
+          <span className="text-[11px] font-mono text-gray-400 tracking-wider">
             v{version} · BUILT FOR RECOVERY &amp; CONNECTION
           </span>
         </div>

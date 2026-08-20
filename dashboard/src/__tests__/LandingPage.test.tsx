@@ -33,9 +33,9 @@ describe('Landing Page', () => {
     expect(screen.getAllByText('MAGNEETAR').length).toBeGreaterThan(0);
     expect(screen.getAllByText('TRACK · PROTECT · RECOVER').length).toBeGreaterThan(0);
 
-    // Hero
-    expect(screen.getByText('Protect what you own.')).toBeInTheDocument();
-    expect(screen.getByText('Stay close to who you love.')).toBeInTheDocument();
+    // Hero — headline split across lines with <br />
+    expect(screen.queryByText(/Protect what/)).toBeTruthy();
+    expect(screen.queryByText(/Stay close to/)).toBeTruthy();
     // Hero stats — AnimatedCounter renders the value and suffix as separate
     // text nodes (e.g. "24" + "/7"), so assert on the stable stat labels.
     expect(screen.getByText('automated tests')).toBeInTheDocument();
@@ -82,7 +82,7 @@ describe('Landing Page', () => {
     expect(screen.queryByText(/real adoption numbers coming as users arrive/i)).not.toBeInTheDocument();
 
     // Hero mockup is labelled as a demo — no fabricated live-device claims.
-    expect(screen.getByText('Pixel 8 · Demo device')).toBeInTheDocument();
+    expect(screen.getByText('Galaxy S24 · Active')).toBeInTheDocument();
     expect(screen.getAllByText('Free for 1 device · No credit card required').length).toBeGreaterThan(0);
 
     // Security

@@ -5,74 +5,45 @@ import { ArrowRight, ShieldCheck, Download, Check } from 'lucide-react';
 
 export function CTA({ authed }: { authed: boolean }) {
   return (
-    <section className="relative py-24 sm:py-32">
-      <div className="max-w-5xl mx-auto px-5 sm:px-8">
-        <div className="relative premium-card overflow-hidden px-8 py-14 sm:px-16 sm:py-20 text-center">
-          {/* Decorative gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-mag-primary/[0.08] via-transparent to-mag-secondary/[0.08] pointer-events-none" />
-          <div className="absolute inset-0 landing-grid opacity-30 pointer-events-none" />
-          <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full bg-mag-primary/10 blur-[120px] pointer-events-none" />
+    <section className="relative py-32 sm:py-40 bg-white">
+      <div className="max-w-5xl mx-auto px-5 sm:px-8 text-center">
+        <h2 className="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold tracking-tight text-gray-900 leading-[1.05]">
+          Never lose track of
+          <br />
+          <span className="text-gray-400">what — or who — matters.</span>
+        </h2>
+        <p className="mt-6 text-lg text-gray-500 leading-relaxed max-w-xl mx-auto">
+          Create your account, install the app, protect every device you own, and keep your people
+          close — all within minutes.
+        </p>
 
-          <div className="relative">
-            <div className="badge-premium mb-7">
-              <span className="relative flex w-2 h-2">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-mag-primary opacity-60 animate-ping" />
-                <span className="relative inline-flex rounded-full w-2 h-2 bg-mag-primary" />
-              </span>
-              READY WHEN YOU ARE
-            </div>
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          {authed ? (
+            <Link href="/dashboard" className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl text-[13px] font-bold uppercase tracking-wider bg-gray-900 text-white shadow-lg shadow-gray-900/10 hover:bg-gray-800 transition-all duration-200">
+              <ShieldCheck size={16} />
+              Open Command Center
+              <ArrowRight size={15} />
+            </Link>
+          ) : (
+            <Link href="/signup" className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl text-[13px] font-bold uppercase tracking-wider bg-gray-900 text-white shadow-lg shadow-gray-900/10 hover:bg-gray-800 transition-all duration-200">
+              Get Started Free
+              <ArrowRight size={15} />
+            </Link>
+          )}
+          <Link href="/login" className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl text-[13px] font-bold uppercase tracking-wider border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 transition-all duration-200">
+            I have an account
+          </Link>
+          <Link href="/download" className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl text-[13px] font-bold uppercase tracking-wider border border-gray-200 text-gray-400 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 transition-all duration-200">
+            <Download size={15} />
+            Download APK
+          </Link>
+        </div>
 
-            <h2 className="text-3xl sm:text-5xl font-display font-extrabold tracking-tight text-white leading-tight">
-              Never lose track of
-              <br />
-              <span className="text-gradient-primary">what — or who — matters.</span>
-            </h2>
-            <p className="mt-5 text-white/60 leading-relaxed max-w-xl mx-auto text-[16px]">
-              Create your account, install the app, protect every device you own, and keep your people
-              close — all within minutes.
-            </p>
-
-            <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
-              {authed ? (
-                <Link
-                  href="/dashboard"
-                  className="btn-premium group inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl text-[13px] font-bold uppercase tracking-wider text-white"
-                >
-                  <ShieldCheck size={16} />
-                  Open Command Center
-                  <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
-                </Link>
-              ) : (
-                <Link
-                  href="/signup"
-                  className="btn-premium group inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl text-[13px] font-bold uppercase tracking-wider text-white"
-                >
-                  Get Started Free
-                  <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
-                </Link>
-              )}
-              <Link
-                href="/login"
-                className="glass-panel inline-flex items-center gap-2 px-7 py-4 rounded-2xl text-[13px] font-bold uppercase tracking-wider text-white/80 hover:text-white transition-all duration-300"
-              >
-                I have an account
-              </Link>
-              <Link
-                href="/download"
-                className="glass-panel inline-flex items-center gap-2 px-7 py-4 rounded-2xl text-[13px] font-bold uppercase tracking-wider text-mag-primary hover:text-mag-primary-bright transition-all duration-300"
-              >
-                <Download size={15} />
-                Download APK
-              </Link>
-            </div>
-
-            <div className="mt-6 flex items-center justify-center gap-2">
-              <Check size={14} className="text-mag-primary" />
-              <span className="text-[12px] font-mono font-semibold tracking-wide text-white/55">
-                Free for 1 device · No credit card required
-              </span>
-            </div>
-          </div>
+        <div className="mt-6 flex items-center justify-center gap-2">
+          <Check size={14} className="text-gray-400" />
+          <span className="text-[12px] font-mono font-medium tracking-wide text-gray-400">
+            Free for 1 device · No credit card required
+          </span>
         </div>
       </div>
     </section>

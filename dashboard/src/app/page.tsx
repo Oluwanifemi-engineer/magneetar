@@ -23,31 +23,17 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-mag-bg text-white overflow-x-hidden">
+    <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
       <LandingNav authed={authed} />
       <main>
         <Hero authed={authed} />
-        <Reveal delay={0}>
-          <Features />
-        </Reveal>
-        <Reveal delay={100}>
-          <HowItWorks />
-        </Reveal>
-        <Reveal delay={100}>
-          <Africa />
-        </Reveal>
-        <Reveal delay={100}>
-          <Provenance />
-        </Reveal>
-        <Reveal delay={100}>
-          <Security />
-        </Reveal>
-        <Reveal delay={100}>
-          <Pricing authed={authed} />
-        </Reveal>
-        <Reveal delay={100}>
-          <CTA authed={authed} />
-        </Reveal>
+        <Reveal><Features /></Reveal>
+        <Reveal><HowItWorks /></Reveal>
+        <Reveal><Africa /></Reveal>
+        <Reveal><Provenance /></Reveal>
+        <Reveal><Security /></Reveal>
+        <Reveal><Pricing authed={authed} /></Reveal>
+        <Reveal><CTA authed={authed} /></Reveal>
       </main>
       <Footer />
     </div>

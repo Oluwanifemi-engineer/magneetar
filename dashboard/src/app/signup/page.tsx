@@ -101,12 +101,12 @@ export default function SignupPage() {
   };
 
   const inputClass =
-    'w-full pl-10 pr-4 py-3 bg-white/[0.02] border border-white/[0.07] rounded-xl text-white/85 text-sm ' +
-    'placeholder:text-white/15 focus:outline-none focus:border-mag-primary/40 focus:bg-white/[0.03] ' +
+    'w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900/85 text-sm ' +
+    'placeholder:text-gray-900/15 focus:outline-none focus:border-mag-primary/40 focus:bg-gray-50 ' +
     'focus:ring-1 focus:ring-mag-primary/15 transition-all duration-200';
 
   return (
-    <div className="min-h-screen bg-mag-bg text-white relative overflow-hidden">
+    <div className="min-h-screen bg-white text-gray-900 relative overflow-hidden">
       {/* Ambient background */}
       <div className="absolute inset-0 landing-vignette pointer-events-none" />
       <div className="absolute inset-0 landing-grid opacity-40 pointer-events-none" />
@@ -117,14 +117,14 @@ export default function SignupPage() {
       {/* ─── Split Layout ─────────────────────────────────────────────────── */}
       <div className="relative min-h-screen grid lg:grid-cols-2">
         {/* ─── Left — Brand Showcase ─────────────────────────────────────── */}
-        <div className="hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-white/[0.06] bg-mag-panel/30 backdrop-blur-xl relative overflow-hidden">
+        <div className="hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-gray-100 bg-mag-panel/30 backdrop-blur-xl relative overflow-hidden">
           {/* Perspective grid floor */}
           <div className="grid-floor" aria-hidden="true" />
 
           <div className="relative">
             {/* Brand */}
             <Link href="/" className="inline-flex items-center gap-2.5 group">
-              <div className="w-9 h-9 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center overflow-hidden">
+              <div className="w-9 h-9 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
                 <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
                   <path
                     d="M 29,90 V 43 C 29,25 68,25 68,43 V 90 L 91,29 V 90"
@@ -133,8 +133,8 @@ export default function SignupPage() {
                 </svg>
               </div>
               <div className="leading-none">
-                <div className="text-white text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
-                <div className="text-[8px] font-mono text-white/30 tracking-[0.3em] mt-1">COMMAND CENTER</div>
+                <div className="text-gray-900 text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
+                <div className="text-[8px] font-mono text-gray-900/30 tracking-[0.3em] mt-1">COMMAND CENTER</div>
               </div>
             </Link>
 
@@ -142,9 +142,9 @@ export default function SignupPage() {
             <h1 className="mt-14 text-4xl xl:text-[42px] font-display font-extrabold tracking-tight leading-[1.12] animate-fade-slide" style={{ animationDelay: '0.05s' }}>
               One account.
               <br />
-              <span className="text-gradient-primary animate-gradient-x">Every device protected.</span>
+              <span className="text-gray-400">Every device protected.</span>
             </h1>
-            <p className="mt-5 text-white/45 leading-relaxed max-w-md text-[15px] animate-fade-slide" style={{ animationDelay: '0.1s' }}>
+            <p className="mt-5 text-gray-500 leading-relaxed max-w-md text-[15px] animate-fade-slide" style={{ animationDelay: '0.1s' }}>
               Register your email, then link every smart device you own to a single command center.
             </p>
           </div>
@@ -156,7 +156,7 @@ export default function SignupPage() {
                 <div className="w-6 h-6 rounded-full border border-mag-accent/25 bg-mag-accent/10 flex items-center justify-center shrink-0 mt-0.5">
                   <Check size={12} className="text-mag-accent" />
                 </div>
-                <span className="text-white/55 text-[13.5px] leading-relaxed">{perk}</span>
+                <span className="text-gray-900/55 text-[13.5px] leading-relaxed">{perk}</span>
               </div>
             ))}
           </div>
@@ -168,9 +168,9 @@ export default function SignupPage() {
               { value: '24/7', label: 'stealth tracking' },
               { value: '∞', label: 'devices per email' },
             ].map((stat) => (
-              <div key={stat.label} className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
-                <div className="text-white text-sm font-bold font-mono tabular-nums">{stat.value}</div>
-                <div className="text-[9px] font-mono text-white/35 uppercase tracking-wider mt-0.5 font-semibold">
+              <div key={stat.label} className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                <div className="text-gray-900 text-sm font-bold font-mono tabular-nums">{stat.value}</div>
+                <div className="text-[9px] font-mono text-gray-900/35 uppercase tracking-wider mt-0.5 font-semibold">
                   {stat.label}
                 </div>
               </div>
@@ -183,7 +183,7 @@ export default function SignupPage() {
               <span className="absolute inline-flex h-full w-full rounded-full bg-mag-accent opacity-60 animate-ping" />
               <span className="relative inline-flex rounded-full w-2 h-2 bg-mag-accent" />
             </span>
-            <span className="text-[11px] font-mono font-bold tracking-wider text-white/40">
+            <span className="text-[11px] font-mono font-bold tracking-wider text-gray-400">
               FREE TO START · NO CARD REQUIRED
             </span>
           </div>
@@ -194,7 +194,7 @@ export default function SignupPage() {
           <div className={cn('w-full max-w-md transition-all duration-700', mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4')}>
             {/* Mobile brand */}
             <Link href="/" className="lg:hidden inline-flex items-center gap-2.5 mb-10">
-              <div className="w-9 h-9 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center overflow-hidden">
+              <div className="w-9 h-9 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
                 <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
                   <path
                     d="M 29,90 V 43 C 29,25 68,25 68,43 V 90 L 91,29 V 90"
@@ -203,19 +203,19 @@ export default function SignupPage() {
                 </svg>
               </div>
               <div className="leading-none">
-                <div className="text-white text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
-                <div className="text-[8px] font-mono text-white/30 tracking-[0.3em] mt-1">COMMAND CENTER</div>
+                <div className="text-gray-900 text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
+                <div className="text-[8px] font-mono text-gray-900/30 tracking-[0.3em] mt-1">COMMAND CENTER</div>
               </div>
             </Link>
 
             {/* Heading */}
             <div className="mb-8">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/[0.03] mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 bg-gray-50 mb-4">
                 <ShieldCheck size={11} className="text-mag-primary" />
-                <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-white/50">FREE · NO CARD REQUIRED</span>
+                <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-gray-500">FREE · NO CARD REQUIRED</span>
               </div>
-              <h2 className="text-2xl font-display font-extrabold tracking-tight text-white">Create your account</h2>
-              <p className="mt-2 text-white/40 text-sm">
+              <h2 className="text-2xl font-display font-extrabold tracking-tight text-gray-900">Create your account</h2>
+              <p className="mt-2 text-gray-400 text-sm">
                 Free forever for individuals. Set up in under a minute.
               </p>
             </div>
@@ -231,11 +231,11 @@ export default function SignupPage() {
                   <div className="space-y-4">
                     {/* Server URL */}
                     <div className="space-y-1.5">
-                      <label htmlFor="signup-server-url" className="text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] font-bold">
+                      <label htmlFor="signup-server-url" className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em] font-bold">
                         Server URL
                       </label>
                       <div className="relative">
-                        <Globe size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                        <Globe size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-900/20 pointer-events-none" />
                         <input
                           id="signup-server-url"
                           name="serverUrl"
@@ -252,11 +252,11 @@ export default function SignupPage() {
 
                     {/* Display name */}
                     <div className="space-y-1.5">
-                      <label htmlFor="signup-name" className="text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] font-bold">
-                        Display Name <span className="text-white/20 normal-case">(optional)</span>
+                      <label htmlFor="signup-name" className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em] font-bold">
+                        Display Name <span className="text-gray-900/20 normal-case">(optional)</span>
                       </label>
                       <div className="relative">
-                        <User size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                        <User size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-900/20 pointer-events-none" />
                         <input
                           id="signup-name"
                           name="displayName"
@@ -272,11 +272,11 @@ export default function SignupPage() {
 
                     {/* Email */}
                     <div className="space-y-1.5">
-                      <label htmlFor="signup-email" className="text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] font-bold">
+                      <label htmlFor="signup-email" className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em] font-bold">
                         Email
                       </label>
                       <div className="relative">
-                        <Mail size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                        <Mail size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-900/20 pointer-events-none" />
                         <input
                           id="signup-email"
                           name="email"
@@ -292,11 +292,11 @@ export default function SignupPage() {
 
                     {/* Password */}
                     <div className="space-y-1.5">
-                      <label htmlFor="signup-password" className="text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] font-bold">
+                      <label htmlFor="signup-password" className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em] font-bold">
                         Password
                       </label>
                       <div className="relative">
-                        <Lock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                        <Lock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-900/20 pointer-events-none" />
                         <input
                           id="signup-password"
                           name="password"
@@ -311,7 +311,7 @@ export default function SignupPage() {
                           type="button"
                           onClick={() => setShowPassword((v) => !v)}
                           aria-label={showPassword ? 'Hide password' : 'Show password'}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-900/30 hover:text-gray-700 transition-colors"
                         >
                           {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
@@ -320,11 +320,11 @@ export default function SignupPage() {
 
                     {/* Confirm */}
                     <div className="space-y-1.5">
-                      <label htmlFor="signup-confirm" className="text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] font-bold">
+                      <label htmlFor="signup-confirm" className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em] font-bold">
                         Confirm Password
                       </label>
                       <div className="relative">
-                        <Lock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                        <Lock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-900/20 pointer-events-none" />
                         <input
                           id="signup-confirm"
                           name="confirm"
@@ -356,7 +356,7 @@ export default function SignupPage() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="group relative w-full py-3.5 rounded-xl text-[12px] font-bold uppercase tracking-[0.2em] font-mono bg-gradient-to-r from-mag-primary to-mag-secondary text-white shadow-lg shadow-mag-primary/20 hover:shadow-mag-primary/35 hover:brightness-110 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] overflow-hidden"
+                      className="group relative w-full py-3.5 rounded-xl text-[12px] font-bold uppercase tracking-[0.2em] font-mono bg-gradient-to-r from-gray-900 to-gray-700 text-gray-900 shadow-lg shadow-gray-900/20 hover:shadow-gray-900/35 hover:brightness-110 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] overflow-hidden"
                     >
                       <span className="absolute inset-y-0 -left-full w-1/2 bg-white/15 blur-md animate-shimmer" />
                       <span className="relative flex items-center justify-center gap-2.5">
@@ -379,7 +379,7 @@ export default function SignupPage() {
             </div>
 
             {/* Login prompt */}
-            <p className="mt-7 text-center text-[13px] text-white/40">
+            <p className="mt-7 text-center text-[13px] text-gray-400">
               Already have an account?{' '}
               <Link href="/login" className="text-mag-primary hover:text-mag-primary-bright font-semibold transition-colors">
                 Sign in
@@ -393,7 +393,7 @@ export default function SignupPage() {
                 { icon: ShieldCheck, label: 'RATE-LIMITED' },
                 { icon: Mail, label: 'AUDITED' },
               ].map((item) => (
-                <div key={item.label} className="flex items-center gap-1.5 text-white/25">
+                <div key={item.label} className="flex items-center gap-1.5 text-gray-900/25">
                   <item.icon size={10} />
                   <span className="text-[9px] font-mono font-bold tracking-wider">{item.label}</span>
                 </div>

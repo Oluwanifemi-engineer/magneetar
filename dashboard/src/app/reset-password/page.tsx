@@ -78,12 +78,12 @@ function ResetPasswordForm() {
   };
 
   const inputClass =
-    'w-full pl-10 pr-4 py-3 bg-white/[0.02] border border-white/[0.07] rounded-xl text-white/85 text-sm ' +
-    'placeholder:text-white/15 focus:outline-none focus:border-mag-primary/40 focus:bg-white/[0.03] ' +
+    'w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900/85 text-sm ' +
+    'placeholder:text-gray-900/15 focus:outline-none focus:border-mag-primary/40 focus:bg-gray-50 ' +
     'focus:ring-1 focus:ring-mag-primary/15 transition-all duration-200';
 
   return (
-    <div className="min-h-screen bg-mag-bg text-white relative overflow-hidden">
+    <div className="min-h-screen bg-white text-gray-900 relative overflow-hidden">
       <div className="absolute inset-0 landing-vignette pointer-events-none" />
       <div className="absolute inset-0 landing-grid opacity-40 pointer-events-none" />
       <div className="absolute -top-40 left-1/3 w-[600px] h-[400px] rounded-full bg-mag-primary/10 blur-[130px] animate-aurora pointer-events-none" aria-hidden="true" />
@@ -91,7 +91,7 @@ function ResetPasswordForm() {
       <div className="relative min-h-screen flex items-center justify-center px-5 sm:px-8 py-14">
         <div className="w-full max-w-md">
           <Link href="/" className="inline-flex items-center gap-2.5 mb-8">
-            <div className="w-9 h-9 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center overflow-hidden">
+            <div className="w-9 h-9 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
               <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
                 <path
                   d="M 29,90 V 43 C 29,25 68,25 68,43 V 90 L 91,29 V 90"
@@ -100,8 +100,8 @@ function ResetPasswordForm() {
               </svg>
             </div>
             <div className="leading-none">
-              <div className="text-white text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
-              <div className="text-[8px] font-mono text-white/30 tracking-[0.3em] mt-1">COMMAND CENTER</div>
+              <div className="text-gray-900 text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
+              <div className="text-[8px] font-mono text-gray-900/30 tracking-[0.3em] mt-1">COMMAND CENTER</div>
             </div>
           </Link>
 
@@ -112,9 +112,9 @@ function ResetPasswordForm() {
                   <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/25 flex items-center justify-center">
                     <KeyRound size={17} className="text-red-400" />
                   </div>
-                  <h2 className="text-lg font-display font-extrabold tracking-tight text-white">Broken reset link</h2>
+                  <h2 className="text-lg font-display font-extrabold tracking-tight text-gray-900">Broken reset link</h2>
                 </div>
-                <p className="text-[13px] text-white/45 leading-relaxed mb-6">
+                <p className="text-[13px] text-gray-500 leading-relaxed mb-6">
                   This link is missing its reset token. Request a fresh one — old links expire
                   after 30 minutes and can only be used once.
                 </p>
@@ -132,9 +132,9 @@ function ResetPasswordForm() {
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center">
                     <CheckCircle2 size={18} className="text-emerald-400" />
                   </div>
-                  <h2 className="text-lg font-display font-extrabold tracking-tight text-white">Password updated</h2>
+                  <h2 className="text-lg font-display font-extrabold tracking-tight text-gray-900">Password updated</h2>
                 </div>
-                <p className="text-[13px] text-white/45 leading-relaxed mb-6">
+                <p className="text-[13px] text-gray-500 leading-relaxed mb-6">
                   You&apos;re signed in with your new password. Taking you to your command center…
                 </p>
                 <a
@@ -151,23 +151,23 @@ function ResetPasswordForm() {
                     <Lock size={17} className="text-mag-primary" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-display font-extrabold tracking-tight text-white">Choose a new password</h2>
-                    <div className="text-[10px] font-mono text-white/35 font-bold mt-0.5 uppercase tracking-[0.2em]">SECURE RECOVERY</div>
+                    <h2 className="text-lg font-display font-extrabold tracking-tight text-gray-900">Choose a new password</h2>
+                    <div className="text-[10px] font-mono text-gray-900/35 font-bold mt-0.5 uppercase tracking-[0.2em]">SECURE RECOVERY</div>
                   </div>
                 </div>
 
-                <p className="text-[13px] text-white/40 leading-relaxed mb-6">
-                  For <span className="text-white/80 font-semibold">{email}</span>. Use at least 8 characters
+                <p className="text-[13px] text-gray-400 leading-relaxed mb-6">
+                  For <span className="text-gray-800 font-semibold">{email}</span>. Use at least 8 characters
                   with a mix of letters and numbers.
                 </p>
 
                 <form onSubmit={handleSubmit} noValidate className="space-y-4">
                   <div className="space-y-1.5">
-                    <label htmlFor="rp-password" className="text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] font-bold">
+                    <label htmlFor="rp-password" className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em] font-bold">
                       New password
                     </label>
                     <div className="relative">
-                      <Lock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                      <Lock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-900/20 pointer-events-none" />
                       <input
                         id="rp-password"
                         name="new_password"
@@ -183,7 +183,7 @@ function ResetPasswordForm() {
                         type="button"
                         onClick={() => setShowPassword((v) => !v)}
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-900/30 hover:text-gray-700 transition-colors"
                       >
                         {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                       </button>
@@ -191,11 +191,11 @@ function ResetPasswordForm() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="rp-confirm" className="text-[10px] font-mono text-white/40 uppercase tracking-[0.2em] font-bold">
+                    <label htmlFor="rp-confirm" className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em] font-bold">
                       Confirm password
                     </label>
                     <div className="relative">
-                      <Lock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
+                      <Lock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-900/20 pointer-events-none" />
                       <input
                         id="rp-confirm"
                         name="confirm"
@@ -222,7 +222,7 @@ function ResetPasswordForm() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="group relative w-full py-3.5 rounded-xl text-[12px] font-bold uppercase tracking-[0.2em] font-mono bg-gradient-to-r from-mag-primary to-mag-secondary text-white shadow-lg shadow-mag-primary/20 hover:shadow-mag-primary/35 hover:brightness-110 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] overflow-hidden"
+                    className="group relative w-full py-3.5 rounded-xl text-[12px] font-bold uppercase tracking-[0.2em] font-mono bg-gradient-to-r from-gray-900 to-gray-700 text-gray-900 shadow-lg shadow-gray-900/20 hover:shadow-gray-900/35 hover:brightness-110 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] overflow-hidden"
                   >
                     {loading ? 'Updating...' : 'Reset password & sign in'}
                   </button>
@@ -230,7 +230,7 @@ function ResetPasswordForm() {
 
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-2 mt-5 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-white/30 hover:text-white/60 transition-colors"
+                  className="inline-flex items-center gap-2 mt-5 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-gray-900/30 hover:text-gray-600 transition-colors"
                 >
                   <ArrowLeft size={13} />
                   Back to sign in

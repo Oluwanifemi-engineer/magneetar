@@ -70,121 +70,117 @@ const TIERS = [
 
 export function Pricing({ authed }: { authed: boolean }) {
   return (
-    <section id="pricing" className="relative py-24 sm:py-32 scroll-mt-20 overflow-hidden">
-      <div className="absolute inset-0 landing-vignette pointer-events-none" />
-      <div className="absolute top-24 left-0 w-[420px] h-[420px] rounded-full bg-mag-primary/6 blur-[120px] pointer-events-none" />
-
+    <section id="pricing" className="relative py-24 sm:py-32 bg-white scroll-mt-20 overflow-hidden">
       <div className="relative max-w-7xl mx-auto px-5 sm:px-8">
-        {/* Section header */}
         <div className="max-w-2xl mx-auto text-center mb-14">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/[0.03] mb-5">
-            <Crown size={12} className="text-mag-primary" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-white/60">PRICING</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 bg-gray-50 mb-5">
+            <Crown size={12} className="text-gray-500" />
+            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-gray-500">PRICING</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight text-white leading-tight">
+          <h2 className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight text-gray-900 leading-tight">
             Protection that scales with
             <br />
-            <span className="text-gradient-primary">your family &amp; team.</span>
+            <span className="text-gray-400">your family &amp; team.</span>
           </h2>
-          <p className="mt-5 text-white/60 leading-relaxed">
+          <p className="mt-5 text-gray-500 leading-relaxed">
             Every plan includes every feature — theft detection, live tracking, evidence capture, the
             whole command center. The only difference is how many devices you protect.
           </p>
         </div>
 
-        {/* Tier cards */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {TIERS.map((tier) => {
-            // Signed-in users don't get signup CTAs — they already have an
-            // account, so plan cards route them to the command center.
+          {TIERS.map((tier, i) => {
             const cta = authed && tier.cta.href === '/signup'
               ? { label: 'Open Command Center', href: '/dashboard', primary: true }
               : tier.cta;
             return (
-            <div
-              key={tier.name}
-              className={`relative flex flex-col rounded-2xl border p-7 card-glow transition-all duration-300 hover:-translate-y-1 ${
-                tier.bestValue
-                  ? 'border-mag-primary/30 bg-gradient-to-b from-mag-primary/[0.08] to-mag-panel/90'
-                  : 'border-white/[0.07] bg-mag-panel/80 backdrop-blur-xl hover:border-white/[0.15]'
-              }`}
-            >
-              {tier.bestValue && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-gradient-to-r from-mag-primary to-mag-secondary text-[9px] font-mono font-bold tracking-[0.2em] text-white shadow-lg shadow-black/40 whitespace-nowrap">
-                  BEST VALUE
+              <div
+                key={tier.name}
+                className={`relative flex flex-col rounded-2xl border p-7 transition-all duration-300 hover:-translate-y-1 ${
+                  tier.bestValue
+                    ? 'border-gray-900 bg-gray-900 text-white'
+                    : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-lg hover:shadow-gray-900/[0.04]'
+                }`}
+              >
+                {tier.bestValue && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white text-[9px] font-mono font-bold tracking-[0.2em] text-gray-900 shadow-lg whitespace-nowrap">
+                    BEST VALUE
+                  </div>
+                )}
+
+                <div className={`w-10 h-10 rounded-lg border flex items-center justify-center mb-5 ${tier.bestValue ? 'border-white/10 bg-white/10' : 'border-gray-200 bg-gray-50'}`}>
+                  <tier.icon size={17} className={tier.bestValue ? 'text-white/70' : 'text-gray-600'} />
                 </div>
-              )}
 
-              <div className="w-10 h-10 rounded-lg border border-white/[0.08] bg-white/[0.03] flex items-center justify-center mb-5">
-                <tier.icon size={17} className="text-mag-primary" />
+                <div className={`font-bold text-sm tracking-wide ${tier.bestValue ? 'text-white' : 'text-gray-900'}`}>{tier.name}</div>
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  <span className={`text-3xl font-display font-extrabold tracking-tight ${tier.bestValue ? 'text-white' : 'text-gray-900'}`}>{tier.price}</span>
+                  {tier.price !== 'Custom' && <span className={`text-[10px] font-mono font-semibold ${tier.bestValue ? 'text-white/50' : 'text-gray-400'}`}>/MO</span>}
+                </div>
+                <div className={`text-[10px] font-mono mt-1 ${tier.bestValue ? 'text-white/50' : 'text-gray-400'}`}>{tier.period}</div>
+
+                <div className={`mt-4 inline-flex self-start px-2.5 py-1 rounded-md border text-[10px] font-mono font-bold tracking-wider ${tier.bestValue ? 'border-white/10 bg-white/10 text-white/80' : 'border-gray-200 bg-gray-50 text-gray-700'}`}>
+                  {tier.devices}
+                </div>
+
+                <p className={`mt-3 text-[12px] leading-relaxed ${tier.bestValue ? 'text-white/60' : 'text-gray-500'}`}>{tier.tagline}</p>
+
+                <ul className="mt-5 space-y-2.5 flex-1">
+                  {tier.features.map((f) => (
+                    <li key={f} className={`flex gap-2.5 text-[12px] leading-relaxed ${tier.bestValue ? 'text-white/70' : 'text-gray-600'}`}>
+                      <Check size={13} className={`${tier.bestValue ? 'text-white/50' : 'text-gray-400'} mt-0.5 shrink-0`} />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {cta.href.startsWith('mailto:') ? (
+                  <a
+                    href={cta.href}
+                    className={`group mt-7 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-200 ${
+                      tier.bestValue
+                        ? 'border border-white/20 text-white hover:bg-white/10'
+                        : 'border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
+                    }`}
+                  >
+                    {cta.label}
+                    <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+                  </a>
+                ) : (
+                  <Link
+                    href={cta.href}
+                    className={`group mt-7 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-200 ${
+                      cta.primary || tier.bestValue
+                        ? 'bg-gray-900 text-white hover:bg-gray-800 shadow-lg shadow-gray-900/10'
+                        : 'border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
+                    }`}
+                  >
+                    {cta.label}
+                    <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+                  </Link>
+                )}
               </div>
-
-              <div className="text-white font-bold text-sm tracking-wide">{tier.name}</div>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-3xl font-display font-extrabold tracking-tight text-white">{tier.price}</span>
-                {tier.price !== 'Custom' && <span className="text-[10px] font-mono text-white/50 font-semibold">/MO</span>}
-              </div>
-              <div className="text-[10px] font-mono text-white/50 mt-1">{tier.period}</div>
-
-              <div className="mt-4 inline-flex self-start px-2.5 py-1 rounded-md border border-white/[0.08] bg-white/[0.03] text-[10px] font-mono font-bold text-white/80 tracking-wider">
-                {tier.devices}
-              </div>
-
-              <p className="mt-3 text-[12px] text-white/55 leading-relaxed">{tier.tagline}</p>
-
-              <ul className="mt-5 space-y-2.5 flex-1">
-                {tier.features.map((f) => (
-                  <li key={f} className="flex gap-2.5 text-[12px] leading-relaxed text-white/65">
-                    <Check size={13} className="text-mag-primary mt-0.5 shrink-0" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {cta.href.startsWith('mailto:') ? (
-                <a
-                  href={cta.href}
-                  className="group mt-7 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[11px] font-bold uppercase tracking-wider border border-white/12 text-white/80 hover:text-white hover:bg-white/[0.05] hover:border-white/25 transition-all duration-200 active:scale-[0.97]"
-                >
-                  {cta.label}
-                  <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
-                </a>
-              ) : (
-                <Link
-                  href={cta.href}
-                  className={`group mt-7 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-200 active:scale-[0.97] ${
-                    cta.primary
-                      ? 'bg-gradient-to-r from-mag-primary to-mag-secondary text-white shadow-lg shadow-mag-primary/20 hover:shadow-mag-primary/40 hover:brightness-110'
-                      : 'border border-white/12 text-white/80 hover:text-white hover:bg-white/[0.05] hover:border-white/25'
-                  }`}
-                >
-                  {cta.label}
-                  <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              )}
-            </div>
             );
           })}
         </div>
 
-        {/* Notes */}
         <div className="mt-10 max-w-3xl mx-auto space-y-3">
-          <div className="flex items-start gap-2.5 rounded-xl border border-mag-primary/15 bg-mag-primary/[0.04] px-4 py-3">
-            <Check size={14} className="text-mag-primary mt-0.5 shrink-0" />
-            <p className="text-[12.5px] leading-relaxed text-white/60">
-              Yearly billing gives you <span className="text-white font-semibold">2 months free</span> — ₦5,000/year
+          <div className="flex items-start gap-2.5 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+            <Check size={14} className="text-gray-500 mt-0.5 shrink-0" />
+            <p className="text-[12.5px] leading-relaxed text-gray-500">
+              Yearly billing gives you <span className="text-gray-900 font-semibold">2 months free</span> — ₦5,000/year
               for Personal, ₦15,000/year for Guardian. Upgrade or cancel anytime.
             </p>
           </div>
-          <div className="flex items-start gap-2.5 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
-            <Smartphone size={14} className="text-mag-primary mt-0.5 shrink-0" />
-            <p className="text-[12.5px] leading-relaxed text-white/55">
+          <div className="flex items-start gap-2.5 rounded-xl border border-gray-200 bg-white px-4 py-3">
+            <Smartphone size={14} className="text-gray-500 mt-0.5 shrink-0" />
+            <p className="text-[12.5px] leading-relaxed text-gray-500">
               Online payment is rolling out soon. Until then, upgrades are activated by our team after a bank
               transfer — email{' '}
-              <a href="mailto:sales@magneetar.me" className="text-mag-primary hover:text-mag-primary-bright font-semibold transition-colors">
+              <a href="mailto:sales@magneetar.me" className="text-gray-900 font-semibold hover:underline transition-colors">
                 sales@magneetar.me
               </a>{' '}
-              and we'll switch your plan the same day.
+              and we&apos;ll switch your plan the same day.
             </p>
           </div>
         </div>

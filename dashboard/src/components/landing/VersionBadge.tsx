@@ -79,7 +79,7 @@ export function VersionBadge() {
 
   return (
     <div
-      className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-white/10 bg-white/[0.03] mb-7"
+      className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-gray-200 bg-gray-50 mb-7"
       title={
         status === 'online'
           ? `Live server version v${version} — verified against api.magneetar.me/health`
@@ -92,7 +92,7 @@ export function VersionBadge() {
         />
         <span className={`relative inline-flex rounded-full w-2 h-2 ${statusDotClass(status)}`} />
       </span>
-      <span className="text-[11px] font-mono font-bold tracking-wider text-white/70">{label}</span>
+      <span className="text-[11px] font-mono font-bold tracking-wider text-gray-500">{label}</span>
     </div>
   );
 }

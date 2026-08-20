@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, ArrowRight, ShieldCheck, Download } from 'lucide-react';
+import { Menu, X, ArrowRight, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
@@ -30,24 +30,21 @@ export function LandingNav({ authed }: { authed: boolean }) {
       className={cn(
         'fixed top-0 inset-x-0 z-50 transition-all duration-300',
         scrolled
-          ? 'bg-mag-bg/80 backdrop-blur-xl border-b border-mag-border/40 shadow-lg shadow-black/20'
+          ? 'bg-white/90 backdrop-blur-xl border-b border-gray-200/60 shadow-sm shadow-black/[0.03]'
           : 'bg-transparent border-b border-transparent'
       )}
     >
       <nav className="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Brand — aqua M tile */}
+        {/* Brand */}
         <Link href="/" className="flex items-center gap-2.5 group shrink-0">
-          <div className="relative">
-            <img
-              src="/m-logo.svg"
-              alt="Magneetar"
-              className="w-8 h-8 rounded-lg transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 drop-shadow-[0_0_12px_rgba(6,182,212,0.35)] group-hover:drop-shadow-[0_0_20px_rgba(6,182,212,0.6)]"
-            />
-            <div className="absolute inset-0 rounded-lg bg-mag-primary/0 group-hover:bg-mag-primary/10 transition-all duration-300" />
-          </div>
+          <img
+            src="/magneetar-mhalf.svg"
+            alt="Magneetar"
+            className="w-9 h-9 rounded-lg transition-all duration-300 group-hover:scale-110"
+          />
           <div className="leading-none">
-            <div className="text-white text-sm font-bold tracking-[0.25em]">MAGNEETAR</div>
-            <div className="text-[8px] font-mono text-white/50 tracking-[0.3em] mt-1">TRACK · PROTECT · RECOVER</div>
+            <div className="text-gray-900 text-sm font-bold tracking-[0.25em]">MAGNEETAR</div>
+            <div className="text-[8px] font-mono text-gray-400 tracking-[0.3em] mt-1">TRACK · PROTECT · RECOVER</div>
           </div>
         </Link>
 
@@ -57,7 +54,7 @@ export function LandingNav({ authed }: { authed: boolean }) {
             <a
               key={link.href}
               href={link.href}
-              className="px-4 py-2 text-[12px] font-semibold text-white/70 hover:text-white transition-colors rounded-lg hover:bg-white/[0.03]"
+              className="nav-link-hover px-4 py-2 text-[12px] font-semibold text-gray-500 hover:text-gray-900 transition-colors"
             >
               {link.label}
             </a>
@@ -68,7 +65,7 @@ export function LandingNav({ authed }: { authed: boolean }) {
         <div className="hidden md:flex items-center gap-3">
           <Link
             href="/download"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider border border-emerald-400/25 text-emerald-300 hover:bg-emerald-400/[0.06] hover:border-emerald-400/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.12)] transition-all duration-200 active:scale-[0.97]"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 transition-all duration-200 active:scale-[0.97]"
           >
             <Download size={13} />
             Download APK
@@ -76,25 +73,25 @@ export function LandingNav({ authed }: { authed: boolean }) {
           {authed ? (
             <Link
               href="/dashboard"
-              className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider bg-gradient-to-r from-mag-primary to-mag-secondary text-white shadow-lg shadow-mag-primary/20 hover:shadow-mag-primary/40 hover:brightness-110 transition-all duration-200 active:scale-[0.97]"
+              className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider bg-gray-900 text-white shadow-lg shadow-gray-900/10 hover:shadow-gray-900/20 hover:bg-gray-800 transition-all duration-200 active:scale-[0.97]"
             >
-              <ShieldCheck size={14} />
               Launch Dashboard
+              <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
             </Link>
           ) : (
             <>
               <Link
                 href="/login"
-                className="px-4 py-2.5 text-[12px] font-semibold text-white/60 hover:text-white transition-colors rounded-xl hover:bg-white/[0.04]"
+                className="px-4 py-2.5 text-[12px] font-semibold text-gray-500 hover:text-gray-900 transition-colors rounded-xl hover:bg-gray-50"
               >
                 Sign in
               </Link>
               <Link
                 href="/signup"
-                className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider bg-gradient-to-r from-mag-primary to-mag-secondary text-white shadow-lg shadow-mag-primary/20 hover:shadow-mag-primary/40 hover:brightness-110 transition-all duration-200 active:scale-[0.97]"
+                className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider bg-gray-900 text-white shadow-lg shadow-gray-900/10 hover:shadow-gray-900/20 hover:bg-gray-800 transition-all duration-200 active:scale-[0.97]"
               >
                 Get Started
-                <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
               </Link>
             </>
           )}
@@ -103,7 +100,7 @@ export function LandingNav({ authed }: { authed: boolean }) {
         {/* Mobile toggle */}
         <button
           onClick={() => setOpen(!open)}
-          className="md:hidden w-10 h-10 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center text-white/70 hover:text-white transition-colors"
+          className="md:hidden w-10 h-10 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
           aria-label="Toggle menu"
           aria-expanded={open}
           aria-controls="mobile-menu"
@@ -116,7 +113,7 @@ export function LandingNav({ authed }: { authed: boolean }) {
       <div
         id="mobile-menu"
         className={cn(
-          'md:hidden overflow-hidden transition-all duration-300 bg-mag-bg/95 backdrop-blur-xl border-b border-mag-border/40',
+          'md:hidden overflow-hidden transition-all duration-300 bg-white/95 backdrop-blur-xl border-b border-gray-200/60',
           open ? 'max-h-[520px]' : 'max-h-0 border-b-0'
         )}
       >
@@ -126,7 +123,7 @@ export function LandingNav({ authed }: { authed: boolean }) {
               key={link.href}
               href={link.href}
               onClick={() => setOpen(false)}
-              className="block px-3 py-2.5 rounded-lg text-sm font-semibold text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors"
+              className="block px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
             >
               {link.label}
             </a>
@@ -135,7 +132,7 @@ export function LandingNav({ authed }: { authed: boolean }) {
             <Link
               href="/download"
               onClick={() => setOpen(false)}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[12px] font-bold uppercase tracking-wider border border-emerald-400/25 text-emerald-300 hover:bg-emerald-400/[0.06] hover:border-emerald-400/40 transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[12px] font-bold uppercase tracking-wider border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300 transition-colors"
             >
               <Download size={14} /> Download APK
             </Link>
@@ -143,25 +140,25 @@ export function LandingNav({ authed }: { authed: boolean }) {
               <Link
                 href="/dashboard"
                 onClick={() => setOpen(false)}
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[12px] font-bold uppercase tracking-wider bg-gradient-to-r from-mag-primary to-mag-secondary text-white"
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[12px] font-bold uppercase tracking-wider bg-gray-900 text-white"
               >
-                <ShieldCheck size={14} /> Launch Dashboard
+                Launch Dashboard <ArrowRight size={13} />
               </Link>
             ) : (
               <>
                 <Link
                   href="/login"
                   onClick={() => setOpen(false)}
-                  className="inline-flex items-center justify-center px-5 py-3 rounded-xl text-[12px] font-bold uppercase tracking-wider border border-white/10 text-white/70 hover:text-white hover:bg-white/[0.04] transition-colors"
+                  className="inline-flex items-center justify-center px-5 py-3 rounded-xl text-[12px] font-bold uppercase tracking-wider border border-gray-200 text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
                 >
                   Sign in
                 </Link>
                 <Link
                   href="/signup"
                   onClick={() => setOpen(false)}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[12px] font-bold uppercase tracking-wider bg-gradient-to-r from-mag-primary to-mag-secondary text-white"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[12px] font-bold uppercase tracking-wider bg-gray-900 text-white"
                 >
-                  Get Started <ArrowRight size={14} />
+                  Get Started <ArrowRight size={13} />
                 </Link>
               </>
             )}

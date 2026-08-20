@@ -127,12 +127,9 @@ export default function TermsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-mag-bg text-white overflow-x-hidden">
+    <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
       {/* Ambient background */}
-      <div className="absolute inset-0 landing-vignette pointer-events-none" />
-      <div className="absolute inset-0 landing-grid opacity-40 pointer-events-none" />
-      <div className="absolute -top-40 left-1/3 w-[600px] h-[400px] rounded-full bg-[#FFFFFF]/10 blur-[130px] animate-aurora pointer-events-none" aria-hidden="true" />
-      <div className="absolute top-1/3 -right-32 w-[480px] h-[480px] rounded-full bg-[#06B6D4]/8 blur-[120px] animate-aurora pointer-events-none" style={{ animationDelay: '-6s' }} aria-hidden="true" />
+
 
       <LandingNav authed={authed} />
 
@@ -140,7 +137,7 @@ export default function TermsPage() {
         {/* Back link */}
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-[11px] font-mono font-bold tracking-wider text-white/40 hover:text-white transition-colors"
+          className="inline-flex items-center gap-2 text-[11px] font-mono font-bold tracking-wider text-gray-400 hover:text-gray-900 transition-colors"
         >
           <ArrowLeft size={13} />
           BACK TO HOME
@@ -149,15 +146,15 @@ export default function TermsPage() {
         {/* Header */}
         <header className="mt-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/[0.03] mb-5">
-            <ScrollText size={12} className="text-[#06B6D4]" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-white/50">TERMS OF SERVICE</span>
+            <ScrollText size={12} className="text-gray-900" />
+            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-gray-500">TERMS OF SERVICE</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-display font-extrabold tracking-tight leading-[1.1]">
             Clear rules for
             <br />
-            <span className="text-gradient-primary animate-gradient-x">a serious tool.</span>
+            <span className="text-gray-400">a serious tool.</span>
           </h1>
-          <p className="mt-5 text-white/45 leading-relaxed max-w-2xl text-[15px]">
+          <p className="mt-5 text-gray-500 leading-relaxed max-w-2xl text-[15px]">
             Magneetar is a powerful anti-theft system. These Terms keep it powerful for its intended
             purpose — recovering your own stolen devices and staying connected with your people — and
             clearly out of bounds for everything else. They apply to the Magneetar Android app, the web
@@ -165,13 +162,13 @@ export default function TermsPage() {
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-4">
-            <span className="px-3 py-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] text-[10px] font-mono text-white/40">
+            <span className="px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-[10px] font-mono text-gray-400">
               EFFECTIVE · AUGUST 1, 2026
             </span>
-            <span className="px-3 py-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] text-[10px] font-mono text-white/40">
+            <span className="px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-[10px] font-mono text-gray-400">
               VERSION 1.0
             </span>
-            <span className="px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] text-[10px] font-mono font-bold text-emerald-300 flex items-center gap-1.5">
+            <span className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-[10px] font-mono font-bold text-emerald-700 flex items-center gap-1.5">
               <CheckCircle2 size={11} />
               NO-COVERT-SURVEILLANCE COMMITMENT
             </span>
@@ -183,19 +180,19 @@ export default function TermsPage() {
           {SECTIONS.map((section, i) => (
             <section
               key={section.title}
-              className="group rounded-2xl border border-white/[0.07] bg-mag-panel/40 backdrop-blur-sm p-7 sm:p-8 transition-all duration-300 hover:border-white/[0.14] hover:bg-mag-panel/60"
+              className="rounded-2xl border border-gray-200 bg-white p-7 sm:p-8 transition-all duration-300 hover:border-gray-300 hover:shadow-lg"
               style={{ animationDelay: `${i * 0.04}s` }}
             >
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 shrink-0 rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center">
-                  <section.icon size={17} className="text-[#06B6D4]" />
+                <div className="w-10 h-10 shrink-0 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center">
+                  <section.icon size={17} className="text-gray-900" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-lg font-display font-bold tracking-tight text-white">{section.title}</h2>
+                  <h2 className="text-lg font-display font-bold tracking-tight text-gray-900">{section.title}</h2>
                   <ul className="mt-4 space-y-3">
                     {section.body.map((point) => (
-                      <li key={point} className="flex gap-3 text-[13.5px] leading-relaxed text-white/45">
-                        <span className="mt-[7px] w-1.5 h-1.5 shrink-0 rounded-full bg-gradient-to-r from-[#FFFFFF] to-[#06B6D4]" aria-hidden="true" />
+                      <li key={point} className="flex gap-3 text-[13.5px] leading-relaxed text-gray-500">
+                        <span className="mt-[7px] w-1.5 h-1.5 shrink-0 rounded-full bg-gradient-to-r from-gray-300 to-gray-500" aria-hidden="true" />
                         <span>{point}</span>
                       </li>
                     ))}
@@ -207,12 +204,12 @@ export default function TermsPage() {
         </div>
 
         {/* Contact block */}
-        <div className="mt-12 rounded-2xl border border-[#FFFFFF]/20 bg-gradient-to-br from-[#FFFFFF]/[0.06] to-[#06B6D4]/[0.04] p-8 text-center">
+        <div className="mt-12 rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-8 text-center">
           <Mail size={20} className="mx-auto text-[#FFFFFF]" />
           <h2 className="mt-3 text-xl font-display font-bold tracking-tight">Questions about these terms?</h2>
-          <p className="mt-2 text-[13.5px] text-white/45 max-w-lg mx-auto">
+          <p className="mt-2 text-[13.5px] text-gray-500 max-w-lg mx-auto">
             Email{' '}
-            <a href="mailto:legal@magneetar.me" className="text-[#06B6D4] hover:text-[#22D3EE] font-semibold transition-colors">
+            <a href="mailto:legal@magneetar.me" className="text-gray-900 hover:text-[#22D3EE] font-semibold transition-colors">
               legal@magneetar.me
             </a>{' '}
             — we respond within 30 days.

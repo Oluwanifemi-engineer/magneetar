@@ -54,14 +54,14 @@ function VerifyEmailForm() {
     <div className="flex items-center gap-3 mb-4">
       {icon}
       <div>
-        <h2 className="text-lg font-display font-extrabold tracking-tight text-white">{title}</h2>
-        <div className="text-[10px] font-mono text-white/35 font-bold mt-0.5 uppercase tracking-[0.2em]">{subtitle}</div>
+        <h2 className="text-lg font-display font-extrabold tracking-tight text-gray-900">{title}</h2>
+        <div className="text-[10px] font-mono text-gray-900/35 font-bold mt-0.5 uppercase tracking-[0.2em]">{subtitle}</div>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-mag-bg text-white relative overflow-hidden">
+    <div className="min-h-screen bg-white text-gray-900 relative overflow-hidden">
       <div className="absolute inset-0 landing-vignette pointer-events-none" />
       <div className="absolute inset-0 landing-grid opacity-40 pointer-events-none" />
       <div className="absolute -top-40 left-1/3 w-[600px] h-[400px] rounded-full bg-mag-primary/10 blur-[130px] animate-aurora pointer-events-none" aria-hidden="true" />
@@ -69,7 +69,7 @@ function VerifyEmailForm() {
       <div className="relative min-h-screen flex items-center justify-center px-5 sm:px-8 py-14">
         <div className="w-full max-w-md">
           <Link href="/" className="inline-flex items-center gap-2.5 mb-8">
-            <div className="w-9 h-9 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center overflow-hidden">
+            <div className="w-9 h-9 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
               <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
                 <path
                   d="M 29,90 V 43 C 29,25 68,25 68,43 V 90 L 91,29 V 90"
@@ -78,8 +78,8 @@ function VerifyEmailForm() {
               </svg>
             </div>
             <div className="leading-none">
-              <div className="text-white text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
-              <div className="text-[8px] font-mono text-white/30 tracking-[0.3em] mt-1">COMMAND CENTER</div>
+              <div className="text-gray-900 text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
+              <div className="text-[8px] font-mono text-gray-900/30 tracking-[0.3em] mt-1">COMMAND CENTER</div>
             </div>
           </Link>
 
@@ -93,7 +93,7 @@ function VerifyEmailForm() {
                   'Verifying your email',
                   'ACCOUNT SECURITY'
                 )}
-                <p className="text-[13px] text-white/45 leading-relaxed">
+                <p className="text-[13px] text-gray-500 leading-relaxed">
                   Confirming your verification link with the Magneetar server…
                 </p>
               </div>
@@ -108,7 +108,7 @@ function VerifyEmailForm() {
                   'Email verified',
                   'SECURE ACCOUNT'
                 )}
-                <p className="text-[13px] text-white/45 leading-relaxed mb-6">
+                <p className="text-[13px] text-gray-500 leading-relaxed mb-6">
                   Your email is confirmed. This strengthens account recovery and unlocks
                   password-reset links — your Magneetar account is now fully secured.
                 </p>
@@ -130,7 +130,7 @@ function VerifyEmailForm() {
                   'Broken verification link',
                   'INVALID LINK'
                 )}
-                <p className="text-[13px] text-white/45 leading-relaxed mb-6">
+                <p className="text-[13px] text-gray-500 leading-relaxed mb-6">
                   This link is missing its verification token. Sign in and request a fresh
                   verification email from Settings → Security.
                 </p>
@@ -153,7 +153,7 @@ function VerifyEmailForm() {
                   'Link expired',
                   'REQUEST A NEW ONE'
                 )}
-                <p className="text-[13px] text-white/45 leading-relaxed mb-6">
+                <p className="text-[13px] text-gray-500 leading-relaxed mb-6">
                   Verification links are single-use and expire after 24 hours. Sign in and
                   resend a fresh verification email from Settings → Security.
                 </p>
@@ -176,7 +176,7 @@ function VerifyEmailForm() {
                   'Could not verify',
                   'TRY AGAIN'
                 )}
-                <p className="text-[13px] text-white/45 leading-relaxed mb-6">
+                <p className="text-[13px] text-gray-500 leading-relaxed mb-6">
                   {errorMsg || 'Something went wrong while verifying your email.'}
                 </p>
                 <Link
