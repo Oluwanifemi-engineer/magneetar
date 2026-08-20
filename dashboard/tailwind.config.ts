@@ -9,7 +9,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Premium Dark Security Palette — Aqua/Cyan Focus
+        // Premium Dark Security Palette — Black & White Focus
         mag: {
           // Background layers — deep navy-charcoal
           bg: '#0B1120',
@@ -18,11 +18,11 @@ const config: Config = {
           border: '#374151',
           'border-bright': '#4B5563',
 
-          // Primary — Premium Aqua/Cyan (bluish-greenish-whitish)
-          primary: '#06B6D4',
-          'primary-dim': '#0891B2',
-          'primary-glow': 'rgba(6, 182, 212, 0.15)',
-          'primary-bright': '#22D3EE',
+          // Primary — Clean White
+          primary: '#FFFFFF',
+          'primary-dim': '#D1D5DB',
+          'primary-glow': 'rgba(255, 255, 255, 0.12)',
+          'primary-bright': '#FFFFFF',
 
           // Accent — Bright Green for positive states
           accent: '#10B981',
@@ -39,10 +39,10 @@ const config: Config = {
           'warning-dim': '#D97706',
           'warning-glow': 'rgba(245, 158, 11, 0.15)',
 
-          // Secondary — Teal/Seafoam
-          secondary: '#14B8A6',
-          'secondary-dim': '#0D9488',
-          'secondary-glow': 'rgba(20, 184, 166, 0.15)',
+          // Secondary — Light Gray
+          secondary: '#9CA3AF',
+          'secondary-dim': '#6B7280',
+          'secondary-glow': 'rgba(156, 163, 175, 0.12)',
 
           // Text — crisp white to soft gray
           text: '#F9FAFB',
@@ -56,8 +56,8 @@ const config: Config = {
         display: ['"Inter"', '"SF Pro"', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        'mag-glow': '0 0 24px rgba(6, 182, 212, 0.12)',
-        'mag-glow-strong': '0 0 36px rgba(6, 182, 212, 0.2)',
+        'mag-glow': '0 0 24px rgba(255, 255, 255, 0.08)',
+        'mag-glow-strong': '0 0 36px rgba(255, 255, 255, 0.12)',
         'mag-accent': '0 0 20px rgba(16, 185, 129, 0.1)',
         'mag-danger': '0 0 20px rgba(239, 68, 68, 0.1)',
         'mag-panel': '0 4px 32px rgba(0, 0, 0, 0.4)',
@@ -144,9 +144,9 @@ const config: Config = {
         },
       },
       backgroundImage: {
-        'grid-pattern': `linear-gradient(rgba(6, 182, 212, 0.02) 1px, transparent 1px),
-                         linear-gradient(90deg, rgba(6, 182, 212, 0.02) 1px, transparent 1px)`,
-        'radial-glow': 'radial-gradient(ellipse at center, rgba(6, 182, 212, 0.04) 0%, transparent 70%)',
+        'grid-pattern': `linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                         linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px)`,
+        'radial-glow': 'radial-gradient(ellipse at center, rgba(255, 255, 255, 0.03) 0%, transparent 70%)',
       },
       backgroundSize: {
         'grid-20': '20px 20px',

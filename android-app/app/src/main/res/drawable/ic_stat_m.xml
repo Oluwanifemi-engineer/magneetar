@@ -1,18 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Notification small icon: monochrome white M on transparent. Small icons
+<!--
      must be a single-color silhouette (launcher mipmaps render as a solid
-     square blob in the status bar) — this reuses the exact M path from
-     ic_launcher_foreground without the background fill. -->
+     overlay in some OEM launchers) — the adaptive icon foreground is separate.
+     Magneetar fused m/M-halves mark — white on transparent.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
+    android:width="120dp"
+    android:height="120dp"
     android:viewportWidth="120"
     android:viewportHeight="120">
 
-    <!-- Ultra-bold capital M — straight edges, no curves -->
+    <!-- Dark squircle background -->
     <path
-        android:pathData="M 28 92 L 28 28 L 48 28 L 60 58 L 72 28 L 92 28 L 92 92 L 76 92 L 76 52 L 60 82 L 44 52 L 44 92 Z"
-        android:fillColor="#FFFFFF"
-        android:strokeWidth="0"
-        android:strokeColor="#00000000"/>
+        android:pathData="M12,0 L108,0 Q120,0 120,12 L120,108 Q120,120 108,120 L12,120 Q0,120 0,108 L0,12 Q0,0 12,0 Z"
+        android:fillColor="#0f0f1a"/>
+
+    <!-- Fused m/M-halves mark -->
+    <path
+        android:pathData="M29,90 L29,43 C29,25 68,25 68,43 L68,90 L91,29 L91,90"
+        android:strokeWidth="12"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="6"
+        android:fillColor="#00000000"/>
 </vector>

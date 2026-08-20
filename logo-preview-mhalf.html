@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Magneetar — m/M-Halves Logo (Sharp vs Flat)</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',system-ui,sans-serif;background:#0a0a12;color:#e8e8f0;padding:48px 24px;min-height:100vh}
+    h1{text-align:center;font-size:32px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px}
+    .sub{text-align:center;color:#777;font-size:15px;margin-bottom:48px;line-height:1.5}
+    .sub em{color:#E91E8C;font-style:normal;font-weight:600}
+    .div{width:60px;height:2px;background:linear-gradient(90deg,#FF6B9D,#E91E8C,#9C0A58);margin:0 auto 56px;border-radius:1px}
+
+    /* Comparison Grid */
+    .compare{display:grid;grid-template-columns:1fr 1fr;gap:40px;max-width:900px;margin:0 auto 56px}
+    .side{text-align:center}
+    .side h2{font-size:18px;font-weight:700;margin-bottom:20px;color:#aaa}
+    .side h2 span{color:#E91E8C}
+    .variant-row{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:32px}
+    .variant{text-align:center}
+    .variant svg{width:120px;height:120px;filter:drop-shadow(0 4px 16px rgba(233,30,140,0.15))}
+    .variant .vl{font-size:11px;color:#666;margin-top:8px;text-transform:uppercase;letter-spacing:1px}
+    .variant .vl b{color:#e8e8f0}
+
+    /* Path display */
+    .path-box{background:#14141e;border:1px solid #222;border-radius:12px;padding:16px 20px;margin-top:16px}
+    .path-box code{font-size:11px;color:#E91E8C;font-family:'JetBrains Mono','SF Mono',monospace;word-break:break-all;line-height:1.6}
+    .path-box .note{font-size:11px;color:#555;margin-top:6px}
+
+    /* Key differences */
+    .diff{max-width:700px;margin:0 auto 48px;display:grid;grid-template-columns:1fr 1fr;gap:24px}
+    .diff-card{background:#14141e;border:1px solid #222;border-radius:12px;padding:20px}
+    .diff-card h3{font-size:14px;font-weight:700;margin-bottom:8px}
+    .diff-card h3 .tag{font-size:10px;padding:2px 8px;border-radius:4px;margin-left:8px;vertical-align:middle}
+    .diff-card h3 .tag.sharp{background:rgba(233,30,140,0.12);color:#E91E8C}
+    .diff-card h3 .tag.flat{background:rgba(6,182,212,0.12);color:#06B6D4}
+    .diff-card p{font-size:12px;color:#888;line-height:1.6}
+    .diff-card p strong{color:#e8e8f0}
+
+    /* Size row */
+    .sizes{max-width:900px;margin:0 auto 56px;text-align:center}
+    .sizes h2{font-size:20px;font-weight:700;margin-bottom:24px;color:#aaa}
+    .sr{display:flex;justify-content:center;align-items:flex-end;gap:28px;flex-wrap:wrap}
+    .si{text-align:center}
+    .si span{display:block;font-size:11px;color:#555;margin-top:8px}
+
+    /* Full variants grid */
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;max-width:1100px;margin:0 auto 56px}
+    .card{background:#14141e;border-radius:16px;padding:28px 24px 24px;text-align:center;border:1px solid #222;transition:all .3s;cursor:pointer;position:relative;overflow:hidden}
+    .card:hover{border-color:#E91E8C;transform:translateY(-3px);box-shadow:0 16px 32px rgba(233,30,140,0.1)}
+    .card svg{width:120px;height:120px;margin:16px 0}
+    .card .nm{font-size:14px;font-weight:700;margin-bottom:4px}
+    .card .ds{font-size:11px;color:#777;line-height:1.4}
+    .badge{display:inline-block;font-size:9px;font-weight:700;padding:3px 8px;border-radius:4px;margin-top:10px;letter-spacing:.5px}
+    .badge.pink{background:rgba(233,30,140,0.12);color:#E91E8C}
+    .badge.cyan{background:rgba(6,182,212,0.12);color:#06B6D4}
+
+    .ft{text-align:center;color:#333;font-size:12px;margin-top:64px;letter-spacing:.5px}
+  </style>
+</head>
+<body>
+
+  <h1>Magneetar &mdash; m/M-Halves Logo</h1>
+  <p class="sub">
+    <em>Left half</em> of lowercase <strong>m</strong> + <em>Right half</em> of uppercase <strong>M</strong>
+    &nbsp;&rarr;&nbsp; <strong>one continuous stroke</strong>
+  </p>
+
+  <!-- ═══ Side-by-Side Comparison ═══ -->
+  <div class="compare">
+
+    <!-- Sharp Peak -->
+    <div class="side">
+      <h2>Sharp Peak <span>A</span></h2>
+      <div class="variant-row">
+        <div class="variant">
+          <svg viewBox="0 0 512 512"><defs><linearGradient id="sa" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FF6B9D"/><stop offset="50%" stop-color="#E91E8C"/><stop offset="100%" stop-color="#9C0A58"/></linearGradient></defs><rect width="512" height="512" rx="108" fill="#0f0f1a"/><path d="M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 389,126 V 386" stroke="url(#sa)" stroke-width="51" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="6"/></svg>
+          <div class="vl">Magenta</div>
+        </div>
+        <div class="variant">
+          <svg viewBox="0 0 512 512"><defs><linearGradient id="sb" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F7E98E"/><stop offset="35%" stop-color="#E8C840"/><stop offset="70%" stop-color="#D4A017"/><stop offset="100%" stop-color="#B8860B"/></linearGradient></defs><rect width="512" height="512" rx="108" fill="#08081A"/><path d="M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 389,126 V 386" stroke="url(#sb)" stroke-width="51" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="6"/></svg>
+          <div class="vl"><b style="color:#E8C840">Gold</b></div>
+        </div>
+      </div>
+      <div class="path-box">
+        <code>M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 389,126 V 386</code>
+        <div class="note">square linecap &middot; sharp diagonal peak</div>
+      </div>
+    </div>
+
+    <!-- Flat Top -->
+    <div class="side">
+      <h2>Flat Top <span style="color:#06B6D4">B</span></h2>
+      <div class="variant-row">
+        <div class="variant">
+          <svg viewBox="0 0 512 512"><defs><linearGradient id="fa" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FF6B9D"/><stop offset="50%" stop-color="#E91E8C"/><stop offset="100%" stop-color="#9C0A58"/></linearGradient></defs><rect width="512" height="512" rx="108" fill="#0f0f1a"/><path d="M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 340,126 H 389 V 386" stroke="url(#fa)" stroke-width="51" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="6"/></svg>
+          <div class="vl">Magenta</div>
+        </div>
+        <div class="variant">
+          <svg viewBox="0 0 512 512"><defs><linearGradient id="fb" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F7E98E"/><stop offset="35%" stop-color="#E8C840"/><stop offset="70%" stop-color="#D4A017"/><stop offset="100%" stop-color="#B8860B"/></linearGradient></defs><rect width="512" height="512" rx="108" fill="#08081A"/><path d="M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 340,126 H 389 V 386" stroke="url(#fb)" stroke-width="51" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="6"/></svg>
+          <div class="vl"><b style="color:#E8C840">Gold</b></div>
+        </div>
+      </div>
+      <div class="path-box">
+        <code>M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 340,126 H 389 V 386</code>
+        <div class="note">butt linecap &middot; flat horizontal top &middot; level base</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="div"></div>
+
+  <!-- ═══ Key Differences ═══ -->
+  <div class="diff">
+    <div class="diff-card">
+      <h3>Peak Shape <span class="tag sharp">A</span></h3>
+      <p>The diagonal goes all the way to a <strong>sharp point</strong> at the top-right. The miter join creates a crisp spike.</p>
+    </div>
+    <div class="diff-card">
+      <h3>Peak Shape <span class="tag flat">B</span></h3>
+      <p>The diagonal stops short and a <strong>flat horizontal</strong> segment creates a truncated &ldquo;broken pencil&rdquo; top.</p>
+    </div>
+    <div class="diff-card">
+      <h3>Base Line <span class="tag sharp">A</span></h3>
+      <p><strong>Square linecap</strong> extends the left and right stems 25px below the baseline. Center stem ends flush.</p>
+    </div>
+    <div class="diff-card">
+      <h3>Base Line <span class="tag flat">B</span></h3>
+      <p><strong>Butt linecap</strong> &mdash; no extension. All three stems end at the <strong>exact same horizontal level</strong>.</p>
+    </div>
+  </div>
+
+  <div class="div"></div>
+
+  <!-- ═══ All Variants ═══ -->
+  <h2 style="text-align:center;font-size:20px;font-weight:700;color:#aaa;margin-bottom:28px">All Variants</h2>
+  <div class="grid">
+
+    <!-- Sharp variants -->
+    <div class="card" onclick="sel(this)">
+      <div class="nm">A &middot; Magenta Sharp</div>
+      <div class="ds">Brand-consistent. Sharp peak, square linecap.</div>
+      <svg viewBox="0 0 512 512"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FF6B9D"/><stop offset="50%" stop-color="#E91E8C"/><stop offset="100%" stop-color="#9C0A58"/></linearGradient></defs><rect width="512" height="512" rx="108" fill="#0f0f1a"/><path d="M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 389,126 V 386" stroke="url(#g1)" stroke-width="51" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="6"/></svg>
+      <div class="badge pink">SHARP PEAK</div>
+    </div>
+
+    <div class="card" onclick="sel(this)">
+      <div class="nm">A &middot; Gold Sharp</div>
+      <div class="ds">Luxury gold. Sharp peak, square linecap.</div>
+      <svg viewBox="0 0 512 512"><defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F7E98E"/><stop offset="35%" stop-color="#E8C840"/><stop offset="70%" stop-color="#D4A017"/><stop offset="100%" stop-color="#B8860B"/></linearGradient></defs><rect width="512" height="512" rx="108" fill="#08081A"/><path d="M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 389,126 V 386" stroke="url(#g2)" stroke-width="51" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="6"/></svg>
+      <div class="badge pink">SHARP PEAK</div>
+    </div>
+
+    <div class="card" onclick="sel(this)">
+      <div class="nm">A &middot; White Sharp</div>
+      <div class="ds">Clean white. Sharp peak, square linecap.</div>
+      <svg viewBox="0 0 512 512"><rect width="512" height="512" rx="108" fill="#111118"/><path d="M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 389,126 V 386" stroke="#FFFFFF" stroke-width="51" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="6"/></svg>
+      <div class="badge pink">SHARP PEAK</div>
+    </div>
+
+    <!-- Flat variants -->
+    <div class="card" onclick="sel(this)">
+      <div class="nm">B &middot; Magenta Flat</div>
+      <div class="ds">Brand-consistent. Flat top, level base.</div>
+      <svg viewBox="0 0 512 512"><defs><linearGradient id="g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FF6B9D"/><stop offset="50%" stop-color="#E91E8C"/><stop offset="100%" stop-color="#9C0A58"/></linearGradient></defs><rect width="512" height="512" rx="108" fill="#0f0f1a"/><path d="M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 340,126 H 389 V 386" stroke="url(#g4)" stroke-width="51" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="6"/></svg>
+      <div class="badge cyan">FLAT TOP</div>
+    </div>
+
+    <div class="card" onclick="sel(this)">
+      <div class="nm">B &middot; Gold Flat</div>
+      <div class="ds">Luxury gold. Flat top, level base.</div>
+      <svg viewBox="0 0 512 512"><defs><linearGradient id="g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F7E98E"/><stop offset="35%" stop-color="#E8C840"/><stop offset="70%" stop-color="#D4A017"/><stop offset="100%" stop-color="#B8860B"/></linearGradient></defs><rect width="512" height="512" rx="108" fill="#08081A"/><path d="M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 340,126 H 389 V 386" stroke="url(#g5)" stroke-width="51" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="6"/></svg>
+      <div class="badge cyan">FLAT TOP</div>
+    </div>
+
+    <div class="card" onclick="sel(this)">
+      <div class="nm">B &middot; White Flat</div>
+      <div class="ds">Clean white. Flat top, level base.</div>
+      <svg viewBox="0 0 512 512"><rect width="512" height="512" rx="108" fill="#111118"/><path d="M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 340,126 H 389 V 386" stroke="#FFFFFF" stroke-width="51" fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="6"/></svg>
+      <div class="badge cyan">FLAT TOP</div>
+    </div>
+
+  </div>
+
+  <div class="div"></div>
+
+  <!-- ═══ Size Variations ═══ -->
+  <div class="sizes">
+    <h2>Size Variations &mdash; Sharp Peak (A) vs Flat Top (B)</h2>
+    <div style="display:flex;justify-content:center;gap:48px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:12px;color:#E91E8C;text-align:center;margin-bottom:12px;font-weight:700">A &middot; SHARP</div>
+        <div class="sr" id="srA"></div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:#06B6D4;text-align:center;margin-bottom:12px;font-weight:700">B &middot; FLAT</div>
+        <div class="sr" id="srB"></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="ft">MAGNEETAR m/M-HALVES LOGO &mdash; SHARP vs FLAT COMPARISON</p>
+
+  <script>
+    function sel(el){document.querySelectorAll('.card').forEach(c=>c.classList.remove('sel'));el.classList.add('sel')}
+    const sz=[16,24,32,48,64,96,128];
+    const pathA='M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 389,126 V 386';
+    const pathB='M 124,386 V 186 C 124,106 289,106 289,186 V 386 L 340,126 H 389 V 386';
+    const capA='butt', capB='butt';
+    ['srA','srB'].forEach((id,idx)=>{
+      const r=document.getElementById(id);
+      const path=idx===0?pathA:pathB;
+      const cap=idx===0?capA:capB;
+      sz.forEach(s=>{
+        const d=document.createElement('div');d.className='si';
+        d.innerHTML=`<svg viewBox="0 0 512 512" width="${s}" height="${s}"><defs><linearGradient id="z${id}${s}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FF6B9D"/><stop offset="50%" stop-color="#E91E8C"/><stop offset="100%" stop-color="#9C0A58"/></linearGradient></defs><rect width="512" height="512" rx="108" fill="#0f0f1a"/><path d="${path}" stroke="url(#z${id}${s})" stroke-width="51" fill="none" stroke-linecap="${cap}" stroke-linejoin="miter" stroke-miterlimit="6"/></svg><span>${s}px</span>`;
+        r.appendChild(d);
+      });
+    });
+  </script>
+</body>
+</html>

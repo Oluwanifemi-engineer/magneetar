@@ -358,7 +358,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                     className={`h-full rounded-full transition-all duration-500 ${
                       atLimit
                         ? 'bg-amber-400'
-                        : 'bg-gradient-to-r from-[#E91E8C] to-[#06B6D4]'
+                        : 'bg-gradient-to-r from-white to-gray-400'
                     }`}
                     style={{ width: `${usagePct}%` }}
                   />

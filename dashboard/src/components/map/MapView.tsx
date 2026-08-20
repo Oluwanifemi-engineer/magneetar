@@ -134,7 +134,7 @@ const Circle = dynamic(() => import('react-leaflet').then(m => m.Circle), { ssr:
 
 import { useMap } from 'react-leaflet';
 
-// ─── Refined Map Icons (magenta themed) ──────────────────────────────────────
+// ─── Refined Map Icons (white on dark themed) ──────────────────────────────────────
 
 let deviceIcon: any = null;
 let userIcon: any = null;
@@ -145,13 +145,13 @@ async function initIcons() {
   if (deviceIcon) return;
   const L = await import('leaflet');
 
-  // Device marker — magenta dot with ring
+  // Device marker — white dot with ring
   deviceIcon = L.divIcon({
     className: '',
     html: `
       <div style="position:relative;width:40px;height:40px;">
-        <div style="position:absolute;top:4px;left:4px;width:32px;height:32px;border-radius:50%;background:rgba(233,30,140,0.2);animation:marker-pulse 2s infinite;"></div>
-        <div style="position:absolute;top:8px;left:8px;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#E91E8C,#C4176E);border:3px solid #fff;box-shadow:0 2px 16px rgba(233,30,140,0.6);"></div>
+        <div style="position:absolute;top:4px;left:4px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.2);animation:marker-pulse 2s infinite;"></div>
+        <div style="position:absolute;top:8px;left:8px;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#FFFFFF,#C4176E);border:3px solid #fff;box-shadow:0 2px 16px rgba(255,255,255,0.6);"></div>
         <div style="position:absolute;top:14px;left:14px;width:12px;height:12px;border-radius:50%;background:#fff;opacity:0.9;"></div>
       </div>
     `,
@@ -180,7 +180,7 @@ async function initIcons() {
         <svg width="28" height="36" viewBox="0 0 28 36" fill="none">
           <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z" fill="url(#pinGrad)" stroke="#fff" stroke-width="1.5"/>
           <circle cx="14" cy="14" r="6" fill="#fff" opacity="0.9"/>
-          <defs><linearGradient id="pinGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#E91E8C"/><stop offset="100%" stop-color="#C4176E"/></linearGradient></defs>
+          <defs><linearGradient id="pinGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#C4176E"/></linearGradient></defs>
         </svg>
       </div>
     `,
@@ -191,7 +191,7 @@ async function initIcons() {
   // Trail dot
   trailDotIcon = L.divIcon({
     className: '',
-    html: `<div style="width:8px;height:8px;border-radius:50%;background:#E91E8C;border:2px solid #fff;box-shadow:0 0 6px rgba(233,30,140,0.5);"></div>`,
+    html: `<div style="width:8px;height:8px;border-radius:50%;background:#FFFFFF;border:2px solid #fff;box-shadow:0 0 6px rgba(255,255,255,0.5);"></div>`,
     iconSize: [8, 8],
     iconAnchor: [4, 4],
   });
@@ -362,7 +362,7 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] max-w-lg">
         <div className="mag-panel px-4 py-3 animate-fade-in">
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-2 h-2 rounded-full bg-mag-primary shadow-[0_0_10px_rgba(233,30,140,0.6)]" />
+            <div className="w-2 h-2 rounded-full bg-mag-primary shadow-[0_0_10px_rgba(255,255,255,0.6)]" />
             <span className="font-mono text-[10px] text-mag-primary font-bold uppercase tracking-wider">DEVICE TRACKED</span>
             <div className="h-3 w-px bg-mag-border/40" />
             <span className="font-mono text-[10px] text-mag-accent font-bold">{formatDistance(distance)} away (approx)</span>
@@ -405,7 +405,7 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
           title="Fly to the device (resumes follow)"
           className="flex items-center gap-2 group/d"
         >
-          <div className="w-2 h-2 rounded-full bg-mag-primary shadow-[0_0_10px_rgba(233,30,140,0.6)] group-hover/d:scale-125 transition-transform" />
+          <div className="w-2 h-2 rounded-full bg-mag-primary shadow-[0_0_10px_rgba(255,255,255,0.6)] group-hover/d:scale-125 transition-transform" />
           <span className="font-mono text-[11px] text-mag-text-dim font-bold group-hover/d:text-mag-primary group-hover/d:underline underline-offset-2 transition-colors">DEVICE</span>
         </button>
         <div className="h-4 w-px bg-mag-border/40" />
@@ -479,7 +479,7 @@ function PathAnimationTracker({ trailLocations, isPlaying, playbackSpeed, index,
       <Polyline
         positions={animatedPath}
         pathOptions={{
-          color: '#E91E8C',
+          color: '#FFFFFF',
           weight: 4,
           opacity: 0.9,
           lineCap: 'round',
@@ -490,7 +490,7 @@ function PathAnimationTracker({ trailLocations, isPlaying, playbackSpeed, index,
       <Polyline
         positions={animatedPath}
         pathOptions={{
-          color: '#E91E8C',
+          color: '#FFFFFF',
           weight: 10,
           opacity: 0.15,
           lineCap: 'round',
@@ -807,7 +807,7 @@ export function MapView() {
             <Polyline
               positions={trailPoints}
               pathOptions={{
-                color: '#E91E8C',
+                color: '#FFFFFF',
                 weight: 2.5,
                 opacity: 0.4,
                 dashArray: '8, 10',
@@ -843,8 +843,8 @@ export function MapView() {
               center={[latestLocation.lat, latestLocation.lng]}
               radius={latestLocation.accuracy}
               pathOptions={{
-                color: '#E91E8C',
-                fillColor: '#E91E8C',
+                color: '#FFFFFF',
+                fillColor: '#FFFFFF',
                 fillOpacity: 0.06,
                 weight: 1,
                 opacity: 0.25,
@@ -1051,7 +1051,7 @@ export function MapView() {
             value={pathIndex}
             onChange={(e) => { setPathPlaying(false); setPathIndex(Number(e.target.value)); }}
             aria-label="Trail replay timeline"
-            className="w-full accent-[#E91E8C] cursor-pointer"
+            className="w-full accent-[#FFFFFF] cursor-pointer"
           />
 
           <div className="flex items-center justify-between mt-1 text-[8px] font-mono text-mag-text-dim/40 font-bold">

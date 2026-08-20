@@ -1,11 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <defs>
-    <linearGradient id="aqua-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#06B6D4"/>
-      <stop offset="50%" stop-color="#0891B2"/>
-      <stop offset="100%" stop-color="#14B8A6"/>
-    </linearGradient>
-  </defs>
-  <rect width="32" height="32" rx="7" fill="url(#aqua-bg)"/>
-  <path d="M 7 24 L 7 8 L 12 8 L 16 16 L 20 8 L 25 8 L 25 24 L 21 24 L 21 14 L 16 22 L 11 14 L 11 24 Z" fill="white"/>
+  <!--
+    Magneetar favicon — fused m/M-halves mark (sharp peak)
+    Scaled from 512x512 to 32x32 viewport
+  -->
+  <rect width="32" height="32" rx="7" fill="#0f0f1a"/>
+  <path d="M 8,24 V 12 C 8,7 18,7 18,12 V 24 L 24,8 V 24"
+        stroke="#FFFFFF" stroke-width="3.2" fill="none"
+        stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="6"/>
 </svg>

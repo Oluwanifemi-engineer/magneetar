@@ -106,7 +106,7 @@ export default function PrivacyPage() {
       {/* Ambient background */}
       <div className="absolute inset-0 landing-vignette pointer-events-none" />
       <div className="absolute inset-0 landing-grid opacity-40 pointer-events-none" />
-      <div className="absolute -top-40 left-1/3 w-[600px] h-[400px] rounded-full bg-[#E91E8C]/10 blur-[130px] animate-aurora pointer-events-none" aria-hidden="true" />
+      <div className="absolute -top-40 left-1/3 w-[600px] h-[400px] rounded-full bg-[#FFFFFF]/10 blur-[130px] animate-aurora pointer-events-none" aria-hidden="true" />
       <div className="absolute top-1/3 -right-32 w-[480px] h-[480px] rounded-full bg-[#06B6D4]/8 blur-[120px] animate-aurora pointer-events-none" style={{ animationDelay: '-6s' }} aria-hidden="true" />
 
       <LandingNav authed={authed} />
@@ -169,7 +169,7 @@ export default function PrivacyPage() {
                   <ul className="mt-4 space-y-3">
                     {section.body.map((point) => (
                       <li key={point} className="flex gap-3 text-[13.5px] leading-relaxed text-white/45">
-                        <span className="mt-[7px] w-1.5 h-1.5 shrink-0 rounded-full bg-gradient-to-r from-[#E91E8C] to-[#06B6D4]" aria-hidden="true" />
+                        <span className="mt-[7px] w-1.5 h-1.5 shrink-0 rounded-full bg-gradient-to-r from-[#FFFFFF] to-[#06B6D4]" aria-hidden="true" />
                         <span>{point}</span>
                       </li>
                     ))}
@@ -181,8 +181,8 @@ export default function PrivacyPage() {
         </div>
 
         {/* Contact block */}
-        <div className="mt-12 rounded-2xl border border-[#E91E8C]/20 bg-gradient-to-br from-[#E91E8C]/[0.06] to-[#06B6D4]/[0.04] p-8 text-center">
-          <Lock size={20} className="mx-auto text-[#E91E8C]" />
+        <div className="mt-12 rounded-2xl border border-[#FFFFFF]/20 bg-gradient-to-br from-[#FFFFFF]/[0.06] to-[#06B6D4]/[0.04] p-8 text-center">
+          <Lock size={20} className="mx-auto text-[#FFFFFF]" />
           <h2 className="mt-3 text-xl font-display font-bold tracking-tight">Questions about your privacy?</h2>
           <p className="mt-2 text-[13.5px] text-white/45 max-w-lg mx-auto">
             Email our data protection contact at{' '}

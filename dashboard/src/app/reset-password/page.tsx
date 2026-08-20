@@ -94,7 +94,7 @@ function ResetPasswordForm() {
             <div className="w-9 h-9 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center overflow-hidden">
               <svg viewBox="0 0 120 120" className="w-5 h-5" fill="none" aria-label="Magneetar logo">
                 <path
-                  d="M 28 92 L 28 28 L 48 28 L 60 58 L 72 28 L 92 28 L 92 92 L 76 92 L 76 52 L 60 82 L 44 52 L 44 92 Z"
+                  d="M 29,90 V 43 C 29,25 68,25 68,43 V 90 L 91,29 V 90"
                   fill="white"
                 />
               </svg>

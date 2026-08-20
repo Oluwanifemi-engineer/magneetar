@@ -273,9 +273,9 @@ export default function DownloadPage() {
       <div className="absolute inset-0 landing-grid opacity-30 pointer-events-none" />
 
       {/* Premium ambient orbs */}
-      <div className="absolute -top-40 left-1/4 w-[500px] h-[500px] rounded-full bg-[#E91E8C]/[0.07] blur-[150px] animate-aurora pointer-events-none" />
+      <div className="absolute -top-40 left-1/4 w-[500px] h-[500px] rounded-full bg-[#FFFFFF]/[0.07] blur-[150px] animate-aurora pointer-events-none" />
       <div className="absolute top-1/3 -right-40 w-[600px] h-[600px] rounded-full bg-[#06B6D4]/[0.05] blur-[180px] animate-aurora pointer-events-none" style={{ animationDelay: '-8s' }} />
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full bg-[#E91E8C]/[0.04] blur-[200px] pointer-events-none" />
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full bg-[#FFFFFF]/[0.04] blur-[200px] pointer-events-none" />
 
       <LandingNav authed={authed} />
 
@@ -343,12 +343,12 @@ export default function DownloadPage() {
             </div>
           )}
           {/* Decorative gradient orb */}
-          <div className="absolute -top-32 -right-32 w-64 h-64 rounded-full bg-gradient-to-br from-[#E91E8C]/20 to-[#06B6D4]/20 blur-[80px] pointer-events-none" />
+          <div className="absolute -top-32 -right-32 w-64 h-64 rounded-full bg-gradient-to-br from-[#FFFFFF]/20 to-[#06B6D4]/20 blur-[80px] pointer-events-none" />
 
           <div className="relative">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#E91E8C]/20 to-[#06B6D4]/20 border border-white/10 flex items-center justify-center">
-                <ShieldCheck size={28} className="text-[#E91E8C]" />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FFFFFF]/20 to-[#06B6D4]/20 border border-white/10 flex items-center justify-center">
+                <ShieldCheck size={28} className="text-[#FFFFFF]" />
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-display font-extrabold tracking-tight text-white">
@@ -455,7 +455,7 @@ export default function DownloadPage() {
             {INSTALL_STEPS.map((step, i) => (
               <div key={step.title} className="premium-card p-6 group cursor-default">
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-[#E91E8C]/20 to-[#06B6D4]/20 border border-white/[0.08] flex items-center justify-center group-hover:border-[#E91E8C]/30 transition-all duration-300">
+                  <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-[#FFFFFF]/20 to-[#06B6D4]/20 border border-white/[0.08] flex items-center justify-center group-hover:border-[#FFFFFF]/30 transition-all duration-300">
                     <step.icon size={18} className="text-white/60 group-hover:text-white/80 transition-colors" />
                   </div>
                   <div>
@@ -543,7 +543,7 @@ export default function DownloadPage() {
           <div className="grid sm:grid-cols-3 gap-4">
             {[
               { icon: MapPin, title: 'Live tracking', body: 'Real-time GPS location with turn-by-turn navigation to your device.', color: '#06B6D4' },
-              { icon: Camera, title: 'Evidence capture', body: 'Remote photo and audio capture with chain of custody for law enforcement.', color: '#E91E8C' },
+              { icon: Camera, title: 'Evidence capture', body: 'Remote photo and audio capture with chain of custody for law enforcement.', color: '#FFFFFF' },
               { icon: ShieldCheck, title: 'Theft detection', body: 'AI-powered detection of movement, SIM swaps, and suspicious activity.', color: '#22C55E' },
             ].map((card) => (
               <div key={card.title} className="premium-card p-7 group cursor-default">
@@ -618,7 +618,7 @@ export default function DownloadPage() {
         <Reveal delay={400} className="mt-20 text-center">
           <div className="premium-card p-12 relative overflow-hidden">
             {/* Decorative gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#E91E8C]/[0.08] via-transparent to-[#06B6D4]/[0.08] pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#FFFFFF]/[0.08] via-transparent to-[#06B6D4]/[0.08] pointer-events-none" />
 
             <div className="relative">
               <h2 className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight">

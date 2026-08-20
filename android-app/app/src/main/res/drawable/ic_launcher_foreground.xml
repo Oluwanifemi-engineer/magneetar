@@ -5,26 +5,22 @@
     android:viewportWidth="120"
     android:viewportHeight="120">
 
-    <!-- Premium Aqua Gradient Background -->
-    <group>
-        <clip-path android:pathData="M0,0 L120,0 L120,120 L0,120 Z"/>
-        <path
-            android:pathData="M0,0 L120,0 L120,120 L0,120 Z"
-            android:fillColor="#06B6D4"/>
-        <path
-            android:pathData="M0,0 L120,0 L120,120 L0,120 Z"
-            android:fillColor="#0891B2"
-            android:fillAlpha="0.5"/>
-        <path
-            android:pathData="M0,0 L120,0 L120,120 L0,120 Z"
-            android:fillColor="#14B8A6"
-            android:fillAlpha="0.3"/>
-    </group>
-
-    <!-- Ultra-bold capital M — straight edges, no curves -->
+    <!-- Dark squircle background -->
     <path
-        android:pathData="M 28 92 L 28 28 L 48 28 L 60 58 L 72 28 L 92 28 L 92 92 L 76 92 L 76 52 L 60 82 L 44 52 L 44 92 Z"
-        android:fillColor="#FFFFFF"
-        android:strokeWidth="0"
-        android:strokeColor="#00000000"/>
+        android:pathData="M12,0 L108,0 Q120,0 120,12 L120,108 Q120,120 108,120 L12,120 Q0,120 0,108 L0,12 Q0,0 12,0 Z"
+        android:fillColor="#0f0f1a"/>
+
+    <!--
+        Magneetar fused m/M-halves mark (sharp peak, butt linecap)
+        Scaled from 512x512 to 120x120 viewport
+        Path: M 29,90 V 43 C 29,25 68,25 68,43 V 90 L 91,29 V 90
+    -->
+    <path
+        android:pathData="M29,90 L29,43 C29,25 68,25 68,43 L68,90 L91,29 L91,90"
+        android:strokeWidth="12"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="6"
+        android:fillColor="#00000000"/>
 </vector>
