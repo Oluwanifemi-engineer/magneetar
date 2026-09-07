@@ -1,0 +1,41 @@
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+*.ipr
+*.iws
+
+# Keystore / signing (NEVER commit — release builds need these from env/-P flags)
+*.keystore
+*.jks
+*.p12
+*.pem
+
+# Firebase
+google-services.json
+
+# Debug/Log files
+*.log
+*.toml
+*.txt
+
+# macOS
+.DS_Store
+*.swp
+*.swo
+
+# Generated APK/AAB outputs (build from CI or `./gradlew assemble`)
+*.apk
+*.aab
+*.apks
+*.xapk
+
+# Signatures / mapping files
+mapping.txt
+proguard/
+
+# Temporary
+crashes/
+tombstones/
