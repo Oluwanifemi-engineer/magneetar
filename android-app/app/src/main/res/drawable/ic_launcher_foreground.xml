@@ -8,14 +8,20 @@
     <!-- Brand mark: canonical silhouette traced from branding/icon-256.png,
          scaled 256->108dp, filled with pink->magenta gradient.
          Real mark is a filled silhouette (not a stroke), so no linecap/linejoin needed. -->
-    <!-- Pink (#FF5A9C, top-left) -> deep magenta (#B01B6E, bottom-right).
-         Matches the real brand mark gradient measured from branding/icon-256.png. -->
+    <!-- Foreground: white silhouette (#FFFFFF) on black squircle background.
+         Swatch revision: black background / white mark, same canonical mark shape.
+         Background fill is the companion ic_launcher_background.xml (#000000). -->
     <gradient
         android:angle="135"
-        android:startColor="#FF5A9C"
-        android:centerColor="#E91E8C"
-        android:endColor="#B01B6E"
+        android:startColor="#FFFFFF"
+        android:centerColor="#FFFFFF"
+        android:endColor="#FFFFFF"
         android:type="linear"/>
+    <!-- Solid white tint layer so the vector draws a pure white silhouette even
+         if the platform skews gradient endpoints slightly. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="@null"/>
     <path
         android:pathData="M86.48,0.00 L85.22,2.95 L83.95,5.91 L82.69,9.28 L81.84,12.23 L80.58,15.19 L79.31,18.14 L78.47,21.09 L77.20,24.05 L75.94,27.42 L74.67,30.38 L73.41,33.33 L72.56,36.28 L71.30,39.23 L70.03,42.61 L68.77,45.56 L67.92,48.52 L66.66,51.47 L65.81,49.36 L65.81,46.41 L65.81,40.08 L65.81,37.12 L65.39,34.17 L64.12,31.22 L61.59,27.84 L58.64,25.31 L55.69,23.62 L52.73,22.78 L49.78,21.94 L46.83,21.52 L43.45,21.09 L40.50,21.52 L37.55,21.94 L34.59,22.36 L31.64,23.62 L28.27,25.31 L25.31,27.84 L22.78,30.80 L21.52,33.75 L21.09,36.70 L20.67,39.66 L20.67,43.03 L20.67,45.98 L20.67,48.94 L20.67,51.89 L20.67,54.84 L20.67,58.22 L20.67,61.17 L20.67,64.12 L20.67,67.08 L20.67,70.03 L20.67,72.98 L20.67,76.36 L20.67,79.31 L21.94,81.00 L24.89,81.00 L27.84,81.00 L31.22,81.00 L31.22,78.05 L31.22,75.09 L31.22,72.14 L31.22,69.19 L31.22,66.23 L31.22,62.86 L31.22,59.91 L31.22,56.95 L31.22,54.00 L31.22,51.05 L31.22,47.67 L31.22,44.72 L31.22,41.77 L31.22,38.81 L32.06,35.86 L35.02,33.33 L38.39,32.06 L41.34,31.64 L44.30,31.64 L47.25,32.06 L50.20,32.91 L53.16,34.59 L55.27,37.97 L55.69,40.92 L55.69,43.88 L55.69,46.83 L55.69,49.78 L55.69,53.16 L55.69,56.11 L55.69,59.06 L55.69,62.02 L55.69,64.97 L55.69,67.92 L55.69,71.30 L55.69,74.25 L55.69,77.20 L55.69,80.16 L55.69,83.11 L55.69,86.48 L55.69,89.44 L55.69,92.39 L55.69,95.34 L55.69,98.30 L55.69,101.25 L55.69,104.62 L55.69,107.58 L56.95,105.05 L58.22,102.09 L59.48,99.14 L60.75,95.77 L61.59,92.81 L62.86,89.86 L64.12,86.91 L64.97,83.95 L66.23,81.00 L67.50,77.62 L68.77,74.67 L70.03,71.72 L70.88,68.77 L72.14,65.81 L73.41,62.44 L74.67,59.48 L75.94,56.53 L76.78,57.80 L76.78,60.75 L76.78,63.70 L76.78,67.08 L76.78,70.03 L76.78,72.98 L76.78,75.94 L76.78,78.89 L78.05,81.00 L81.00,81.00 L83.95,81.00 L86.91,81.00 L86.91,78.05 L86.91,75.09 L86.91,71.72 L86.91,68.77 L86.91,65.81 L86.91,62.86 L86.91,59.91 L86.91,56.53 L86.91,53.58 L86.91,50.62 L86.91,47.67 L86.91,44.72 L86.91,41.77 L86.91,38.39 L86.91,35.44 L86.91,32.48 L86.91,29.53 L86.91,26.58 L86.91,23.20 L86.91,20.25 L86.91,17.30 L86.91,14.34 L86.91,11.39 L86.91,8.44 L86.91,5.06 L86.91,2.11 L86.48,0.00 Z"/>
 </vector>

@@ -2,14 +2,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
   <defs>
     <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FF5A9C"/>
-      <stop offset="100%" stop-color="#B01B6E"/>
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#ffffff"/>
     </linearGradient>
   </defs>
 
-  <!-- Background: dark squircle (#0F0F1A) — matches branding/icon-*.png -->
+  <!-- Background: black squircle (#000000) — swatch revision to black background / white mark. -->
   <path d="M100,0 H156 Q256,0 256,100 V156 Q256,256 156,256 H100 Q0,256 0,156 V100 Q0,0 100,0 Z"
-        fill="#0F0F1A"/>
+        fill="#000000"/>
 
   <!-- Brand mark: single rounded silhouette with midline-left concave notch,
        hot pink (left) -> deep magenta (right).
