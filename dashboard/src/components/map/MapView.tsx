@@ -656,7 +656,8 @@ export function MapView() {
             key={showSatellite ? 'satellite' : 'street'}
             url={showSatellite ? SATELLITE_TILE_URL : MAP_TILE_URL_RESOLVED}
             attribution={showSatellite ? SATELLITE_ATTRIBUTION : MAP_TILE_ATTRIBUTION}
-            maxZoom={19}
+            maxNativeZoom={19}
+            maxZoom={21}
           />
 
           {/* User marker */}

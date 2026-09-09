@@ -92,6 +92,9 @@
     <string name="cd_sos">Send SOS alert</string>
     <string name="cd_battery_opt_icon">Battery optimization needed</string>
     <string name="cd_step_icon">Permission icon</string>
+    <string name="cd_zoom_in">Zoom in</string>
+    <string name="cd_zoom_out">Zoom out</string>
+    <string name="cd_satellite_toggle">Toggle satellite view</string>
 
     <!-- General -->
     <string name="app_version">Version %1$s</string>
