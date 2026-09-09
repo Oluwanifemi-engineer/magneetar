@@ -43,6 +43,13 @@ class MapFragment : Fragment() {
     private var satelliteOverlay: TilesOverlay? = null
     private var transportOverlay: TilesOverlay? = null
     private var btnSatellite: TextView? = null
+    private var tvMapDeviceName: TextView? = null
+    private var tvMapDeviceModel: TextView? = null
+    private var tvMapDeviceBadge: TextView? = null
+    private var tvStatLat: TextView? = null
+    private var tvStatLng: TextView? = null
+    private var tvStatBattery: TextView? = null
+    private var tvStatStatus: TextView? = null
     private var satelliteOn = false
 
     private val client = OkHttpClient.Builder()
@@ -82,6 +89,13 @@ class MapFragment : Fragment() {
         osmMap = view.findViewById(R.id.osm_map)
         progressMap = view.findViewById(R.id.progress_map)
         btnSatellite = view.findViewById(R.id.btn_satellite)
+        tvMapDeviceName = view.findViewById(R.id.tv_map_device_name)
+        tvMapDeviceModel = view.findViewById(R.id.tv_map_device_model)
+        tvMapDeviceBadge = view.findViewById(R.id.tv_map_device_badge)
+        tvStatLat = view.findViewById(R.id.tv_stat_lat)
+        tvStatLng = view.findViewById(R.id.tv_stat_lng)
+        tvStatBattery = view.findViewById(R.id.tv_stat_battery)
+        tvStatStatus = view.findViewById(R.id.tv_stat_status)
 
         Configuration.getInstance().userAgentValue = requireContext().packageName
 
@@ -199,8 +213,37 @@ class MapFragment : Fragment() {
                         val lat = device.optDouble("lat", 0.0)
                         val lng = device.optDouble("lng", 0.0)
                         val name = device.optString("alias", device.optString("model", "Device"))
+                        val model = device.optString("model", "")
+                        val isOnline = device.optBoolean("is_online", false)
+                        val battery = device.optInt("battery_percent", -1)
+
+                        // Status card + stats strip (mono readouts per design)
+                        tvMapDeviceName?.text = name
+                        tvMapDeviceModel?.text = model.ifEmpty { "—" }
+                        val statusColor = ContextCompat.getColor(
+                            requireContext(),
+                            if (isOnline) R.color.status_online else R.color.status_offline
+                        )
+                        val statusText = if (isOnline) "ONLINE" else "OFFLINE"
+                        tvMapDeviceBadge?.text = statusText
+                        tvMapDeviceBadge?.setTextColor(statusColor)
+                        tvStatStatus?.text = statusText
+                        tvStatStatus?.setTextColor(statusColor)
+                        tvStatBattery?.text = if (battery >= 0) "$battery%" else "—"
+                        tvStatBattery?.setTextColor(
+                            ContextCompat.getColor(
+                                requireContext(),
+                                when {
+                                    battery > 20 -> R.color.status_online
+                                    battery > 0 -> R.color.alert_warning
+                                    else -> R.color.text_secondary
+                                }
+                            )
+                        )
 
                         if (lat != 0.0 && lng != 0.0) {
+                            tvStatLat?.text = String.format("%.5f°", lat)
+                            tvStatLng?.text = String.format("%.5f°", lng)
                             osmMap?.let { map ->
                                 map.overlays.removeAll { it is Marker }
                                 val marker = Marker(map)
@@ -212,6 +255,9 @@ class MapFragment : Fragment() {
                                 map.controller.animateTo(GeoPoint(lat, lng))
                                 map.invalidate()
                             }
+                        } else {
+                            tvStatLat?.text = "—"
+                            tvStatLng?.text = "—"
                         }
                     } catch (_: Exception) {}
                 }
