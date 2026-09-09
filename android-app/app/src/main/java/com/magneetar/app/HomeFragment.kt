@@ -89,6 +89,14 @@ class HomeFragment : Fragment() {
             (activity as? DashboardActivity)?.navigateToTab(R.id.nav_alerts)
         }
 
+        // Battery-optimization attention card: visible only when the OS is
+        // still allowed to kill Magneetar's background services. Tapping it
+        // routes straight to the system exemption dialog.
+        view.findViewById<View>(R.id.card_battery_opt)?.setOnClickListener {
+            OEMUtils.requestBatteryOptimizationExemption(requireContext())
+        }
+        syncBatteryCard(view)
+
         loadDevices()
         loadActivity()
         refreshHandler.postDelayed(refreshRunnable, REFRESH_INTERVAL)
@@ -97,11 +105,24 @@ class HomeFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         loadDevices()
+        // Re-check on return from system settings — the user may have just
+        // granted (or revoked) the exemption.
+        view?.let { syncBatteryCard(it) }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         refreshHandler.removeCallbacks(refreshRunnable)
+    }
+
+    /** Show the attention card only when background runs are not exempted. */
+    private fun syncBatteryCard(view: View) {
+        val card = view.findViewById<View>(R.id.card_battery_opt) ?: return
+        card.visibility = if (OEMUtils.isBatteryOptimizationWhitelisted(requireContext())) {
+            View.GONE
+        } else {
+            View.VISIBLE
+        }
     }
 
     private fun loadDevices() {

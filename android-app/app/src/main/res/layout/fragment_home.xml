@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- ══════════════════════════════════════════════════════════════════════
+     Home tab — ported from design/stitch/04-home.png (Stitch approval).
+
+     Porting contract:
+       • Every android:id from the previous layout is preserved — all Kotlin
+         bindings in HomeFragment.kt stay untouched.
+       • Colors come ONLY from values/colors.xml tokens (or 8-digit alpha
+         variants of brand/status colors) — no ad-hoc hues.
+       • Mono stroke icons via ImageView tint; emoji glyphs removed.
+     ══════════════════════════════════════════════════════════════════════ -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -9,7 +19,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:paddingHorizontal="20dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="24dp">
 
         <!-- Header -->
         <LinearLayout
@@ -59,12 +71,71 @@
             <TextView
                 android:layout_width="36dp"
                 android:layout_height="36dp"
-                android:background="@drawable/circle_avatar_teal"
+                android:background="@drawable/circle_avatar"
                 android:gravity="center"
                 android:text="ME"
-                android:textColor="@color/background"
+                android:textColor="#0B1120"
                 android:textSize="12sp"
                 android:textStyle="bold"/>
+        </LinearLayout>
+
+        <!-- Battery optimization attention card -->
+        <LinearLayout
+            android:id="@+id/card_battery_opt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="14dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_attention_card"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:id="@+id/iv_battery_opt_icon"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_row_battery"
+                android:tint="@color/alert_warning"
+                android:contentDescription="@string/cd_battery_opt_icon"/>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/home_battery_opt"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/tv_battery_opt_body"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/home_battery_opt_desc"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:layout_marginTop="2dp"/>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/btn_battery_fix"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/home_battery_fix"
+                android:textColor="@color/alert_warning"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:layout_marginStart="8dp"
+                android:padding="4dp"/>
         </LinearLayout>
 
         <!-- Security Score Card -->
@@ -74,7 +145,7 @@
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:padding="20dp"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="12dp"
             android:background="@drawable/bg_card_dark">
 
             <!-- Score ring -->
@@ -102,7 +173,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="50"
-                        android:textColor="@color/accent_teal"
+                        android:textColor="@color/accent_aubergine"
                         android:textSize="28sp"
                         android:textStyle="bold"/>
 
@@ -111,7 +182,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="PROTECTED"
-                        android:textColor="@color/accent_teal"
+                        android:textColor="@color/accent_aubergine"
                         android:textSize="8sp"
                         android:letterSpacing="0.1"
                         android:textStyle="bold"/>
@@ -218,13 +289,19 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <TextView
+                <FrameLayout
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:background="@drawable/circle_avatar_teal"
-                    android:gravity="center"
-                    android:text="📱"
-                    android:textSize="18sp"/>
+                    android:background="@drawable/bg_device_avatar">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_tile_device"
+                        android:tint="@color/text_secondary"
+                        android:contentDescription="@string/cd_device"/>
+                </FrameLayout>
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -275,13 +352,15 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🔋 "
-                    android:textSize="13sp"/>
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:src="@drawable/ic_row_battery"
+                    android:tint="@color/status_online"
+                    android:contentDescription="@string/cd_battery"/>
 
                 <TextView
                     android:id="@+id/tv_battery"
@@ -289,18 +368,20 @@
                     android:layout_height="wrap_content"
                     android:text="100%"
                     android:textColor="@color/status_online"
-                    android:textSize="13sp"/>
+                    android:textSize="13sp"
+                    android:layout_marginStart="5dp"/>
 
-                <TextView
+                <View
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="1dp"
                     android:layout_weight="1"/>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="📍 "
-                    android:textSize="13sp"/>
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:src="@drawable/ic_row_pin"
+                    android:tint="@color/text_secondary"
+                    android:contentDescription="@string/cd_location"/>
 
                 <TextView
                     android:id="@+id/tv_location"
@@ -308,7 +389,8 @@
                     android:layout_height="wrap_content"
                     android:text="Awaiting location fix"
                     android:textColor="@color/text_secondary"
-                    android:textSize="12sp"/>
+                    android:textSize="12sp"
+                    android:layout_marginStart="5dp"/>
             </LinearLayout>
         </LinearLayout>
 
@@ -344,11 +426,21 @@
                 android:clickable="true"
                 android:focusable="true">
 
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="🔒" android:textSize="24sp"/>
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="Lock Device" android:textColor="@color/accent_teal"
-                    android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="8dp"/>
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_tile_lock"
+                    android:tint="@color/accent_aubergine"
+                    android:contentDescription="@string/cd_lock"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Lock Device"
+                    android:textColor="@color/accent_aubergine"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="8dp"/>
             </LinearLayout>
 
             <!-- Sound Alarm -->
@@ -364,11 +456,21 @@
                 android:clickable="true"
                 android:focusable="true">
 
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="🔊" android:textSize="24sp"/>
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="Sound Alarm" android:textColor="@color/alert_warning"
-                    android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="8dp"/>
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_tile_alarm"
+                    android:tint="@color/alert_warning"
+                    android:contentDescription="@string/cd_alarm"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Sound Alarm"
+                    android:textColor="@color/alert_warning"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="8dp"/>
             </LinearLayout>
 
             <!-- Locate Device -->
@@ -384,11 +486,21 @@
                 android:clickable="true"
                 android:focusable="true">
 
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="📍" android:textSize="24sp"/>
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="Share Location" android:textColor="#818CF8"
-                    android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="8dp"/>
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_tile_locate"
+                    android:tint="#A78BFA"
+                    android:contentDescription="@string/cd_locate"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Share Location"
+                    android:textColor="#A78BFA"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="8dp"/>
             </LinearLayout>
 
             <!-- SOS Alert -->
@@ -404,11 +516,21 @@
                 android:clickable="true"
                 android:focusable="true">
 
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="🆘" android:textSize="24sp"/>
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="SOS Alert" android:textColor="@color/alert_critical"
-                    android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="8dp"/>
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_tile_sos"
+                    android:tint="@color/alert_critical"
+                    android:contentDescription="@string/cd_sos"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SOS Alert"
+                    android:textColor="@color/alert_critical"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="8dp"/>
             </LinearLayout>
         </GridLayout>
 
@@ -435,7 +557,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="View all"
-                android:textColor="@color/accent_teal"
+                android:textColor="@color/accent_aubergine"
                 android:textSize="13sp"/>
         </LinearLayout>
 

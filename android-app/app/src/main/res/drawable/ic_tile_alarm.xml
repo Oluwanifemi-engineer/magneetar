@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mono flat icon for the Sound Alarm tile: Lucide volume-2 geometry.
+     Color arrives via ImageView tint, never baked in. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Speaker body (solid, as in Lucide) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11,5.2C11,4.76 10.47,4.54 10.15,4.85L6.29,8.5C6.2,8.6 6.07,8.65 5.94,8.65L3.75,8.65C3.34,8.65 3,8.99 3,9.4L3,14.6C3,15.01 3.34,15.35 3.75,15.35L5.94,15.35C6.07,15.35 6.2,15.4 6.29,15.5L10.15,19.15C10.47,19.46 11,19.24 11,18.8Z" />
+    <!-- Near wave -->
+    <path
+        android:pathData="M15.5,8.7C16.61,9.74 16.61,14.26 15.5,15.3"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <!-- Far wave -->
+    <path
+        android:pathData="M18.7,5.8C21.1,8.1 21.1,15.9 18.7,18.2"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+</vector>

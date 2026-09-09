@@ -1,21 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Pill-shaped primary button (full-round), matching the Stitch designs'
+     CTA language. Aubergine brand accent via md_theme_primary token. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_pressed="true">
         <shape android:shape="rectangle">
             <solid android:color="@color/md_theme_primaryDark" />
-            <corners android:radius="14dp" />
+            <corners android:radius="28dp" />
         </shape>
     </item>
     <item android:state_focused="true">
         <shape android:shape="rectangle">
             <solid android:color="@color/md_theme_primary" />
-            <corners android:radius="14dp" />
+            <corners android:radius="28dp" />
         </shape>
     </item>
     <item>
         <shape android:shape="rectangle">
             <solid android:color="@color/md_theme_primary" />
-            <corners android:radius="14dp" />
+            <corners android:radius="28dp" />
         </shape>
     </item>
 </selector>

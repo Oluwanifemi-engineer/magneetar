@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mono flat icon for the SOS tile: Lucide siren geometry.
+     Color arrives via ImageView tint, never baked in. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Dome -->
+    <path
+        android:pathData="M7,17L7,11.5C7,8.46 9.24,6 12,6C14.76,6 17,8.46 17,11.5L17,17"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+    <!-- Base -->
+    <path
+        android:pathData="M5.5,17.5L18.5,17.5C19.05,17.5 19.5,17.95 19.5,18.5L19.5,19.5C19.5,20.05 19.05,20.5 18.5,20.5L5.5,20.5C4.95,20.5 4.5,20.05 4.5,19.5L4.5,18.5C4.5,17.95 4.95,17.5 5.5,17.5Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+    <!-- Light ticks: top + sides -->
+    <path
+        android:pathData="M12,2.5L12,3.5M4.6,5.6L5.3,6.3M19.4,5.6L18.7,6.3"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+</vector>

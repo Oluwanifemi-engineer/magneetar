@@ -54,6 +54,8 @@
     <string name="perm_autostart">Auto-start — to start after reboot</string>
     <string name="perm_grant_all">ENABLE PROTECTION</string>
     <string name="perm_continue">CONTINUE</string>
+    <string name="perm_denied_hint">Permission was denied. Please enable it in Settings.</string>
+    <string name="perm_open_settings">Open Settings</string>
 
     <!-- Home -->
     <string name="home_protected">Device Protected</string>
@@ -78,6 +80,18 @@
     <!-- Accessibility Service -->
     <string name="accessibility_service_description">Magneetar Device Protection monitors your device to prevent unauthorized uninstallation. This protects your device from theft by ensuring security services remain active.</string>
     <string name="accessibility_service_name">Magneetar Device Protection</string>
+    <string name="home_battery_fix">FIX</string>
+
+    <!-- Content descriptions (accessibility) -->
+    <string name="cd_device">Device</string>
+    <string name="cd_battery">Battery level</string>
+    <string name="cd_location">Location</string>
+    <string name="cd_lock">Lock device</string>
+    <string name="cd_alarm">Sound alarm</string>
+    <string name="cd_locate">Share location</string>
+    <string name="cd_sos">Send SOS alert</string>
+    <string name="cd_battery_opt_icon">Battery optimization needed</string>
+    <string name="cd_step_icon">Permission icon</string>
 
     <!-- General -->
     <string name="app_version">Version %1$s</string>

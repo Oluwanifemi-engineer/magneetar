@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mono flat icons for quick-action tiles: 24dp, stroke-based (Lucide
+     geometry), color arrives via ImageView tint, never baked in. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Lock: shackle + body + keyhole dot -->
+    <path
+        android:pathData="M8,11L8,7.5C8,5.57 9.57,4 11.5,4C13.43,4 15,5.57 15,7.5L15,11"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M6,11L17,11C17.55,11 18,11.45 18,12L18,19C18,19.55 17.55,20 17,20L6,20C5.45,20 5,19.55 5,19L5,12C5,11.45 5.45,11 6,11Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11.5,13.5C12.05,13.5 12.5,13.95 12.5,14.5C12.5,14.87 12.3,15.19 12,15.37L12,16.5C12,16.78 11.78,17 11.5,17C11.22,17 11,16.78 11,16.5L11,15.37C10.7,15.19 10.5,14.87 10.5,14.5C10.5,13.95 10.95,13.5 11.5,13.5Z" />
+</vector>
