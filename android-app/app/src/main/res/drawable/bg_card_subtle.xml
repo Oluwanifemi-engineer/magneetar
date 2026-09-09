@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Subtle info card on the design tokens: elevated surface fill, outline
+     border (colors.md_theme_*). Used by the permissions wizard and the
+     security tab. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="#1A1E293B" />
+    <solid android:color="#1A111827" />
     <corners android:radius="12dp" />
-    <stroke
-        android:width="1dp"
-        android:color="#0D3D5C4E" />
+    <stroke android:width="1dp" android:color="@color/md_theme_outlineVariant" />
 </shape>

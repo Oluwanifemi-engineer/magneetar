@@ -63,7 +63,7 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
                     android:text="75"
-                    android:textColor="@color/accent_teal"
+                    android:textColor="@color/accent_aubergine"
                     android:textSize="24sp"
                     android:textStyle="bold" />
             </FrameLayout>
@@ -136,7 +136,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="ACTIVATE"
-                    android:textColor="@color/accent_teal"
+                    android:textColor="@color/accent_aubergine"
                     android:textSize="11sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.1"
@@ -292,7 +292,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="COPY"
-                android:textColor="@color/accent_teal"
+                android:textColor="@color/accent_aubergine"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.1" />

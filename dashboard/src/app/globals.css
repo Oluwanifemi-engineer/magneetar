@@ -1,6 +1,16 @@
 /* ════════════════════════════════════════════════════════════════════════════
    Magneetar — Dark-First Design System
    Premium security dashboard aesthetic.
+
+   COLOR CONTRACT (2026-09-09):
+   - ONE brand accent: aubergine magenta #8E2A6E (bright variant #C0549C).
+     Brand accent = primary buttons, active nav/states, focus rings, links.
+   - Status colors are STATUS ONLY, never decoration:
+       emerald  = online / protected / success
+       amber    = attention needed
+       red      = threat / destructive
+   - The single source of truth for these values is src/lib/tokens.ts;
+     this file and tailwind.config.ts must stay in sync with it.
    ════════════════════════════════════════════════════════════════════════════ */
 
 @tailwind base;
@@ -29,7 +39,8 @@
   }
 
   ::selection {
-    @apply bg-emerald-500/20 text-emerald-400;
+    background: rgba(142, 42, 110, 0.35);
+    color: #f9fafb;
   }
 
   /* Scrollbar — thin dark */
@@ -56,8 +67,8 @@
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .glow-border:hover {
-    border-color: rgba(16, 185, 129, 0.2);
-    box-shadow: 0 0 24px rgba(16, 185, 129, 0.06), 0 4px 16px rgba(0,0,0,0.3);
+    border-color: rgba(142, 42, 110, 0.35);
+    box-shadow: 0 0 24px rgba(142, 42, 110, 0.10), 0 4px 16px rgba(0,0,0,0.3);
   }
 
   /* Section container — with visual breaks */
@@ -239,7 +250,7 @@
     border: 1px solid rgba(31,41,55,0.6);
   }
   .mag-field:focus {
-    border-color: rgba(16,185,129,0.4);
+    border-color: rgba(142, 42, 110, 0.55);
     background: rgba(31,41,55,0.55);
   }
   .mag-field-label {
@@ -357,6 +368,21 @@
   0% { transform: scale(1); opacity: 0.6; }
   50% { transform: scale(1.3); opacity: 0.2; }
   100% { transform: scale(1); opacity: 0.6; }
+}
+
+/* ─── Brand Accent Tokens (CSS custom properties) ────────────────────────
+   Mirrors src/lib/tokens.ts MAGNETAR palette. Tailwind consumes the
+   mag-primary family via tailwind.config.ts; raw CSS (leaflet overrides,
+   keyframes, inline styles) should prefer these vars. */
+:root {
+  --mag-accent: #8E2A6E;
+  --mag-accent-bright: #C0549C;
+  --mag-accent-dim: #71265A;
+  --mag-accent-glow: rgba(142, 42, 110, 0.15);
+  /* Status — reserved for real status, never decoration */
+  --mag-status-ok: #10b981;
+  --mag-status-warn: #f59e0b;
+  --mag-status-danger: #ef4444;
 }
 
 /* ─── Reduced Motion ───────────────────────────────────────────────────── */

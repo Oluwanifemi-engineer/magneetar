@@ -161,7 +161,7 @@ class SecurityFragment : Fragment() {
         )
         btnToggleAdmin.text = if (isActive) "DEACTIVATE" else "ACTIVATE"
         btnToggleAdmin.setTextColor(
-            resources.getColor(if (isActive) R.color.status_yellow else R.color.accent_teal, null)
+            resources.getColor(if (isActive) R.color.status_yellow else R.color.accent_aubergine, null)
         )
     }
 

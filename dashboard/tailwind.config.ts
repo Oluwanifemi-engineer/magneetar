@@ -26,10 +26,16 @@ const config: Config = {
           'landing-side': '#080c14',
           'landing-border': '#1f2937',
 
-          // Primary — Emerald accent
-          primary: '#10b981',
-          'primary-dim': '#059669',
-          'primary-glow': 'rgba(16, 185, 129, 0.15)',
+          // Primary — Aubergine magenta accent (the ONE brand color).
+          // Used ONLY for primary actions, active states, focus rings, and
+          // armed states. Status colors (emerald/amber/red) are reserved for
+          // real status and must never be repurposed as decoration.
+          // Chosen 2026-09-09 to match the black/white launcher icon and the
+          // Android app's aubergine accent — one brand color, all platforms.
+          primary: '#8E2A6E',
+          'primary-bright': '#C0549C',
+          'primary-dim': '#71265A',
+          'primary-glow': 'rgba(142, 42, 110, 0.15)',
 
           // Danger
           danger: '#ef4444',
@@ -57,10 +63,10 @@ const config: Config = {
         display: ['var(--font-inter)', '"SF Pro"', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        'glow-sm': '0 0 12px rgba(16, 185, 129, 0.08)',
-        'glow-md': '0 0 24px rgba(16, 185, 129, 0.12)',
-        'glow-lg': '0 0 48px rgba(16, 185, 129, 0.16)',
-        'glow-xl': '0 8px 64px rgba(16, 185, 129, 0.2)',
+        'glow-sm': '0 0 12px rgba(142, 42, 110, 0.10)',
+        'glow-md': '0 0 24px rgba(142, 42, 110, 0.14)',
+        'glow-lg': '0 0 48px rgba(142, 42, 110, 0.18)',
+        'glow-xl': '0 8px 64px rgba(142, 42, 110, 0.22)',
         'elevation-1': '0 1px 3px rgba(0, 0, 0, 0.3)',
         'elevation-2': '0 4px 12px rgba(0, 0, 0, 0.4)',
         'elevation-3': '0 8px 32px rgba(0, 0, 0, 0.5)',

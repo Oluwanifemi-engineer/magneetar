@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- ═══ Magneetar Premium Dark Palette (matching Figma) ═══ -->
+    <!-- ═══ Magneetar Premium Dark Palette ═══
+         Brand accent: deep aubergine magenta. Single source of truth is
+         dashboard/src/lib/tokens.ts (ACCENT). Keep in sync with:
+           - tailwind.config.ts (mag.primary family)
+           - globals.css (:root mag-accent properties)
+           - the black/white launcher icon                      -->
 
     <!-- Backgrounds -->
     <color name="md_theme_background">#0B1120</color>
@@ -15,12 +20,13 @@
     <color name="md_theme_onSurfaceVariant">#64748B</color>
     <color name="md_theme_onBackground">#F1F5F9</color>
 
-    <!-- Primary — Teal/Cyan accent -->
-    <color name="md_theme_primary">#00D4AA</color>
-    <color name="md_theme_onPrimary">#0B1120</color>
-    <color name="md_theme_primaryDark">#00B894</color>
-    <color name="md_theme_primaryContainer">#003D33</color>
-    <color name="md_theme_onPrimaryContainer">#00D4AA</color>
+    <!-- Primary — Aubergine magenta accent (the ONE brand color) -->
+    <color name="md_theme_primary">#8E2A6E</color>
+    <color name="md_theme_onPrimary">#FFFFFF</color>
+    <color name="md_theme_primaryDark">#71265A</color>
+    <color name="md_theme_primaryBright">#C0549C</color>
+    <color name="md_theme_primaryContainer">#2A1224</color>
+    <color name="md_theme_onPrimaryContainer">#C0549C</color>
 
     <!-- Secondary -->
     <color name="md_theme_secondary">#94A3B8</color>
@@ -32,7 +38,7 @@
     <color name="md_theme_onError">#FFFFFF</color>
     <color name="md_theme_onErrorContainer">#FCA5A5</color>
 
-    <!-- Warning — Amber -->
+    <!-- Warning — Amber (status only) -->
     <color name="alert_warning">#F59E0B</color>
     <color name="alert_warningContainer">#1C1507</color>
 
@@ -40,44 +46,45 @@
     <color name="md_theme_outline">#1E293B</color>
     <color name="md_theme_outlineVariant">#2D3A4F</color>
 
-    <!-- Status -->
-    <color name="status_online">#00D4AA</color>
+    <!-- Status (status colors are STATUS ONLY, never decoration) -->
+    <color name="status_online">#10B981</color>
     <color name="status_offline">#64748B</color>
 
-    <!-- Alert severity (matching Figma badges) -->
+    <!-- Alert severity -->
     <color name="alert_critical">#EF4444</color>
     <color name="alert_criticalBg">#1C0A0A</color>
     <color name="alert_warningBg">#1C1507</color>
     <color name="alert_error">#EF4444</color>
-    <color name="alert_info">#00D4AA</color>
-    <color name="alert_infoBg">#001A15</color>
+    <color name="alert_info">#8E2A6E</color>
+    <color name="alert_infoBg">#2A1224</color>
 
-    <!-- Quick action card colors (matching Figma) -->
-    <color name="action_lock">#0D3B33</color>
-    <color name="action_lockBorder">#00D4AA</color>
+    <!-- Quick action cards — accent-bordered, tinted by state -->
+    <color name="action_lock">#2A1224</color>
+    <color name="action_lockBorder">#8E2A6E</color>
     <color name="action_alarm">#1C1507</color>
     <color name="action_alarmBorder">#F59E0B</color>
-    <color name="action_location">#1A1A2E</color>
-    <color name="action_locationBorder">#818CF8</color>
+    <color name="action_location">#2A1224</color>
+    <color name="action_locationBorder">#C0549C</color>
     <color name="action_sos">#1C0A0A</color>
     <color name="action_sosBorder">#EF4444</color>
 
     <!-- Security score ring -->
-    <color name="score_protected">#00D4AA</color>
+    <color name="score_protected">#10B981</color>
     <color name="score_track">#1E293B</color>
 
-    <!-- Bottom nav -->
-    <color name="nav_active">#00D4AA</color>
+    <!-- Bottom nav — active item carries the brand accent -->
+    <color name="nav_active">#8E2A6E</color>
+    <color name="nav_activeBright">#C0549C</color>
     <color name="nav_inactive">#475569</color>
 
     <!-- Aliases for permission and general UI -->
     <color name="background">#0B1120</color>
     <color name="text_primary">#F1F5F9</color>
     <color name="text_secondary">#64748B</color>
-    <color name="accent_teal">#00D4AA</color>
+    <color name="accent_aubergine">#8E2A6E</color>
 
     <!-- Additional aliases -->
     <color name="background_dark">#0B1120</color>
     <color name="status_yellow">#F59E0B</color>
-    <color name="status_green">#00D4AA</color>
+    <color name="status_green">#10B981</color>
 </resources>
