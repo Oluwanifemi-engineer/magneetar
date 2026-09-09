@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- ══════════════════════════════════════════════════════════════════════
+     Alerts tab — ported from design/stitch/07-alerts.png (Stitch approval).
+
+     Structure per the design: title + critical counter, working filter
+     chips (All / Security / Location — wired in AlertsFragment), alert
+     cards with severity stripe + badge. Colors from tokens only.
+     ══════════════════════════════════════════════════════════════════════ -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -37,7 +44,7 @@
                 android:visibility="gone"/>
         </LinearLayout>
 
-        <!-- Filter chips -->
+        <!-- Filter chips (functional — see AlertsFragment.setFilter) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -45,18 +52,22 @@
             android:layout_marginTop="12dp">
 
             <TextView
+                android:id="@+id/chip_all"
                 android:layout_width="wrap_content"
                 android:layout_height="32dp"
                 android:gravity="center"
                 android:text="All"
-                android:textColor="@color/background"
+                android:textColor="@color/text_primary"
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:paddingHorizontal="16dp"
                 android:background="@drawable/filter_active"
+                android:clickable="true"
+                android:focusable="true"
                 android:layout_marginEnd="8dp"/>
 
             <TextView
+                android:id="@+id/chip_security"
                 android:layout_width="wrap_content"
                 android:layout_height="32dp"
                 android:gravity="center"
@@ -65,9 +76,12 @@
                 android:textSize="13sp"
                 android:paddingHorizontal="16dp"
                 android:background="@drawable/filter_inactive"
+                android:clickable="true"
+                android:focusable="true"
                 android:layout_marginEnd="8dp"/>
 
             <TextView
+                android:id="@+id/chip_location"
                 android:layout_width="wrap_content"
                 android:layout_height="32dp"
                 android:gravity="center"
@@ -75,7 +89,9 @@
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp"
                 android:paddingHorizontal="16dp"
-                android:background="@drawable/filter_inactive"/>
+                android:background="@drawable/filter_inactive"
+                android:clickable="true"
+                android:focusable="true"/>
         </LinearLayout>
 
         <!-- Alert list -->
