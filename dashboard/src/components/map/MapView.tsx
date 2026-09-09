@@ -58,8 +58,27 @@ const MAP_TILE_ATTRIBUTION = MAP_TILE_URL
     ? '&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
-const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-const SATELLITE_ATTRIBUTION = '&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Source: Esri, Maxar, Earthstar Geographics';
+// Satellite: MapTiler composite when a key exists (vendor-fallback imagery,
+// no placeholders at any zoom), otherwise Esri World Imagery raw XYZ — which
+// has per-area native depth (rural Nigeria ends ~z18, cities z19), so the
+// client must declare maxNativeZoom and upsample beyond it.
+const MAPTILER_SATELLITE_URL = MAPTILER_KEY
+  ? `https://api.maptiler.com/maps/satellite/{z}/{x}/{y}.jpg?key=${MAPTILER_KEY}`
+  : '';
+const SATELLITE_TILE_URL = MAPTILER_SATELLITE_URL ||
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const SATELLITE_ATTRIBUTION = MAPTILER_SATELLITE_URL
+  ? '&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  : '&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Source: Esri, Maxar, Earthstar Geographics';
+// Esri's native ceiling varies by area; 18 is safe globally. MapTiler
+// composites its own fallback, so its native depth is 19.
+const SATELLITE_MAX_NATIVE_ZOOM = MAPTILER_SATELLITE_URL ? 19 : 18;
+// Roads overlay for satellite mode — Esri's World_Transportation reference
+// layer renders street paths over raw imagery (verified: real content in
+// mapped areas, transparent elsewhere). Labels layer was probed dead
+// (all-transparent), so place names are absent in satellite mode.
+const TRANSPORT_TILE_URL = 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}';
+const TRANSPORT_ATTRIBUTION = '&copy; Esri';
 
 const USER_ACCURACY_DISTANCE_MAX = 1000;
 const USER_ACCURACY_NAVIGATION_MAX = 300;
@@ -656,9 +675,20 @@ export function MapView() {
             key={showSatellite ? 'satellite' : 'street'}
             url={showSatellite ? SATELLITE_TILE_URL : MAP_TILE_URL_RESOLVED}
             attribution={showSatellite ? SATELLITE_ATTRIBUTION : MAP_TILE_ATTRIBUTION}
-            maxNativeZoom={19}
+            maxNativeZoom={showSatellite ? SATELLITE_MAX_NATIVE_ZOOM : 19}
             maxZoom={21}
           />
+
+          {/* Street paths over satellite imagery (roads only; no labels) */}
+          {showSatellite && (
+            <TileLayer
+              key="transport"
+              url={TRANSPORT_TILE_URL}
+              attribution={TRANSPORT_ATTRIBUTION}
+              maxNativeZoom={18}
+              maxZoom={21}
+            />
+          )}
 
           {/* User marker */}
           {effectiveUserPos && userIcon && (
@@ -847,7 +877,7 @@ export function MapView() {
             onClick={() => setShowSatellite(!showSatellite)}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider transition-all ${
               showSatellite
-                ? 'bg-blue-500/15 text-blue-400/80 border border-blue-500/20'
+                ? 'bg-mag-primary/15 text-mag-primary-bright border border-mag-primary/25'
                 : 'bg-mag-surface-raised backdrop-blur text-mag-text-muted border-mag-border hover:bg-mag-surface hover:text-mag-text-dim'
             }`}
             title={showSatellite ? 'Map view' : 'Satellite view'}

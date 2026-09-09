@@ -28,10 +28,13 @@ import java.util.concurrent.TimeUnit
  *
  * Satellite mode uses Esri World Imagery via the [OnlineTileSourceBase]
  * override below (Esri serves Y/X order — the reverse of the standard XYZ
- * slippy scheme — which is why a custom source is required), with two
- * reference overlays on top so street paths and place names stay readable
- * at high zoom. The source's native max zoom (19) is declared so osmdroid
- * upsamples beyond it instead of showing "Map data not yet available".
+ * slippy scheme — which is why a custom source is required), with a
+ * World_Transportation overlay on top so street paths stay visible over the
+ * imagery. Tile probing (Sep 2026) showed Esri's native imagery depth is
+ * per-area — rural Nigeria tops out at z18, dense cities at z19 — and its
+ * reference-labels layer is retired (all-transparent tiles), so maxZoom is
+ * capped at 19: beyond native depth the map shows upsampled imagery without
+ * ever requesting nonexistent tiles (the old "map not available" state).
  */
 class MapFragment : Fragment() {
 
@@ -39,7 +42,6 @@ class MapFragment : Fragment() {
     private var progressMap: ProgressBar? = null
     private var satelliteOverlay: TilesOverlay? = null
     private var transportOverlay: TilesOverlay? = null
-    private var labelsOverlay: TilesOverlay? = null
     private var btnSatellite: TextView? = null
     private var satelliteOn = false
 
@@ -66,12 +68,9 @@ class MapFragment : Fragment() {
         )
     }
 
-    private val esriLabels by lazy {
-        XYTileSource(
-            "Esri Labels", 0, 19, 256, ".png",
-            arrayOf("https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/")
-        )
-    }
+    // Esri's World_Boundaries_and_Places labels layer was probed dead
+    // (all-transparent tiles even over dense cities) — not loaded, so no
+    // place names in satellite mode. Imagery + roads only.
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_map, container, false)
@@ -91,7 +90,10 @@ class MapFragment : Fragment() {
             map.setMultiTouchControls(true)
             map.controller.setZoom(16.0)
             map.controller.setCenter(GeoPoint(7.518, 4.528))
-            map.maxZoomLevel = 21.0   // upsample past tile sources' native detail
+            // Esri native depth is 18 (rural) / 19 (cities). Capping at 19
+            // means osmdroid upsamples the deepest available imagery instead
+            // of requesting placeholder tiles beyond the source's coverage.
+            map.maxZoomLevel = 19.0
             map.minZoomLevel = 3.0
             map.invalidate()
         }
@@ -123,13 +125,7 @@ class MapFragment : Fragment() {
             map.overlays.add(this)
         }
 
-        labelsOverlay = TilesOverlay(
-            org.osmdroid.tileprovider.MapTileProviderBasic(requireContext(), esriLabels),
-            context
-        ).apply {
-            setEnabled(false)
-            map.overlays.add(this)
-        }
+
     }
 
     private fun wireControls(view: View) {
@@ -146,7 +142,6 @@ class MapFragment : Fragment() {
         satelliteOn = !satelliteOn
         satelliteOverlay?.setEnabled(satelliteOn)
         transportOverlay?.setEnabled(satelliteOn)
-        labelsOverlay?.setEnabled(satelliteOn)
         btnSatellite?.text = if (satelliteOn) "MAP" else "SAT"
         btnSatellite?.setTextColor(
             ContextCompat.getColor(
@@ -174,7 +169,6 @@ class MapFragment : Fragment() {
         osmMap = null
         satelliteOverlay = null
         transportOverlay = null
-        labelsOverlay = null
     }
 
     private fun loadDeviceLocation() {
