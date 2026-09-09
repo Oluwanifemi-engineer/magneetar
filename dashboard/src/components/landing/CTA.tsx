@@ -22,7 +22,7 @@ export function CTA({ authed }: { authed: boolean }) {
             what — or who — matters.
           </span>
         </h2>
-        <p className="mt-6 text-lg text-gray-400 leading-relaxed max-w-xl mx-auto">
+        <p className="mt-6 text-lg text-mag-text-muted leading-relaxed max-w-xl mx-auto">
           Create your account, install the app, protect every device you own, and keep your people
           close — all within minutes.
         </p>
@@ -51,7 +51,7 @@ export function CTA({ authed }: { authed: boolean }) {
 
         <div className="mt-6 flex items-center justify-center gap-2">
           <Check size={14} className="text-emerald-400" />
-          <span className="text-[12px] font-mono text-gray-500">
+          <span className="text-[12px] font-mono text-mag-text-muted">
             Free for 1 device · No credit card required
           </span>
         </div>

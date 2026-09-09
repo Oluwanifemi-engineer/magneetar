@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { cn, getCommandLabel, isDestructiveCommand, formatTimestamp, stepUpPasswordHint } from '@/lib/utils';
+import { MagInput, MagButton } from '@/components/ui/MagPrimitives';
 import { CommandButton, type CommandTone } from '@/components/ui/CommandButton';
 import { Radio, Camera, Webcam, Mic, LocateFixed, Lock, Siren, ShieldAlert, AlertTriangle, CheckCircle2, Trash2, X, MessageSquareText, Zap, ChevronDown } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
@@ -202,28 +203,28 @@ export function CommandPanel() {
                   'rounded-xl border-l-[3px] overflow-hidden transition-all duration-200',
                   borderColor[group.color],
                   open
-                    ? 'bg-white/[0.04] border border-white/[0.06] border-l-[3px]'
-                    : 'bg-white/[0.02] border border-transparent border-l-[3px] hover:bg-white/[0.03]'
+                    ? 'bg-mag-surface-raised border-mag-border border-l-[3px]'
+                    : 'bg-mag-surface border-transparent border-l-[3px] hover:bg-mag-surface-raised'
                 )}
               >
                 <button
                   onClick={() => toggleGroup(group.id)}
                   aria-expanded={open}
                   aria-label={`${group.label} commands`}
-                  className="w-full flex items-center justify-between gap-3 px-3.5 py-3 hover:bg-white/[0.03] transition-colors"
+                  className="w-full flex items-center justify-between gap-3 px-3.5 py-3 hover:bg-mag-surface-raised transition-colors"
                 >
                   <span className="flex items-center gap-3">
                     <span className={cn(
                       'w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200',
-                      open ? iconBg[group.color] : 'bg-white/[0.06] text-white/40'
+                      open ? iconBg[group.color] : 'bg-mag-surface-raised text-mag-text-dim'
                     )}>
                       <GroupIcon size={16} />
                     </span>
                     <div className="text-left">
-                      <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-white/70 block">
+                      <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-mag-text-dim block">
                         {group.label}
                       </span>
-                      <span className="text-[9px] font-mono text-white/25 block mt-0.5">
+                      <span className="text-[9px] font-mono text-mag-text-muted block mt-0.5">
                         {group.commands.length} command{group.commands.length !== 1 ? 's' : ''}
                       </span>
                     </div>
@@ -231,13 +232,13 @@ export function CommandPanel() {
                   <ChevronDown
                     size={14}
                     className={cn(
-                      'text-white/20 transition-transform duration-200',
-                      open && 'rotate-180 text-white/40'
+                      'text-mag-text-muted transition-transform duration-200',
+                      open && 'rotate-180 text-mag-text-dim'
                     )}
                   />
                 </button>
                 {open && (
-                  <div className="grid grid-cols-2 gap-2 p-2.5 border-t border-white/[0.06] bg-gradient-to-b from-white/[0.02] to-transparent animate-fade-in">
+                  <div className="grid grid-cols-2 gap-2 p-2.5 border-t border-mag-border bg-gradient-to-b from-white/5 to-transparent animate-fade-in">
                     {group.commands.map(c => {
                       const { command, label, icon, tone, title } = commandById(c);
                       return (
@@ -288,7 +289,8 @@ export function CommandPanel() {
                 </div>
               </div>
             </div>
-            <input
+            <MagInput
+              variant="danger"
               type="password"
               value={wipePassword}
               onChange={e => setWipePassword(e.target.value)}
@@ -301,7 +303,6 @@ export function CommandPanel() {
                   handleSend('wipe', 'CONFIRMED_WIPE', wipePassword);
                 }
               }}
-              className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2.5 text-[10px] font-mono text-white placeholder:text-white/25 focus:outline-none focus:border-red-500/30 focus:ring-1 focus:ring-red-500/10 transition-all"
             />
             {wipeError && <div className="text-[10px] font-mono text-red-400">{wipeError}</div>}
             <div className="flex gap-2">
@@ -318,13 +319,14 @@ export function CommandPanel() {
               >
                 {sending === 'wipe' ? 'SENDING...' : 'Confirm Wipe'}
               </button>
-              <button
+              <MagButton
+                variant="ghost"
+                size="sm"
                 onClick={() => { setConfirmWipe(false); setWipePassword(''); setWipeError(''); }}
                 disabled={sending === 'wipe'}
-                className="px-4 py-2.5 rounded-xl border border-white/[0.08] text-white/40 hover:text-white/80 hover:bg-white/[0.06] text-[10px] font-mono font-bold transition-all"
               >
                 Cancel
-              </button>
+              </MagButton>
             </div>
           </div>
         )}
@@ -357,7 +359,8 @@ export function CommandPanel() {
                 ? 'Delete all finished commands? Pending kept. Cannot be undone.'
                 : `Delete this ${getCommandLabel(commands.find(c => c.id === deleteTarget)?.command || '')} command? Cannot be undone.`}
             </div>
-            <input
+            <MagInput
+              variant="danger"
               type="password"
               value={deletePassword}
               onChange={e => setDeletePassword(e.target.value)}
@@ -370,7 +373,6 @@ export function CommandPanel() {
                   confirmDelete();
                 }
               }}
-              className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-[10px] font-mono text-white placeholder:text-white/25 focus:outline-none focus:border-red-500/30 focus:ring-1 focus:ring-red-500/10 transition-all"
             />
             {deleteError && <div className="text-[10px] font-mono text-red-400">{deleteError}</div>}
             <div className="flex gap-2">
@@ -382,14 +384,15 @@ export function CommandPanel() {
                 <Trash2 size={11} />
                 {deleting ? 'Deleting...' : 'Delete'}
               </button>
-              <button
+              <MagButton
+                variant="ghost"
+                size="sm"
                 onClick={() => { setDeleteTarget(null); setDeletePassword(''); setDeleteError(''); }}
                 disabled={deleting}
-                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-white/[0.08] text-white/40 hover:text-white/80 hover:bg-white/[0.06] text-[10px] font-bold transition-all"
               >
                 <X size={11} />
                 Cancel
-              </button>
+              </MagButton>
             </div>
           </div>
         )}
@@ -398,22 +401,22 @@ export function CommandPanel() {
         <div className="max-h-64 overflow-y-auto">
           {commands.length === 0 ? (
             <div className="text-center py-10">
-              <div className="w-12 h-12 rounded-2xl bg-white/[0.04] flex items-center justify-center mx-auto mb-3">
-                <Zap size={18} className="text-white/15" />
+              <div className="w-12 h-12 rounded-2xl bg-mag-surface-raised flex items-center justify-center mx-auto mb-3">
+                <Zap size={18} className="text-mag-text-muted" />
               </div>
-              <div className="text-white/40 text-[11px] font-bold mb-1">No commands yet</div>
-              <div className="text-white/20 text-[9px] font-mono leading-relaxed max-w-[180px] mx-auto">
+              <div className="text-mag-text-dim text-[11px] font-bold mb-1">No commands yet</div>
+              <div className="text-mag-text-muted text-[9px] font-mono leading-relaxed max-w-[180px] mx-auto">
                 Use the buttons above to send your first command.
               </div>
             </div>
           ) : (
             <>
               {/* Table header */}
-              <div className="flex items-center gap-3 px-3 py-2 border-b border-white/[0.04]">
+              <div className="flex items-center gap-3 px-3 py-2 border-b border-mag-border">
                 <div className="w-2 shrink-0" />
-                <span className="flex-1 text-[8px] font-mono text-white/20 uppercase tracking-wider font-bold">Command</span>
-                <span className="w-20 text-right text-[8px] font-mono text-white/20 uppercase tracking-wider font-bold">Time</span>
-                <span className="w-16 text-right text-[8px] font-mono text-white/20 uppercase tracking-wider font-bold">Status</span>
+                <span className="flex-1 text-[8px] font-mono text-mag-text-muted uppercase tracking-wider font-bold">Command</span>
+                <span className="w-20 text-right text-[8px] font-mono text-mag-text-muted uppercase tracking-wider font-bold">Time</span>
+                <span className="w-16 text-right text-[8px] font-mono text-mag-text-muted uppercase tracking-wider font-bold">Status</span>
                 {canCommand && <div className="w-6" />}
               </div>
 
@@ -428,8 +431,8 @@ export function CommandPanel() {
                 <div
                   key={cmd.id}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 border-b border-white/[0.03] transition-colors group',
-                    'hover:bg-white/[0.03]',
+                    'flex items-center gap-3 px-3 py-2.5 border-b border-mag-border transition-colors group',
+                    'hover:bg-mag-surface-raised',
                     cmd.status === 'failed' && 'bg-red-500/[0.04]',
                     cmd.status === 'pending' && 'bg-amber-500/[0.03]',
                   )}
@@ -440,16 +443,16 @@ export function CommandPanel() {
                     cmd.status === 'executed' ? 'bg-emerald-500' :
                     cmd.status === 'failed' ? 'bg-red-500' :
                     cmd.status === 'pending' ? 'bg-amber-500 animate-pulse' :
-                    'bg-white/15'
+                    'bg-mag-surface-raised'
                   )} />
 
                   {/* Command name — tabular numeral */}
-                  <span className="flex-1 font-mono text-[11px] text-white/60 font-bold truncate">
+                  <span className="flex-1 font-mono text-[11px] text-mag-text-dim font-bold truncate">
                     {getCommandLabel(cmd.command)}
                   </span>
 
                   {/* Timestamp — right-aligned tabular */}
-                  <span className="w-20 text-right font-mono text-[9px] text-white/25 tabular-nums shrink-0">
+                  <span className="w-20 text-right font-mono text-[9px] text-mag-text-muted tabular-nums shrink-0">
                     {formatTimestamp(cmd.issued_at).split(' ')[1] || formatTimestamp(cmd.issued_at)}
                   </span>
 
@@ -459,7 +462,7 @@ export function CommandPanel() {
                     cmd.status === 'executed' ? 'text-emerald-400/60' :
                     cmd.status === 'failed' ? 'text-red-400/70' :
                     cmd.status === 'pending' ? 'text-amber-400/60' :
-                    'text-white/20 line-through'
+                    'text-mag-text-muted line-through'
                   )}>
                     {cmd.status}
                   </span>
@@ -471,7 +474,7 @@ export function CommandPanel() {
                       className="w-6 text-right opacity-0 group-hover:opacity-100 transition-opacity"
                       title="Delete"
                     >
-                      <Trash2 size={10} className="text-white/15 hover:text-red-400/60 transition-colors" />
+                      <Trash2 size={10} className="text-mag-text-muted hover:text-red-400/60 transition-colors" />
                     </button>
                   )}
                 </div>

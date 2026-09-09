@@ -48,3 +48,32 @@ for _var in (
     # Set to empty (NOT popped): an absent var would be re-loaded from
     # server/.env by load_dotenv; an empty one is "already set" and skipped.
     os.environ[_var] = ""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Canonical test auth material (2026-09-09)
+#
+# config.py binds settings.API_KEY / JWT_SECRET / ENCRYPTION_KEY from the
+# environment ONCE per module generation. Test files that evict and re-import
+# config (test_e2e & friends) create additional generations mid-suite, and
+# each generation previously carried ITS OWN file's key/secret. A request
+# authenticated against generation A's settings while the app resolved
+# generation B's produced the order-dependent 401 / "Invalid token" /
+# split-brain cascades whose failure set changed with import order (85- and
+# 103-failure full-suite runs that no two runs reproduced identically).
+#
+# Fix: ONE canonical key/secret set, established here before any test module
+# import and re-asserted (as a no-op) by each file's own env preamble. Every
+# generation now binds identical auth material, so a stale module binding and
+# the live resolution agree on auth regardless of import order. The values
+# mirror the historical shared suite key/secret on purpose: tokens and keys
+# hardcoded in existing tests keep working unchanged.
+#
+# MT_ENCRYPTION_KEY is pinned to a FIXED value (was secrets.token_hex(32) per
+# file): two generations with different encryption keys could not decrypt each
+# other's stored location ciphertext, which is the mechanism behind the
+# order-dependent test_encryption_at_rest failures.
+# ─────────────────────────────────────────────────────────────────────────────
+os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
+os.environ["MT_DEVICE_KEY"] = "test-device-key-" + "c" * 32
+os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64

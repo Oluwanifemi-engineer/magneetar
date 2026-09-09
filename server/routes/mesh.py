@@ -18,6 +18,7 @@ Privacy:
 - The stolen device's exact identity is hidden from finders
 """
 
+import sqlite3
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -51,6 +52,7 @@ class BeaconRegistration(BaseModel):
 @router.post("/api/mesh/beacon/register")
 async def register_beacon(
     reg: BeaconRegistration,
+    db: sqlite3.Connection = Depends(get_db),
     device_id: str = Depends(get_current_device_or_key),
 ):
     """Register a device as a BLE beacon for recovery.
@@ -63,7 +65,6 @@ async def register_beacon(
     if reg.device_id != device_id:
         raise HTTPException(status_code=403, detail="Device ID mismatch")
 
-    db = get_db()
     now = datetime.now(timezone.utc).isoformat()
 
     # Upsert beacon registration
@@ -87,10 +88,10 @@ async def register_beacon(
 
 @router.post("/api/mesh/beacon/deactivate")
 async def deactivate_beacon(
+    db: sqlite3.Connection = Depends(get_db),
     device_id: str = Depends(get_current_device_or_key),
 ):
     """Deactivate BLE beacon (recovery complete or cancelled)."""
-    db = get_db()
     db.execute(
         "UPDATE mesh_beacons SET active=0, updated_at=? WHERE device_id=?",
         (datetime.now(timezone.utc).isoformat(), device_id),
@@ -116,6 +117,7 @@ class SightingReport(BaseModel):
 @router.post("/api/mesh/sighting")
 async def report_sighting(
     report: SightingReport,
+    db: sqlite3.Connection = Depends(get_db),
     finder_device_id: str = Depends(get_current_device_or_key),
 ):
     """Report a BLE sighting of a stolen device.
@@ -123,7 +125,6 @@ async def report_sighting(
     Called by finder phones when they detect a beacon.
     Validates the beacon_token to prevent false reports.
     """
-    db = get_db()
     now = datetime.now(timezone.utc).isoformat()
 
     # Validate beacon exists and is active
@@ -220,11 +221,11 @@ async def report_sighting(
 @router.get("/api/mesh/sightings/{device_id}")
 async def get_sightings(
     device_id: str,
+    db: sqlite3.Connection = Depends(get_db),
     limit: int = 20,
     user_id: str = Depends(get_current_device_or_key),
 ):
     """Get recent BLE sightings for a device (owner only)."""
-    db = get_db()
 
     # Verify ownership
     device = db.execute("SELECT owner_id FROM devices WHERE id=?", (device_id,)).fetchone()
@@ -255,6 +256,7 @@ async def get_sightings(
 @router.post("/api/recovery/sightings")
 async def report_sighting_via_recovery(
     report: SightingReport,
+    db: sqlite3.Connection = Depends(get_db),
     user_id: str = Depends(get_current_user),
 ):
     """Alias for /api/mesh/sighting — accepts user JWT auth.
@@ -263,7 +265,6 @@ async def report_sighting_via_recovery(
     not device auth. This endpoint resolves the user's device and
     forwards to the same sighting logic.
     """
-    db = get_db()
     now = datetime.now(timezone.utc).isoformat()
 
     # Find the user's first registered device (guardian scans from their own phone)
@@ -363,3 +364,37 @@ async def report_sighting_via_recovery(
     )
 
     return {"status": "ok", "message": "Sighting recorded"}
+
+
+# ─── Guardian Opt-in Profile ─────────────────────────────────────────────────
+# The Android GuardianBeaconScanner calls this BEFORE it starts each scan
+# cycle and only scans while the account's guardian profile says opted_in.
+# Until a community-recovery opt-in flow ships (none exists today), no
+# profile row is ever written — so this returns opted_in=false for every
+# account, which is the truthful state: the scanner stays off and no
+# volunteer sighting data is collected. When the opt-in UI ships, rows appear
+# here and scanning activates for the users who chose it.
+
+
+@router.get("/api/guardian/profile")
+async def get_guardian_profile(
+    db: sqlite3.Connection = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+):
+    """Return the caller's guardian opt-in state (user JWT auth).
+
+    Response shape matches what the Android GuardianBeaconScanner reads:
+    opted_in (bool) is the gate; handle/radius_km are null until the
+    volunteer flow exists.
+    """
+    row = db.execute(
+        "SELECT opted_in, handle, radius_km FROM guardian_profiles WHERE user_id=?",
+        (user_id,),
+    ).fetchone()
+    if not row:
+        return {"opted_in": False, "handle": None, "radius_km": None}
+    return {
+        "opted_in": bool(row["opted_in"]),
+        "handle": row["handle"],
+        "radius_km": row["radius_km"],
+    }

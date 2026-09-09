@@ -25,7 +25,7 @@ const BRAND_POINTS = [
   { icon: Radar, title: 'Live real-time tracking', text: 'WebSocket streaming to your command center' },
   { icon: Camera, title: 'Remote evidence capture', text: 'Photo & audio you can take to the police' },
   { icon: ShieldCheck, title: 'Theft detection', text: 'Automatic theft scoring with false-positive prevention' },
-  { icon: MapPin, title: 'Geofencing & alerts', text: 'Instant exit alerts via SMS, WhatsApp & push' },
+  { icon: MapPin, title: 'Geofencing & alerts', text: 'Instant exit alerts via push, email & SMS (WhatsApp in development)' },
 ];
 
 const TICKER_LINES = [
@@ -133,12 +133,12 @@ export default function LoginPage() {
   };
 
   const inputClass =
-    'w-full pl-10 pr-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white text-sm ' +
-    'placeholder:text-white/25 focus:outline-none focus:border-emerald-500/50 focus:bg-white/[0.06] ' +
+    'w-full pl-10 pr-4 py-3 bg-mag-surface border-mag-border rounded-xl text-mag-text text-sm ' +
+    'placeholder:text-mag-text-muted/40 focus:outline-none focus:border-emerald-500/50 focus:bg-mag-surface-raised ' +
     'focus:ring-1 focus:ring-emerald-500/20 transition-all duration-200';
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white relative overflow-hidden">
+    <div className="min-h-screen bg-mag-bg text-mag-text relative overflow-hidden">
       {/* Ambient background */}
       <div className="absolute inset-0 landing-vignette pointer-events-none" />
       <div className="absolute inset-0 landing-grid opacity-20 pointer-events-none" />
@@ -158,24 +158,24 @@ export default function LoginPage() {
       {/* Split Layout */}
       <div className="relative min-h-screen grid lg:grid-cols-2">
         {/* Left — Brand Showcase */}
-        <div className="hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-white/[0.06] bg-[#060609] relative overflow-hidden">
+        <div className="hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-mag-border/50 bg-mag-bg relative overflow-hidden">
           <div className="grid-floor" aria-hidden="true" />
 
           <div className="relative">
             <Link href="/" className="inline-flex items-center gap-2.5 group">
               <img src="/magneetar-mhalf.svg" alt="Magneetar" className="w-9 h-9 rounded-lg" />
               <div className="leading-none">
-                <div className="text-white text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
-                <div className="text-[8px] font-mono text-white/25 tracking-[0.3em] mt-1">COMMAND CENTER</div>
+                <div className="text-mag-text text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
+                <div className="text-[8px] font-mono text-mag-text-muted tracking-[0.3em] mt-1">COMMAND CENTER</div>
               </div>
             </Link>
 
             <h1 className="mt-14 text-4xl xl:text-[42px] font-display font-extrabold tracking-tight leading-[1.12] animate-fade-slide" style={{ animationDelay: '0.05s' }}>
               Your devices,
               <br />
-              <span className="text-white/30">under your command.</span>
+              <span className="text-mag-text-muted">under your command.</span>
             </h1>
-            <p className="mt-5 text-white/35 leading-relaxed max-w-md text-[15px] animate-fade-slide" style={{ animationDelay: '0.1s' }}>
+            <p className="mt-5 text-mag-text-muted leading-relaxed max-w-md text-[15px] animate-fade-slide" style={{ animationDelay: '0.1s' }}>
               Sign in to track, protect, and recover every device in your fleet — with intelligent
               detection and forensic-grade evidence.
             </p>
@@ -183,16 +183,15 @@ export default function LoginPage() {
 
           {/* Live Command-Center Telemetry */}
           <div className="relative my-10 animate-fade-slide" style={{ animationDelay: '0.15s' }}>
-            <div className="relative rounded-2xl border border-white/[0.08] bg-[#0a0a0f] shadow-2xl shadow-black/60 overflow-hidden">
-              {/* Window chrome */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-[#0c0c12]">
+            <div className="relative rounded-2xl border-mag-border/50 bg-mag-surface shadow-2xl shadow-black/60 overflow-hidden">
+              {/* Window chrome */}                <div className="flex items-center gap-2 px-4 py-3 border-b border-mag-border/50 bg-mag-surface">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]" />
                 <span className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E]" />
                 <span className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
                 <span className="ml-3 text-[9px] font-mono text-white/20 tracking-widest font-bold">
                   MAGNEETAR — COMMAND CENTER
                 </span>
-                <span className="ml-auto flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.06]">
+                <span className="ml-auto flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-mag-surface border-mag-border">
                   <Radar size={9} className="text-amber-400" />
                   <span className="text-[8px] font-mono font-bold tracking-wider text-amber-400">DEMO</span>
                 </span>
@@ -218,49 +217,49 @@ export default function LoginPage() {
                     </linearGradient>
                   </defs>
                 </svg>
-                <div className="absolute top-3 left-3 px-2.5 py-1.5 rounded-lg bg-black/60 border border-white/[0.08] backdrop-blur-md">
-                  <span className="text-[9px] font-mono font-bold tracking-wider text-white/40">6.5244° N, 3.3792° E</span>
+                <div className="absolute top-3 left-3 px-2.5 py-1.5 rounded-lg bg-mag-bg/80 border-mag-border/50 backdrop-blur-md">
+                  <span className="text-[9px] font-mono font-bold tracking-wider text-mag-text-dim">6.5244° N, 3.3792° E</span>
                 </div>
-                <div className="absolute bottom-3 right-3 px-2.5 py-1.5 rounded-lg bg-black/60 border border-white/[0.08] backdrop-blur-md flex items-center gap-1.5">
-                  <MapPin size={10} className="text-white/30" />
-                  <span className="text-[9px] font-mono font-bold tracking-wider text-white/40">12 m · 38 km/h</span>
+                <div className="absolute bottom-3 right-3 px-2.5 py-1.5 rounded-lg bg-mag-bg/80 border-mag-border/50 backdrop-blur-md flex items-center gap-1.5">
+                  <MapPin size={10} className="text-mag-text-muted" />
+                  <span className="text-[9px] font-mono font-bold tracking-wider text-mag-text-dim">12 m · 38 km/h</span>
                 </div>
               </div>
 
               {/* Readouts */}
-              <div className="grid grid-cols-3 gap-px bg-[#0c0c12] border-t border-white/[0.06]">
-                <div className="bg-[#0a0a0f] px-4 py-3">
-                  <div className="text-[8px] font-mono text-white/20 tracking-widest font-bold mb-1.5">THREAT</div>
+              <div className="grid grid-cols-3 gap-px bg-mag-surface border-t border-mag-border/50">
+                <div className="bg-mag-surface px-4 py-3">
+                  <div className="text-[8px] font-mono text-mag-text-muted tracking-widest font-bold mb-1.5">THREAT</div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]" />
-                    <span className="text-white/80 text-sm font-bold font-mono">SAFE</span>
+                    <span className="text-mag-text-dim text-sm font-bold font-mono">SAFE</span>
                   </div>
                 </div>
-                <div className="bg-[#0a0a0f] px-4 py-3">
-                  <div className="text-[8px] font-mono text-white/20 tracking-widest font-bold mb-1.5">SENTINEL</div>
+                <div className="bg-mag-surface px-4 py-3">
+                  <div className="text-[8px] font-mono text-mag-text-muted tracking-widest font-bold mb-1.5">SENTINEL</div>
                   <div className="flex items-center gap-2">
-                    <span className="text-white/80 text-sm font-bold font-mono">12</span>
-                    <div className="flex-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                    <span className="text-mag-text text-sm font-bold font-mono">12</span>
+                    <div className="flex-1 h-1 rounded-full border-mag-border/50 overflow-hidden">
                       <div className="bar-sweep h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400" />
                     </div>
                   </div>
                 </div>
-                <div className="bg-[#0a0a0f] px-4 py-3">
-                  <div className="text-[8px] font-mono text-white/20 tracking-widest font-bold mb-1.5">EVIDENCE</div>
+                <div className="bg-mag-surface px-4 py-3">
+                  <div className="text-[8px] font-mono text-mag-text-muted tracking-widest font-bold mb-1.5">EVIDENCE</div>
                   <div className="flex items-center gap-1.5">
-                    <Camera size={12} className="text-white/25" />
-                    <span className="text-white/80 text-sm font-bold font-mono">3 files</span>
+                    <Camera size={12} className="text-mag-text-muted" />
+                    <span className="text-mag-text-dim text-sm font-bold font-mono">3 files</span>
                   </div>
                 </div>
               </div>
 
               {/* Live ticker */}
-              <div className="border-t border-white/[0.06] bg-white/[0.01] overflow-hidden h-7">
+              <div className="border-t border-mag-border/50 bg-mag-surface/25 overflow-hidden h-7">
                 <div className="ticker-scroll">
                   {[0, 1].map((copy) => (
                     <div key={copy}>
                       {TICKER_LINES.map((line) => (
-                        <div key={`${copy}-${line}`} className="px-4 py-1 text-[9px] font-mono text-white/20 tracking-wider whitespace-nowrap leading-[18px]">
+                        <div key={`${copy}-${line}`} className="px-4 py-1 text-[9px] font-mono text-mag-text-muted tracking-wider whitespace-nowrap leading-[18px]">
                           <span className="text-emerald-500/50 mr-1.5">▸</span>
                           {line}
                         </div>
@@ -272,18 +271,18 @@ export default function LoginPage() {
             </div>
 
             {/* Floating chips */}
-            <div className="absolute -top-4 -right-3 sm:-right-6 px-3.5 py-2 rounded-xl border border-white/[0.08] bg-[#111118] shadow-xl shadow-black/50 animate-float-slow flex items-center gap-2">
+            <div className="absolute -top-4 -right-3 sm:-right-6 px-3.5 py-2 rounded-xl border-mag-border/50 bg-mag-surface shadow-xl shadow-black/50 animate-float-slow flex items-center gap-2">
               <span className="relative flex w-2 h-2">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
                 <span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-500" />
               </span>
-              <span className="text-[10px] font-mono font-bold text-white/60">Galaxy S24 · Demo device</span>
+              <span className="text-[10px] font-mono font-bold text-mag-text-dim">Galaxy S24 · Demo device</span>
             </div>
-            <div className="absolute -bottom-4 -left-3 sm:-left-6 px-3.5 py-2 rounded-xl border border-white/[0.08] bg-[#111118] shadow-xl shadow-black/50 animate-float-slow flex items-center gap-2" style={{ animationDelay: '-2.5s' }}>
+            <div className="absolute -bottom-4 -left-3 sm:-left-6 px-3.5 py-2 rounded-xl border-mag-border/50 bg-mag-surface shadow-xl shadow-black/50 animate-float-slow flex items-center gap-2" style={{ animationDelay: '-2.5s' }}>
               <span className="w-4 h-4 rounded-full bg-emerald-500/[0.1] border border-emerald-500/20 flex items-center justify-center">
                 <Check size={9} className="text-emerald-400" />
               </span>
-              <span className="text-[10px] font-mono font-bold text-white/60">Recovery enabled</span>
+              <span className="text-[10px] font-mono font-bold text-mag-text-dim">Recovery enabled</span>
             </div>
           </div>
         </div>
@@ -295,22 +294,22 @@ export default function LoginPage() {
             <Link href="/" className="lg:hidden inline-flex items-center gap-2.5 mb-10">
               <img src="/magneetar-mhalf.svg" alt="Magneetar" className="w-9 h-9 rounded-lg" />
               <div className="leading-none">
-                <div className="text-white text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
-                <div className="text-[8px] font-mono text-white/25 tracking-[0.3em] mt-1">COMMAND CENTER</div>
+                <div className="text-mag-text text-[15px] font-bold tracking-[0.25em]">MAGNEETAR</div>
+                <div className="text-[8px] font-mono text-mag-text-muted tracking-[0.3em] mt-1">COMMAND CENTER</div>
               </div>
             </Link>
 
             {/* Heading */}
             <div className="mb-8">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/[0.08] bg-white/[0.03] mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border-mag-border/50 bg-mag-surface mb-4">
                 <span className="relative flex w-1.5 h-1.5">
                   <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
                   <span className="relative inline-flex rounded-full w-1.5 h-1.5 bg-emerald-500" />
                 </span>
-                <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-white/40">SECURE ACCESS</span>
+                <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-mag-text-muted">SECURE ACCESS</span>
               </div>
-              <h2 className="text-2xl font-display font-extrabold tracking-tight text-white/90">Welcome back</h2>
-              <p className="mt-2 text-white/35 text-sm">
+              <h2 className="text-2xl font-display font-extrabold tracking-tight text-mag-text">Welcome back</h2>
+              <p className="mt-2 text-mag-text-muted text-sm">
                 Sign in to access your command center.
               </p>
             </div>
@@ -319,21 +318,21 @@ export default function LoginPage() {
             <div
               ref={cardRef}
               onMouseMove={handleCardMove}
-              className="spotlight-card relative rounded-2xl border border-white/[0.08] bg-[#0e0e14]/80 backdrop-blur-xl p-7 sm:p-8 shadow-2xl shadow-black/50"
+              className="spotlight-card relative rounded-2xl border-mag-border/50 bg-mag-surface/80 backdrop-blur-xl p-7 sm:p-8 shadow-2xl shadow-black/50"
             >
               <div className="relative z-10">
                 {step2fa ? (
                   <div className="animate-fade-in">
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl bg-mag-surface border-mag-border flex items-center justify-center">
                         <ShieldCheck size={17} className="text-emerald-400" />
                       </div>
                       <div>
-                        <h3 className="text-[15px] font-display font-extrabold tracking-tight text-white/90">Two-factor authentication</h3>
-                        <div className="text-[10px] font-mono text-white/25 font-bold mt-0.5">SECOND FACTOR REQUIRED</div>
+                        <h3 className="text-[15px] font-display font-extrabold tracking-tight text-mag-text">Two-factor authentication</h3>
+                        <div className="text-[10px] font-mono text-mag-text-muted font-bold mt-0.5">SECOND FACTOR REQUIRED</div>
                       </div>
                     </div>
-                    <p className="text-[12px] text-white/35 leading-relaxed mb-6">
+                    <p className="text-[12px] text-mag-text-muted leading-relaxed mb-6">
                       Enter the 6-digit code from your authenticator app
                       <span className="block mt-1 text-white/20 font-mono text-[10px]">for {email}</span>
                     </p>
@@ -341,7 +340,7 @@ export default function LoginPage() {
                     <form onSubmit={handleTwoFactorSubmit} noValidate>
                       <div className="space-y-4">
                         <div className="space-y-1.5">
-                          <label htmlFor="login-2fa-code" className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-bold">
+                          <label htmlFor="login-2fa-code" className="text-[10px] font-mono text-mag-text-muted uppercase tracking-[0.2em] font-bold">
                             Authenticator code
                           </label>
                           <input
@@ -352,7 +351,7 @@ export default function LoginPage() {
                             value={code}
                             onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             placeholder="000000"
-                            className={cn(inputClass, 'pl-4 text-center tracking-[0.5em] font-mono text-lg')}
+                            className={cn('mag-field-strong pl-4 text-center tracking-[0.5em] font-mono text-lg', 'text-lg')}
                             autoFocus
                           />
                         </div>
@@ -382,7 +381,7 @@ export default function LoginPage() {
                         </button>
 
                         <button type="button" onClick={() => { setStep2fa(false); setTwoFactorToken(''); setCode(''); setError(''); }} disabled={loading}
-                          className="w-full py-2 text-[11px] font-mono font-bold uppercase tracking-wider text-white/25 hover:text-white/50 transition-colors">
+                          className="w-full py-2 text-[11px] font-mono font-bold uppercase tracking-wider text-mag-text-muted hover:text-mag-text transition-colors">
                           ← Back to sign in
                         </button>
                       </div>
@@ -391,20 +390,20 @@ export default function LoginPage() {
                 ) : (
                   <>
                     {/* Mode toggle */}
-                    <div role="group" aria-label="Login mode" className="relative flex bg-white/[0.03] rounded-xl p-1 mb-7 border border-white/[0.06]">
+                    <div role="group" aria-label="Login mode" className="relative flex bg-mag-surface rounded-xl p-1 mb-7 border-mag-border/50">
                       <div
                         aria-hidden="true"
                         className={cn(
-                          'absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-lg bg-white/[0.06] border border-white/[0.08] shadow-sm transition-transform duration-300 ease-out',
+                          'absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-lg bg-mag-surface-raised border-mag-border shadow-sm transition-transform duration-300 ease-out',
                           mode === 'apikey' ? 'translate-x-full' : 'translate-x-0'
                         )}
                       />
                       <button type="button" aria-pressed={mode === 'account'} onClick={() => { setMode('account'); setError(''); }}
-                        className={cn('relative flex-1 py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors duration-200 font-mono', mode === 'account' ? 'text-white/90' : 'text-white/25 hover:text-white/50')}>
+                        className={cn('relative flex-1 py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors duration-200 font-mono', mode === 'account' ? 'text-mag-text' : 'text-mag-text-muted hover:text-mag-text-dim')}>
                         Account
                       </button>
                       <button type="button" aria-pressed={mode === 'apikey'} onClick={() => { setMode('apikey'); setError(''); }}
-                        className={cn('relative flex-1 py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors duration-200 font-mono', mode === 'apikey' ? 'text-white/90' : 'text-white/25 hover:text-white/50')}>
+                        className={cn('relative flex-1 py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors duration-200 font-mono', mode === 'apikey' ? 'text-mag-text' : 'text-mag-text-muted hover:text-mag-text-dim')}>
                         API Key
                       </button>
                     </div>
@@ -414,7 +413,7 @@ export default function LoginPage() {
                         {mode === 'account' ? (
                           <>
                             <div className="space-y-1.5">
-                              <label htmlFor="login-email" className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-bold">Email</label>
+                              <label htmlFor="login-email" className="text-[10px] font-mono text-mag-text-muted uppercase tracking-[0.2em] font-bold">Email</label>
                               <div className="relative">
                                 <Mail size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/15 pointer-events-none" />
                                 <input id="login-email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
@@ -424,17 +423,16 @@ export default function LoginPage() {
 
                             <div className="space-y-1.5">
                               <div className="flex items-center justify-between">
-                                <label htmlFor="login-password" className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-bold">Password</label>
-                                <Link href="/forgot-password" className="text-[10px] font-mono text-white/25 hover:text-white/60 font-bold transition-colors">Forgot password?</Link>
+                                <label htmlFor="login-password" className="text-[10px] font-mono text-mag-text-muted uppercase tracking-[0.2em] font-bold">Password</label>
+                                <Link href="/forgot-password" className="text-[10px] font-mono text-mag-text-muted hover:text-mag-text font-bold transition-colors">Forgot password?</Link>
                               </div>
                               <div className="relative">
-                                <Lock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/15 pointer-events-none" />
+                                <Lock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-mag-text-muted pointer-events-none" />
                                 <input id="login-password" name="password" type={showPassword ? 'text' : 'password'} value={password}
                                   onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" autoComplete="current-password"
-                                  className={cn(inputClass, 'pr-11')} />
-                                <button type="button" onClick={() => setShowPassword((v) => !v)}
+                                  className={cn(inputClass, 'pr-11')} />                                  <button type="button" onClick={() => setShowPassword((v) => !v)}
                                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50 transition-colors">
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-mag-text-muted hover:text-mag-text transition-colors">
                                   {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                                 </button>
                               </div>
@@ -442,9 +440,9 @@ export default function LoginPage() {
                           </>
                         ) : (
                           <div className="space-y-1.5">
-                            <label htmlFor="api-key-input" className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-bold">API Key</label>
+                            <label htmlFor="api-key-input" className="text-[10px] font-mono text-mag-text-muted uppercase tracking-[0.2em] font-bold">API Key</label>
                             <div className="relative">
-                              <KeyRound size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/15 pointer-events-none" />
+                              <KeyRound size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-mag-text-muted pointer-events-none" />
                               <input id="api-key-input" name="apiKey" type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                                 placeholder="Enter your master API key" autoComplete="off" className={inputClass} />
                             </div>
@@ -485,7 +483,7 @@ export default function LoginPage() {
             </div>
 
             {/* Signup prompt */}
-            <p className="mt-7 text-center text-[13px] text-white/30">
+            <p className="mt-7 text-center text-[13px] text-mag-text-muted">
               New to Magneetar?{' '}
               <Link href="/signup" className="text-emerald-400 hover:text-emerald-300 font-semibold transition-colors">
                 Create an account
@@ -499,9 +497,9 @@ export default function LoginPage() {
                 { icon: KeyRound, label: 'BCRYPT' },
                 { icon: ShieldCheck, label: 'RATE-LIMITED' },
               ].map((item) => (
-                <div key={item.label} className="flex items-center gap-1.5 text-white/15">
+                <div key={item.label} className="flex items-center gap-1.5 text-mag-text-muted/60">
                   <item.icon size={10} />
-                  <span className="text-[9px] font-mono font-bold tracking-wider">{item.label}</span>
+                  <span className="text-[9px] font-mono font-bold tracking-wider text-mag-text-muted/60">{item.label}</span>
                 </div>
               ))}
             </div>

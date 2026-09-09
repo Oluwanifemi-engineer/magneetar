@@ -99,8 +99,8 @@ export function SubscriptionPage() {
   if (loading) {
     return (
       <div className="p-6 space-y-4">
-        <div className="h-6 bg-gray-100 rounded animate-pulse w-1/3" />
-        <div className="h-32 bg-gray-50 rounded-lg animate-pulse" />
+        <div className="h-6 bg-mag-surface rounded animate-pulse w-1/3" />
+        <div className="h-32 bg-mag-surface/50 rounded-lg animate-pulse" />
       </div>
     );
   }
@@ -111,27 +111,27 @@ export function SubscriptionPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-lg font-display font-bold text-gray-900">Subscription</h2>
-        <p className="text-xs text-gray-700 mt-1">
+        <h2 className="text-lg font-display font-bold text-mag-text">Subscription</h2>
+        <p className="text-xs text-mag-text-muted mt-1">
           Manage your plan and billing
         </p>
       </div>
 
       {/* Current Plan */}
-      <div className="p-4 rounded-xl border border-gray-200 bg-gray-50">
+      <div className="p-4 rounded-xl border border-mag-border bg-mag-surface">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs font-mono text-gray-700 uppercase tracking-wider font-bold">
+            <div className="text-xs font-mono text-mag-text-muted uppercase tracking-wider font-bold">
               Current Plan
             </div>
-            <div className="text-sm font-bold text-gray-900 mt-1 capitalize">
+            <div className="text-sm font-bold text-mag-text mt-1 capitalize">
               {currentTier}
             </div>
           </div>
           {subscription?.current_period_end && (
             <div className="text-right">
-              <div className="text-[10px] font-mono text-gray-700">Renews</div>
-              <div className="text-xs font-mono text-gray-900">
+              <div className="text-[10px] font-mono text-mag-text-muted">Renews</div>
+              <div className="text-xs font-mono text-mag-text">
                 {new Date(subscription.current_period_end).toLocaleDateString()}
               </div>
             </div>
@@ -145,8 +145,8 @@ export function SubscriptionPage() {
           onClick={() => setBillingCycle('monthly')}
           className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold transition-all ${
             billingCycle === 'monthly'
-              ? 'bg-gray-900 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-mag-surface-raised text-mag-text'
+              : 'bg-mag-surface text-mag-text-muted hover:bg-mag-surface-raised'
           }`}
         >
           Monthly
@@ -155,8 +155,8 @@ export function SubscriptionPage() {
           onClick={() => setBillingCycle('yearly')}
           className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold transition-all ${
             billingCycle === 'yearly'
-              ? 'bg-gray-900 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-mag-surface-raised text-mag-text'
+              : 'bg-mag-surface text-mag-text-muted hover:bg-mag-surface-raised'
           }`}
         >
           Yearly
@@ -176,8 +176,8 @@ export function SubscriptionPage() {
               key={plan.id}
               className={`relative p-4 rounded-xl border transition-all ${
                 isCurrent
-                  ? 'border-gray-900 bg-gray-900 text-white'
-                  : 'border-gray-200 bg-white hover:border-gray-300'
+                  ? 'border-mag-border bg-mag-surface text-mag-text'
+                  : 'border-mag-border bg-mag-surface/50 hover:border-mag-border/50'
               }`}
             >
               {plan.popular && !isCurrent && (
@@ -189,21 +189,21 @@ export function SubscriptionPage() {
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    isCurrent ? 'bg-white/10' : 'bg-gray-50'
+                    isCurrent ? 'bg-mag-primary/10' : 'bg-mag-surface'
                   }`}>
-                    <Icon size={18} className={isCurrent ? 'text-white' : 'text-gray-700'} />
+                    <Icon size={18} className={isCurrent ? 'text-mag-text' : 'text-mag-text-muted'} />
                   </div>
                   <div>
-                    <div className={`text-sm font-bold ${isCurrent ? 'text-white' : 'text-gray-900'}`}>
+                    <div className={`text-sm font-bold ${isCurrent ? 'text-mag-text' : 'text-mag-text'}`}>
                       {plan.name}
                     </div>
                     <div className="flex items-baseline gap-1">
-                      <span className={`text-xl font-display font-extrabold ${isCurrent ? 'text-white' : 'text-gray-900'}`}>
+                      <span className={`text-xl font-display font-extrabold ${isCurrent ? 'text-mag-text' : 'text-mag-text'}`}>
                         {billingCycle === 'yearly' && plan.yearlyPrice
                           ? `₦${parseInt(plan.yearlyPrice.replace(/[₦,]/g, '')) / 12}`
                           : plan.price}
                       </span>
-                      <span className={`text-[10px] font-mono ${isCurrent ? 'text-white/60' : 'text-gray-700'}`}>
+                      <span className={`text-[10px] font-mono ${isCurrent ? 'text-mag-text-muted' : 'text-mag-text-muted'}`}>
                         {billingCycle === 'yearly' ? '/month (billed yearly)' : plan.period}
                       </span>
                     </div>
@@ -213,14 +213,14 @@ export function SubscriptionPage() {
                 {!isCurrent && isUpgrade && (
                   <button
                     onClick={() => handleUpgrade(plan.id)}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold transition-colors"
+                    className="px-3 py-1.5 rounded-lg bg-mag-primary hover:bg-mag-primary-dim text-white text-[10px] font-bold transition-colors"
                   >
                     Upgrade
                   </button>
                 )}
 
                 {isCurrent && (
-                  <span className="px-2 py-1 rounded-lg bg-white/10 text-[10px] font-mono font-bold">
+                  <span className="px-2 py-1 rounded-lg bg-mag-primary/10 text-[10px] font-mono font-bold text-mag-text-muted">
                     CURRENT
                   </span>
                 )}
@@ -230,7 +230,7 @@ export function SubscriptionPage() {
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-center gap-2">
                     <Check size={12} className={isCurrent ? 'text-emerald-400' : 'text-emerald-500'} />
-                    <span className={`text-[11px] ${isCurrent ? 'text-white/80' : 'text-gray-700'}`}>
+                    <span className={`text-[11px] ${isCurrent ? 'text-mag-text-muted' : 'text-mag-text-muted'}`}>
                       {feature}
                     </span>
                   </li>
@@ -242,12 +242,12 @@ export function SubscriptionPage() {
       </div>
 
       {/* Payment Method */}
-      <div className="p-4 rounded-xl border border-gray-200 bg-gray-50">
+      <div className="p-4 rounded-xl border border-mag-border bg-mag-surface">
         <div className="flex items-center gap-2 mb-2">
-          <CreditCard size={14} className="text-gray-700" />
-          <span className="text-xs font-bold text-gray-900">Payment</span>
+          <CreditCard size={14} className="text-mag-text-muted" />
+          <span className="text-xs font-bold text-mag-text">Payment</span>
         </div>
-        <p className="text-[10px] text-gray-700 leading-relaxed">
+        <p className="text-[10px] text-mag-text-muted leading-relaxed">
           Payments are processed securely via Paystack. We accept all Nigerian debit cards,
           bank transfers, and USSD. You can cancel anytime from this page.
         </p>

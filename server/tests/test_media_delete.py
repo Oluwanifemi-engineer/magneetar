@@ -8,7 +8,6 @@ destroy evidence, and brute-forcing must be rate-limited.
 """
 
 import os
-import secrets
 import tempfile
 
 import pytest
@@ -18,9 +17,9 @@ from fastapi.testclient import TestClient
 _test_db_fd, test_db_path = tempfile.mkstemp(suffix=".db")
 os.close(_test_db_fd)
 
-os.environ["MT_API_KEY"] = "media-del-test-key-" + "a" * 32
-os.environ["MT_JWT_SECRET"] = "media-del-jwt-secret-" + "b" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
+os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
+os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 os.environ["MT_DB_PATH"] = test_db_path
 
 import config  # noqa: E402 (env set above)
@@ -98,17 +97,23 @@ def seed_device(device_id: str, user_token: str = None) -> dict:
 @pytest.fixture(autouse=True)
 def reset_db_state():
     with database.get_db_context() as conn:
+        # Delete in order respecting foreign keys
         for table in (
             "media",
+            "evidence_cases",
             "locations",
             "commands",
-            "evidence_cases",
             "alerts",
             "heartbeats",
             "geofences",
             "recovery_sightings",
             "recovery_requests",
+            "device_shares",
+            "fcm_tokens",
             "devices",
+            "api_keys",
+            "password_reset_tokens",
+            "email_verify_tokens",
             "users",
             "audit_log",
             "rate_limits",

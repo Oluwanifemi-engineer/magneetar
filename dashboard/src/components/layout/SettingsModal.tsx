@@ -330,8 +330,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             </span>
           </div>
           <div className="text-[10px] font-mono text-gray-700 leading-relaxed pt-2 border-t border-gray-200">
-            Alert recipients (SMS / WhatsApp / email) are set per device under Location →
-            Alert Settings.
+            Alert recipients (push, email, and SMS where the device allows it) are set per device under Location →
+            Alert Settings. WhatsApp alerting is under development.
           </div>
         </div>
 

@@ -25,7 +25,7 @@ const TESTIMONIALS = [
 
 const TRUST_SIGNALS = [
   { value: '256-bit', label: 'Encryption', icon: Lock },
-  { value: 'Tamper-proof', label: 'Evidence integrity', icon: ShieldCheck },
+  { value: 'Tamper-evident', label: 'Evidence integrity', icon: ShieldCheck },
   { value: 'Open', label: 'Source code', icon: Code },
   { value: 'Zero', label: 'Data sold', icon: EyeOff },
 ];
@@ -46,7 +46,7 @@ export function Testimonials() {
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-4">
             Trusted by families &amp; teams.
           </h2>
-          <p className="text-gray-400 text-base max-w-lg mx-auto">
+          <p className="text-mag-text-muted text-base max-w-lg mx-auto">
             From university students to logistics companies — Magneetar protects what matters.
           </p>
         </div>
@@ -56,7 +56,7 @@ export function Testimonials() {
           {TESTIMONIALS.map((t) => (
             <div
               key={t.name}
-              className="relative rounded-2xl bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.06] p-6 hover:border-emerald-500/15 transition-all duration-400 group"
+              className="relative rounded-2xl bg-gradient-to-b from-mag-surface to-mag-bg border-mag-border p-6 hover:border-emerald-500/15 transition-all duration-400 group"
             >
               {/* Top emerald accent */}
               <div className="absolute top-0 left-10 right-10 h-px bg-gradient-to-r from-transparent via-emerald-500/0 to-transparent group-hover:via-emerald-500/30 transition-all duration-500" />
@@ -69,17 +69,17 @@ export function Testimonials() {
               </div>
 
               {/* Quote */}
-              <p className="text-[13px] leading-relaxed text-gray-300 mb-5">
+              <p className="text-[13px] leading-relaxed text-mag-text-dim mb-5">
                 &ldquo;{t.quote}&rdquo;
               </p>
 
               {/* Author */}
-              <div className="flex items-center justify-between pt-4 border-t border-white/[0.06]">
+              <div className="flex items-center justify-between pt-4 border-t border-mag-border/50">
                 <div>
-                  <div className="text-[12px] font-bold text-white">{t.name}</div>
-                  <div className="text-[10px] font-mono text-gray-500">{t.role}</div>
+                  <div className="text-[12px] font-bold text-mag-text">{t.name}</div>
+                  <div className="text-[10px] font-mono text-mag-text-muted">{t.role}</div>
                 </div>
-                <span className="text-[9px] font-mono text-gray-600 px-2 py-1 rounded bg-white/[0.03] border border-white/[0.04]">
+                <span className="text-[9px] font-mono text-mag-text-muted px-2 py-1 rounded border-mag-border/50 bg-mag-surface">
                   {t.device}
                 </span>
               </div>
@@ -90,10 +90,10 @@ export function Testimonials() {
         {/* Trust signals bar */}
         <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-4">
           {TRUST_SIGNALS.map((s) => (
-            <div key={s.label} className="text-center py-5 rounded-xl bg-gradient-to-b from-white/[0.03] to-transparent border border-white/[0.04] hover:border-emerald-500/10 transition-all duration-300 group">
-              <s.icon size={16} className="text-gray-500 mx-auto mb-3 group-hover:text-emerald-400/60 transition-colors" />
-              <div className="text-lg font-extrabold text-white font-mono tabular-nums">{s.value}</div>
-              <div className="text-[10px] font-mono text-gray-500 uppercase tracking-wider mt-1">{s.label}</div>
+            <div key={s.label} className="text-center py-5 rounded-xl bg-gradient-to-b from-mag-surface to-mag-bg border-mag-border hover:border-emerald-500/10 transition-all duration-300 group">
+              <s.icon size={16} className="text-mag-text-muted mx-auto mb-3 group-hover:text-emerald-400/60 transition-colors" />
+              <div className="text-lg font-extrabold text-mag-text font-mono tabular-nums">{s.value}</div>
+              <div className="text-[10px] font-mono text-mag-text-muted uppercase tracking-wider mt-1">{s.label}</div>
             </div>
           ))}
         </div>

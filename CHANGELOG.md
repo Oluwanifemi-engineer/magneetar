@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — 2026-09-04 (release-candidate hardening)
+
+### Fixed
+
+- **Sentinel velocity bands**: vehicle-speed signal now starts above 45 km/h
+  (no human runs faster) instead of 120 km/h — a phone fleeing at 100 km/h in
+  a car was scored as a jogger (+10 "running") instead of motorized flight
+  (+25 "vehicle") and the dashboard told owners "Moving at running speed:
+  100 km/h". 30 deterministic scoring edge-case tests added
+  (`test_sentinel_scoring_edges.py`: 100-point cap, exact level thresholds,
+  velocity/battery/queue boundaries, the 2–5am unusual-time window on both
+  sides, confirmation-gate streak and decay). Removed four unreachable
+  `THEFT_SIGNALS` entries that had no model field or scoring path.
+- **Live marketing overclaims removed from deployed static exports**: the
+  `public/*.html` exports (the shipped site — `output: 'export'`) had not
+  been re-synced since the Aug 27 "strip overclaims" component rewrite, so
+  the live pages still claimed Military-grade / Sentinel AI / Phantom Mode /
+  Guardian Network / Zero-knowledge encryption. Rebuilt and re-synced all 12
+  exports; download page "Guardian Network recovery" → "Geofence safe
+  zones"; landing "Open source" → "Source-available" (BSL 1.1 is not an OSI
+  license); product badge "Tamper-proof" → "Uninstall-resistant"; evidence
+  claims "Tamper-proof" → "Tamper-evident" (SHA-256 chain detects, not
+  prevents, tampering).
+- **Privacy policy rewritten to shipped reality (§1/§2/§5/§7, v1.1)**: the
+  policy described a volunteer-guardian network (public handles, search
+  radius, blurred sightings, withdrawal) that no code path can activate —
+  the opt-in API the Android scanner calls did not exist. Section 5 now
+  states community recovery is under development, describes device-owner
+  recovery accurately, and commits to revising the policy before any
+  community feature ships.
+- **Mesh handlers crashed on every authenticated request**: all handlers
+  used `db = get_db()` directly, but `get_db()` is a generator dependency —
+  any valid-authenticated call hit `AttributeError` (only auth-rejection
+  paths were tested). Converted to the standard
+  `db: Connection = Depends(get_db)` injection; added the missing
+  `GET /api/guardian/profile` contract the Android GuardianBeaconScanner
+  calls (truthfully returns `opted_in: false` — no opt-in flow exists yet).
+- **Removed three dead feature flags** (`new_geofence_ui`, `device_sharing`,
+  `sentinel_ai`) — zero references in server or dashboard, contradicting the
+  file's own "only flags backed by working code" comment.
+- Android sideload build verified on JDK 21; backend at **652 tests**,
+  dashboard at **208 tests**, all green.
+
+---
+
 ## [Unreleased] — 2026-08-18
 
 ### Feature — Offline Device Network (Phases A–C, the Find Network mesh scale-out)

@@ -1,8 +1,10 @@
 # Magneetar — Battery Drain Analysis & Fix Plan
 
-**Date:** 2026-08-22
+**Date:** 2026-08-22 (analysis) · Fix shipped same day
 **Device:** Samsung SM-A037F (Galaxy A03s, ~5000 mAh)
-**Status:** 🟡 Over budget — root cause identified, fix planned
+**Status:** ✅ Fix implemented (commit `0fadc89`, adaptive cadence) —
+**48h field re-measurement on D1 still pending** (this doc's numbers are the
+PRE-fix measurement; do not quote 21.6%/day as current reality)
 
 ---
 
@@ -88,7 +90,7 @@ The 3s interval is only reduced when the Kalman filter confirms the device is st
 | Step | Effort | Status |
 |------|--------|--------|
 | Analysis + root cause | Done | ✅ |
-| Implement adaptive cadence | 1 day | 🔲 |
-| Unit tests for interval transitions | 0.5 day | 🔲 |
-| Field test on D1 (48h battery measurement) | 2 days | 🔲 |
-| Update G1 tracker with new battery numbers | — | 🔲 |
+| Implement adaptive cadence | 1 day | ✅ Shipped 2026-08-22 (`TrackingService.resolveLocationInterval` + `reRegisterLocationListeners`) |
+| Unit tests for interval transitions | 0.5 day | ✅ `AdaptiveCadenceTest.kt` — 15 JVM tests (debounce boundaries, moving/stationary, battery-saver overrides, charging) |
+| Field test on D1 (48h battery measurement) | 2 days | 🔲 OPEN — the honest next step before quoting a new %/day number |
+| Update G1 tracker with new battery numbers | — | 🔲 Depends on the field test above |

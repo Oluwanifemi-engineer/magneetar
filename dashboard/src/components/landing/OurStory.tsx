@@ -16,24 +16,24 @@ export function OurStory() {
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
           We built this because
           <br />
-          <span className="text-gray-500">existing solutions failed us.</span>
+          <span className="text-mag-text-muted">existing solutions failed us.</span>
         </h2>
 
         <div className="mt-10 max-w-2xl mx-auto space-y-5 text-left">
-          <p className="text-[15px] leading-relaxed text-gray-400">
+          <p className="text-[15px] leading-relaxed text-mag-text-muted">
             At universities across Nigeria and Africa, your phone is how you stay connected to
             family. When it gets stolen, you learn fast that Google Find My Device does not work
             reliably on most Android phones. Recovery agents charge tens of thousands of naira
             with no guarantee.
           </p>
 
-          <p className="text-[15px] leading-relaxed text-gray-400">
+          <p className="text-[15px] leading-relaxed text-mag-text-muted">
             We built Magneetar to fix that. A phone tracker that works on the phones students
             actually use, on the networks we actually have, and survives the real-world conditions
             where other trackers fail.
           </p>
 
-          <p className="text-[15px] leading-relaxed text-gray-300 font-medium">
+          <p className="text-[15px] leading-relaxed text-mag-text font-medium">
             Free for your first device. Because everyone deserves to stay connected.
           </p>
         </div>
@@ -44,7 +44,7 @@ export function OurStory() {
               <GraduationCap size={20} className="text-emerald-400/70" />
             </div>
             <div className="text-white font-semibold text-sm">Built by students</div>
-            <div className="text-[12px] text-gray-500 mt-1 leading-relaxed">
+            <div className="text-[12px] text-mag-text-muted mt-1 leading-relaxed">
               We live the problem. We built the solution.
             </div>
           </div>
@@ -54,7 +54,7 @@ export function OurStory() {
               <Shield size={20} className="text-emerald-400/70" />
             </div>
             <div className="text-white font-semibold text-sm">Built for real failure</div>
-            <div className="text-[12px] text-gray-500 mt-1 leading-relaxed">
+            <div className="text-[12px] text-mag-text-muted mt-1 leading-relaxed">
               Offline, battery saving, SIM change — designed to keep working where others do not.
             </div>
           </div>
@@ -64,7 +64,7 @@ export function OurStory() {
               <Heart size={20} className="text-emerald-400/70" />
             </div>
             <div className="text-white font-semibold text-sm">Free to start</div>
-            <div className="text-[12px] text-gray-500 mt-1 leading-relaxed">
+            <div className="text-[12px] text-mag-text-muted mt-1 leading-relaxed">
               Protect your phone at no cost. Upgrade when you are ready.
             </div>
           </div>

@@ -54,19 +54,19 @@ export function Security() {
             <br />
             <span className="bg-gradient-to-r from-gray-400 to-gray-500 bg-clip-text text-transparent">Protected at every step.</span>
           </h2>
-          <p className="mt-5 text-gray-400 leading-relaxed max-w-lg">
+          <p className="mt-5 text-mag-text-muted leading-relaxed max-w-lg">
             Magneetar protects your location, evidence, and account with multiple layers of security — so even if something goes wrong, your data stays safe.
           </p>
 
           <div className="mt-8 space-y-4">
             {SECURITY_POINTS.map((point) => (
               <div key={point.title} className="flex items-start gap-4 group">
-                <div className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center shrink-0 group-hover:bg-emerald-500/10 group-hover:border-emerald-500/20 transition-all">
-                  <point.icon size={16} className="text-gray-400 group-hover:text-emerald-400 transition-colors" />
+                <div className="w-9 h-9 rounded-lg bg-mag-surface border-mag-border flex items-center justify-center shrink-0 group-hover:bg-emerald-500/10 group-hover:border-emerald-500/20 transition-all">
+                  <point.icon size={16} className="text-mag-text-muted group-hover:text-emerald-400 transition-colors" />
                 </div>
                 <div>
-                  <div className="text-white font-semibold text-sm">{point.title}</div>
-                  <div className="text-[12.5px] text-gray-400 leading-relaxed mt-1">{point.description}</div>
+                  <div className="text-mag-text font-semibold text-sm">{point.title}</div>
+                  <div className="text-[12.5px] text-mag-text-muted leading-relaxed mt-1">{point.description}</div>
                 </div>
               </div>
             ))}
@@ -81,10 +81,10 @@ export function Security() {
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-glow-sm" />
             </div>
             <div
-              className="absolute inset-6 rounded-full border border-dashed border-white/[0.06] animate-slow-spin"
+              className="absolute inset-6 rounded-full border border-dashed border-mag-border/50 animate-slow-spin"
               style={{ animationDirection: 'reverse', animationDuration: '18s' }}
             >
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-gray-500" />
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-mag-text-muted/50" />
             </div>
 
             {/* Core shield */}
@@ -96,10 +96,10 @@ export function Security() {
             </div>
 
             {/* Status chips */}
-            <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full border border-emerald-500/20 bg-[#0c1220] text-[10px] font-mono font-bold text-emerald-400/80 shadow-elevation-2">
+            <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full border border-emerald-500/20 bg-mag-landing text-[10px] font-mono font-bold text-emerald-400/80 shadow-elevation-2">
               2FA PROTECTED
             </div>
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full border border-white/10 bg-[#0c1220] text-[10px] font-mono font-bold text-white/50 shadow-elevation-2">
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full border border-mag-border/50 bg-mag-landing text-[10px] font-mono font-bold text-mag-text-dim shadow-elevation-2">
               ENCRYPTED
             </div>
           </div>

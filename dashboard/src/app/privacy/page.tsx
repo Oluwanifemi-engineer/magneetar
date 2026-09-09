@@ -26,16 +26,14 @@ const SECTIONS = [
       'Device telemetry: location coordinates, speed, battery level, network type, signal strength, and sensor-derived context from devices you register and authorize.',
       'Evidence media: photos and audio captured by your device during an active theft response, stored with a SHA-256 hash chain for tamper-evident integrity.',
       'Device identifiers: hashed device keys, SIM serial hashes, and app/OS versions used solely to bind your account to your devices and to detect SIM swaps.',
-      'Guardian Network data: an optional public handle, search radius, and sighting reports you submit when you volunteer as a guardian.',
     ],
   },
   {
     icon: Radar,
     title: '2. How We Use Your Data',
     body: [
-      'Delivering the anti-theft service: theft detection (Sentinel AI), real-time tracking, geofencing, remote lock/wipe commands, and evidence capture.',
-      'Community recovery: when you opt in as a Guardian, active recovery requests within your radius are shown with blurred locations. Your identity is never exposed to owners — only your chosen handle.',
-      'Sending alerts via the channels you configure (SMS, WhatsApp, email, or push notifications) when theft or geofence events occur.',
+      'Delivering the anti-theft service: theft detection, real-time tracking, geofencing, remote lock/wipe commands, and evidence capture.',
+      'Sending alerts via the channels you configure (push, email, and SMS when the device supports it; WhatsApp alerting is under development) when theft or geofence events occur.',
       'Improving reliability: anonymized operational metrics and error reports (optionally via Sentry crash reporting) to keep the service stable.',
     ],
   },
@@ -61,12 +59,12 @@ const SECTIONS = [
   },
   {
     icon: Users,
-    title: '5. Guardian Network & Community Recovery',
+    title: '5. Community Recovery (Development Status)',
     body: [
-      'Opt-in only: you are never a Guardian unless you explicitly enable it. Likewise, launching a recovery request is always your choice.',
-      'Privacy by blur: guardians see a blurred area (not the exact location) of an active recovery request, plus the device model and your chosen description.',
-      'Anonymity: guardians are identified by their handle only. Owners never see guardian account details, and guardians never see owner identities.',
-      'Data minimization: sighting reports contain a coordinate, a note, and your handle — nothing else. You can withdraw from the Guardian Network at any time.',
+      'Community recovery — other users volunteering to help locate a lost device — is under development and not yet available. No guardian profiles, public handles, search radii, or volunteer sighting reports are collected today.',
+      'What exists now: recovery happens between devices you own. A lost device can broadcast an encrypted beacon, and your other paired devices can detect it — offline and without the server seeing anything beyond what your own account already shares.',
+      'No location data is shared with other Magneetar users. Every location your devices report is visible only to the account that owns them.',
+      'This section will be revised before any community-recovery feature goes live, describing exactly what participating devices collect and share.',
     ],
   },
   {
@@ -86,7 +84,7 @@ const SECTIONS = [
       'Export: request a copy of your account data at any time.',
       'Deletion: delete your account or any individual device and its history from the dashboard — deletion is permanent.',
       'Correction: update your display name, alert recipients, and device aliases at any time.',
-      'Withdrawal: revoke Guardian Network participation, stop background tracking, or disable alerts with a single toggle.',
+      'Withdrawal: stop background tracking at any time through your device settings, and disable alerts per device from the dashboard.',
       'Contact: privacy@magneetar.me for any privacy request or question. We respond within 30 days.',
     ],
   },
@@ -115,7 +113,7 @@ export default function PrivacyPage() {
         {/* Back link */}
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-[11px] font-mono font-bold tracking-wider text-gray-400 hover:text-gray-900 transition-colors"
+          className="inline-flex items-center gap-2 text-[11px] font-mono font-bold tracking-wider text-mag-text-muted hover:text-mag-text transition-colors"
         >
           <ArrowLeft size={13} />
           BACK TO HOME
@@ -125,25 +123,25 @@ export default function PrivacyPage() {
         <header className="mt-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 bg-gray-50 mb-5">
             <ShieldCheck size={12} className="text-gray-900" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-gray-500">PRIVACY POLICY</span>
+            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-mag-text-muted">PRIVACY POLICY</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-display font-extrabold tracking-tight leading-[1.1]">
             Your data.
             <br />
-            <span className="text-gray-400">Under your command.</span>
+            <span className="text-mag-text-dim">Under your command.</span>
           </h1>
-          <p className="mt-5 text-gray-500 leading-relaxed max-w-2xl text-[15px]">
+          <p className="mt-5 text-mag-text-muted leading-relaxed max-w-2xl text-[15px]">
             Magneetar protects devices — and the people who own them. This policy explains what we collect,
             why we collect it, and the controls you have over your information. It applies to the Magneetar
             Android app, the web command center, and the Magneetar API.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-4">
-            <span className="px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-[10px] font-mono text-gray-400">
+            <span className="px-3 py-1.5 rounded-lg border-mag-border/50 bg-mag-surface text-[10px] font-mono text-mag-text-muted">
               EFFECTIVE · AUGUST 1, 2026
             </span>
-            <span className="px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-[10px] font-mono text-gray-400">
-              VERSION 1.0
+            <span className="px-3 py-1.5 rounded-lg border-mag-border/50 bg-mag-surface text-[10px] font-mono text-mag-text-muted">
+              VERSION 1.1
             </span>
             <span className="px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] text-[10px] font-mono font-bold text-emerald-300 flex items-center gap-1.5">
               <CheckCircle2 size={11} />
@@ -168,7 +166,7 @@ export default function PrivacyPage() {
                   <h2 className="text-lg font-display font-bold tracking-tight text-gray-900">{section.title}</h2>
                   <ul className="mt-4 space-y-3">
                     {section.body.map((point) => (
-                      <li key={point} className="flex gap-3 text-[13.5px] leading-relaxed text-gray-500">
+                      <li key={point} className="flex gap-3 text-[13.5px] leading-relaxed text-mag-text-muted">
                         <span className="mt-[7px] w-1.5 h-1.5 shrink-0 rounded-full bg-gradient-to-r from-[#FFFFFF] to-[#06B6D4]" aria-hidden="true" />
                         <span>{point}</span>
                       </li>
@@ -184,7 +182,7 @@ export default function PrivacyPage() {
         <div className="mt-12 rounded-2xl border border-[#FFFFFF]/20 bg-gradient-to-br from-[#FFFFFF]/[0.06] to-[#06B6D4]/[0.04] p-8 text-center">
           <Lock size={20} className="mx-auto text-[#FFFFFF]" />
           <h2 className="mt-3 text-xl font-display font-bold tracking-tight">Questions about your privacy?</h2>
-          <p className="mt-2 text-[13.5px] text-gray-500 max-w-lg mx-auto">
+          <p className="mt-2 text-[13.5px] text-mag-text-muted max-w-lg mx-auto">
             Email our data protection contact at{' '}
             <a href="mailto:privacy@magneetar.me" className="text-gray-900 hover:text-[#22D3EE] font-semibold transition-colors">
               privacy@magneetar.me

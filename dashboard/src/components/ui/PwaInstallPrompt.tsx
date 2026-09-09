@@ -81,7 +81,7 @@ export function PwaInstallPrompt() {
           <div className="text-xs font-bold text-white mb-0.5">
             Install Magneetar
           </div>
-          <p className="text-[10px] text-gray-400 leading-relaxed">
+          <p className="text-[10px] text-mag-text-muted leading-relaxed">
             Add to your home screen for instant access and offline support.
           </p>
 
@@ -95,7 +95,7 @@ export function PwaInstallPrompt() {
             </button>
             <button
               onClick={handleDismiss}
-              className="px-3 py-1.5 rounded-lg border border-gray-700 text-[10px] font-bold text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+              className="px-3 py-1.5 rounded-lg border-mag-border/50 text-[10px] font-bold text-mag-text-muted hover:text-mag-text hover:border-mag-border transition-colors"
             >
               Later
             </button>
@@ -104,8 +104,7 @@ export function PwaInstallPrompt() {
 
         {/* Close */}
         <button
-          onClick={handleDismiss}
-          className="text-gray-600 hover:text-gray-400 transition-colors shrink-0"
+          onClick={handleDismiss}            className="text-mag-text-muted hover:text-mag-text-dim transition-colors shrink-0"
           aria-label="Dismiss install prompt"
         >
           <X size={14} />

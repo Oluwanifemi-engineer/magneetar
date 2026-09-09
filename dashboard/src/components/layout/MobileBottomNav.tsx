@@ -52,11 +52,11 @@ export function MobileBottomNav() {
       {showMore && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            className="absolute inset-0 bg-mag-bg/80 backdrop-blur-md"
             onClick={() => setShowMore(false)}
           />
-          <div className="absolute bottom-20 left-2 right-2 bg-[#111118]/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/[0.08] p-3 animate-fade-in">
-            <div className="text-[8px] font-mono text-white/30 uppercase tracking-wider font-bold px-2 mb-2">
+          <div className="absolute bottom-20 left-2 right-2 bg-mag-surface-raised/95 backdrop-blur-xl rounded-2xl shadow-2xl border-mag-border p-3 animate-fade-in">
+            <div className="text-[8px] font-mono text-mag-text-muted uppercase tracking-wider font-bold px-2 mb-2">
               More Features
             </div>
             <div className="grid grid-cols-2 gap-1.5">
@@ -74,8 +74,8 @@ export function MobileBottomNav() {
                       'flex items-center gap-2.5 px-3 py-3 rounded-xl transition-all text-left',
                       'active:scale-[0.97]',
                       isActive
-                        ? 'bg-white/10 text-white'
-                        : 'bg-white/[0.03] text-white/50 hover:bg-white/[0.06] active:bg-white/[0.08]'
+                        ? 'bg-mag-surface text-mag-text'
+                        : 'bg-mag-surface hover:bg-mag-surface-raised text-mag-text-muted hover:text-mag-text-dim'
                     )}
                   >
                     <Icon size={15} />
@@ -90,7 +90,7 @@ export function MobileBottomNav() {
 
       {/* Bottom navigation bar — Premium Dark Glass */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-30 md:hidden bg-[#0a0a0f]/95 backdrop-blur-xl border-t border-white/[0.06] safe-area-bottom"
+        className="fixed bottom-0 left-0 right-0 z-30 md:hidden bg-mag-bg/95 backdrop-blur-xl border-t border-mag-border safe-area-bottom"
         aria-label="Main navigation"
         role="navigation"
       >
@@ -104,8 +104,8 @@ export function MobileBottomNav() {
               'flex flex-col items-center justify-center gap-0.5 w-14 py-2.5 rounded-xl transition-all duration-200',
               'active:scale-[0.92]',
               sidebarOpen
-                ? 'text-white bg-white/[0.06]'
-                : 'text-white/35 active:bg-white/[0.06]'
+                ? 'text-mag-text bg-mag-surface-raised'
+                : 'text-mag-text-muted active:bg-mag-surface-raised'
             )}
           >
             <Menu size={18} aria-hidden="true" />
@@ -126,7 +126,7 @@ export function MobileBottomNav() {
                   'active:scale-[0.92]',
                   isActive
                     ? 'text-emerald-400 bg-emerald-500/[0.08]'
-                    : 'text-white/35 active:bg-white/[0.06]'
+                    : 'text-mag-text-muted active:bg-mag-surface-raised'
                 )}
               >
                 <Icon size={18} aria-hidden="true" />
@@ -145,8 +145,8 @@ export function MobileBottomNav() {
               'flex flex-col items-center justify-center gap-0.5 w-14 py-2.5 rounded-xl transition-all duration-200',
               'active:scale-[0.92]',
               showMore
-                ? 'text-white bg-white/[0.06]'
-                : 'text-white/35 active:bg-white/[0.06]'
+                ? 'text-mag-text bg-mag-surface-raised'
+                : 'text-mag-text-muted active:bg-mag-surface-raised'
             )}
           >
             <Settings size={18} aria-hidden="true" />

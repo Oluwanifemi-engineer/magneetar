@@ -108,6 +108,8 @@ class PostgresDatabase:
                         sms_commands_enabled BOOLEAN DEFAULT FALSE
                     );
 
+                    CREATE INDEX IF NOT EXISTS idx_devices_key_hash ON devices(device_key_hash);
+
                     CREATE TABLE IF NOT EXISTS locations (
                         id BIGSERIAL PRIMARY KEY,
                         device_id TEXT NOT NULL REFERENCES devices(id),
@@ -423,6 +425,9 @@ class PostgresDatabase:
                         created_at TIMESTAMPTZ DEFAULT NOW()
                     );
 
+                    CREATE INDEX IF NOT EXISTS idx_analytics_type_time ON analytics_events(event_type, created_at);
+                    CREATE INDEX IF NOT EXISTS idx_analytics_device ON analytics_events(device_id, created_at);
+
                     -- Payments (Paystack)
                     CREATE TABLE IF NOT EXISTS payments (
                         id BIGSERIAL PRIMARY KEY,
@@ -472,7 +477,7 @@ class PostgresDatabase:
 
                     -- BLE mesh: sighting reports from finder phones
                     CREATE TABLE IF NOT EXISTS mesh_sightings (
-                        id SERIAL PRIMARY KEY,
+                        id BIGSERIAL PRIMARY KEY,
                         beacon_device_id TEXT NOT NULL,
                         finder_device_id TEXT NOT NULL,
                         lat DOUBLE PRECISION NOT NULL,

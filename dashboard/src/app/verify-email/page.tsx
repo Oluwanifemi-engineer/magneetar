@@ -61,7 +61,7 @@ function VerifyEmailForm() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white relative overflow-hidden">
+    <div className="min-h-screen bg-mag-bg text-mag-text relative overflow-hidden">
       <div className="absolute inset-0 landing-vignette pointer-events-none" />
       <div className="absolute inset-0 landing-grid opacity-20 pointer-events-none" />
       <div className="absolute -top-40 left-1/3 w-[600px] h-[400px] rounded-full bg-emerald-500/[0.04] blur-[130px] animate-aurora pointer-events-none" aria-hidden="true" />
@@ -76,7 +76,7 @@ function VerifyEmailForm() {
             </div>
           </Link>
 
-          <div className="relative rounded-2xl border border-white/[0.08] bg-[#0e0e14]/80 backdrop-blur-xl p-7 sm:p-8 shadow-2xl shadow-black/50 spotlight-card">
+          <div className="relative rounded-2xl border-mag-border/50 bg-mag-surface/80 backdrop-blur-xl p-7 sm:p-8 shadow-2xl shadow-black/50 spotlight-card">
             {state === 'verifying' && (
               <div className="animate-fade-in">
                 {header(

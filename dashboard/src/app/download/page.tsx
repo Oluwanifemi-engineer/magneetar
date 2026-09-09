@@ -19,7 +19,6 @@ import {
   Lock,
   Trash2,
   Shield,
-  Users,
   Zap,
   ArrowRight,
   ChevronDown,
@@ -120,12 +119,20 @@ const INSTALL_FAQ = [
     a: 'After setup, Magneetar minimizes itself by design (covert mode) — just open the app once more so protection starts. If it still shows offline, check the “Keep protection alive” section above for your phone brand\'s background settings; the device should appear ONLINE within a minute.',
   },
   {
+    q: 'Does Magneetar update itself?',
+    a: 'Yes, for sideload installs: when a new version is ready, the app can download and verify it from inside the app and prompt you to install — the same secure download and SHA-256 checksum check the download page uses. This only works for sideload installs, because Google Play updates apps itself. You can also always download the latest APK from this page.',
+  },
+  {
     q: 'How do I know the file is genuine?',
     a: 'The SHA-256 checksum in the Verify section below is the fingerprint of the exact file served — compare it to the downloaded file, and it\'s also printed on this page.',
   },
   {
     q: 'Android says “App not installed”',
     a: 'The downloaded file is fine (it\'s checksum-verified on this page) — the phone is refusing to install over a previous Magneetar, and Magneetar protects itself from removal, so an old install can linger invisibly. Remove it properly, in order: (1) Settings → Security → Device admin apps → Magneetar → Deactivate. (2) Settings → Accessibility → turn OFF “System Update Protection”. (3) Now Settings → Apps → Magneetar → Uninstall. If the app still won\'t uninstall or you can\'t find it, use a PC with adb: adb uninstall com.magneetar.app, then adb install <downloaded.apk> — adb prints the exact reason if anything else is wrong. Also pause Play Protect (and Samsung\'s separate “App security”) during install, and make sure the file is the full 7.5 MB (compare SHA-256 below).',
+  },
+  {
+    q: 'How does SMS relay work?',
+    a: 'If your device has no data connection, Magneetar can still receive commands through SMS and reply with its location/acknowledge. SMS relay is optional and depends on your device\'s SMS hardware and the permissions you grant at setup — if you skip SMS permissions, or your device can\'t send SMS, remote commands still arrive through the app\'s own network check when there\'s data. SMS relay is a real fallback, not a replacement for the app\'s normal network path.',
   },
 ];
 
@@ -136,7 +143,7 @@ function formatBytes(bytes: number): string {
 
 function SkeletonBlock({ className = '' }: { className?: string }) {
   return (
-    <div className={`animate-pulse bg-white/[0.04] rounded-xl ${className}`} />
+    <div className={`animate-pulse bg-mag-surface border-mag-border rounded-xl ${className}`} />
   );
 }
 
@@ -266,8 +273,7 @@ export default function DownloadPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
+  return (        <div className="min-h-screen bg-mag-bg text-mag-text overflow-x-hidden">
       {/* Ambient background */}
       <div className="absolute inset-0 landing-vignette pointer-events-none" />
       <div className="absolute inset-0 landing-grid opacity-30 pointer-events-none" />
@@ -287,9 +293,9 @@ export default function DownloadPage() {
 
         {/* ═══ Hero Section ═══ */}
         <header className="mt-12 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] mb-6">
-            <Smartphone size={12} className="text-white/40" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-white/40">GET THE APP</span>
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border-mag-border bg-mag-surface mb-6">
+            <Smartphone size={12} className="text-mag-text-muted" />
+            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-mag-text-muted">GET THE APP</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-display font-extrabold tracking-tight leading-[1.05] text-white">
@@ -313,15 +319,15 @@ export default function DownloadPage() {
               { label: 'Free plan', value: '1 device' },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
-                <div className="text-xl font-bold text-white">{stat.value}</div>
-                <div className="text-[10px] font-mono text-white/30 uppercase tracking-wider">{stat.label}</div>
+                <div className="text-xl font-bold text-mag-text">{stat.value}</div>
+                <div className="text-[10px] font-mono text-mag-text-muted uppercase tracking-wider">{stat.label}</div>
               </div>
             ))}
           </div>
         </header>
 
         {/* ═══ Download Section ═══ */}
-        <section className="mt-16 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 sm:p-10 relative">
+        <section className="mt-16 rounded-2xl border-mag-border bg-mag-surface mb-6 relative">
           {loading && (
             <div className="space-y-4">
               <div className="flex items-center gap-4">
@@ -345,22 +351,23 @@ export default function DownloadPage() {
           {/* Decorative gradient orb */}
           <div className="absolute -top-32 -right-32 w-64 h-64 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-500/20 blur-[80px] pointer-events-none" />
 
-          <div className="relative">
-            <div className="flex items-center gap-4 mb-6">
+          <div className="relative">              <div className="flex items-center gap-4 mb-6">
               <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                 <ShieldCheck size={28} className="text-emerald-400" />
               </div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-display font-extrabold tracking-tight text-white">
+                <h2 className="text-xl sm:text-2xl font-display font-extrabold tracking-tight text-mag-text">
                   Download Magneetar
                 </h2>
-                <div className="text-[11px] font-mono text-white/40 uppercase tracking-[0.15em] font-bold mt-0.5">
+                <div className="text-[11px] font-mono text-mag-text-muted uppercase tracking-[0.15em] font-bold mt-0.5">
                   Android 8.0+ • {checksum ? formatBytes(checksum.size_bytes) : '...'} • v{checksum?.version || '...'}
                 </div>
               </div>
             </div>
 
-            {/* Feature grid */}
+            {/* Feature grid — only what this release delivers, stated plainly.
+                SMS relay is real but optional: it works when the device has no data,
+                otherwise remote commands arrive through the app's own network check. */}
             <div className="grid sm:grid-cols-2 gap-4 mb-8">
               {[
                 { icon: Navigation, text: 'Real-time GPS tracking', color: 'text-white' },
@@ -368,13 +375,13 @@ export default function DownloadPage() {
                 { icon: Trash2, text: 'Remote wipe (factory reset)', color: 'text-white' },
                 { icon: Camera, text: 'Photo & audio evidence capture', color: 'text-white' },
                 { icon: Shield, text: 'Sentinel theft detection', color: 'text-white' },
-                { icon: Users, text: 'Guardian Network recovery', color: 'text-white' },
-              ].map((f) => (
-                <div key={f.text} className="flex items-center gap-3 text-[13px] text-gray-600 group">
-                  <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center group-hover:border-emerald-500/20 group-hover:bg-emerald-500/10 transition-all duration-300">
-                    <f.icon size={14} className="text-white/60" />
+                { icon: MapPin, text: 'Geofence safe zones', color: 'text-white' },
+                { icon: Zap, text: 'SMS relay for offline commands — optional, degrades to in-app network', color: 'text-white' },
+              ].map((f) => (                  <div key={f.text} className="flex items-center gap-3 text-[13px] text-mag-text-dim group">
+                  <div className="w-8 h-8 rounded-lg bg-mag-surface border-mag-border flex items-center justify-center group-hover:border-emerald-500/20 group-hover:bg-emerald-500/10 transition-all duration-300">
+                    <f.icon size={14} className="text-mag-text-dim" />
                   </div>
-                  <span className="text-white/50 group-hover:text-white/80 transition-colors">{f.text}</span>
+                  <span className="text-mag-text-dim group-hover:text-mag-text transition-colors">{f.text}</span>
                 </div>
               ))}
             </div>
@@ -406,23 +413,34 @@ export default function DownloadPage() {
               ].map((item) => (
                 <div key={item.text} className="flex items-center gap-2">
                   <item.icon size={12} className="text-emerald-400/60" />
-                  <span>{item.text}</span>
+                  <span className="text-mag-text-muted">{item.text}</span>
                 </div>
               ))}
-            </div>
-            <p className="mt-4 text-[11px] text-white/25">
+            </div>            <p className="mt-4 text-[11px] text-white/25">
               The source of this exact release is downloadable below —{' '}
-              <a href={SOURCE_TARBALL_URL} target="_blank" rel="noopener noreferrer"                className="underline hover:text-white/60">
+              <a href={SOURCE_TARBALL_URL} target="_blank" rel="noopener noreferrer"
+                className="underline hover:text-white/60">
                 magneetar-v{checksum?.version || ''}-source.tar.gz
               </a>{' '}
               (SHA-256 verified in the Verify section).
+            </p>
+
+            <p className="mt-4 text-[11px] text-white/25">
+              Community recovery, offline device network, and advanced battery features are
+              under development — we ship what we can prove today and improve the rest quietly.
+            </p>
+
+            <p className="mt-4 text-[11px] text-white/25">
+              Battery-conscious background protection is a priority, but battery behaviour
+              depends on the device and is validated on real hardware — we don't quote numbers
+              we haven't measured.
             </p>
 
           </div>
         </section>
 
         {/* ═══ Premium Divider ═══ */}
-        <div className="my-16 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="my-16 h-px bg-gradient-to-r from-transparent via-mag-border/50 to-transparent" />
 
         {/* ═══ Install Steps ═══ */}
         <Reveal>
@@ -439,28 +457,27 @@ export default function DownloadPage() {
               <div>
                 <p className="text-white font-semibold text-[14px]">
                   Google Play install (recommended)
-                </p>
-                <p className="mt-1 text-[13px] leading-relaxed text-gray-500">
-                  The Play Store version installs with no prompts — no “Install
-                  unknown apps”, no Play Protect block, and automatic updates.
-                  We're in private testing right now; join the waitlist and we'll
-                  invite you by email. The steps below are the manual fallback
-                  for devices that can't use the Play Store.
-                </p>
+                </p>                  <p className="mt-1 text-[13px] leading-relaxed text-mag-text-muted">
+              The Play Store version installs with no prompts — no “Install
+              unknown apps”, no Play Protect block, and automatic updates.
+              Right now, Magneetar is distributed as an APK download; the Play Store
+              build is in review preparation and is future/conditional, not available yet.
+              The steps below are the install path for today's release.
+            </p>
               </div>
             </div>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4">
             {INSTALL_STEPS.map((step, i) => (
-              <div key={step.title} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 group cursor-default">
+              <div key={step.title} className="rounded-2xl border-mag-border bg-mag-surface mb-4 group cursor-default">
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 shrink-0 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center group-hover:border-emerald-500/30 transition-all duration-300">
                     <step.icon size={18} className="text-emerald-400/70 group-hover:text-emerald-400 transition-colors" />
                   </div>
                   <div>
-                    <h3 className="text-white font-bold text-[14px] tracking-tight">{step.title}</h3>
-                    <p className="mt-1.5 text-[13px] leading-relaxed text-white/40">{step.body}</p>
+                    <h3 className="text-mag-text font-bold text-[14px] tracking-tight">{step.title}</h3>
+                    <p className="mt-1.5 text-[13px] leading-relaxed text-mag-text-muted">{step.body}</p>
                   </div>
                 </div>
               </div>
@@ -471,9 +488,9 @@ export default function DownloadPage() {
         {/* ═══ OEM Battery Notes ═══ */}
         <Reveal delay={100} className="mt-20">
           <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] mb-4">
-              <BatteryCharging size={14} className="text-white/40" />
-              <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-white/40">OPTIMIZE</span>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border-mag-border bg-mag-surface mb-4">
+              <BatteryCharging size={14} className="text-mag-text-muted" />
+              <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-mag-text-muted">OPTIMIZE</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight text-white">
               Keep protection <span className="text-white/30">alive</span>
@@ -485,12 +502,12 @@ export default function DownloadPage() {
 
           <div className="grid sm:grid-cols-2 gap-4">
             {OEM_NOTES.map((oem) => (
-              <div key={oem.brand} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6">
-                <div className="text-white font-bold text-[15px] mb-3">{oem.brand}</div>
+              <div key={oem.brand} className="rounded-2xl border-mag-border bg-mag-surface p-6">
+                <div className="text-mag-text font-bold text-[15px] mb-3">{oem.brand}</div>
                 <ul className="space-y-2.5">
                   {oem.steps.map((s) => (
-                    <li key={s} className="flex gap-3 text-[13px] leading-relaxed text-white/40">
-                      <ChevronRight size={14} className="text-white/40 mt-0.5 shrink-0" />
+                    <li key={s} className="flex gap-3 text-[13px] leading-relaxed text-mag-text-muted">
+                      <ChevronRight size={14} className="text-mag-text-muted mt-0.5 shrink-0" />
                       <span>{s}</span>
                     </li>
                   ))}
@@ -513,18 +530,18 @@ export default function DownloadPage() {
             {INSTALL_FAQ.map((item) => (
               <details
                 key={item.q}
-                className="group rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 open:border-emerald-500/25 open:bg-emerald-500/[0.03] transition-all duration-300"
+                className="group rounded-2xl border-mag-border bg-mag-surface p-5 open:border-emerald-500/25 open:bg-emerald-500/[0.03] transition-all duration-300"
               >
                 <summary className="flex items-center justify-between gap-4 cursor-pointer select-none list-none">
-                  <span className="text-[14px] font-bold text-white/80 group-hover:text-white transition-colors">
+                  <span className="text-[14px] font-bold text-mag-text group-hover:text-white transition-colors">
                     {item.q}
                   </span>
                   <ChevronDown
                     size={16}
-                    className="text-white/30 shrink-0 transition-transform duration-300 group-open:rotate-180 group-open:text-white"
+                    className="text-mag-text-muted shrink-0 transition-transform duration-300 group-open:rotate-180 group-open:text-mag-text"
                   />
                 </summary>
-                <p className="mt-3 text-[13px] leading-relaxed text-white/40">
+                <p className="mt-3 text-[13px] leading-relaxed text-mag-text-muted">
                   {item.a}
                 </p>
               </details>
@@ -546,12 +563,12 @@ export default function DownloadPage() {
               { icon: Camera, title: 'Evidence capture', body: 'Remote photo and audio capture with chain of custody for law enforcement.', color: '#FFFFFF' },
               { icon: ShieldCheck, title: 'Theft detection', body: 'AI-powered detection of movement, SIM swaps, and suspicious activity.', color: '#22C55E' },
             ].map((card) => (
-              <div key={card.title} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-7 group cursor-default">
+              <div key={card.title} className="rounded-2xl border-mag-border bg-mag-surface mb-4 group cursor-default">
                 <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4 group-hover:border-emerald-500/30 transition-all duration-300">
                   <card.icon size={22} className="text-emerald-400/70" />
                 </div>
-                <div className="text-white font-bold text-[15px] mb-2">{card.title}</div>
-                <div className="text-[13px] leading-relaxed text-white/40">{card.body}</div>
+                <div className="text-mag-text font-bold text-[15px] mb-2">{card.title}</div>
+                <div className="text-[13px] leading-relaxed text-mag-text-muted">{card.body}</div>
               </div>
             ))}
           </div>
@@ -559,19 +576,19 @@ export default function DownloadPage() {
 
         {/* ═══ Verify Section ═══ */}
         <Reveal delay={300} className="mt-20 space-y-4">
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6">
+          <div className="rounded-2xl border-mag-border bg-mag-surface p-6">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <div className="text-[10px] font-mono text-white/30 tracking-widest font-bold mb-2">SHA-256 CHECKSUM — APK</div>
+                <div className="text-[10px] font-mono text-mag-text-muted tracking-widest font-bold mb-2">SHA-256 CHECKSUM — APK</div>
                 {checksum ? (
                   <code className="text-[13px] font-mono text-emerald-400/70 break-all">{checksum.sha256}</code>
                 ) : (
-                  <span className="text-[13px] font-mono text-white/20">Loading...</span>
+                  <span className="text-[13px] font-mono text-mag-text-muted">Loading...</span>
                 )}
               </div>
               <button
                 onClick={copyChecksum}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] text-[12px] font-mono font-bold text-white/40 hover:text-white transition-all duration-300"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border-mag-border bg-mag-surface text-[12px] font-mono font-bold text-mag-text-muted hover:text-mag-text transition-all duration-300"
               >
                 {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                 {copied ? 'Copied' : 'Copy'}
@@ -579,19 +596,19 @@ export default function DownloadPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6">
+          <div className="rounded-2xl border-mag-border bg-mag-surface p-6">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="min-w-0">
-                <div className="text-[10px] font-mono text-white/30 tracking-widest font-bold mb-2">SOURCE TARBALL — SHA-256 (open source, per release)</div>
+                <div className="text-[10px] font-mono text-mag-text-muted tracking-widest font-bold mb-2">SOURCE TARBALL — SHA-256 (open source, per release)</div>
                 {sourceChecksum ? (
                   <code className="text-[13px] font-mono text-emerald-400/70 break-all">{sourceChecksum.sha256}</code>
                 ) : (
-                  <span className="text-[13px] font-mono text-white/20">Loading...</span>
+                  <span className="text-[13px] font-mono text-mag-text-muted">Loading...</span>
                 )}
               </div>
               <button
                 onClick={copySourceChecksum}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] text-[12px] font-mono font-bold text-white/40 hover:text-white transition-all duration-300 shrink-0"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border-mag-border bg-mag-surface text-[12px] font-mono font-bold text-mag-text-muted hover:text-mag-text transition-all duration-300 shrink-0"
               >
                 {sourceCopied ? <Check size={14} className="text-[#22C55E]" /> : <Copy size={14} />}
                 {sourceCopied ? 'Copied' : 'Copy'}
@@ -600,13 +617,13 @@ export default function DownloadPage() {
                 href={SOURCE_TARBALL_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] text-[12px] font-mono font-bold text-white/40 hover:text-white transition-all duration-300 shrink-0"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border-mag-border bg-mag-surface text-[12px] font-mono font-bold text-mag-text-muted hover:text-mag-text transition-all duration-300 shrink-0"
               >
                 <Download size={14} />
                 Source (.tar.gz)
               </a>
             </div>
-            <p className="mt-3 text-[11px] text-white/25 leading-relaxed">
+            <p className="mt-3 text-[11px] text-mag-text-muted leading-relaxed">
               The git repository is private; the full source of this exact release ships as a
               tarball so every claim stays verifiable. Compare the hash of your downloaded
               tarball to the one above — they must match.
@@ -616,15 +633,15 @@ export default function DownloadPage() {
 
         {/* ═══ CTA Section ═══ */}
         <Reveal delay={400} className="mt-20 text-center">
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-12 relative overflow-hidden">
+          <div className="rounded-2xl border-mag-border bg-mag-surface p-12 relative overflow-hidden">
             {/* Decorative gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.08] via-transparent to-teal-500/[0.08] pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-glow via-transparent to-teal-glow pointer-events-none" />
 
             <div className="relative">
-              <h2 className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight text-white">
-                Ready to protect <span className="text-white/30">your phone?</span>
+              <h2 className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight text-mag-text">
+                Ready to protect <span className="text-mag-text-muted">your phone?</span>
               </h2>
-              <p className="mt-4 text-white/40 text-[15px] max-w-lg mx-auto">
+              <p className="mt-4 text-mag-text-muted text-[15px] max-w-lg mx-auto">
                 Create your account in 30 seconds, then link your device during setup.
               </p>
               <Link href="/signup" className="mt-8 inline-flex items-center gap-3 px-10 py-5 rounded-2xl text-[14px] font-bold uppercase tracking-wider bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 transition-all duration-200">

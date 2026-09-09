@@ -1,15 +1,5 @@
 {
-  "_comment": "Magneetar feature flags. Set to true/false. Env vars MT_FEATURE_<NAME> override these.",
+  "_comment": "Feature flags for Magneetar. Only flags backed by working code are included. Set to true/false. Env vars MT_FEATURE_<NAME> override these.",
   "maintenance_mode": false,
-  "new_geofence_ui": true,
-  "device_sharing": true,
-  "sentinel_ai": true,
-  "evidence_capture": true,
-  "offline_p2p": false,
-  "smart_geofence": false,
-  "digital_inheritance": false,
-  "community_watch": false,
-  "recovery_bounties": false,
-  "ussd_payments": false,
-  "nps_surveys": false
+  "evidence_capture": true
 }

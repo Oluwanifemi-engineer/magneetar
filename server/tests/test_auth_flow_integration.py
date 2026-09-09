@@ -34,9 +34,9 @@ import pytest
 _test_db_fd, _test_db_path = tempfile.mkstemp(suffix=".db")
 os.close(_test_db_fd)
 
-os.environ["MT_API_KEY"] = "integration-test-key-" + "a" * 32
-os.environ["MT_JWT_SECRET"] = "integration-test-jwt-" + "b" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
+os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
+os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 os.environ["MT_DB_PATH"] = _test_db_path
 
 # Clear cached modules so they re-import with new env vars
@@ -91,8 +91,14 @@ TEST_EMAIL = f"integration-{secrets.token_hex(4)}@test.dev"
 
 @pytest.fixture(autouse=True)
 def _clear_rate_buckets():
-    """Clear rate limits between tests."""
-    with database.get_db_context() as conn:
+    """Clear rate limits between tests — resolve the CURRENT database module
+    (test_e2e evicts and re-imports database with ITS env mid-collection, so
+    the module-level binding can point at a different DB than the app's auth
+    chain checks at runtime)."""
+    import sys
+
+    current_db = sys.modules.get("database") or database
+    with current_db.get_db_context() as conn:
         conn.execute("DELETE FROM rate_limits")
         conn.commit()
     yield

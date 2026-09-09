@@ -4,14 +4,13 @@ Tests for the theft detection engine.
 """
 
 import os
-import secrets
 
 import pytest
 
 # Set test environment
 os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
 os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 os.environ["MT_DB_PATH"] = ":memory:"
 
 from config import settings  # noqa: E402

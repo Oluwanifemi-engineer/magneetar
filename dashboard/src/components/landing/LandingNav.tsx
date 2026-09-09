@@ -27,7 +27,7 @@ export function LandingNav({ authed }: { authed: boolean }) {
       className={cn(
         'fixed top-0 inset-x-0 z-50 transition-all duration-300',
         scrolled
-          ? 'bg-[#0a0a0f]/90 backdrop-blur-xl border-b border-white/[0.06] shadow-sm shadow-black/20'
+          ? 'bg-mag-bg/90 backdrop-blur-xl border-b border-mag-border shadow-sm shadow-black/20'
           : 'bg-transparent border-b border-transparent'
       )}
     >
@@ -40,18 +40,17 @@ export function LandingNav({ authed }: { authed: boolean }) {
             className="w-9 h-9 rounded-lg transition-all duration-300 group-hover:scale-110"
           />
           <div className="leading-none">
-            <div className="text-white text-sm font-bold tracking-[0.25em]">MAGNEETAR</div>
-            <div className="text-[8px] font-mono text-gray-500 tracking-[0.3em] mt-1">TRACK · PROTECT · RECOVER</div>
+            <div className="text-mag-text text-sm font-bold tracking-[0.25em]">MAGNEETAR</div>
+            <div className="text-[8px] font-mono text-mag-text-muted tracking-[0.3em] mt-1">TRACK · PROTECT · RECOVER</div>
           </div>
         </Link>
 
         {/* Desktop links */}
         <div className="hidden md:flex items-center gap-1">
-          {NAV_LINKS.map((link) => (
-            <a
+          {NAV_LINKS.map((link) => (              <a
               key={link.href}
               href={link.href}
-              className="nav-link-hover px-4 py-2 text-[12px] font-semibold text-gray-400 hover:text-white transition-colors"
+              className="nav-link-hover px-4 py-2 text-[12px] font-semibold text-mag-text-muted hover:text-mag-text transition-colors"
             >
               {link.label}
             </a>
@@ -62,7 +61,7 @@ export function LandingNav({ authed }: { authed: boolean }) {
         <div className="hidden md:flex items-center gap-3">
           <Link
             href="/download"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider border border-white/10 text-gray-400 hover:bg-white/5 hover:border-white/20 hover:text-white transition-all duration-200 active:scale-[0.97]"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wider border-mag-border/50 text-mag-text-muted hover:bg-mag-surface hover:border-mag-border hover:text-mag-text transition-all duration-200 active:scale-[0.97]"
           >
             <Download size={13} />
             Download APK
@@ -79,7 +78,7 @@ export function LandingNav({ authed }: { authed: boolean }) {
             <>
               <Link
                 href="/login"
-                className="px-4 py-2.5 text-[12px] font-semibold text-gray-400 hover:text-white transition-colors rounded-xl hover:bg-white/5"
+                className="px-4 py-2.5 text-[12px] font-semibold text-mag-text-muted hover:text-mag-text transition-colors rounded-xl hover:bg-mag-surface"
               >
                 Sign in
               </Link>
@@ -97,7 +96,7 @@ export function LandingNav({ authed }: { authed: boolean }) {
         {/* Mobile toggle */}
         <button
           onClick={() => setOpen(!open)}
-          className="md:hidden w-10 h-10 rounded-lg border border-white/[0.08] bg-white/[0.03] flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+          className="md:hidden w-10 h-10 rounded-lg border-mag-border bg-mag-surface text-mag-text-muted hover:text-mag-text hover:bg-mag-surface-raised transition-colors"
           aria-label="Toggle menu"
           aria-expanded={open}
           aria-controls="mobile-menu"
@@ -110,26 +109,24 @@ export function LandingNav({ authed }: { authed: boolean }) {
       <div
         id="mobile-menu"
         className={cn(
-          'md:hidden overflow-hidden transition-all duration-300 bg-[#0a0a0f]/95 backdrop-blur-xl border-b border-white/[0.06]',
+          'md:hidden overflow-hidden transition-all duration-300 bg-mag-bg/95 backdrop-blur-xl border-b border-mag-border',
           open ? 'max-h-[520px]' : 'max-h-0 border-b-0'
         )}
       >
         <div className="px-6 py-4 space-y-1">
-          {NAV_LINKS.map((link) => (
-            <a
+          {NAV_LINKS.map((link) => (              <a
               key={link.href}
               href={link.href}
               onClick={() => setOpen(false)}
-              className="block px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+              className="block px-3 py-2.5 rounded-lg text-sm font-semibold text-mag-text-muted hover:text-mag-text hover:bg-mag-surface transition-colors"
             >
               {link.label}
             </a>
           ))}
-          <div className="pt-3 pb-2 flex flex-col gap-2">
-            <Link
+          <div className="pt-3 pb-2 flex flex-col gap-2">              <Link
               href="/download"
               onClick={() => setOpen(false)}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[12px] font-bold uppercase tracking-wider border border-white/10 text-gray-400 hover:bg-white/5 hover:border-white/20 transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[12px] font-bold uppercase tracking-wider border-mag-border/50 text-mag-text-muted hover:bg-mag-surface hover:border-mag-border transition-colors"
             >
               <Download size={14} /> Download APK
             </Link>
@@ -146,7 +143,7 @@ export function LandingNav({ authed }: { authed: boolean }) {
                 <Link
                   href="/login"
                   onClick={() => setOpen(false)}
-                  className="inline-flex items-center justify-center px-5 py-3 rounded-xl text-[12px] font-bold uppercase tracking-wider border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                  className="inline-flex items-center justify-center px-5 py-3 rounded-xl text-[12px] font-bold uppercase tracking-wider border-mag-border/50 text-mag-text-muted hover:text-mag-text hover:bg-mag-surface transition-colors"
                 >
                   Sign in
                 </Link>

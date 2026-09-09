@@ -36,7 +36,7 @@ export function Provenance() {
             <br />
             <span className="bg-gradient-to-r from-gray-400 to-gray-500 bg-clip-text text-transparent">lived these problems.</span>
           </h2>
-          <p className="mt-5 text-gray-400 leading-relaxed">
+          <p className="mt-5 text-mag-text-muted leading-relaxed">
             Magneetar began with students who knew both problems firsthand. Phone theft is a reality
             on university campuses across Nigeria, and staying in touch with family back home is how
             students everywhere hold their lives together.
@@ -44,24 +44,20 @@ export function Provenance() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto">
-          {ORIGIN_POINTS.map((point) => (
-            <div
-              key={point.title}
-              className="relative group rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent p-7 overflow-hidden hover:border-emerald-500/15 transition-all duration-400"
-            >
+          {ORIGIN_POINTS.map((point) => (              <div key={point.title} className="relative group rounded-2xl border-mag-border bg-gradient-to-b from-mag-surface to-mag-bg p-7 overflow-hidden hover:border-emerald-500/15 transition-all duration-400">
               {/* Top accent on hover */}
               <div className="absolute top-0 left-10 right-10 h-px bg-gradient-to-r from-transparent via-emerald-500/0 to-transparent group-hover:via-emerald-500/30 transition-all duration-500" />
 
               <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5 group-hover:bg-emerald-500/15 transition-all">
                 <point.icon size={17} className="text-emerald-400/70 group-hover:text-emerald-400 transition-colors" />
               </div>
-              <div className="text-white font-semibold text-sm">{point.title}</div>
-              <div className="text-[12.5px] text-gray-400 leading-relaxed mt-2">{point.description}</div>
+              <div className="text-mag-text font-semibold text-sm">{point.title}</div>
+              <div className="text-[12.5px] text-mag-text-muted leading-relaxed mt-2">{point.description}</div>
             </div>
           ))}
         </div>
 
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 text-[11px] font-mono text-gray-600">
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 text-[11px] font-mono text-mag-text-muted">
           <span>STARTED BY STUDENTS</span>
           <span className="w-1 h-1 rounded-full bg-emerald-500/30" />
           <span>EVERY CLAIM ON THIS PAGE IS VERIFIABLE</span>

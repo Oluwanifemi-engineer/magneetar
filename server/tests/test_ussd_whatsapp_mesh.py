@@ -194,3 +194,35 @@ class TestMesh:
         """Sighting query requires authentication."""
         resp = client.get("/api/mesh/sightings/mt-test123")
         assert resp.status_code in (401, 403, 422)
+
+
+class TestGuardianProfile:
+    """The guardian opt-in contract the Android GuardianBeaconScanner calls
+    (GET /api/guardian/profile) before each scan cycle. No opt-in flow ships
+    yet, so every account must truthfully read opted_in=false and the scanner
+    stays off."""
+
+    def test_profile_requires_auth(self):
+        """Unauthenticated calls are rejected."""
+        resp = client.get("/api/guardian/profile")
+        assert resp.status_code in (401, 403)
+
+    def test_account_without_profile_is_opted_out(self):
+        """A registered account with no guardian profile row must read
+        opted_in=false — the scanner gate keeps volunteer scanning off."""
+        import secrets
+
+        email = f"guardian-{secrets.token_hex(4)}@example.com"
+        resp = client.post(
+            "/api/auth/register",
+            json={"email": email, "password": "StrongPass1", "display_name": "Guardian Tester"},
+        )
+        assert resp.status_code == 200, resp.text
+        token = resp.json()["token"]
+
+        profile = client.get("/api/guardian/profile", headers={"Authorization": f"Bearer {token}"})
+        assert profile.status_code == 200, profile.text
+        body = profile.json()
+        assert body["opted_in"] is False
+        assert body["handle"] is None
+        assert body["radius_km"] is None

@@ -13,7 +13,6 @@ Covers:
 """
 
 import os
-import secrets
 import tempfile
 
 from fastapi.testclient import TestClient
@@ -22,9 +21,9 @@ from fastapi.testclient import TestClient
 _test_db_fd, test_db_path = tempfile.mkstemp(suffix=".db")
 os.close(_test_db_fd)
 
-os.environ["MT_API_KEY"] = "archive-test-key-" + "a" * 32
-os.environ["MT_JWT_SECRET"] = "archive-jwt-secret-" + "b" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
+os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
+os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 os.environ["MT_DB_PATH"] = test_db_path
 os.environ["MT_ARCHIVE_AFTER_DAYS"] = "30"
 

@@ -7,7 +7,6 @@ Tests for: WebSocket connection limits, health endpoint DB check,
 import asyncio
 import json
 import os
-import secrets
 import socket
 import tempfile
 import threading
@@ -22,9 +21,9 @@ import websockets
 _test_db_fd, test_db_path = tempfile.mkstemp(suffix=".db")
 os.close(_test_db_fd)
 
-os.environ["MT_API_KEY"] = "reliability-test-key-" + "a" * 32
-os.environ["MT_JWT_SECRET"] = "reliability-jwt-secret-" + "b" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
+os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
+os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 os.environ["MT_DB_PATH"] = test_db_path
 
 # Import modules with clean env
@@ -188,6 +187,19 @@ def live_ws_server():
     server.force_exit = True  # skip waiting for active connections → prompt exit
     thread.join(timeout=15)
     assert not thread.is_alive(), "uvicorn server thread leaked past teardown (zombie event loop)"
+
+    # The server's WebSocket handler imported websocket_manager as a separate
+    # module object when the server started. The tester's module-level
+    # `active_dashboard_connections` is NOT the same object. After each
+    # function-scoped server spin we must clear the SERVER's list too, otherwise
+    # a capacity test that fills the server's list to MAX bleeds into the next
+    # test's server spin (whose handler sees a pre-filled authoritative list).
+    import websocket_manager
+
+    try:
+        websocket_manager.active_dashboard_connections.clear()
+    except Exception:
+        pass
 
 
 # ── Cleanup ─────────────────────────────────────────────────────────────────

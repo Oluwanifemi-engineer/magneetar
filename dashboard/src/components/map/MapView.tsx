@@ -287,11 +287,11 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
   if (offline) {
     return (
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000]">
-        <div className="bg-[#111118]/95 backdrop-blur-xl border border-white/[0.08] px-4 py-2.5 flex items-center gap-2.5 animate-fade-in">
+        <div className="bg-mag-surface-raised/95 backdrop-blur-xl border-mag-border px-4 py-2.5 flex items-center gap-2.5 animate-fade-in">
           <div className="w-2 h-2 rounded-full bg-amber-500" />
           <span className="font-mono text-[10px] text-amber-400 font-bold uppercase tracking-wider">OFFLINE</span>
-          <div className="h-4 w-px bg-white/[0.08]" />
-          <span className="font-mono text-[10px] text-white/60 font-bold">
+          <div className="h-4 w-px border-mag-border" />
+          <span className="font-mono text-[10px] text-mag-text-dim font-bold">
             Last seen {relativeTime(lastSeen)}
           </span>
         </div>
@@ -302,12 +302,12 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
   if (!userPos) {
     return (
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000]">
-        <div className="bg-[#111118]/95 backdrop-blur-xl border border-white/[0.08] px-4 py-2.5 flex items-center gap-2.5 animate-fade-in">
+        <div className="bg-mag-surface-raised/95 backdrop-blur-xl border-mag-border px-4 py-2.5 flex items-center gap-2.5 animate-fade-in">
           <div className="w-2 h-2 rounded-full bg-amber-500" />
           <span className="font-mono text-[10px] text-amber-400 font-bold uppercase tracking-wider">
             SET POSITION
           </span>
-          <span className="font-mono text-[10px] text-white/40 font-bold">
+          <span className="font-mono text-[10px] text-mag-text-muted font-bold">
             tap pin, then tap map
           </span>
         </div>
@@ -320,22 +320,22 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
   if (!userPinned && userAccuracy != null && userAccuracy > USER_ACCURACY_IP_FALLBACK) {
     return (
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] max-w-md">
-        <div className="bg-[#111118]/95 backdrop-blur-xl border border-white/[0.08] px-4 py-3 animate-fade-in">
+        <div className="bg-mag-surface-raised/95 backdrop-blur-xl border-mag-border px-4 py-3 animate-fade-in">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-cyan-500" />
-              <span className="font-mono text-[10px] text-white/70 font-bold uppercase tracking-wider">YOU</span>
+              <span className="font-mono text-[10px] text-mag-text-dim font-bold uppercase tracking-wider">YOU</span>
             </div>
-            <svg width="14" height="14" viewBox="0 0 16 16" className="text-white/20">
+            <svg width="14" height="14" viewBox="0 0 16 16" className="text-mag-text-muted/50">
               <path d="M1 8h14M8 1l7 7-7 7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span className="font-mono text-[10px] text-white/70 font-bold uppercase tracking-wider">DEVICE</span>
+              <span className="font-mono text-[10px] text-mag-text-dim font-bold uppercase tracking-wider">DEVICE</span>
             </div>
-            <div className="h-3 w-px bg-white/[0.08]" />
-            <span className="font-mono text-sm font-bold text-white tabular-nums">{formatDistance(distance)}</span>
-            <span className="font-mono text-[10px] text-white/40 font-bold">away</span>
+            <div className="h-3 w-px border-mag-border" />
+            <span className="font-mono text-sm font-bold text-mag-text tabular-nums">{formatDistance(distance)}</span>
+            <span className="font-mono text-[10px] text-mag-text-muted font-bold">away</span>
           </div>
           <div className="flex items-center gap-1.5 mt-2">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500 shrink-0">
@@ -354,7 +354,7 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
 
   return (
     <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000]">
-      <div className="bg-[#111118]/95 backdrop-blur-xl border border-white/[0.08] px-4 py-2.5 flex items-center gap-3 animate-fade-in">
+      <div className="bg-mag-surface-raised/95 backdrop-blur-xl border-mag-border px-4 py-2.5 flex items-center gap-3 animate-fade-in">
         <button
           onClick={flyToYou}
           disabled={!userPos}
@@ -362,9 +362,9 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
           className="flex items-center gap-2 group/y disabled:opacity-50"
         >
           <div className="w-2 h-2 rounded-full bg-cyan-500 group-hover/y:scale-125 transition-transform" />
-          <span className="font-mono text-[10px] text-white/70 font-bold group-hover/y:text-white transition-colors">YOU</span>
+          <span className="font-mono text-[10px] text-mag-text-dim font-bold group-hover/y:text-mag-text transition-colors">YOU</span>
         </button>
-        <svg width="14" height="14" viewBox="0 0 16 16" className="text-white/20">
+        <svg width="14" height="14" viewBox="0 0 16 16" className="text-mag-text-muted/50">
           <path d="M1 8h14M8 1l7 7-7 7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
         <button
@@ -373,13 +373,13 @@ function DistanceOverlay({ userPos, userAccuracy, userPinned, deviceLat, deviceL
           className="flex items-center gap-2 group/d"
         >
           <div className="w-2 h-2 rounded-full bg-emerald-500 group-hover/d:scale-125 transition-transform" />
-          <span className="font-mono text-[10px] text-white/70 font-bold group-hover/d:text-white transition-colors">DEVICE</span>
+          <span className="font-mono text-[10px] text-mag-text-dim font-bold group-hover/d:text-mag-text transition-colors">DEVICE</span>
         </button>
-        <div className="h-3 w-px bg-white/[0.08]" />
-        <span className="font-mono text-sm font-bold text-white tabular-nums">
+        <div className="h-3 w-px border-mag-border" />
+        <span className="font-mono text-sm font-bold text-mag-text tabular-nums">
           {formatDistance(distance)}
         </span>
-        <span className="font-mono text-[10px] text-white/40 font-bold">away</span>
+        <span className="font-mono text-[10px] text-mag-text-muted font-bold">away</span>
         {!userPinned && userAccuracy != null && userAccuracy > USER_ACCURACY_DISTANCE_MAX && (
           <span className="font-mono text-[9px] text-amber-400/70 font-bold">
             ±{formatAccuracyMeters(userAccuracy)}
@@ -637,10 +637,10 @@ export function MapView() {
     return trailLocations.map(l => ({ lat: l.lat, lng: l.lng, ts: l.timestamp }));
   }, [trailLocations]);
 
-  if (!mapReady) return <div className="w-full h-full bg-[#0a0a0f]" />;
+  if (!mapReady) return <div className="w-full h-full bg-mag-bg" />;
 
   return (
-    <div className="w-full h-full relative bg-[#0a0a0f]">
+    <div className="w-full h-full relative bg-mag-bg">
       {mapReady && iconsReady && (
         <MapContainer
           ref={mapRef}
@@ -665,9 +665,9 @@ export function MapView() {
               <Popup>
                 <div className="text-center">
                   <div className="font-bold">Your Position</div>
-                  {userPinned && <div className="text-xs text-gray-500">Pinned manually</div>}
+                  {userPinned && <div className="text-xs text-mag-text-muted">Pinned manually</div>}
                   {!userPinned && userAccuracy != null && (
-                    <div className="text-xs text-gray-500">Accuracy: ±{formatAccuracyMeters(userAccuracy)}</div>
+                    <div className="text-xs text-mag-text-muted">Accuracy: ±{formatAccuracyMeters(userAccuracy)}</div>
                   )}
                 </div>
               </Popup>
@@ -694,9 +694,9 @@ export function MapView() {
               <Popup>
                 <div className="text-center">
                   <div className="font-bold">{device?.id || 'Device'}</div>
-                  {deviceAddress && <div className="text-xs text-gray-500">{deviceAddress}</div>}
+                  {deviceAddress && <div className="text-xs text-mag-text-muted">{deviceAddress}</div>}
                   {latestLocation && (
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-mag-text-muted mt-1">
                       Accuracy: ±{latestLocation.accuracy ? formatAccuracyMeters(latestLocation.accuracy) : 'Unknown'}
                     </div>
                   )}
@@ -768,7 +768,7 @@ export function MapView() {
                 <Popup>
                   <div className="text-center">
                     <div className="font-bold">{i === 0 ? 'Start' : i === navigationRoute.steps.length - 1 ? 'End' : `Step ${i}`}</div>
-                    <div className="text-xs text-gray-500">{step.name || 'Continue'}</div>
+                    <div className="text-xs text-mag-text-muted">{step.name || 'Continue'}</div>
                   </div>
                 </Popup>
               </Marker>
@@ -793,7 +793,7 @@ export function MapView() {
 
       {/* Unified map controls — bottom-right, premium dark glass panel */}
       <div className="absolute bottom-4 right-3 z-[1000] flex flex-col items-end gap-1.5 md:bottom-4 bottom-20">
-        <div className="bg-[#111118]/90 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-2xl p-1.5">
+        <div className="bg-mag-surface-raised/90 backdrop-blur-xl border-mag-border rounded-2xl shadow-2xl p-1.5">
           <div className="grid grid-cols-2 gap-1">
           {/* Pin position */}
           <button
@@ -801,7 +801,7 @@ export function MapView() {
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider transition-all ${
               pinning
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                : 'bg-[#111118]/95 backdrop-blur text-white/50 border border-white/[0.08] hover:bg-[#1a1a24] hover:text-white/70'
+                : 'bg-mag-surface-raised backdrop-blur text-mag-text-muted border-mag-border hover:bg-mag-surface hover:text-mag-text-dim'
             }`}
             title="Pin your position"
           >
@@ -815,7 +815,7 @@ export function MapView() {
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider transition-all ${
               followDevice
                 ? 'bg-emerald-500/15 text-emerald-400/80 border border-emerald-500/20'
-                : 'bg-[#111118]/95 backdrop-blur text-white/50 border border-white/[0.08] hover:bg-[#1a1a24] hover:text-white/70'
+                : 'bg-mag-surface-raised backdrop-blur text-mag-text-muted border-mag-border hover:bg-mag-surface hover:text-mag-text-dim'
             }`}
             title={followDevice ? 'Stop following' : 'Follow device'}
           >
@@ -830,8 +830,8 @@ export function MapView() {
             onClick={() => setShowTrail(!showTrail)}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider transition-all ${
               showTrail
-                ? 'bg-white/[0.08] text-white/70 border border-white/[0.1]'
-                : 'bg-[#111118]/95 backdrop-blur text-white/50 border border-white/[0.08] hover:bg-[#1a1a24] hover:text-white/70'
+                ? 'bg-mag-surface-raised/80 text-mag-text-dim border-mag-border/50'
+                : 'bg-mag-surface-raised backdrop-blur text-mag-text-muted border-mag-border hover:bg-mag-surface hover:text-mag-text-dim'
             }`}
             title={showTrail ? 'Hide trail' : 'Show trail'}
           >
@@ -847,7 +847,7 @@ export function MapView() {
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider transition-all ${
               showSatellite
                 ? 'bg-blue-500/15 text-blue-400/80 border border-blue-500/20'
-                : 'bg-[#111118]/95 backdrop-blur text-white/50 border border-white/[0.08] hover:bg-[#1a1a24] hover:text-white/70'
+                : 'bg-mag-surface-raised backdrop-blur text-mag-text-muted border-mag-border hover:bg-mag-surface hover:text-mag-text-dim'
             }`}
             title={showSatellite ? 'Map view' : 'Satellite view'}
           >
@@ -899,7 +899,7 @@ export function MapView() {
               className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider transition-all ${
                 showPathTracker
                   ? 'bg-blue-500/15 text-blue-400/80 border border-blue-500/20'
-                  : 'bg-[#111118]/95 backdrop-blur text-white/50 border border-white/[0.08] hover:bg-[#1a1a24] hover:text-white/70'
+                  : 'bg-mag-surface-raised backdrop-blur text-mag-text-muted border-mag-border hover:bg-mag-surface hover:text-mag-text-dim'
               }`}
               title={showPathTracker ? 'Close replay' : 'Replay trail'}
             >
@@ -916,10 +916,10 @@ export function MapView() {
       {/* Path replay timeline — premium dark */}
       {showPathTracker && trailLocations.length > 1 && (
         <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-[1000] md:bottom-4 bottom-28">
-          <div className="bg-[#111118]/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-xl px-4 py-3 flex items-center gap-3">
+          <div className="bg-mag-surface-raised/95 backdrop-blur-xl border-mag-border rounded-xl shadow-xl px-4 py-3 flex items-center gap-3">
             <button
               onClick={() => setPathPlaying(!pathPlaying)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/[0.06] text-white/70 hover:bg-white/[0.1] hover:text-white transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-mag-surface-raised text-mag-text-dim hover:bg-mag-surface hover:text-mag-text transition-colors"
             >
               {pathPlaying ? (
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -938,7 +938,7 @@ export function MapView() {
               max={trailLocations.length - 1}
               value={pathIndex}
               onChange={(e) => { setPathIndex(Number(e.target.value)); setPathPlaying(false); }}
-              className="w-32 sm:w-48 h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer"
+              className="w-32 sm:w-48 h-1.5 bg-mag-border rounded-full appearance-none cursor-pointer"
             />
 
             <span className="font-mono text-[10px] text-white/50 font-bold tabular-nums min-w-[40px]">
@@ -948,7 +948,7 @@ export function MapView() {
             <select
               value={pathSpeed}
               onChange={(e) => setPathSpeed(Number(e.target.value))}
-              className="font-mono text-[10px] font-bold text-white/60 bg-white/[0.06] border border-white/[0.08] rounded-md px-2 py-1"
+              className="font-mono text-[10px] font-bold text-mag-text-dim bg-mag-surface-raised border-mag-border rounded-md px-2 py-1"
             >
               <option value={1}>1×</option>
               <option value={2}>2×</option>
@@ -957,7 +957,7 @@ export function MapView() {
             </select>
 
             {pathIndex > 0 && trailLocations[pathIndex] && (
-              <span className="font-mono text-[10px] text-white/35 font-bold hidden sm:inline">
+              <span className="font-mono text-[10px] text-mag-text-muted font-bold hidden sm:inline">
                 {formatTimestamp(locationTimestamp(trailLocations[pathIndex]))}
               </span>
             )}

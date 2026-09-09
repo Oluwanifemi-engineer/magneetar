@@ -43,7 +43,7 @@ os.close(_test_db_fd)
 
 os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
 os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 os.environ["MT_DB_PATH"] = test_db_path
 # Media files land in a temp dir (media_store.py resolves MT_MEDIA_DIR live
 # from the environment at request time, so this works regardless of import
@@ -577,6 +577,18 @@ class TestEvidencePdf:
 
 class TestCommands:
     def test_issue_command(self):
+        # The command INSERT has a FK to devices.id — the device must exist
+        # first. Other command tests register their own device; this one uses
+        # the module-level TEST_DEVICE_ID, so register it here.
+        client.post(
+            "/api/device/register",
+            json={
+                "device_id": TEST_DEVICE_ID,
+                "fingerprint": "fp-cmd-issue",
+                "model": "CmdIssue",
+            },
+            headers=get_auth_headers(),
+        )
         headers = get_dashboard_headers()
         response = client.post(
             "/api/dashboard/command",
@@ -638,6 +650,17 @@ class TestCommands:
         assert "commands" in data
 
     def test_ack_command(self):
+        # The command INSERT has a FK to devices.id — the device must exist
+        # first. Register it (same pattern as test_issue_command).
+        client.post(
+            "/api/device/register",
+            json={
+                "device_id": TEST_DEVICE_ID,
+                "fingerprint": "fp-cmd-ack",
+                "model": "CmdAck",
+            },
+            headers=get_auth_headers(),
+        )
         # Issue command
         dash_headers = get_dashboard_headers()
         resp = client.post(
@@ -648,6 +671,7 @@ class TestCommands:
             },
             headers=dash_headers,
         )
+        assert resp.status_code == 200, resp.text
         command_id = resp.json()["command_id"]
 
         # Ack as device
@@ -1115,6 +1139,149 @@ class TestCommands:
         assert resp.status_code == 429
         assert "SMS" in resp.json()["detail"]
 
+    def test_sms_relay_rate_limited_per_device_uses_separate_bucket(self, monkeypatch):
+        """Each device may only relay 5 SMS commands per minute — the shared
+        20/min dashboard-command budget is NOT enough to stop one user firing
+        ~28k SMS/day at one number through the relay (cost/abuse vector).
+
+        This test proves the SMS relay uses its OWN per-device bucket
+        (keyed `sms:<device_id>`), not the shared `command:<actor>` budget,
+        and that the two banks are independent of each other."""
+
+        from datetime import datetime, timedelta, timezone
+
+        bank_a = "sms-rl-a"
+        bank_b = "sms-rl-b"
+
+        def _setup_bank(bank_id: str) -> None:
+            client.post(
+                "/api/device/register",
+                json={
+                    "device_id": bank_id,
+                    "fingerprint": f"fp-sms-rl-{bank_id}",
+                    "model": "SMS",
+                    "device_key": f"{bank_id}-key",
+                },
+                headers=get_auth_headers(),
+            )
+            client.patch(
+                f"/api/dashboard/devices/{bank_id}/sms-settings",
+                json={"sms_phone": "+2348012345678", "sms_commands_enabled": True},
+                headers=get_dashboard_headers(),
+            )
+            with database.get_db_context() as conn:
+                conn.execute(
+                    "UPDATE devices SET last_seen=? WHERE id=?",
+                    (
+                        (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(),
+                        bank_id,
+                    ),
+                )
+                conn.commit()
+
+        _setup_bank(bank_a)
+        _setup_bank(bank_b)
+
+        import sms_relay
+
+        original = sms_relay.send_command_sms
+        sms_relay.send_command_sms = lambda to, body: True
+        try:
+            # Burn both banks to their 5/min ceiling.
+            for i in range(5):
+                for bank_id in (bank_a, bank_b):
+                    resp = client.post(
+                        "/api/dashboard/command",
+                        json={"device_id": bank_id, "command": "alarm"},
+                        headers=get_dashboard_headers(),
+                    )
+                    assert (
+                        resp.status_code == 200
+                    ), f"device {bank_id} relay #{i+1} expected 200, got {resp.status_code}: {resp.text}"
+                    body = resp.json()
+                    assert body["delivery"] == "sms", f"device {bank_id} relay #{i+1} expected sms, got {body}"
+
+            # The 6th attempt for EACH device individually hits its own SMS bucket.
+            resp_a = client.post(
+                "/api/dashboard/command",
+                json={"device_id": bank_a, "command": "alarm"},
+                headers=get_dashboard_headers(),
+            )
+            assert resp_a.status_code == 429, f"bank_a relay #{6} expected 429, got {resp_a.status_code}: {resp_a.text}"
+            assert "SMS" in resp_a.json()["detail"]
+
+            resp_b = client.post(
+                "/api/dashboard/command",
+                json={"device_id": bank_b, "command": "alarm"},
+                headers=get_dashboard_headers(),
+            )
+            assert resp_b.status_code == 429, f"bank_b relay #{6} expected 429, got {resp_b.status_code}: {resp_b.text}"
+            assert "SMS" in resp_b.json()["detail"]
+
+            # Per-device SMS bucket isolation test.
+            #
+            # The SMS relay uses a per-device SQLite-backed bucket keyed
+            # `sms:<device_id>` (see dashboard_commands.py). This test proves the
+            # two banks are independent: clearing bank_a's bucket should restore
+            # bank_a while leaving bank_b throttled.
+            with database.get_db_context() as conn:
+                sms_before = dict(
+                    conn.execute(
+                        "SELECT identifier, COUNT(*) AS cnt FROM rate_limits "
+                        "WHERE identifier LIKE 'sms:%' "
+                        "GROUP BY identifier"
+                    ).fetchall()
+                )
+                # Clear bank_a's SMS bucket ONLY.
+                conn.execute(
+                    "DELETE FROM rate_limits WHERE identifier = ?",
+                    (f"sms:{bank_a}",),
+                )
+                conn.commit()
+                sms_after_clear_a = conn.execute(
+                    "SELECT COUNT(*) FROM rate_limits WHERE identifier LIKE 'sms:%'"
+                ).fetchone()[0]
+                sms_after_clear_b_count = conn.execute(
+                    "SELECT COUNT(*) FROM rate_limits WHERE identifier = ?",
+                    (f"sms:{bank_b}",),
+                ).fetchone()[0]
+
+            import logging
+
+            _logger = logging.getLogger("test.sms_bucket_isolation")
+            _logger.warning(
+                "sms_bucket_isolation: sms_before=%s after_clear_total=%s bank_b_count=%s wrapper=%s",
+                sms_before,
+                sms_after_clear_a,
+                sms_after_clear_b_count,
+                type(conn).__name__,
+            )
+
+            # bank_a should come back after its SMS bucket is cleared.
+            resp_a2 = client.post(
+                "/api/dashboard/command",
+                json={"device_id": bank_a, "command": "alarm"},
+                headers=get_dashboard_headers(),
+            )
+            assert (
+                resp_a2.status_code == 200
+            ), f"bank_a after its own sms bucket cleared expected 200, got {resp_a2.status_code}: {resp_a2.text}"
+            assert resp_a2.json()["delivery"] == "sms"
+
+            # bank_b is still throttled on its OWN sms bucket (we only cleared
+            # bank_a's). This is the isolation proof.
+            resp_b2 = client.post(
+                "/api/dashboard/command",
+                json={"device_id": bank_b, "command": "alarm"},
+                headers=get_dashboard_headers(),
+            )
+            assert (
+                resp_b2.status_code == 429
+            ), f"bank_b should still be throttled on its own sms bucket, got {resp_b2.status_code}: {resp_b2.text}"
+            assert "SMS" in resp_b2.json()["detail"]
+        finally:
+            sms_relay.send_command_sms = original
+
     def test_sms_relay_skipped_for_keyless_device(self, monkeypatch):
         """A device with NO device_key_hash can never verify the MAGNET
         pairing code on-device, so the relay must not route to it (the SMS
@@ -1179,12 +1346,23 @@ class TestCommands:
         commands were delivered and stayed PENDING forever)."""
         from datetime import datetime, timedelta, timezone
 
+        # The command INSERT has a FK to devices.id — register the device first.
+        client.post(
+            "/api/device/register",
+            json={
+                "device_id": TEST_DEVICE_ID,
+                "fingerprint": "fp-stale-exp",
+                "model": "StaleExp",
+            },
+            headers=get_auth_headers(),
+        )
         dash = get_dashboard_headers()
         resp = client.post(
             "/api/dashboard/command",
             json={"device_id": TEST_DEVICE_ID, "command": "ping"},
             headers=dash,
         )
+        assert resp.status_code == 200, resp.text
         cmd_id = resp.json()["command_id"]
 
         # Backdate expires_at beyond the expiry window, ISO format (exactly as
@@ -1205,12 +1383,23 @@ class TestCommands:
 
     def test_pending_command_within_window_stays_pending(self):
         """A freshly issued command is still pending and pollable."""
+        # The command INSERT has a FK to devices.id — register the device first.
+        client.post(
+            "/api/device/register",
+            json={
+                "device_id": TEST_DEVICE_ID,
+                "fingerprint": "fp-pending-win",
+                "model": "PendingWin",
+            },
+            headers=get_auth_headers(),
+        )
         dash = get_dashboard_headers()
         resp = client.post(
             "/api/dashboard/command",
             json={"device_id": TEST_DEVICE_ID, "command": "ping"},
             headers=dash,
         )
+        assert resp.status_code == 200, resp.text
         cmd_id = resp.json()["command_id"]
         history = client.get(f"/api/dashboard/commands/{TEST_DEVICE_ID}", headers=dash).json()
         row = next(c for c in history["commands"] if c["id"] == cmd_id)

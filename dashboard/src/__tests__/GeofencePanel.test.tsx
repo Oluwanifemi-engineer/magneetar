@@ -39,6 +39,7 @@ jest.mock('lucide-react', () => {
     Camera: stub('Camera'),
     Volume2: stub('Volume2'),
     Loader: stub('Loader'),
+    Loader2: stub('Loader2'),
     Check: stub('Check'),
   };
 });

@@ -62,39 +62,205 @@
 
   /* Section container — with visual breaks */
   .section-dark { @apply bg-gray-950; }
-  .section-darker { background: #020609; }
-  .section-surface { background: linear-gradient(180deg, #0a0f1a 0%, #060a10 100%); }
+  .section-darker { background: var(--mag-bg); }
+  .section-surface { background: linear-gradient(180deg, var(--mag-surface-raised) 0%, var(--mag-bg) 100%); }
 
-  /* Premium button */
-  .btn-emerald {
+  /* Premium button — Magneetar brand accent */
+  .btn-mag-primary {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3;
     @apply font-bold text-sm tracking-wide;
-    @apply bg-emerald-500 text-white rounded-xl;
+    @apply bg-mag-primary text-white rounded-xl;
     @apply shadow-glow-md;
     @apply transition-all duration-300;
-    @apply hover:bg-emerald-400 hover:shadow-glow-lg hover:-translate-y-0.5;
+    @apply hover:bg-mag-primary-dim hover:shadow-glow-lg hover:-translate-y-0.5;
     @apply active:translate-y-0 active:scale-[0.98];
   }
 
-  .btn-ghost {
+  .btn-mag-ghost {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3;
     @apply font-bold text-sm tracking-wide;
-    @apply border border-white/10 text-gray-400 rounded-xl;
+    @apply border-mag-border text-mag-text-muted rounded-xl;
     @apply transition-all duration-300;
-    @apply hover:bg-white/5 hover:border-white/20 hover:text-white;
+    @apply hover:bg-mag-surface-raised hover:border-mag-border/50 hover:text-mag-text;
     @apply active:scale-[0.98];
+  }
+
+  /* Legacy alias — remove once all callers migrated to btn-mag-primary */
+  .btn-emerald {
+    @apply btn-mag-primary;
+  }
+
+  .btn-ghost {
+    @apply btn-mag-ghost;
   }
 
   /* Feature badge */
   .badge-dark {
     @apply inline-flex items-center gap-2 px-3 py-1 rounded-full;
-    @apply border border-white/10 bg-white/5;
-    @apply text-[10px] font-mono font-bold tracking-[0.2em] text-gray-400;
+    @apply border-mag-border bg-mag-surface;
+    @apply text-[10px] font-mono font-bold tracking-[0.2em] text-mag-text-muted;
   }
 
   /* Stat number */
   .stat-number {
-    @apply font-display font-extrabold tabular-nums;
+    @apply font-display font-extrabold tabular-nums text-mag-text;
+  }
+
+  /* ─── Dashboard panel primitives (enforced source of truth) ─────── */
+  /* Core panel chrome — the single surface pattern for dashboard content.
+      Uses mag.token scale + glass-card; NOT hand-authored opacity literals. */
+  .mag-panel {
+    background: linear-gradient(180deg, rgba(17,24,39,0.6) 0%, rgba(17,24,39,0.4) 100%);
+    border: 1px solid rgba(31,41,55,0.6);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+  }
+
+  .mag-panel-elevated {
+    @apply mag-panel;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset;
+  }
+
+  /* Panel header — label + optional action row, consistent across panels */
+  .mag-panel-header {
+    @apply flex items-center gap-2 px-4 py-3 border-b;
+    border-color: rgba(31,41,55,0.5);
+  }
+  .mag-panel-label {
+    @apply text-[10px] font-mono font-bold uppercase tracking-widest text-mag-text-dim;
+  }
+
+  /* Badge pill — state label, status chip, tier tag */
+  .mag-badge {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[8px] font-mono font-bold uppercase tracking-wider;
+  }
+  .mag-badge-secure   { @apply mag-badge border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-400/80; }
+  .mag-badge-elevated { @apply mag-badge border-amber-500/25 bg-amber-500/[0.08] text-amber-400/80; }
+  .mag-badge-danger   { @apply mag-badge border-red-500/25 bg-red-500/[0.08] text-red-400/80; }
+  .mag-badge-muted    { @apply mag-badge border-mag-border/50 bg-mag-surface text-mag-text-muted; }
+
+  /* Stat card — KPI tile (battery, speed, accuracy, last seen, etc.) */
+  .mag-stat {
+    @apply flex items-center gap-1.5 mb-1.5;
+  }
+  .mag-stat-label {
+    @apply text-[9px] font-mono text-mag-text-muted uppercase tracking-wider;
+  }
+  .mag-stat-value {
+    @apply font-mono text-sm font-bold tabular-nums text-mag-text;
+  }
+  .mag-stat-value-dim {
+    @apply font-mono text-sm font-bold tabular-nums text-mag-text-dim;
+  }
+
+  /* Stat tile wrapper */
+  .mag-stat-tile {
+    @apply rounded-xl p-3;
+    background: rgba(31,41,55,0.35);
+    border: 1px solid rgba(31,41,55,0.5);
+  }
+
+  /* Empty state — consistent quiet chrome, one icon + one headline + one sub */
+  .mag-empty {
+    @apply flex flex-col items-center justify-center py-8 text-center;
+  }
+  .mag-empty-icon {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center mb-3;
+    background: rgba(31,41,55,0.35);
+    border: 1px solid rgba(31,41,55,0.5);
+  }
+  .mag-empty-head {
+    @apply text-sm font-bold text-mag-text mb-1;
+  }
+  .mag-empty-sub {
+    @apply text-[10px] font-mono text-mag-text-muted leading-relaxed max-w-[220px];
+  }
+
+  /* Chip / inline tag */
+  .mag-chip {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[8px] font-mono font-bold uppercase tracking-wider;
+  }
+
+  /* Map overlay glass kit — consistent with mag-panel-elevated for map popovers */
+  .mag-map-glass {
+    @apply rounded-2xl shadow-2xl p-1.5;
+    background: rgba(17,24,39,0.78);
+    backdrop-filter: blur(14px) saturate(170%);
+    -webkit-backdrop-filter: blur(14px) saturate(170%);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .mag-map-glass-compact {
+    @apply rounded-xl shadow-xl px-4 py-3;
+    background: rgba(17,24,39,0.78);
+    backdrop-filter: blur(12px) saturate(170%);
+    -webkit-backdrop-filter: blur(12px) saturate(170%);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .mag-map-glass-tight {
+    @apply rounded-lg shadow-lg px-3 py-2;
+    background: rgba(17,24,39,0.7);
+    backdrop-filter: blur(10px) saturate(160%);
+    -webkit-backdrop-filter: blur(10px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  /* Interactive row — consistent hover for list items */
+  .mag-row {
+    @apply flex items-center gap-2 rounded-xl p-3 transition-all duration-200;
+    background: rgba(31,41,55,0.3);
+    border: 1px solid rgba(31,41,55,0.4);
+  }
+  .mag-row:hover {
+    background: rgba(31,41,55,0.45);
+    border-color: rgba(31,41,55,0.6);
+  }
+
+  /* Destructive / danger inline block (stolen banner, error block) */
+  .mag-danger-block {
+    @apply rounded-xl p-4 animate-fade-in;
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.15);
+  }
+  .mag-warning-block {
+    @apply rounded-xl p-4 animate-fade-in;
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.12);
+  }
+
+  /* Form field — consistent input chrome across dashboard forms */
+  .mag-field {
+    @apply w-full rounded-lg px-3 py-2 text-[11px] font-mono text-mag-text placeholder:text-mag-text-muted/40 focus:outline-none transition-colors;
+    background: rgba(31,41,55,0.4);
+    border: 1px solid rgba(31,41,55,0.6);
+  }
+  .mag-field-strong {
+    @apply w-full rounded-lg px-3 py-2 text-sm font-mono text-mag-text placeholder:text-mag-text-muted/40 focus:outline-none transition-colors;
+    background: rgba(31,41,55,0.4);
+    border: 1px solid rgba(31,41,55,0.6);
+  }
+  .mag-field:focus {
+    border-color: rgba(16,185,129,0.4);
+    background: rgba(31,41,55,0.55);
+  }
+  .mag-field-label {
+    @apply text-[9px] font-mono text-mag-text-muted font-bold mb-1 block;
+  }
+
+  /* Action row — consistent button row for forms */
+  .mag-actions {
+    @apply flex gap-2;
+  }
+
+  /* Loading skeleton tile */
+  .mag-skeleton {
+    @apply rounded-xl animate-pulse;
+    background: rgba(31,41,55,0.3);
+  }
+
+  /* Data table row */
+  .mag-table-row {
+    @apply flex items-center gap-2 px-3 py-2 text-[10px] font-mono;
+    border-b: 1px solid rgba(31,41,55,0.3);
   }
 }
 
@@ -167,15 +333,10 @@
 }
 
 /* ─── Leaflet Map Overrides ─────────────────────────────────────────────── */
-.leaflet-container { @apply bg-gray-950; font-family: inherit; }
-.leaflet-control-zoom { @apply !border-white/10 !rounded-xl overflow-hidden !shadow-elevation-2; }
-.leaflet-control-zoom a { @apply !bg-gray-900 !text-white !w-10 !h-10 !leading-10 !text-lg; @apply !border-white/10 hover:!bg-gray-700 !transition-colors; }
-.leaflet-control-zoom a:first-child { @apply !border-b-white/10; }
-.leaflet-popup-content-wrapper { @apply !bg-gray-900 !text-white !rounded-xl !border !border-white/10 !shadow-elevation-3; }
+.leaflet-container { @apply bg-gray-950; font-family: inherit; }  .leaflet-control-zoom { @apply !border-mag-border/50 !rounded-xl overflow-hidden !shadow-elevation-2; }  .leaflet-control-zoom a { @apply !bg-gray-900 !text-mag-text !w-10 !h-10 !leading-10 !text-lg; @apply !border-mag-border/50 hover:!bg-gray-700 !transition-colors; }
+.leaflet-control-zoom a:first-child { @apply !border-b-white/10; }  .leaflet-popup-content-wrapper { @apply !bg-gray-900 !text-mag-text !rounded-xl !border !border-mag-border/50 !shadow-elevation-3; }
 .leaflet-popup-tip { @apply !bg-gray-900; }
-.leaflet-popup-content { @apply !m-3 !text-sm; }
-.leaflet-control-attribution { @apply !bg-transparent !text-gray-500 !text-[9px]; }
-.leaflet-control-attribution a { @apply !text-gray-400; }
+.leaflet-popup-content { @apply !m-3 !text-sm; }  .leaflet-control-attribution { @apply !bg-transparent !text-mag-text-muted !text-[9px]; }  .leaflet-control-attribution a { @apply !text-mag-text-muted; }
 
 /* ─── Login Shake ──────────────────────────────────────────────────────── */
 @keyframes shake {

@@ -144,15 +144,15 @@ export function LocationHeatmap({ deviceId, className }: LocationHeatmapProps) {
 
   if (loading) {
     return (
-      <div className={cn('flex items-center justify-center h-64 bg-gray-900 rounded-lg', className)}>
-        <div className="text-gray-400 animate-pulse">Loading location history...</div>
+      <div className={cn('flex items-center justify-center h-64 bg-mag-surface rounded-lg', className)}>
+        <div className="text-mag-text-muted animate-pulse">Loading location history...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className={cn('flex items-center justify-center h-64 bg-gray-900 rounded-lg', className)}>
+      <div className={cn('flex items-center justify-center h-64 bg-mag-surface rounded-lg', className)}>
         <div className="text-red-400">{error}</div>
       </div>
     );
@@ -163,7 +163,7 @@ export function LocationHeatmap({ deviceId, className }: LocationHeatmapProps) {
       {/* Controls */}
       <div className="absolute top-2 left-2 z-[1000] flex flex-wrap gap-2">
         {/* Time Filter */}
-        <div className="flex bg-gray-900/90 backdrop-blur rounded-lg p-1">
+        <div className="flex bg-mag-surface-raised/80 backdrop-blur rounded-lg p-1">
           {(['24h', '7d', '30d', 'all'] as TimeFilter[]).map(filter => (
             <button
               key={filter}
@@ -171,8 +171,8 @@ export function LocationHeatmap({ deviceId, className }: LocationHeatmapProps) {
               className={cn(
                 'px-2 py-1 text-xs font-medium rounded transition-colors',
                 timeFilter === filter
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'bg-mag-primary text-white'
+                  : 'text-mag-text-muted hover:text-white'
               )}
             >
               {filter === 'all' ? 'All' : filter}
@@ -181,12 +181,12 @@ export function LocationHeatmap({ deviceId, className }: LocationHeatmapProps) {
         </div>
 
         {/* Display Options */}
-        <div className="flex bg-gray-900/90 backdrop-blur rounded-lg p-1 gap-1">
+        <div className="flex bg-mag-surface-raised/80 backdrop-blur rounded-lg p-1 gap-1">
           <button
             onClick={() => setShowTrail(!showTrail)}
             className={cn(
               'p-1.5 rounded transition-colors',
-              showTrail ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+              showTrail ? 'bg-blue-600 text-white' : 'text-mag-text-muted hover:text-white'
             )}
             title="Show trail"
           >
@@ -196,7 +196,7 @@ export function LocationHeatmap({ deviceId, className }: LocationHeatmapProps) {
             onClick={() => setShowHeat(!showHeat)}
             className={cn(
               'p-1.5 rounded transition-colors',
-              showHeat ? 'bg-orange-600 text-white' : 'text-gray-400 hover:text-white'
+              showHeat ? 'bg-orange-600 text-white' : 'text-mag-text-muted hover:text-white'
             )}
             title="Show heatmap"
           >
@@ -204,7 +204,7 @@ export function LocationHeatmap({ deviceId, className }: LocationHeatmapProps) {
           </button>
           <button
             onClick={handleExport}
-            className="p-1.5 text-gray-400 hover:text-white transition-colors"
+            className="p-1.5 text-mag-text-muted hover:text-white transition-colors"
             title="Export CSV"
           >
             <Download className="w-3.5 h-3.5" />
@@ -214,24 +214,24 @@ export function LocationHeatmap({ deviceId, className }: LocationHeatmapProps) {
 
       {/* Stats */}
       {stats && (
-        <div className="absolute bottom-2 left-2 z-[1000] bg-gray-900/90 backdrop-blur rounded-lg p-2 text-xs">
-          <div className="text-gray-300">
+        <div className="absolute bottom-2 left-2 z-[1000] bg-mag-surface-raised/80 backdrop-blur rounded-lg p-2 text-xs">
+          <div className="text-mag-text">
             <span className="font-medium text-white">{stats.count}</span> points
-            <span className="text-gray-500 mx-1">·</span>
-            <Clock className="w-3 h-3 inline mr-1" />
+            <span className="text-mag-text-muted mx-1">·</span>
+            <Clock className="w-3 h-3 inline mr-1 text-mag-text-muted" />
             {stats.timeSpan}
           </div>
         </div>
       )}
 
       {/* Legend */}
-      <div className="absolute bottom-2 right-2 z-[1000] bg-gray-900/90 backdrop-blur rounded-lg p-2 text-xs">
-        <div className="text-gray-400 mb-1">Timeline</div>
+      <div className="absolute bottom-2 right-2 z-[1000] bg-mag-surface-raised/80 backdrop-blur rounded-lg p-2 text-xs">
+        <div className="text-mag-text-muted mb-1">Timeline</div>
         <div className="flex items-center gap-1">
           <div className="w-3 h-3 rounded-full bg-blue-500" />
-          <span className="text-gray-500">Oldest</span>
+          <span className="text-mag-text-muted">Oldest</span>
           <div className="flex-1 h-1 bg-gradient-to-r from-blue-500 via-green-500 via-yellow-500 to-red-500 rounded mx-1" />
-          <span className="text-gray-500">Newest</span>
+          <span className="text-mag-text-muted">Newest</span>
           <div className="w-3 h-3 rounded-full bg-red-500" />
         </div>
       </div>
@@ -277,12 +277,12 @@ export function LocationHeatmap({ deviceId, className }: LocationHeatmapProps) {
             <Popup>
               <div className="text-sm">
                 <div className="font-medium">{formatTimeAgo(loc.server_timestamp)}</div>
-                <div className="text-gray-500 text-xs">{loc.server_timestamp}</div>
+                <div className="text-mag-text-muted text-xs">{loc.server_timestamp}</div>
                 {loc.battery_percent && (
                   <div className="text-xs mt-1">Battery: {loc.battery_percent}%</div>
                 )}
                 {loc.speed && loc.speed > 0 && (
-                  <div className="text-xs">Speed: {Math.round(loc.speed * 3.6)} km/h</div>
+                  <div className="text-mag-text text-xs">Speed: {Math.round(loc.speed * 3.6)} km/h</div>
                 )}
               </div>
             </Popup>

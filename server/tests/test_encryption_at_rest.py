@@ -11,7 +11,6 @@ breaking existing data or any consumer.
 """
 
 import os
-import secrets
 import tempfile
 
 import pytest
@@ -23,7 +22,7 @@ os.close(_test_db_fd)
 
 os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
 os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)  # encryption ENABLED
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 os.environ["MT_DB_PATH"] = test_db_path
 os.environ["MT_MEDIA_DIR"] = tempfile.mkdtemp(prefix="magneetar-enc-media-")
 

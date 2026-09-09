@@ -16,8 +16,8 @@
         <pin-set expiration="2027-01-01">
             <!-- Cloudflare edge certificate (SHA-256) -->
             <pin digest="SHA-256">Xq8fpdR3BhJK5hvia4K1+Uy32Xxp6sIEo99DLNPMJBk=</pin>
-            <!-- Backup: Let's Encrypt intermediate CA -->
-            <pin digest="SHA-256">CUXRMVEPCyTh37t/I/AQFw3XzMaKw+BL/4MrFQ5c=</pin>
+            <!-- Backup: ISRG Root X1 (Let's Encrypt Root CA) -->
+            <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
         </pin-set>
     </domain-config>
 

@@ -90,12 +90,12 @@ export default function SignupPage() {
   };
 
   const inputClass =
-    'w-full pl-10 pr-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white text-sm ' +
-    'placeholder:text-white/25 focus:outline-none focus:border-emerald-500/50 focus:bg-white/[0.06] ' +
+    'w-full pl-10 pr-4 py-3 bg-mag-surface border-mag-border rounded-xl text-mag-text text-sm ' +
+    'placeholder:text-mag-text-muted/40 focus:outline-none focus:border-emerald-500/50 focus:bg-mag-surface-raised ' +
     'focus:ring-1 focus:ring-emerald-500/20 transition-all duration-200';
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white relative overflow-hidden">
+    <div className="min-h-screen bg-mag-bg text-mag-text relative overflow-hidden">
       {/* Ambient background */}
       <div className="absolute inset-0 landing-vignette pointer-events-none" />
       <div className="absolute inset-0 landing-grid opacity-20 pointer-events-none" />
@@ -106,7 +106,7 @@ export default function SignupPage() {
       {/* ─── Split Layout ─────────────────────────────────────────────────── */}
       <div className="relative min-h-screen grid lg:grid-cols-2">
         {/* ─── Left — Brand Showcase ─────────────────────────────────────── */}
-        <div className="hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-white/[0.06] bg-[#060609] relative overflow-hidden">
+        <div className="hidden lg:flex flex-col justify-between p-12 xl:p-16 border-r border-mag-border/50 bg-mag-bg relative overflow-hidden">
           <div className="grid-floor" aria-hidden="true" />
 
           <div className="relative">
@@ -123,48 +123,44 @@ export default function SignupPage() {
               <br />
               <span className="text-white/30">Every device protected.</span>
             </h1>
-            <p className="mt-5 text-white/35 leading-relaxed max-w-md text-[15px] animate-fade-slide" style={{ animationDelay: '0.1s' }}>
+            <p className="mt-5 text-mag-text-muted leading-relaxed max-w-md text-[15px] animate-fade-slide" style={{ animationDelay: '0.1s' }}>
               Register your email, then link every smart device you own to a single command center.
             </p>
           </div>
 
           {/* Perks */}
-          <div className="relative my-10 space-y-4 animate-fade-slide" style={{ animationDelay: '0.15s' }}>
-            {PERKS.map((perk) => (
-              <div key={perk} className="flex items-start gap-3.5">
-                <div className="w-6 h-6 rounded-full border border-emerald-500/20 bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <Check size={12} className="text-emerald-400" />
+          <div className="relative my-10 space-y-4 animate-fade-slide" style={{ animationDelay: '0.15s' }}>              {PERKS.map((perk) => (
+                <div key={perk} className="flex items-start gap-3.5">
+                  <div className="w-6 h-6 rounded-full border-emerald-500/20 bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check size={12} className="text-emerald-400" />
+                  </div>
+                  <span className="text-mag-text-dim text-[13.5px] leading-relaxed">{perk}</span>
                 </div>
-                <span className="text-white/45 text-[13.5px] leading-relaxed">{perk}</span>
-              </div>
-            ))}
+              ))}
           </div>
 
           {/* Stats strip */}
-          <div className="relative grid grid-cols-3 gap-3 max-w-md animate-fade-slide" style={{ animationDelay: '0.2s' }}>
-            {[
+          <div className="relative grid grid-cols-3 gap-3 max-w-md animate-fade-slide" style={{ animationDelay: '0.2s' }}>              {[
               { value: 'FREE', label: 'to start' },
               { value: '24/7', label: 'stealth tracking' },
               { value: '∞', label: 'devices per email' },
             ].map((stat) => (
-              <div key={stat.label} className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
-                <div className="text-white text-sm font-bold font-mono tabular-nums">{stat.value}</div>
-                <div className="text-[9px] font-mono text-white/30 uppercase tracking-wider mt-0.5 font-semibold">
+              <div key={stat.label} className="rounded-xl border-mag-border bg-mag-surface px-4 py-3">
+                <div className="text-mag-text text-sm font-bold font-mono tabular-nums">{stat.value}</div>
+                <div className="text-[9px] font-mono text-mag-text-muted uppercase tracking-wider mt-0.5 font-semibold">
                   {stat.label}
                 </div>
               </div>
             ))}
-          </div>
-
-          <div className="mt-10 flex items-center gap-3 animate-fade-slide" style={{ animationDelay: '0.25s' }}>
-            <span className="relative flex w-2 h-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
-              <span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-500" />
-            </span>
-            <span className="text-[11px] font-mono font-bold tracking-wider text-white/35">
-              FREE TO START · NO CARD REQUIRED
-            </span>
-          </div>
+          </div>            <div className="mt-10 flex items-center gap-3 animate-fade-slide" style={{ animationDelay: '0.25s' }}>
+              <span className="relative flex w-2 h-2">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
+                <span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-500" />
+              </span>
+              <span className="text-[11px] font-mono font-bold tracking-wider text-mag-text-muted">
+                FREE TO START · NO CARD REQUIRED
+              </span>
+            </div>
         </div>
 
         {/* ─── Right — Form ──────────────────────────────────────────────── */}
@@ -181,15 +177,15 @@ export default function SignupPage() {
 
             {/* Heading */}
             <div className="mb-8">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/[0.08] bg-white/[0.03] mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border-mag-border/50 bg-mag-surface mb-4">
                 <span className="relative flex w-1.5 h-1.5">
                   <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
                   <span className="relative inline-flex rounded-full w-1.5 h-1.5 bg-emerald-500" />
                 </span>
-                <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-white/40">FREE · NO CARD REQUIRED</span>
+                <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-mag-text-muted">FREE · NO CARD REQUIRED</span>
               </div>
-              <h2 className="text-2xl font-display font-extrabold tracking-tight text-white/90">Create your account</h2>
-              <p className="mt-2 text-white/35 text-sm">
+              <h2 className="text-2xl font-display font-extrabold tracking-tight text-mag-text">Create your account</h2>
+              <p className="mt-2 text-mag-text-muted text-sm">
                 Free forever for individuals. Set up in under a minute.
               </p>
             </div>
@@ -198,15 +194,15 @@ export default function SignupPage() {
             <div
               ref={cardRef}
               onMouseMove={handleCardMove}
-              className="spotlight-card relative rounded-2xl border border-white/[0.08] bg-[#0e0e14]/80 backdrop-blur-xl p-7 sm:p-8 shadow-2xl shadow-black/50"
+              className="spotlight-card relative rounded-2xl border-mag-border/50 bg-mag-surface/80 backdrop-blur-xl p-7 sm:p-8 shadow-2xl shadow-black/50"
             >
               <div className="relative z-10">
                 <form onSubmit={handleSignup} noValidate>
                   <div className="space-y-4">
                     {/* Display name */}
                     <div className="space-y-1.5">
-                      <label htmlFor="signup-name" className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-bold">
-                        Display Name <span className="text-white/15 normal-case">(optional)</span>
+                      <label htmlFor="signup-name" className="text-[10px] font-mono text-mag-text-muted uppercase tracking-[0.2em] font-bold">
+                        Display Name <span className="text-mag-text-muted/60 normal-case">(optional)</span>
                       </label>
                       <div className="relative">
                         <User size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/15 pointer-events-none" />
@@ -225,12 +221,11 @@ export default function SignupPage() {
 
                     {/* Email */}
                     <div className="space-y-1.5">
-                      <label htmlFor="signup-email" className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-bold">
+                      <label htmlFor="signup-email" className="text-[10px] font-mono text-mag-text-muted uppercase tracking-[0.2em] font-bold">
                         Email
                       </label>
                       <div className="relative">
-                        <Mail size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/15 pointer-events-none" />
-                        <input
+                        <Mail size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/15 pointer-events-none" />                          <input
                           id="signup-email"
                           name="email"
                           type="email"
@@ -245,7 +240,7 @@ export default function SignupPage() {
 
                     {/* Password */}
                     <div className="space-y-1.5">
-                      <label htmlFor="signup-password" className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-bold">
+                      <label htmlFor="signup-password" className="text-[10px] font-mono text-mag-text-muted uppercase tracking-[0.2em] font-bold">
                         Password
                       </label>
                       <div className="relative">
@@ -259,12 +254,11 @@ export default function SignupPage() {
                           placeholder="Min. 8 characters"
                           autoComplete="new-password"
                           className={cn(inputClass, 'pr-11')}
-                        />
-                        <button
+                        />                          <button
                           type="button"
                           onClick={() => setShowPassword((v) => !v)}
                           aria-label={showPassword ? 'Hide password' : 'Show password'}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50 transition-colors"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-mag-text-muted hover:text-mag-text transition-colors"
                         >
                           {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
@@ -273,7 +267,7 @@ export default function SignupPage() {
 
                     {/* Confirm */}
                     <div className="space-y-1.5">
-                      <label htmlFor="signup-confirm" className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-bold">
+                      <label htmlFor="signup-confirm" className="text-[10px] font-mono text-mag-text-muted uppercase tracking-[0.2em] font-bold">
                         Confirm Password
                       </label>
                       <div className="relative">
@@ -332,7 +326,7 @@ export default function SignupPage() {
             </div>
 
             {/* Login prompt */}
-            <p className="mt-7 text-center text-[13px] text-white/30">
+            <p className="mt-7 text-center text-[13px] text-mag-text-muted">
               Already have an account?{' '}
               <Link href="/login" className="text-emerald-400 hover:text-emerald-300 font-semibold transition-colors">
                 Sign in
@@ -346,9 +340,9 @@ export default function SignupPage() {
                 { icon: ShieldCheck, label: 'RATE-LIMITED' },
                 { icon: Mail, label: 'AUDITED' },
               ].map((item) => (
-                <div key={item.label} className="flex items-center gap-1.5 text-white/15">
+                <div key={item.label} className="flex items-center gap-1.5 text-mag-text-muted/60">
                   <item.icon size={10} />
-                  <span className="text-[9px] font-mono font-bold tracking-wider">{item.label}</span>
+                  <span className="text-[9px] font-mono font-bold tracking-wider text-mag-text-muted/60">{item.label}</span>
                 </div>
               ))}
             </div>

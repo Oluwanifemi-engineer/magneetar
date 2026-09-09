@@ -44,12 +44,12 @@ export default function ForgotPasswordPage() {
   };
 
   const inputClass =
-    'w-full pl-10 pr-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white text-sm ' +
-    'placeholder:text-white/25 focus:outline-none focus:border-emerald-500/50 focus:bg-white/[0.06] ' +
+    'w-full pl-10 pr-4 py-3 bg-mag-surface border-mag-border rounded-xl text-mag-text text-sm ' +
+    'placeholder:text-mag-text-muted/40 focus:outline-none focus:border-emerald-500/50 focus:bg-mag-surface-raised ' +
     'focus:ring-1 focus:ring-emerald-500/20 transition-all duration-200';
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white relative overflow-hidden">
+    <div className="min-h-screen bg-mag-bg text-mag-text relative overflow-hidden">
       <div className="absolute inset-0 landing-vignette pointer-events-none" />
       <div className="absolute inset-0 landing-grid opacity-20 pointer-events-none" />
       <div className="absolute -top-40 left-1/3 w-[600px] h-[400px] rounded-full bg-emerald-500/[0.04] blur-[130px] animate-aurora pointer-events-none" aria-hidden="true" />
@@ -65,7 +65,7 @@ export default function ForgotPasswordPage() {
             </div>
           </Link>
 
-          <div className="relative rounded-2xl border border-white/[0.08] bg-[#0e0e14]/80 backdrop-blur-xl p-7 sm:p-8 shadow-2xl shadow-black/50 spotlight-card">
+          <div className="relative rounded-2xl border-mag-border/50 bg-mag-surface/80 backdrop-blur-xl p-7 sm:p-8 shadow-2xl shadow-black/50 spotlight-card">
             {sent ? (
               <div className="animate-fade-in">
                 <div className="flex items-center gap-3 mb-4">

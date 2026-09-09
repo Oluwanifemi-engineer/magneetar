@@ -24,9 +24,9 @@ import pytest
 _test_db_fd, _test_db_path = tempfile.mkstemp(suffix=".db")
 os.close(_test_db_fd)
 
-os.environ["MT_API_KEY"] = "device-lifecycle-key-" + "a" * 32
-os.environ["MT_JWT_SECRET"] = "device-lifecycle-jwt-" + "b" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
+os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
+os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 os.environ["MT_DB_PATH"] = _test_db_path
 
 # Module eviction (same pattern as test_e2e.py)
@@ -78,7 +78,14 @@ STRONG_PASSWORD = "SecurePass123!"
 
 @pytest.fixture(autouse=True)
 def _clear_rate_buckets():
-    with database.get_db_context() as conn:
+    """Clear rate limits between tests — resolve the CURRENT database module
+    (test_e2e evicts and re-imports database with ITS env mid-collection, so
+    the module-level binding can point at a different DB than the app's auth
+    chain checks at runtime)."""
+    import sys
+
+    current_db = sys.modules.get("database") or database
+    with current_db.get_db_context() as conn:
         conn.execute("DELETE FROM rate_limits")
         conn.commit()
     yield
@@ -211,7 +218,7 @@ class TestDeviceSharing:
         _claim_device(device_id, owner_token)
 
         grantee_email = f"grantee-{secrets.token_hex(4)}@test.dev"
-        _grantee_token = _register_user(grantee_email)
+        _register_user(grantee_email)
 
         # Share device with grantee
         share_resp = client.post(

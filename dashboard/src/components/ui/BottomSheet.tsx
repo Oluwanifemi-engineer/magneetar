@@ -180,7 +180,7 @@ export function BottomSheet({
       }}
     >
       {/* Backdrop blur area */}
-      <div className="absolute inset-0 bg-[#0a0a0f]/95 backdrop-blur-xl rounded-t-3xl" />
+      <div className="absolute inset-0 bg-mag-bg/95 backdrop-blur-xl rounded-t-3xl" />
 
       {/* Content */}
       <div ref={contentRef} className="relative h-full flex flex-col">
@@ -194,7 +194,7 @@ export function BottomSheet({
         >
           {/* Handle bar */}
           <div className="flex justify-center pt-2.5 pb-1">
-            <div className="w-10 h-1 rounded-full bg-white/20" />
+            <div className="w-10 h-1 rounded-full bg-mag-border" />
           </div>
 
           {/* Detent indicator dots */}
@@ -204,7 +204,7 @@ export function BottomSheet({
                 key={i}
                 className={cn(
                   'w-1 h-1 rounded-full transition-all duration-200',
-                  i <= indicatorForState ? 'bg-emerald-500' : 'bg-white/15'
+                  i <= indicatorForState ? 'bg-emerald-500' : 'bg-mag-border'
                 )}
               />
             ))}
@@ -221,7 +221,7 @@ export function BottomSheet({
           {state === 'peek' && (
             <button
               onClick={() => { setState('half'); onStateChange?.('half'); }}
-              className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-mono text-white/20 uppercase tracking-widest"
+              className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-mono text-mag-text-muted uppercase tracking-widest"
             >
               ↑ Swipe up for more
             </button>
@@ -231,11 +231,10 @@ export function BottomSheet({
         {/* Scrollable content area (half/full states) */}
         {(state === 'half' || state === 'full') && (
           <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-safe">
-            {/* Compact header when expanded */}
             {state === 'half' && (
               <button
                 onClick={() => { setState('peek'); onStateChange?.('peek'); }}
-                className="w-full text-center py-2 text-[8px] font-mono text-white/25 uppercase tracking-widest"
+                className="w-full text-center py-2 text-[8px] font-mono text-mag-text-muted uppercase tracking-widest"
               >
                 ↓ Collapse
               </button>

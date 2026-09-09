@@ -52,6 +52,7 @@ jest.mock('lucide-react', () => {
     Trash2: stub('Trash2'),
     ShieldCheck: stub('ShieldCheck'),
     Lock: stub('Lock'),
+    Loader2: stub('Loader2'),
   };
 });
 

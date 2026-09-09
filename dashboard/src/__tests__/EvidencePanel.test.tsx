@@ -32,6 +32,7 @@ jest.mock('lucide-react', () => {
     ClipboardList: stub('ClipboardList'),
     FileText: stub('FileText'),
     Loader: stub('Loader'),
+    Loader2: stub('Loader2'),
     ShieldCheck: stub('ShieldCheck'),
   };
 });

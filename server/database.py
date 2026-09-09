@@ -1211,6 +1211,15 @@ def ensure_initialized() -> bool:
         return True
     # Existing DB — verify the full table list AND the devices columns are
     # current before taking the no-op fast path.
+    #
+    # This set MUST shadow every CREATE TABLE IF NOT EXISTS in init_db() plus
+    # every guarded ALTER TABLE in the migration block below it. If a new table
+    # lands in init_db() without being added here, an EXISTING database takes
+    # the no-op fast path and the new table never gets created — the first
+    # endpoint that touches it 500s with "no such table" in production (this
+    # exact drift shipped once with `device_shares`: tests only ever build fresh
+    # DBs, so it passed; the live DB broke at startup). Keep the list in sync
+    # with init_db(); `test_postgres_adapter_parity.py` asserts it at CI time.
     required_tables = {
         "users",
         "devices",
@@ -1238,6 +1247,11 @@ def ensure_initialized() -> bool:
         "analytics_events",  # MVP user metrics (docs/USER_ANALYTICS_SETUP.md)
         "mesh_beacons",  # BLE mesh: beacon registrations
         "mesh_sightings",  # BLE mesh: sighting reports
+        "tracking_consents",
+        "abuse_reports",
+        "privacy_consents",
+        "data_export_requests",
+        "payments",
         "circles",  # Group device sharing
         "circle_members",
         "circle_devices",

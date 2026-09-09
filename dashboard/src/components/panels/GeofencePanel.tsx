@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useStore } from '@/store/useStore';
 import { getAPI } from '@/lib/api';
 import { cn, formatCoordinate } from '@/lib/utils';
+import { MagInput, MagButton, MagStatusPill } from '@/components/ui/MagPrimitives';
 import { Fence, MapPin, Plus, Trash2, ShieldAlert, Camera, Volume2, Loader, Check } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import type { Geofence, GeofenceAutoAction } from '@/types';
@@ -37,6 +38,8 @@ export function GeofencePanel() {
   const [radius, setRadius] = useState('200');
   const [isSafeZone, setIsSafeZone] = useState(true);
   const [autoAction, setAutoAction] = useState<GeofenceAutoAction>(null);
+  const [nameError, setNameError] = useState('');
+  const formRef = useRef<HTMLFormElement>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -73,44 +76,46 @@ export function GeofencePanel() {
 
   const createZone = async (e: FormEvent) => {
     e.preventDefault();
-    if (!selectedDeviceId || creating) return;
-    const centerLat = Number(lat);
-    const centerLng = Number(lng);
-    const radiusMeters = Number(radius);
-    if (!Number.isFinite(centerLat) || centerLat < -90 || centerLat > 90) {
-      setError('Enter a valid latitude (-90 to 90).');
-      return;
-    }
-    if (!Number.isFinite(centerLng) || centerLng < -180 || centerLng > 180) {
-      setError('Enter a valid longitude (-180 to 180).');
-      return;
-    }
-    if (!Number.isFinite(radiusMeters) || radiusMeters <= 0 || radiusMeters > 50000) {
-      setError('Enter a radius between 1 and 50,000 meters.');
-      return;
-    }
-    setCreating(true);
-    setError('');
-    try {
-      await getAPI().createGeofence({
-        device_id: selectedDeviceId,
-        name: name.trim() || undefined,
-        center_lat: centerLat,
-        center_lng: centerLng,
-        radius_meters: radiusMeters,
-        is_safe_zone: isSafeZone,
-        auto_action: autoAction,
-      });
-      toast('Geofence zone created', 'success');
-      setName('');
-      setFormOpen(false);
-      await fetchZones();
-    } catch (err: any) {
-      setError(err?.message || 'Failed to create geofence');
-    } finally {
-      setCreating(false);
-    }
-  };
+    if (!selectedDeviceId || creating) return;      const centerLat = Number(lat);
+      const centerLng = Number(lng);
+      const radiusMeters = Number(radius);
+      if (!Number.isFinite(centerLat) || centerLat < -90 || centerLat > 90) {
+        // The latitude input already shows the inline message via its error prop.
+        const latField = formRef.current?.querySelector<HTMLInputElement>('#zone-lat');
+        latField?.focus();
+        return;
+      }
+      if (!Number.isFinite(centerLng) || centerLng < -180 || centerLng > 180) {
+        setError('Enter a valid longitude (-180 to 180).');
+        return;
+      }
+      if (!Number.isFinite(radiusMeters) || radiusMeters <= 0 || radiusMeters > 50000) {
+        setError('Enter a radius between 1 and 50,000 meters.');
+        return;
+      }
+      setCreating(true);
+      setError('');
+      setNameError('');
+      try {
+        await getAPI().createGeofence({
+          device_id: selectedDeviceId,
+          name: name.trim() || undefined,
+          center_lat: centerLat,
+          center_lng: centerLng,
+          radius_meters: radiusMeters,
+          is_safe_zone: isSafeZone,
+          auto_action: autoAction,
+        });
+        toast('Geofence zone created', 'success');
+        setName('');
+        setFormOpen(false);
+        await fetchZones();
+      } catch (err: any) {
+        setError(err?.message || 'Failed to create geofence');
+      } finally {
+        setCreating(false);
+      }
+    };
 
   const deleteZone = async (zone: Geofence) => {
     if (deletingId !== null) return;
@@ -142,16 +147,16 @@ export function GeofencePanel() {
   if (!selectedDeviceId) {
     return (
       <div className="p-4 space-y-4">
-        <div className="flex items-center gap-1.5 text-[10px] font-mono text-white/30 uppercase tracking-wider font-bold mb-3 px-1">
-          <Fence size={12} className="text-white/20" />
-          Geofence Zones
+        <div className="mag-panel-header">
+          <Fence size={12} className="text-mag-text-muted" />
+          <span className="mag-panel-label">Geofence Zones</span>
         </div>
-        <div className="text-center py-8">
-          <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mx-auto mb-2">
-            <MapPin size={16} className="text-white/15" />
+        <div className="mag-empty">
+          <div className="mag-empty-icon">
+            <MapPin size={16} className="text-mag-text-muted" />
           </div>
-          <div className="text-white/40 text-[11px] font-bold">No device selected</div>
-          <div className="text-white/20 text-[10px] font-mono mt-1 max-w-[220px] mx-auto leading-relaxed">
+          <div className="mag-empty-head">No device selected</div>
+          <div className="mag-empty-sub">
             Select a device from the sidebar to manage its geofence zones.
           </div>
         </div>
@@ -161,24 +166,31 @@ export function GeofencePanel() {
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-center gap-1.5 text-[10px] font-mono text-white/30 uppercase tracking-wider font-bold mb-3 px-1">
-        <Fence size={12} className="text-white/20" />
-        Geofence Zones
+      <div className="mag-panel-header">
+        <Fence size={12} className="text-mag-text-muted" />
+        <span className="mag-panel-label">Geofence Zones</span>
+        <div className="ml-auto flex items-center gap-2">
+          {canManage && (
+            <span className="text-[9px] font-mono text-mag-text-muted/60">
+              {zones && zones.length ? `${zones.length} zone${zones.length === 1 ? '' : 's'}` : 'No zones'}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="space-y-2">
         {loading && !zones ? (
           <div className="text-center py-8">
             <Loader size={18} className="animate-spin mx-auto text-emerald-500/40" />
-            <div className="text-white/20 text-[10px] font-mono mt-2">Loading zones...</div>
+            <div className="text-mag-text-muted text-[10px] font-mono mt-2">Loading zones...</div>
           </div>
         ) : !zones || zones.length === 0 ? (
-          <div className="text-center py-8 bg-white/[0.02] border border-white/[0.06] rounded-xl">
-            <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mx-auto mb-2">
-              <MapPin size={16} className="text-white/15" />
+          <div className="mag-empty">
+            <div className="mag-empty-icon">
+              <MapPin size={16} className="text-mag-text-muted" />
             </div>
-            <div className="text-white/50 text-[11px] font-bold mb-1">No zones yet</div>
-            <div className="text-white/20 text-[10px] font-mono leading-relaxed max-w-[220px] mx-auto">
+            <div className="mag-empty-head">No zones yet</div>
+            <div className="mag-empty-sub">
               Create a safe zone to get an alert the moment the device leaves it.
             </div>
           </div>
@@ -186,31 +198,27 @@ export function GeofencePanel() {
           zones.map(zone => (
             <div
               key={zone.id}
-              className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 space-y-2"
+              className="mag-row"
             >
               <div className="flex items-center gap-2">
                 <div className={cn(
                   'w-1.5 h-1.5 rounded-full shrink-0',
                   zone.is_safe_zone ? 'bg-emerald-500' : 'bg-amber-500'
                 )} />
-                <div className="text-[11px] font-bold text-white/80 truncate flex-1 min-w-0">
+                <div className="text-[11px] font-bold text-mag-text truncate flex-1 min-w-0">
                   {zone.name || `Zone #${zone.id}`}
                 </div>
-                <span
-                  className={cn(
-                    'text-[8px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0',
-                    zone.is_safe_zone
-                      ? 'border-emerald-500/25 text-emerald-400/80 bg-emerald-500/[0.08]'
-                      : 'border-amber-500/25 text-amber-400/80 bg-amber-500/[0.08]'
-                  )}
+                <MagStatusPill
+                  variant={zone.is_safe_zone ? 'secure' : 'elevated'}
+                  className="shrink-0"
                 >
                   {zone.is_safe_zone ? 'Safe' : 'Restricted'}
-                </span>
+                </MagStatusPill>
               </div>
 
-              <div className="text-[9px] font-mono text-white/25 leading-relaxed">
+              <div className="text-[9px] font-mono text-mag-text-muted leading-relaxed">
                 {formatCoordinate(zone.center_lat, 'lat')}, {formatCoordinate(zone.center_lng, 'lng')}
-                <span className="text-white/15"> · {Math.round(zone.radius_meters)}m</span>
+                <span className="text-mag-text-muted/60"> · {Math.round(zone.radius_meters)}m</span>
               </div>
 
               <div className="flex items-center justify-between gap-2">
@@ -222,14 +230,14 @@ export function GeofencePanel() {
                         ? 'On exit: max-volume alarm'
                         : 'On exit: alert only'
                   }
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-white/[0.08] bg-white/[0.03] text-white/40 text-[8px] font-mono font-bold uppercase tracking-wider"
+                  className="mag-chip border-mag-border bg-mag-surface/40 text-mag-text-muted"
                 >
                   {zone.auto_action === 'capture' ? (
-                    <Camera size={8} />
+                    <Camera size={8} className="text-mag-text-muted" />
                   ) : zone.auto_action === 'siren' ? (
-                    <Volume2 size={8} />
+                    <Volume2 size={8} className="text-mag-text-muted" />
                   ) : (
-                    <ShieldAlert size={8} />
+                    <ShieldAlert size={8} className="text-mag-text-muted" />
                   )}
                   {policyLabel(zone.auto_action)}
                 </span>
@@ -240,10 +248,10 @@ export function GeofencePanel() {
                     aria-label={`Delete zone ${zone.name || zone.id}`}
                     title={confirmDeleteId === zone.id ? 'Click again to confirm' : 'Delete zone'}
                     className={cn(
-                      'px-2 py-1 rounded-md border text-[8px] font-mono font-bold uppercase tracking-wider transition-colors disabled:opacity-40 shrink-0',
+                      'mag-chip border transition-colors disabled:opacity-40 shrink-0',
                       confirmDeleteId === zone.id
-                        ? 'border-red-500/30 bg-red-500/[0.08] text-red-400'
-                        : 'border-white/[0.06] text-white/25 hover:text-red-400 hover:border-red-500/20'
+                        ? 'border-red-500/30 bg-red-500/10 text-red-400'
+                        : 'border-mag-border text-mag-text-muted hover:text-red-400 hover:border-red-500/20'
                     )}
                   >
                     {deletingId === zone.id ? (
@@ -262,68 +270,63 @@ export function GeofencePanel() {
       </div>
 
       {!canManage ? (
-        <p className="text-center text-[9px] font-mono text-white/20 py-2">
+        <p className="text-center text-[9px] font-mono text-mag-text-muted py-2">
           Read-only access — owner or admin can change zones.
         </p>
       ) : !formOpen ? (
-        <button
-          onClick={() => { setFormOpen(true); setError(''); }}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-white/[0.1] text-white/40 hover:text-white/70 hover:border-white/[0.2] transition-all text-[11px] font-bold"
+        <MagButton
+          variant="ghost"
+          fullWidth
+          onClick={() => { setFormOpen(true); setError(''); setNameError(''); }}
+          icon={<Plus size={14} />}
         >
-          <Plus size={14} />
           Add Zone
-        </button>
+        </MagButton>
       ) : (
-        <form onSubmit={createZone} className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 space-y-3">
-          <div className="text-[10px] font-mono text-white/40 uppercase tracking-wider font-bold">
-            New Zone
+        <form onSubmit={createZone} className="mag-panel-elevated p-4 space-y-3">
+          <div className="mag-panel-header border-b border-mag-border/50">
+            <span className="mag-panel-label">New Zone</span>
           </div>
 
-          <div>
-            <label className="text-[9px] font-mono text-white/30 font-bold mb-1 block">Name (optional)</label>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              maxLength={60}
-              placeholder="e.g. Home, School, Office"
-              aria-label="Zone name"
-              className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-[11px] font-mono text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
-            />
-          </div>
+          <MagInput
+            label="Name (optional)"
+            value={name}
+            onChange={e => { setName(e.target.value); setNameError(''); }}
+            maxLength={60}
+            placeholder="e.g. Home, School, Office"
+            aria-label="Zone name"
+            error={!!nameError}
+          />
 
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[9px] font-mono text-white/30 font-bold mb-1 block">Latitude</label>
-              <input
-                value={lat}
-                onChange={e => setLat(e.target.value)}
-                inputMode="decimal"
-                aria-label="Zone latitude"
-                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-[11px] font-mono text-white focus:outline-none focus:border-white/20 transition-colors"
-              />
-            </div>
-            <div>
-              <label className="text-[9px] font-mono text-white/30 font-bold mb-1 block">Longitude</label>
-              <input
-                value={lng}
-                onChange={e => setLng(e.target.value)}
-                inputMode="decimal"
-                aria-label="Zone longitude"
-                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-[11px] font-mono text-white focus:outline-none focus:border-white/20 transition-colors"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-[9px] font-mono text-white/30 font-bold mb-1 block">Radius (meters)</label>
-            <input
-              value={radius}
-              onChange={e => setRadius(e.target.value)}
-              inputMode="numeric"
-              aria-label="Zone radius meters"
-              className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-[11px] font-mono text-white focus:outline-none focus:border-white/20 transition-colors"
+            <MagInput
+              label="Latitude"
+              value={lat}
+              onChange={e => setLat(e.target.value)}
+              inputMode="decimal"
+              aria-label="Zone latitude"
+              id="zone-lat"
+              error={lat ? (Number(lat) < -90 || Number(lat) > 90 ? 'Enter a valid latitude (-90 to 90).' : false) : false}
+            />
+            <MagInput
+              label="Longitude"
+              value={lng}
+              onChange={e => setLng(e.target.value)}
+              inputMode="decimal"
+              aria-label="Zone longitude"
+              error={lat && lng ? (Number(lng) < -180 || Number(lng) > 180 ? 'Enter a valid longitude (-180 to 180).' : false) : false}
             />
           </div>
+
+          <MagInput
+            label="Radius (meters)"
+            value={radius}
+            onChange={e => setRadius(e.target.value)}
+            inputMode="numeric"
+            aria-label="Zone radius meters"
+            type="number"
+            error={radius ? (Number(radius) <= 0 || Number(radius) > 50000 ? 'Enter a radius between 1 and 50,000 meters.' : false) : false}
+          />
 
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
@@ -333,13 +336,13 @@ export function GeofencePanel() {
               aria-label="Safe zone"
               className="accent-emerald-500 w-4 h-4"
             />
-            <span className="text-[9px] font-mono text-white/50 font-bold">
+            <span className="text-[9px] font-mono text-mag-text-dim font-bold">
               Safe zone (alert when device LEAVES it)
             </span>
           </label>
 
           <div>
-            <label className="text-[9px] font-mono text-white/30 font-bold mb-1 block">Auto-action on exit</label>
+            <div className="mag-field-label mb-1.5">Auto-action on exit</div>
             <div className="space-y-1.5">
               {POLICY_OPTIONS.map(opt => (
                 <label
@@ -347,8 +350,8 @@ export function GeofencePanel() {
                   className={cn(
                     'flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-all select-none',
                     autoAction === opt.value
-                      ? 'border-white/[0.15] bg-white/[0.06]'
-                      : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1]'
+                      ? 'border-emerald-500/20 bg-emerald-500/5'
+                      : 'border-mag-border bg-mag-surface/30 hover:border-mag-border/80'
                   )}
                 >
                   <input
@@ -359,34 +362,36 @@ export function GeofencePanel() {
                     aria-label={`Auto action ${opt.label}`}
                     className="accent-emerald-500 mt-0.5"
                   />
-                  <span>
-                    <span className="block text-[9px] font-mono font-bold text-white/60">{opt.label}</span>
-                    <span className="block text-[8px] font-mono text-white/25 leading-relaxed">{opt.hint}</span>
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="block text-[9px] font-mono font-bold text-mag-text-dim">{opt.label}</span>
+                    <span className="block text-[8px] font-mono text-mag-text-muted/70 leading-relaxed">{opt.hint}</span>
+                  </div>
                 </label>
               ))}
             </div>
           </div>
 
-          {error && <div className="text-[10px] font-mono text-red-400">{error}</div>}
+          {error && (
+            <div className="text-[10px] font-mono text-red-400">{error}</div>
+          )}
 
-          <div className="flex gap-2">
-            <button
+          <div className="mag-actions">
+            <MagButton
+              variant="primary"
               type="submit"
-              disabled={creating}
-              className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[11px] font-bold transition-all"
+              loading={creating}
+              icon={creating ? undefined : <Check size={12} />}
             >
-              {creating ? <Loader size={12} className="animate-spin" /> : <Check size={12} />}
               {creating ? 'Creating...' : 'Create Zone'}
-            </button>
-            <button
+            </MagButton>
+            <MagButton
+              variant="ghost"
               type="button"
-              onClick={() => { setFormOpen(false); setError(''); }}
+              onClick={() => { setFormOpen(false); setError(''); setNameError(''); }}
               disabled={creating}
-              className="px-4 py-2 rounded-lg border border-white/[0.08] text-white/40 hover:text-white/70 text-[11px] font-bold transition-all disabled:opacity-40"
             >
               Cancel
-            </button>
+            </MagButton>
           </div>
         </form>
       )}

@@ -28,11 +28,11 @@ class SentinelEngine:
 
     THEFT_SIGNALS = {
         "sim_changed": {"weight": 35, "description": "SIM card changed"},
-        "admin_disabled": {"weight": 40, "description": "Device admin deactivated"},
-        "factory_reset_attempted": {
-            "weight": 50,
-            "description": "Factory reset initiated",
-        },
+        # admin_disabled (40) is deliberately NOT here: it has no scoring
+        # path inside compute_score() (the app reports it on the heartbeat,
+        # which persists the elevated score without escalating to stolen mode
+        # — see routes/devices.py post_heartbeat, which hardcodes its weight
+        # of 40 and cites this map as the source of truth).
         "location_disabled": {
             "weight": 20,
             "description": "Location services disabled",
@@ -41,19 +41,10 @@ class SentinelEngine:
         "velocity_vehicle": {"weight": 25, "description": "Moving at vehicle speed"},
         "velocity_running": {"weight": 10, "description": "Moving at running speed"},
         "battery_critical": {"weight": 10, "description": "Battery below 5%"},
-        "unknown_network": {
-            "weight": 10,
-            "description": "Connected to unknown network",
-        },
         "was_queued_long": {"weight": 10, "description": "Data queued >10 minutes"},
         "failed_unlocks": {
             "weight": 20,
             "description": "Multiple failed unlock attempts",
-        },
-        "new_google_account": {"weight": 15, "description": "New Google account added"},
-        "outside_known_locations": {
-            "weight": 15,
-            "description": "Outside all known locations",
         },
         "unusual_time": {"weight": 10, "description": "Activity at unusual hour"},
     }
@@ -118,7 +109,13 @@ class SentinelEngine:
         # ── Velocity Analysis ─────────────────────────────────────────────
         if ping.speed is not None:
             speed_kmh = ping.speed * 3.6  # m/s to km/h
-            if speed_kmh > 120:
+            # Vehicle band starts at 45 km/h — no human can run faster, so
+            # anything above is by definition motorized flight (car, okada,
+            # bus). The old 120 km/h cutoff meant a phone fleeing at 100 km/h
+            # scored as "running" (+10) instead of "vehicle" (+25), and the
+            # dashboard told owners "Moving at running speed: 100 km/h".
+            # Running keeps 15-45 km/h: an actual foot chase, not a getaway.
+            if speed_kmh > 45:
                 sig = self.THEFT_SIGNALS["velocity_vehicle"]
                 anomalies.append(f"{sig['description']}: {speed_kmh:.0f} km/h")
                 total_score += sig["weight"]

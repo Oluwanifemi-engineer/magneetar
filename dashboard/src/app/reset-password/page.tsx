@@ -105,7 +105,7 @@ function ResetPasswordForm() {
             </div>
           </Link>
 
-          <div className="relative rounded-2xl border border-white/[0.08] bg-mag-panel/85 backdrop-blur-xl p-7 sm:p-8 shadow-2xl shadow-black/50 spotlight-card">
+          <div className="relative rounded-2xl border-mag-border/50 bg-mag-surface/80 backdrop-blur-xl p-7 sm:p-8 shadow-2xl shadow-black/50 spotlight-card">
             {missingLink ? (
               <div className="animate-fade-in">
                 <div className="flex items-center gap-3 mb-4">
@@ -113,8 +113,7 @@ function ResetPasswordForm() {
                     <KeyRound size={17} className="text-red-400" />
                   </div>
                   <h2 className="text-lg font-display font-extrabold tracking-tight text-gray-900">Broken reset link</h2>
-                </div>
-                <p className="text-[13px] text-gray-500 leading-relaxed mb-6">
+                </div>                  <p className="text-[13px] text-mag-text-muted leading-relaxed mb-6">
                   This link is missing its reset token. Request a fresh one — old links expire
                   after 30 minutes and can only be used once.
                 </p>
@@ -133,8 +132,7 @@ function ResetPasswordForm() {
                     <CheckCircle2 size={18} className="text-emerald-400" />
                   </div>
                   <h2 className="text-lg font-display font-extrabold tracking-tight text-gray-900">Password updated</h2>
-                </div>
-                <p className="text-[13px] text-gray-500 leading-relaxed mb-6">
+                </div>                  <p className="text-[13px] text-mag-text-muted leading-relaxed mb-6">
                   You&apos;re signed in with your new password. Taking you to your command center…
                 </p>
                 <a
@@ -154,16 +152,13 @@ function ResetPasswordForm() {
                     <h2 className="text-lg font-display font-extrabold tracking-tight text-gray-900">Choose a new password</h2>
                     <div className="text-[10px] font-mono text-gray-900/35 font-bold mt-0.5 uppercase tracking-[0.2em]">SECURE RECOVERY</div>
                   </div>
-                </div>
-
-                <p className="text-[13px] text-gray-400 leading-relaxed mb-6">
+                </div>                  <p className="text-[13px] text-mag-text-dim leading-relaxed mb-6">
                   For <span className="text-gray-800 font-semibold">{email}</span>. Use at least 8 characters
                   with a mix of letters and numbers.
                 </p>
 
                 <form onSubmit={handleSubmit} noValidate className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label htmlFor="rp-password" className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em] font-bold">
+                  <div className="space-y-1.5">                      <label htmlFor="rp-password" className="text-[10px] font-mono text-mag-text-muted uppercase tracking-[0.2em] font-bold">
                       New password
                     </label>
                     <div className="relative">
@@ -190,8 +185,7 @@ function ResetPasswordForm() {
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label htmlFor="rp-confirm" className="text-[10px] font-mono text-gray-400 uppercase tracking-[0.2em] font-bold">
+                  <div className="space-y-1.5">                      <label htmlFor="rp-confirm" className="text-[10px] font-mono text-mag-text-muted uppercase tracking-[0.2em] font-bold">
                       Confirm password
                     </label>
                     <div className="relative">
@@ -229,8 +223,7 @@ function ResetPasswordForm() {
                 </form>
 
                 <Link
-                  href="/login"
-                  className="inline-flex items-center gap-2 mt-5 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-gray-900/30 hover:text-gray-600 transition-colors"
+                  href="/login"                    className="inline-flex items-center gap-2 mt-5 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-mag-text-muted/60 hover:text-mag-text-dim transition-colors"
                 >
                   <ArrowLeft size={13} />
                   Back to sign in

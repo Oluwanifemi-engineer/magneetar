@@ -15,7 +15,7 @@ const VERIFIABLE_CLAIMS = [
     icon: Zap,
   },
   {
-    metric: 'Tamper-proof',
+    metric: 'Tamper-evident',
     label: 'evidence for police',
     detail: 'Photos, audio, and location records that cannot be altered',
     icon: Lock,
@@ -65,7 +65,7 @@ export function SocialProof() {
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-4">
             Why people trust Magneetar.
           </h2>
-          <p className="text-gray-400 text-base max-w-lg mx-auto">
+          <p className="text-mag-text-muted text-base max-w-lg mx-auto">
             Built for the moment your phone disappears. Here's what makes Magneetar different.
           </p>
         </div>
@@ -73,11 +73,11 @@ export function SocialProof() {
         {/* Verifiable metrics */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-14">
           {VERIFIABLE_CLAIMS.map((item) => (
-            <div key={item.label} className="text-center py-6 rounded-xl bg-gradient-to-b from-white/[0.03] to-transparent border border-white/[0.04] hover:border-emerald-500/10 transition-all duration-300 group">
-              <item.icon size={18} className="text-gray-500 mx-auto mb-3 group-hover:text-emerald-400/60 transition-colors" />
-              <div className="text-2xl font-extrabold text-white font-mono tabular-nums">{item.metric}</div>
-              <div className="text-[11px] font-mono text-gray-400 uppercase tracking-wider mt-1.5 font-semibold">{item.label}</div>
-              <div className="text-[10px] text-gray-600 mt-1.5 leading-relaxed">{item.detail}</div>
+            <div key={item.label} className="text-center py-6 rounded-xl bg-gradient-to-b from-mag-surface to-mag-bg border-mag-border hover:border-emerald-500/10 transition-all duration-300 group">
+              <item.icon size={18} className="text-mag-text-muted mx-auto mb-3 group-hover:text-emerald-400/60 transition-colors" />
+              <div className="text-2xl font-extrabold text-mag-text font-mono tabular-nums">{item.metric}</div>
+              <div className="text-[11px] font-mono text-mag-text-muted uppercase tracking-wider mt-1.5 font-semibold">{item.label}</div>
+              <div className="text-[10px] text-mag-text-muted mt-1.5 leading-relaxed">{item.detail}</div>
             </div>
           ))}
         </div>
@@ -85,20 +85,20 @@ export function SocialProof() {
         {/* Architecture facts */}
         <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto">
           {ARCHITECTURE_FACTS.map((fact) => (
-            <div key={fact.title} className="flex items-start gap-4 rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-6 hover:border-emerald-500/15 transition-all duration-400 group">
+            <div key={fact.title} className="flex items-start gap-4 rounded-2xl border-mag-border bg-gradient-to-b from-mag-surface to-mag-bg p-6 hover:border-emerald-500/15 transition-all duration-400 group">
               <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/15 transition-all">
                 <fact.icon size={16} className="text-emerald-400/70 group-hover:text-emerald-400 transition-colors" />
               </div>
               <div>
-                <div className="text-white font-semibold text-sm">{fact.title}</div>
-                <div className="text-[12.5px] text-gray-400 leading-relaxed mt-1">{fact.description}</div>
+                <div className="text-mag-text font-semibold text-sm">{fact.title}</div>
+                <div className="text-[12.5px] text-mag-text-muted leading-relaxed mt-1">{fact.description}</div>
               </div>
             </div>
           ))}
         </div>
 
         {/* Trust note */}
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 text-[11px] font-mono text-gray-600">
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 text-[11px] font-mono text-mag-text-muted">
           <span>BUILT IN NIGERIA · FOR NIGERIA</span>
           <span className="w-1 h-1 rounded-full bg-emerald-500/30" />
           <span className="text-emerald-400/60">FREE TO START · NO CREDIT CARD</span>

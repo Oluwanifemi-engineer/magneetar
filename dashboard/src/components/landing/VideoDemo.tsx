@@ -32,7 +32,7 @@ const DEMO_STEPS = [
   {
     icon: Camera,
     title: 'Evidence Capture',
-    detail: 'Tamper-proof photo + audio captures',
+    detail: 'Tamper-evident photo + audio captures',
     marker: 'evidence',
     color: 'from-blue-500 to-indigo-600',
   },
@@ -60,15 +60,14 @@ function DemoMockup({ activeStep }: { activeStep: number }) {
   const battery = 84;
 
   return (
-    <div className="relative bg-gray-900 rounded-2xl overflow-hidden shadow-2xl border border-gray-800">
+    <div className="relative bg-mag-surface rounded-2xl overflow-hidden shadow-2xl border border-mag-border">
       {/* Title bar */}
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-800/80 border-b border-gray-700/50">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-mag-surface-raised/80 border-b border-mag-border/50">
         <div className="flex gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
           <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
           <div className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
-        </div>
-        <span className="text-[10px] font-mono text-gray-500 ml-2">MAGNEETAR COMMAND CENTER</span>
+        </div>            <span className="text-[10px] font-mono text-mag-text-muted ml-2">MAGNEETAR COMMAND CENTER</span>
         <div className="ml-auto flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <span className="text-[9px] font-mono text-emerald-400">LIVE</span>
@@ -94,7 +93,7 @@ function DemoMockup({ activeStep }: { activeStep: number }) {
             <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${step.color} flex items-center justify-center shadow-lg transition-all duration-500`}>
               <step.icon size={18} className="text-white" />
             </div>
-            <div className="absolute -inset-3 rounded-full border-2 border-white/20 animate-ping" />
+            <div className="absolute -inset-3 rounded-full border-2 border-mag-border/50 animate-ping" />
           </div>
         </div>
 
@@ -114,7 +113,7 @@ function DemoMockup({ activeStep }: { activeStep: number }) {
         {/* Evidence overlay */}
         {activeStep === 2 && (
           <div className="absolute inset-0 bg-blue-500/5 flex items-center justify-center">
-            <div className="bg-gray-900/90 border border-blue-500/30 rounded-lg p-3 flex items-center gap-2">
+            <div className="bg-mag-bg/90 border border-blue-500/30 rounded-lg p-3 flex items-center gap-2">
               <Camera size={14} className="text-blue-400" />
               <span className="text-[10px] font-mono text-blue-300">Evidence capture in progress...</span>
               <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
@@ -125,7 +124,7 @@ function DemoMockup({ activeStep }: { activeStep: number }) {
         {/* Lock overlay */}
         {isLocked && (
           <div className="absolute inset-0 bg-red-500/5 flex items-center justify-center">
-            <div className="bg-gray-900/90 border border-red-500/30 rounded-lg p-3 flex items-center gap-2">
+            <div className="bg-mag-bg/90 border border-red-500/30 rounded-lg p-3 flex items-center gap-2">
               <Lock size={14} className="text-red-400" />
               <span className="text-[10px] font-mono text-red-300">Screen locked remotely</span>
             </div>
@@ -133,31 +132,30 @@ function DemoMockup({ activeStep }: { activeStep: number }) {
         )}
 
         {/* Sidebar */}
-        <div className="absolute right-0 top-0 bottom-0 w-48 bg-gray-900/90 border-l border-gray-700/50 p-3">
-          <div className="text-[9px] font-mono text-gray-500 mb-2">DEVICES</div>
+        <div className="absolute right-0 top-0 bottom-0 w-48 bg-mag-bg/90 border-l border-mag-border/50 p-3">
+          <div className="text-[9px] font-mono text-mag-text-muted mb-2">DEVICES</div>
           {['Galaxy A03s', 'Pixel 8', 'Redmi Note 12'].map((name, i) => (
             <div
               key={name}
               className={`flex items-center gap-2 p-2 rounded-lg mb-1.5 transition-all duration-300 ${
-                i === 0 ? 'bg-white/10 border border-white/10' : 'opacity-40'
+                i === 0 ? 'bg-mag-surface-raised border-mag-border/50' : 'opacity-40'
               }`}
             >
-              <div className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-emerald-500' : 'bg-gray-600'}`} />
-              <span className="text-[10px] font-mono text-white/80">{name}</span>
+              <div className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-emerald-500' : 'bg-mag-text-muted/50'}`} />
+              <span className="text-[10px] font-mono text-mag-text-muted">{name}</span>
             </div>
           ))}
 
-          <div className="mt-4 text-[9px] font-mono text-gray-500 mb-2">DETECTION</div>
-          <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+          <div className="mt-4 text-[9px] font-mono text-mag-text-muted mb-2">DETECTION</div>
+          <div className="p-2 rounded-lg bg-mag-surface border-mag-border">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono text-gray-400">Score</span>
+              <span className="text-[10px] font-mono text-mag-text-dim">Score</span>
               <span className={`text-[10px] font-mono font-bold ${
                 sentinelScore >= 70 ? 'text-red-400' : sentinelScore >= 40 ? 'text-amber-400' : 'text-emerald-400'
               }`}>
                 {sentinelScore}
               </span>
-            </div>
-            <div className="h-1 bg-gray-700 rounded-full overflow-hidden">
+            </div>              <div className="h-1 border-mag-border rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-1000 ${
                   sentinelScore >= 70 ? 'bg-red-500' : sentinelScore >= 40 ? 'bg-amber-500' : 'bg-emerald-500'
@@ -170,13 +168,11 @@ function DemoMockup({ activeStep }: { activeStep: number }) {
           {/* Command queue indicator */}
           {activeStep >= 3 && (
             <div className="mt-3">
-              <div className="text-[9px] font-mono text-gray-500 mb-1">COMMANDS</div>
-              <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+              <div className="text-[9px] font-mono text-mag-text-muted mb-1">COMMANDS</div>
+              <div className="p-2 rounded-lg bg-mag-surface border-mag-border">
                 <div className="flex items-center gap-1.5">
                   <div className={`w-1.5 h-1.5 rounded-full ${isLocked ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
-                  <span className="text-[9px] font-mono text-gray-400">
-                    {isLocked ? 'LOCK — executing' : 'DELIVERED'}
-                  </span>
+
                 </div>
               </div>
             </div>
@@ -185,18 +181,18 @@ function DemoMockup({ activeStep }: { activeStep: number }) {
       </div>
 
       {/* Status bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-800/60 border-t border-gray-700/50">
+      <div className="flex items-center justify-between px-4 py-2 bg-mag-surface-raised/60 border-t border-mag-border/50">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span className="text-[9px] font-mono text-gray-400">Samsung A03s</span>
+            <span className="text-[9px] font-mono text-mag-text-muted">Samsung A03s</span>
           </div>
-          <span className="text-[9px] font-mono text-gray-500">•</span>
-          <span className="text-[9px] font-mono text-gray-400">Battery {battery}%</span>
-          <span className="text-[9px] font-mono text-gray-500">•</span>
-          <span className="text-[9px] font-mono text-gray-400">Wifi</span>
+          <span className="text-[9px] font-mono text-mag-text-muted">•</span>
+          <span className="text-[9px] font-mono text-mag-text-muted">Battery {battery}%</span>
+          <span className="text-[9px] font-mono text-mag-text-muted">•</span>
+          <span className="text-[9px] font-mono text-mag-text-muted">Wifi</span>
         </div>
-        <span className="text-[9px] font-mono text-gray-500">2s ago</span>
+        <span className="text-[9px] font-mono text-mag-text-muted">2s ago</span>
       </div>
     </div>
   );
@@ -237,15 +233,15 @@ export function VideoDemo() {
       <section className="py-20 sm:py-28 bg-black relative overflow-hidden">
         <div className="max-w-5xl mx-auto px-5 sm:px-8">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gray-700 bg-gray-800/50 mb-5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border-mag-border/50 bg-mag-surface mb-5">
               <Play size={10} className="text-emerald-400" />
-              <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-gray-400">WATCH THE DEMO</span>
+              <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-mag-text-muted">WATCH THE DEMO</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight text-white mb-4">
               See Magneetar in 30 seconds.
             </h2>
           </div>
-          <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-gray-800">
+          <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-mag-border">
             <div className="aspect-video">
               <iframe
                 src={getEmbedUrl(DEMO_VIDEO_URL)}
@@ -267,14 +263,14 @@ export function VideoDemo() {
       <div className="max-w-6xl mx-auto px-5 sm:px-8">
         {/* Section header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-gray-700 bg-gray-800/50 mb-5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border-mag-border/50 bg-mag-surface mb-5">
             <Play size={10} className="text-emerald-400" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-gray-400">LIVE DEMO</span>
+            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-mag-text-muted">LIVE DEMO</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight text-white mb-4">
             See Magneetar in action.
           </h2>
-          <p className="text-gray-400 text-base max-w-lg mx-auto">
+          <p className="text-mag-text-muted text-base max-w-lg mx-auto">
             Click a feature below to watch the command center respond in real time.
           </p>
         </div>
@@ -287,36 +283,34 @@ export function VideoDemo() {
 
           {/* Feature selector — takes 2 columns */}
           <div className="lg:col-span-2 space-y-2">
-            {DEMO_STEPS.map((s, i) => (
-              <button
+            {DEMO_STEPS.map((s, i) => (                <button
                 key={s.title}
                 onClick={() => { setActiveStep(i); setIsPlaying(false); }}
                 className={`w-full text-left p-3 rounded-xl border transition-all duration-300 ${
                   i === activeStep
-                    ? 'bg-white/5 border-white/10 shadow-lg'
-                    : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/5'
+                    ? 'bg-mag-surface-raised border-mag-border shadow-lg'
+                    : 'border-transparent hover:bg-mag-surface hover:border-mag-border/25'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div
                     className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-300 ${
-                      i === activeStep ? `bg-gradient-to-br ${s.color}` : 'bg-white/5'
+                      i === activeStep ? `bg-gradient-to-br ${s.color}` : 'bg-mag-surface'
                     }`}
                   >
-                    <s.icon size={16} className={i === activeStep ? 'text-white' : 'text-gray-500'} />
+                    <s.icon size={16} className={i === activeStep ? 'text-white' : 'text-mag-text-muted'} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <span className={`text-sm font-bold transition-colors ${
-                      i === activeStep ? 'text-white' : 'text-gray-500'
+                  <div className="flex-1 min-w-0">                      <span className={`text-sm font-bold transition-colors ${
+                      i === activeStep ? 'text-mag-text' : 'text-mag-text-muted'
                     }`}>
                       {s.title}
                     </span>
                     {i === activeStep && (
-                      <p className="text-xs text-gray-400 mt-0.5">{s.detail}</p>
+                      <p className="text-xs text-mag-text-muted mt-0.5">{s.detail}</p>
                     )}
                   </div>
                   {i === activeStep && (
-                    <ChevronRight size={14} className="text-gray-500 shrink-0" />
+                    <ChevronRight size={14} className="text-mag-text-muted shrink-0" />
                   )}
                 </div>
               </button>
@@ -329,7 +323,7 @@ export function VideoDemo() {
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-xs font-mono transition-all ${
                   isPlaying
                     ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                    : 'border-gray-700 text-gray-400 hover:bg-white/5'
+                    : 'border-mag-border text-mag-text-muted hover:bg-mag-surface'
                 }`}
               >
                 {isPlaying ? <Pause size={12} /> : <Play size={12} />}
@@ -341,7 +335,7 @@ export function VideoDemo() {
                   <div
                     key={i}
                     className={`w-1.5 h-1.5 rounded-full transition-all ${
-                      i === activeStep ? 'bg-white w-4' : 'bg-gray-600'
+                      i === activeStep ? 'bg-mag-text w-4' : 'bg-mag-text-muted/50'
                     }`}
                   />
                 ))}
@@ -349,9 +343,9 @@ export function VideoDemo() {
             </div>
 
             {/* Trust badges */}
-            <div className="flex items-center gap-4 pt-4 border-t border-gray-800 mt-2">
-              {['Tamper-proof', 'Encrypted', 'Open source'].map((label) => (
-                <span key={label} className="text-[9px] font-mono text-gray-600">{label}</span>
+            <div className="flex items-center gap-4 pt-4 border-t border-mag-border mt-2">
+              {['Uninstall-resistant', 'Encrypted', 'Source-available'].map((label) => (
+                <span key={label} className="text-[9px] font-mono text-mag-text-muted">{label}</span>
               ))}
             </div>
           </div>

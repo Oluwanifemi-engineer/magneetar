@@ -159,7 +159,7 @@ object DeviceIntegrity {
             }
 
             val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                pkgInfo.signingInfo.apkContentsSigners
+                pkgInfo.signingInfo?.apkContentsSigners
             } else {
                 @Suppress("DEPRECATION")
                 pkgInfo.signatures

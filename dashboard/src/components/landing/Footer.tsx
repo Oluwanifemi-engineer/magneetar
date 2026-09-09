@@ -37,7 +37,7 @@ const FOOTER_LINKS = [
 export function Footer() {
   const { version, status } = useLiveServerInfo();
   return (
-    <footer className="relative border-t border-white/[0.06] bg-[#020408]">
+    <footer className="relative border-t border-mag-border bg-[#020408]">
       <div className="max-w-7xl mx-auto px-5 sm:px-8 py-14">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
@@ -48,11 +48,11 @@ export function Footer() {
                 className="w-9 h-9 rounded-lg"
               />
               <div className="leading-none">
-                <div className="text-white text-sm font-bold tracking-[0.25em]">MAGNEETAR</div>
-                <div className="text-[8px] font-mono text-gray-500 tracking-[0.3em] mt-1">TRACK · PROTECT · RECOVER</div>
+                <div className="text-mag-text text-sm font-bold tracking-[0.25em]">MAGNEETAR</div>
+                <div className="text-[8px] font-mono text-mag-text-muted tracking-[0.3em] mt-1">TRACK · PROTECT · RECOVER</div>
               </div>
             </div>
-            <p className="mt-5 text-[13px] leading-relaxed text-gray-500 max-w-sm">
+            <p className="mt-5 text-[13px] leading-relaxed text-mag-text-muted max-w-sm">
               Anti-theft tracking for Android. When your phone is stolen, it keeps reporting its
               location, captures evidence, and lets you lock it remotely. Built for Africa.
             </p>
@@ -61,16 +61,15 @@ export function Footer() {
                 href={SOURCE_TARBALL_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-9 h-9 rounded-lg border border-white/[0.06] bg-white/[0.02] flex items-center justify-center text-gray-500 hover:text-white hover:border-white/[0.15] transition-all"
+                className="w-9 h-9 rounded-lg border-mag-border/50 bg-mag-surface flex items-center justify-center text-mag-text-muted hover:text-mag-text hover:border-mag-border transition-all"
                 aria-label="Source code"
               >
                 <FileArchive size={15} />
-              </a>
-              <a
+              </a>                <a
                 href="https://api.magneetar.me/health"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-3.5 h-9 rounded-lg border border-white/[0.06] bg-white/[0.02] text-[10px] font-mono font-bold tracking-wider text-gray-500 hover:text-white hover:border-white/[0.15] transition-all"
+                className="inline-flex items-center gap-2 px-3.5 h-9 rounded-lg border-mag-border/50 bg-mag-surface text-[10px] font-mono font-bold tracking-wider text-mag-text-muted hover:text-mag-text hover:border-mag-border transition-all"
                 title={`Live: api.magneetar.me reports ${status}`}
               >
                 <span className="relative flex w-1.5 h-1.5">
@@ -86,7 +85,7 @@ export function Footer() {
 
           {FOOTER_LINKS.map((col) => (
             <div key={col.title}>
-              <div className="text-[10px] font-mono font-bold tracking-[0.25em] text-gray-500 uppercase mb-4">
+              <div className="text-[10px] font-mono font-bold tracking-[0.25em] text-mag-text-muted uppercase mb-4">
                 {col.title}
               </div>
               <ul className="space-y-2.5">
@@ -96,7 +95,7 @@ export function Footer() {
                       href={link.href}
                       target={link.href.startsWith('http') ? '_blank' : undefined}
                       rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                      className="text-[13px] text-gray-500 hover:text-white transition-colors"
+                      className="text-[13px] text-mag-text-muted hover:text-mag-text transition-colors"
                     >
                       {link.label}
                     </a>
@@ -107,11 +106,11 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="mt-12 pt-6 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-3">
-          <span className="text-[11px] font-mono text-gray-600">
+        <div className="mt-12 pt-6 border-t border-mag-border flex flex-col sm:flex-row items-center justify-between gap-3">
+          <span className="text-[11px] font-mono text-mag-text-muted">
             © {new Date().getFullYear()} Magneetar · Made in Lagos, Nigeria
           </span>
-          <span className="text-[11px] font-mono text-gray-600 tracking-wider">
+          <span className="text-[11px] font-mono text-mag-text-muted tracking-wider">
             v{version} · BUILT FOR RECOVERY &amp; CONNECTION
           </span>
         </div>

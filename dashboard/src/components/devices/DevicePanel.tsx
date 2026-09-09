@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useStore } from '@/store/useStore';
 import { cn, relativeTime, formatCoordinate, deviceDisplayName, stepUpPasswordHint } from '@/lib/utils';
 import { BellRing, MapPin, LocateFixed, Navigation, ExternalLink, Download, Save, Check, Trash2, X, Pencil, MessageSquareText, Users, UserPlus, UserMinus, ShieldCheck } from 'lucide-react';
+import { MagInput, MagButton, MagStatusPill, MagPanel, MagRow, MagEmpty } from '@/components/ui/MagPrimitives';
 import { CoordDisplay } from '@/components/ui/CoordDisplay';
 import { getAPI } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
@@ -201,11 +202,11 @@ export function DevicePanel() {
   if (!device) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-        <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4">
+        <MagEmpty aria-hidden="true">
           <MapPin size={24} className="text-white/15" />
-        </div>
-        <div className="text-white/50 text-sm font-bold mb-1">No device selected</div>
-        <div className="text-white/25 text-xs font-mono leading-relaxed max-w-[200px]">
+        </MagEmpty>
+        <div className="text-mag-text-muted text-sm font-bold mb-1">No device selected</div>
+        <div className="text-mag-text-2 text-xs font-mono leading-relaxed max-w-[200px]">
           Select a device from the sidebar to view its details, location, alert settings, and capture status.
         </div>
       </div>
@@ -215,128 +216,142 @@ export function DevicePanel() {
   return (
     <div className="p-4 space-y-4">
       {/* Device Header */}
-      <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
+      <MagPanel>
         <div className="flex items-center gap-2 mb-3">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] shrink-0" />
           {device.archived_at && (
-            <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-amber-500/30 text-amber-400 bg-amber-500/10 shrink-0">
-              Archived
-            </span>
+            <MagStatusPill variant="elevated">Archived</MagStatusPill>
           )}
           {!isOwner && (
-            <span className={cn(
-              'text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0',
-              accessRole === 'admin' ? 'border-emerald-500/25 text-emerald-400 bg-emerald-500/10' :
-              accessRole === 'viewer' ? 'border-blue-500/25 text-blue-400 bg-blue-500/10' :
-              'border-white/[0.08] text-white/40 bg-white/[0.03]'
-            )}>
+            <MagStatusPill
+              variant={accessRole === 'admin' ? 'secure' : 'muted'}
+            >
               {ROLE_LABEL[accessRole] ?? accessRole}
-            </span>
+            </MagStatusPill>
           )}
           {device.location_mode && LOCATION_MODE_LABEL[device.location_mode] && (
-            <span className={cn(
-              'text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0',
-              device.location_mode === 'off' ? 'border-red-500/40 text-red-400 bg-red-500/10' : 'border-amber-500/40 text-amber-400 bg-amber-500/10'
-            )}
+            <MagStatusPill
+              variant={device.location_mode === 'off' ? 'danger' : 'elevated'}
               title={LOCATION_MODE_HINT[device.location_mode]}
             >
               {LOCATION_MODE_LABEL[device.location_mode]}
-            </span>
+            </MagStatusPill>
           )}
           {editingName ? (
             <form onSubmit={saveDeviceName} className="flex items-center gap-1.5 flex-1 min-w-0">
-              <input value={nameDraft} onChange={e => setNameDraft(e.target.value)} autoFocus maxLength={60}
-                className="flex-1 min-w-0 bg-white/[0.03] border border-white/[0.12] rounded-lg px-2 py-1 text-sm font-bold text-white focus:outline-none focus:border-emerald-500/50 transition-colors" />
-              <button type="submit" disabled={nameSaving} className="p-1.5 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-50 text-emerald-400 transition-colors">
+              <MagInput
+                value={nameDraft}
+                onChange={e => setNameDraft(e.target.value)}
+                autoFocus
+                maxLength={60}
+                className="flex-1 min-w-0 text-sm font-bold"
+              />
+              <MagButton
+                variant="subtle"
+                size="sm"
+                disabled={nameSaving}
+                type="submit"
+              >
                 <Check size={13} />
-              </button>
-              <button type="button" onClick={() => setEditingName(false)} className="p-1.5 rounded-md border border-white/[0.08] text-white/30 hover:text-white/60 transition-colors">
+              </MagButton>
+              <MagButton
+                variant="ghost"
+                size="sm"
+                type="button"
+                onClick={() => setEditingName(false)}
+              >
                 <X size={13} />
-              </button>
+              </MagButton>
             </form>
           ) : (
             <>
-              <h3 className="text-base font-bold text-white/90 truncate flex-1 min-w-0">{deviceDisplayName(device)}</h3>
+              <h3 className="text-base font-bold text-mag-text-1 truncate flex-1 min-w-0">{deviceDisplayName(device)}</h3>
               {canManage && (
-                <button onClick={() => { setNameDraft(deviceDisplayName(device)); setNameError(''); setEditingName(true); }}
-                  className="p-1.5 rounded-md border border-white/[0.08] text-white/30 hover:text-white/60 hover:border-white/[0.15] transition-colors">
+                <MagButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setNameDraft(deviceDisplayName(device)); setNameError(''); setEditingName(true); }}
+                >
                   <Pencil size={12} />
-                </button>
+                </MagButton>
               )}
             </>
           )}
         </div>
-        {nameError && <div className="text-[10px] font-mono text-red-400 mb-2">{nameError}</div>}
+        {nameError && <div className="text-xs font-mono text-red-400 mb-2">{nameError}</div>}
 
         <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-[11px] font-mono text-white/35 font-bold">Device ID</span>
-            <span className="text-[11px] font-mono text-white/80 font-bold">{device.id}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-[11px] font-mono text-white/35 font-bold">Registered</span>
-            <span className="text-[11px] font-mono text-white/50 font-bold">{relativeTime(device.registered)}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-[11px] font-mono text-white/35 font-bold">Last Seen</span>
-            <span className="text-[11px] font-mono text-white/50 font-bold">{relativeTime(device.last_seen)}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-[11px] font-mono text-white/35 font-bold">Capture</span>
+          <MagRow align="between">
+            <span className="text-xs font-mono text-mag-text-2 font-bold">Device ID</span>
+            <span className="text-xs font-mono text-mag-text-1 font-bold">{device.id}</span>
+          </MagRow>
+          <MagRow align="between">
+            <span className="text-xs font-mono text-mag-text-2 font-bold">Registered</span>
+            <span className="text-xs font-mono text-mag-text-3 font-bold">{relativeTime(device.registered)}</span>
+          </MagRow>
+          <MagRow align="between">
+            <span className="text-xs font-mono text-mag-text-2 font-bold">Last Seen</span>
+            <span className="text-xs font-mono text-mag-text-3 font-bold">{relativeTime(device.last_seen)}</span>
+          </MagRow>
+          <MagRow align="between">
+            <span className="text-xs font-mono text-mag-text-2 font-bold">Capture</span>
             {device.capture_armed == null ? (
-              <span className="text-[11px] font-mono text-white/25 font-bold">Unknown</span>
+              <span className="text-xs font-mono text-mag-text-4 font-bold">Unknown</span>
             ) : device.capture_armed ? (
-              <span className="text-[11px] font-mono text-emerald-400 font-bold">Armed</span>
+              <span className="text-xs font-mono text-emerald-400 font-bold">Armed</span>
             ) : (
-              <span className="text-[11px] font-mono text-amber-400 font-bold">Unarmed</span>
+              <span className="text-xs font-mono text-amber-400 font-bold">Unarmed</span>
             )}
-          </div>
+          </MagRow>
         </div>
-      </div>
+      </MagPanel>
 
       {/* Coordinates */}
       {latestLocation && <CoordDisplay lat={latestLocation.lat} lng={latestLocation.lng} />}
 
       {/* Location Details */}
       {latestLocation && (
-        <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 space-y-2">
-          <div className="flex items-center gap-1.5 text-[11px] font-mono text-white/35 uppercase tracking-wider font-bold mb-2">
-            <LocateFixed size={12} className="text-white/25" />
+        <MagPanel>
+          <div className="flex items-center gap-1.5 text-xs font-mono text-mag-text-2 uppercase tracking-wider font-bold mb-2">
+            <LocateFixed size={12} className="text-mag-text-4" />
             Location Details
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-[11px] font-mono text-white/35 font-bold">Provider</span>
-            <span className="text-[11px] font-mono text-white/80 font-bold">{latestLocation.provider}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-[11px] font-mono text-white/35 font-bold">Accuracy</span>
-            <span className="text-[11px] font-mono text-white/80 font-bold">±{latestLocation.accuracy?.toFixed(1) || '?'}m</span>
-          </div>
+          <MagRow align="between">
+            <span className="text-xs font-mono text-mag-text-2 font-bold">Provider</span>
+            <span className="text-xs font-mono text-mag-text-1 font-bold">{latestLocation.provider}</span>
+          </MagRow>
+          <MagRow align="between">
+            <span className="text-xs font-mono text-mag-text-2 font-bold">Accuracy</span>
+            <span className="text-xs font-mono text-mag-text-1 font-bold">±{latestLocation.accuracy?.toFixed(1) || '?'}m</span>
+          </MagRow>
           {latestLocation.speed != null && (
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] font-mono text-white/35 font-bold">Speed</span>
-              <span className="text-[11px] font-mono text-white/80 font-bold">{(latestLocation.speed * 3.6).toFixed(1)} km/h</span>
-            </div>
+            <MagRow align="between">
+              <span className="text-xs font-mono text-mag-text-2 font-bold">Speed</span>
+              <span className="text-xs font-mono text-mag-text-1 font-bold">{(latestLocation.speed * 3.6).toFixed(1)} km/h</span>
+            </MagRow>
           )}
           {latestLocation.altitude != null && (
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] font-mono text-white/35 font-bold">Altitude</span>
-              <span className="text-[11px] font-mono text-white/80 font-bold">{latestLocation.altitude.toFixed(0)}m</span>
-            </div>
+            <MagRow align="between">
+              <span className="text-xs font-mono text-mag-text-2 font-bold">Altitude</span>
+              <span className="text-xs font-mono text-mag-text-1 font-bold">{latestLocation.altitude.toFixed(0)}m</span>
+            </MagRow>
           )}
           {latestLocation.bearing != null && (
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] font-mono text-white/35 font-bold">Bearing</span>
-              <span className="text-[11px] font-mono text-white/80 font-bold">{latestLocation.bearing.toFixed(0)}°</span>
-            </div>
+            <MagRow align="between">
+              <span className="text-xs font-mono text-mag-text-2 font-bold">Bearing</span>
+              <span className="text-xs font-mono text-mag-text-1 font-bold">{latestLocation.bearing.toFixed(0)}°</span>
+            </MagRow>
           )}
-        </div>
+        </MagPanel>
       )}
 
       {/* Open in Maps */}
-      {latestLocation && (
-        <a href={`https://www.google.com/maps?q=${latestLocation.lat},${latestLocation.lng}`} target="_blank" rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 py-3 rounded-xl border border-white/[0.08] text-white/50 hover:text-white/80 hover:border-white/[0.15] hover:bg-white/[0.03] transition-all text-xs font-bold">
+      {latestLocation && (          <a
+          href={`https://www.google.com/maps?q=${latestLocation.lat},${latestLocation.lng}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-mag-border text-mag-text-muted hover:bg-mag-surface-raised hover:border-mag-border/50 hover:text-mag-text transition-all text-xs font-bold"
+        >
           <ExternalLink size={14} />
           Open in Google Maps
         </a>
@@ -344,50 +359,66 @@ export function DevicePanel() {
 
       {/* Export CSV */}
       {canReadLocation && (
-        <button onClick={exportCsv} disabled={exporting}
-          className="flex items-center justify-center gap-2 py-3 rounded-xl border border-white/[0.08] text-white/50 hover:text-white/80 hover:border-white/[0.15] hover:bg-white/[0.03] transition-all text-xs font-bold disabled:opacity-50">
-          <Download size={14} />
+        <MagButton
+          variant="ghost"
+          onClick={exportCsv}
+          disabled={exporting}
+          startIcon={<Download size={14} />}
+        >
           {exporting ? 'Exporting…' : 'Export Location History (CSV)'}
-        </button>
+        </MagButton>
       )}
 
       {/* Sharing */}
       {canManage && (
-        <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 space-y-3">
-          <button onClick={() => setShowShares(!showShares)}
-            className="w-full flex items-center justify-between text-[11px] font-mono text-white/50 uppercase tracking-wider font-bold hover:text-white/70 transition-colors">
+        <MagPanel>
+          <button
+            type="button"
+            onClick={() => setShowShares(!showShares)}
+            className="w-full flex items-center justify-between text-xs font-mono text-mag-text-2 uppercase tracking-wider font-bold hover:text-mag-text-1 transition-colors"
+          >
             <span className="flex items-center gap-1.5">
-              <Users size={12} className="text-white/30" />
+              <Users size={12} className="text-mag-text-4" />
               Sharing
               {shares.length > 0 && (
-                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/[0.06] text-white/50 border border-white/[0.08]">{shares.length}</span>
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-mag-surface-raised text-mag-text-2 border border-mag-border">{shares.length}</span>
               )}
             </span>
-            <span className="text-white/25">{showShares ? '−' : '+'}</span>
+            <span className="text-mag-text-4">{showShares ? '−' : '+'}</span>
           </button>
           {showShares && (
             <div className="space-y-2.5 pt-1">
               {isOwner ? (
                 <form onSubmit={inviteShare} className="space-y-2">
                   <div>
-                    <label className="text-[10px] font-mono text-white/35 font-bold mb-1 block">Share with (account email)</label>
-                    <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="family@example.com" type="email"
-                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-mono text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 transition-colors" />
+                    <label className="text-[10px] font-mono text-mag-text-2 font-bold mb-1 block">Share with (account email)</label>
+                    <MagInput
+                      value={inviteEmail}
+                      onChange={e => setInviteEmail(e.target.value)}
+                      placeholder="family@example.com"
+                      type="email"
+                    />
                   </div>
                   <div>
-                    <label className="text-[10px] font-mono text-white/35 font-bold mb-1 block">Role</label>
-                    <select value={inviteRole} onChange={e => setInviteRole(e.target.value as ShareRole)}
-                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-emerald-500/50 transition-colors">
+                    <label className="text-[10px] font-mono text-mag-text-2 font-bold mb-1 block">Role</label>
+                    <select
+                      value={inviteRole}
+                      onChange={e => setInviteRole(e.target.value as ShareRole)}
+                      className="w-full bg-mag-surface border-mag-border text-mag-text-1 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-mag-primary/20"
+                    >
                       <option value="viewer">Viewer — read only</option>
                       <option value="admin">Admin — full control</option>
                       <option value="device_only">Device-only — status glance</option>
                     </select>
                   </div>
-                  <button type="submit" disabled={shareSaving}
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-50 text-emerald-400 text-xs font-bold transition-all">
-                    <UserPlus size={13} />
+                  <MagButton
+                    variant="primary"
+                    type="submit"
+                    disabled={shareSaving}
+                    startIcon={<UserPlus size={13} />}
+                  >
                     {shareSaving ? 'Sharing...' : 'Share device'}
-                  </button>
+                  </MagButton>
                   {shareError && <div className="text-[10px] font-mono text-red-400">{shareError}</div>}
                   {shareMsg && (
                     <div className="flex items-start gap-1.5 text-[10px] font-mono text-emerald-400/70 leading-relaxed">
@@ -397,29 +428,32 @@ export function DevicePanel() {
                   )}
                 </form>
               ) : (
-                <p className="text-[10px] font-mono text-white/30 leading-relaxed">
+                <p className="text-[10px] font-mono text-mag-text-3 leading-relaxed">
                   Only the device owner can manage sharing. You have{' '}
-                  <span className="font-bold text-white/50">{ROLE_LABEL[accessRole] ?? accessRole}</span> access.
+                  <span className="font-bold text-mag-text-2">{ROLE_LABEL[accessRole] ?? accessRole}</span> access.
                 </p>
               )}
               {shares.length > 0 && (
                 <div className="space-y-1.5 pt-1">
                   {shares.map(s => (
-                    <div key={s.id} className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                    <div key={s.id} className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-mag-surface border-mag-border">
                       <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-mono text-white/70 font-bold truncate">{s.display_name || s.email}</div>
-                        <div className="text-[9px] font-mono text-white/30 truncate">{s.email}</div>
+                        <div className="text-[10px] font-mono text-mag-text-1 font-bold truncate">{s.display_name || s.email}</div>
+                        <div className="text-[9px] font-mono text-mag-text-3 truncate">{s.email}</div>
                       </div>
-                      <span className={cn(
-                        'text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0',
-                        s.role === 'admin' ? 'border-emerald-500/25 text-emerald-400 bg-emerald-500/10' :
-                        s.role === 'viewer' ? 'border-blue-500/25 text-blue-400 bg-blue-500/10' :
-                        'border-white/[0.08] text-white/40 bg-white/[0.03]'
-                      )}>{ROLE_LABEL[s.role] ?? s.role}</span>
+                      <MagStatusPill
+                        variant={s.role === 'admin' ? 'secure' : 'muted'}
+                      >
+                        {ROLE_LABEL[s.role] ?? s.role}
+                      </MagStatusPill>
                       {isOwner && (
-                        <button onClick={() => revokeShare(s.id)} className="p-1 rounded-md text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                        <MagButton
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => revokeShare(s.id)}
+                        >
                           <UserMinus size={12} />
-                        </button>
+                        </MagButton>
                       )}
                     </div>
                   ))}
@@ -427,51 +461,61 @@ export function DevicePanel() {
               )}
             </div>
           )}
-        </div>
+        </MagPanel>
       )}
 
       {/* Alert Settings */}
       {canManage && (
-        <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 space-y-3">
-          <button onClick={() => setShowSettings(!showSettings)}
-            className="w-full flex items-center justify-between text-[11px] font-mono text-white/50 uppercase tracking-wider font-bold hover:text-white/70 transition-colors">
+        <MagPanel>
+          <button
+            type="button"
+            onClick={() => setShowSettings(!showSettings)}
+            className="w-full flex items-center justify-between text-xs font-mono text-mag-text-2 uppercase tracking-wider font-bold hover:text-mag-text-1 transition-colors"
+          >
             <span className="flex items-center gap-1.5">
-              <BellRing size={12} className="text-white/30" />
+              <BellRing size={12} className="text-mag-text-4" />
               Alert Settings
             </span>
-            <span className="text-white/25">{showSettings ? '−' : '+'}</span>
+            <span className="text-mag-text-4">{showSettings ? '−' : '+'}</span>
           </button>
           {showSettings && (
             <div className="space-y-2 pt-1">
               <div>
-                <label className="text-[10px] font-mono text-white/35 font-bold mb-1 block">Alert Phone (E.164)</label>
-                <input value={alertPhone} onChange={e => setAlertPhone(e.target.value)} placeholder="Leave empty for global default"
-                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-mono text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 transition-colors" />
+                <label className="text-[10px] font-mono text-mag-text-2 font-bold mb-1 block">Alert Phone (E.164)</label>
+                <MagInput
+                  value={alertPhone}
+                  onChange={e => setAlertPhone(e.target.value)}
+                  placeholder="Leave empty for global default"
+                />
               </div>
               <div>
-                <label className="text-[10px] font-mono text-white/35 font-bold mb-1 block">Alert Email</label>
-                <input value={alertEmail} onChange={e => setAlertEmail(e.target.value)} placeholder="Leave empty for global default"
-                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-mono text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 transition-colors" />
+                <label className="text-[10px] font-mono text-mag-text-2 font-bold mb-1 block">Alert Email</label>
+                <MagInput
+                  value={alertEmail}
+                  onChange={e => setAlertEmail(e.target.value)}
+                  placeholder="Leave empty for global default"
+                />
               </div>
               <div>
-                <label className="text-[10px] font-mono text-white/35 font-bold mb-1 block">Channels</label>
+                <label className="text-[10px] font-mono text-mag-text-2 font-bold mb-1 block">Channels</label>
                 <div className="flex flex-wrap gap-1.5">
                   {ALL_CHANNELS.map(ch => {
                     const active = (alertChannels ?? ALL_CHANNELS).includes(ch);
                     return (
-                      <button key={ch} type="button" onClick={() => toggleChannel(ch)}
-                        aria-pressed={active}
-                        aria-label={`Toggle ${ch} channel`}
-                        className={cn(
-                          'px-2.5 py-1 rounded-md text-[10px] font-mono font-bold uppercase tracking-wide transition-all',
-                          active ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : 'bg-white/[0.03] text-white/25 border border-white/[0.06] hover:text-white/40'
-                        )}>{ch}</button>
+                      <MagStatusPill
+                        key={ch}
+                        variant={active ? 'secure' : 'muted'}
+                        label={ch}
+                        ariaLabel={`Toggle ${ch} channel`}
+                        ariaPressed={active}
+                        onClick={() => toggleChannel(ch)}
+                      />
                     );
                   })}
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-mono text-white/35 font-bold mb-1 block">Alert types</label>
+                <label className="text-[10px] font-mono text-mag-text-2 font-bold mb-1 block">Alert types</label>
                 <div className="flex flex-wrap gap-1.5">
                   {[
                     ['theft_detected', 'Theft'], ['sim_changed', 'SIM change'], ['factory_reset', 'Factory reset'],
@@ -481,117 +525,154 @@ export function DevicePanel() {
                     const active = base.includes(type);
                     const locked = type === 'theft_detected' || type === 'sim_changed' || type === 'factory_reset';
                     return (
-                      <button key={type} type="button" onClick={() => !locked && toggleType(type)} disabled={locked}
-                        aria-pressed={active}
-                        aria-label={`Toggle ${label} alert type`}
-                        className={cn(
-                          'px-2.5 py-1 rounded-md text-[10px] font-mono font-bold uppercase tracking-wide transition-all',
-                          active ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : 'bg-white/[0.03] text-white/25 border border-white/[0.06] hover:text-white/40',
-                          locked && 'opacity-60 cursor-not-allowed'
-                        )}>{label}</button>
+                      <MagStatusPill
+                        key={type}
+                        variant={active ? 'secure' : 'muted'}
+                        label={label}
+                        ariaLabel={`Toggle ${label} alert type`}
+                        ariaPressed={active}
+                        onClick={() => !locked && toggleType(type)}
+                        disabled={locked}
+                      />
                     );
                   })}
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-mono text-white/35 font-bold mb-1 block">Quiet hours</label>
+                <label className="text-[10px] font-mono text-mag-text-2 font-bold mb-1 block">Quiet hours</label>
                 <div className="flex items-center gap-2">
-                  <select value={quietStart ?? ''} onChange={e => setQuietStart(e.target.value === '' ? null : Number(e.target.value))}
+                  <select
+                    value={quietStart ?? ''}
+                    onChange={e => setQuietStart(e.target.value === '' ? null : Number(e.target.value))}
                     aria-label="Quiet hours start"
-                    className="flex-1 bg-white/[0.03] border border-white/[0.08] rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-emerald-500/50 transition-colors">
+                    className="flex-1 bg-mag-surface border-mag-border text-mag-text-1 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-mag-primary/20"
+                  >
                     <option value="">Off</option>
                     {Array.from({ length: 24 }, (_, h) => (<option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>))}
                   </select>
-                  <span className="text-white/25 text-[10px] font-mono">to</span>
-                  <select value={quietEnd ?? ''} onChange={e => setQuietEnd(e.target.value === '' ? null : Number(e.target.value))}
+                  <span className="text-mag-text-4 text-[10px] font-mono">to</span>
+                  <select
+                    value={quietEnd ?? ''}
+                    onChange={e => setQuietEnd(e.target.value === '' ? null : Number(e.target.value))}
                     aria-label="Quiet hours end"
-                    className="flex-1 bg-white/[0.03] border border-white/[0.08] rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-emerald-500/50 transition-colors">
+                    className="flex-1 bg-mag-surface border-mag-border text-mag-text-1 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-mag-primary/20"
+                  >
                     <option value="">Off</option>
                     {Array.from({ length: 24 }, (_, h) => (<option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>))}
                   </select>
                 </div>
               </div>
               <div className="flex items-center gap-2 pt-1">
-                <button onClick={saveAlertSettings} disabled={saving}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-50 text-emerald-400 text-[10px] font-mono font-bold transition-all">
-                  <Save size={11} />{saving ? 'SAVING...' : saved ? 'SAVED ✓' : 'Save Alert Settings'}
-                </button>
+                <MagButton
+                  variant="primary"
+                  onClick={saveAlertSettings}
+                  disabled={saving}
+                  startIcon={<Save size={11} />}
+                >
+                  {saving ? 'SAVING...' : saved ? 'SAVED ✓' : 'Save Alert Settings'}
+                </MagButton>
                 {error && <div className="text-[10px] font-mono text-red-400">{error}</div>}
               </div>
             </div>
           )}
-        </div>
+        </MagPanel>
       )}
 
       {/* Offline SMS Commands */}
       {canManage && (
-        <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 space-y-3">
-          <button onClick={() => setShowSmsSettings(!showSmsSettings)}
-            className="w-full flex items-center justify-between text-[11px] font-mono text-white/50 uppercase tracking-wider font-bold hover:text-white/70 transition-colors">
+        <MagPanel>
+          <button
+            type="button"
+            onClick={() => setShowSmsSettings(!showSmsSettings)}
+            className="w-full flex items-center justify-between text-xs font-mono text-mag-text-2 uppercase tracking-wider font-bold hover:text-mag-text-1 transition-colors"
+          >
             <span className="flex items-center gap-1.5">
-              <MessageSquareText size={12} className="text-white/30" />
+              <MessageSquareText size={12} className="text-mag-text-4" />
               Offline SMS Commands
             </span>
             <span className="flex items-center gap-2">
-              {smsEnabled && <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">On</span>}
-              <span className="text-white/25">{showSmsSettings ? '−' : '+'}</span>
+              {smsEnabled && <MagStatusPill variant="secure" label="On" />}
+              <span className="text-mag-text-4">{showSmsSettings ? '−' : '+'}</span>
             </span>
           </button>
           {showSmsSettings && (
             <div className="space-y-2 pt-1">
               <div>
-                <label className="text-[10px] font-mono text-white/35 font-bold mb-1 block">SMS phone number</label>
-                <input value={smsPhone} onChange={e => setSmsPhone(e.target.value)} placeholder="+234..."
+                <label className="text-[10px] font-mono text-mag-text-2 font-bold mb-1 block">SMS phone number</label>
+                <MagInput
+                  value={smsPhone}
+                  onChange={e => setSmsPhone(e.target.value)}
+                  placeholder="+234..."
                   aria-label="Offline SMS phone number"
-                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-mono text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 transition-colors" />
+                />
               </div>
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={smsEnabled} onChange={e => setSmsEnabled(e.target.checked)}
-                    aria-label="Enable offline SMS commands"
-                    className="w-4 h-4 rounded border-white/[0.15] bg-white/[0.03] text-emerald-500 focus:ring-emerald-500/50" />
-                  <span className="text-[10px] font-mono text-white/50 font-bold">Enable offline SMS relay</span>
-                </label>
-              </div>
-              <button onClick={saveSmsSettings} disabled={smsSaving}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-50 text-emerald-400 text-[10px] font-mono font-bold transition-all">
-                <Save size={11} />{smsSaving ? 'SAVING...' : smsSaved ? 'SAVED ✓' : 'Save SMS Settings'}
-              </button>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={smsEnabled}
+                  onChange={e => setSmsEnabled(e.target.checked)}
+                  className="mag-check"
+                  aria-label="Enable offline SMS commands"
+                />
+                <span className="text-[10px] font-mono text-mag-text-2 font-bold">Enable offline SMS relay</span>
+              </label>
+              <MagButton
+                variant="primary"
+                onClick={saveSmsSettings}
+                disabled={smsSaving}
+                startIcon={<Save size={11} />}
+              >
+                {smsSaving ? 'SAVING...' : smsSaved ? 'SAVED ✓' : 'Save SMS Settings'}
+              </MagButton>
               {smsError && <div className="text-[10px] font-mono text-red-400">{smsError}</div>}
             </div>
           )}
-        </div>
+        </MagPanel>
       )}
 
       {/* Delete Device */}
       {isOwner && (
-        <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
+        <MagPanel>
           {!confirmDelete ? (
-            <button onClick={() => setConfirmDelete(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-red-500/20 text-red-400/60 hover:text-red-400 hover:border-red-500/40 hover:bg-red-500/[0.06] transition-all text-xs font-bold">
-              <Trash2 size={14} />
+            <MagButton
+              variant="danger"
+              onClick={() => setConfirmDelete(true)}
+              startIcon={<Trash2 size={14} />}
+            >
               Delete Device Permanently
-            </button>
+            </MagButton>
           ) : (
             <div className="space-y-3">
-              <div className="text-[11px] font-mono text-red-400 font-bold">Confirm device deletion — this is irreversible.</div>
-              <input type="password" value={deletePassword} onChange={e => setDeletePassword(e.target.value)}
-                placeholder={stepUpPasswordHint()} autoFocus aria-label="Confirm deletion password"
-                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-xs font-mono text-white placeholder:text-white/20 focus:outline-none focus:border-red-500/50 transition-colors" />
+              <div className="text-xs font-mono text-red-400 font-bold">Confirm device deletion — this is irreversible.</div>
+              <MagInput
+                type="password"
+                value={deletePassword}
+                onChange={e => setDeletePassword(e.target.value)}
+                placeholder={stepUpPasswordHint()}
+                autoFocus
+                aria-label="Confirm deletion password"
+                variant="danger"
+              />
               {deleteError && <div className="text-[10px] font-mono text-red-400">{deleteError}</div>}
               <div className="flex gap-2">
-                <button onClick={confirmDeleteDevice} disabled={deleting}
-                  className="flex-1 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 disabled:opacity-50 text-red-400 text-[11px] font-mono font-bold transition-all">
+                <MagButton
+                  variant="danger"
+                  onClick={confirmDeleteDevice}
+                  disabled={deleting}
+                >
                   {deleting ? 'Deleting...' : 'Yes, Delete'}
-                </button>
-                <button onClick={() => { setConfirmDelete(false); setDeletePassword(''); setDeleteError(''); }}
-                  className="px-4 py-2 rounded-lg border border-white/[0.08] text-white/30 hover:text-white/60 text-[11px] font-mono font-bold transition-all">
+                </MagButton>
+                <MagButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setConfirmDelete(false); setDeletePassword(''); setDeleteError(''); }}
+                >
                   Cancel
-                </button>
+                </MagButton>
               </div>
             </div>
           )}
-        </div>
+        </MagPanel>
       )}
     </div>
   );

@@ -9,27 +9,27 @@ export function Header() {
   const isAdmin = userProfile?.tier === 'admin';
 
   return (
-    <header className="h-10 bg-[#0a0a0f] border-b border-white/[0.06] flex items-center px-4 gap-3 z-50 relative">
+    <header className="h-10 bg-mag-bg border-b border-mag-border flex items-center px-4 gap-3 z-50 relative">
       {/* Connection Status — Premium Pulse */}
       <div className="flex items-center gap-2">
         <div className={cn(
           'w-1.5 h-1.5 rounded-full transition-all duration-300',
           isConnected
             ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse'
-            : 'bg-white/20'
+            : 'bg-mag-surface-raised'
         )} />
         <span className={cn(
           'text-[9px] font-mono uppercase tracking-widest font-bold transition-colors',
-          isConnected ? 'text-emerald-400/70' : 'text-white/30'
+          isConnected ? 'text-emerald-400/70' : 'text-mag-text-muted'
         )}>
           {isConnected ? 'LIVE' : 'OFFLINE'}
         </span>
       </div>
 
       {/* Trust Signal — Security Badge */}
-      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/[0.03] border border-white/[0.06]">
+      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-mag-surface border-mag-border">
         <Shield size={8} className="text-emerald-400/60" />
-        <span className="text-[7px] font-mono text-white/30 uppercase tracking-wider font-bold">
+        <span className="text-[7px] font-mono text-mag-text-muted uppercase tracking-wider font-bold">
           E2E
         </span>
       </div>
@@ -48,7 +48,7 @@ export function Header() {
       {/* Disconnect — Minimal */}
       <button
         onClick={logout}
-        className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-mono font-bold text-white/25 hover:text-red-400/70 hover:bg-red-500/[0.06] border border-transparent hover:border-red-500/15 transition-all duration-200 active:scale-95"
+        className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-mono font-bold text-mag-text-muted hover:text-red-400/70 hover:bg-red-500/[0.06] border border-transparent hover:border-red-500/15 transition-all duration-200 active:scale-95"
       >
         <LogOut size={10} />
         EXIT

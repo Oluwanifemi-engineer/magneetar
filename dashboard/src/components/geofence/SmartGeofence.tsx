@@ -57,9 +57,9 @@ const ZONE_TYPES = [
 ];
 
 const SEVERITY_CONFIG = {
-  low: { color: "text-gray-600", bg: "bg-gray-100", label: "Low" },
-  medium: { color: "text-amber-600", bg: "bg-amber-100", label: "Medium" },
-  high: { color: "text-red-600", bg: "bg-red-100", label: "High" },
+  low: { color: "text-mag-text-muted", bg: "bg-mag-surface", label: "Low" },
+  medium: { color: "text-amber-400", bg: "bg-amber-500/10", label: "Medium" },
+  high: { color: "text-red-400", bg: "bg-red-500/10", label: "High" },
 };
 
 export function SmartGeofence() {
@@ -206,7 +206,7 @@ export function SmartGeofence() {
 
   const getZoneColor = (type: string) => {
     const found = ZONE_TYPES.find((z) => z.value === type);
-    return found ? found.color : "bg-gray-100 text-gray-700";
+    return found ? found.color : "bg-mag-surface text-mag-text";
   };
 
   return (
@@ -214,19 +214,19 @@ export function SmartGeofence() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-mag-primary to-blue-600 flex items-center justify-center">
             <Brain size={20} className="text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Smart Geofencing</h2>
-            <p className="text-sm text-gray-500">AI-powered zones that learn your routines</p>
+            <h2 className="text-lg font-bold text-mag-text">Smart Geofencing</h2>
+            <p className="text-sm text-mag-text-muted">AI-powered zones that learn your routines</p>
           </div>
         </div>
         <div className="flex gap-2">
           <button
             onClick={autoDiscover}
             disabled={autoDiscovering}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50 text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-mag-primary text-white rounded-lg hover:bg-mag-primary-dim disabled:opacity-50 text-sm font-medium"
           >
             <RefreshCw size={16} className={autoDiscovering ? "animate-spin" : ""} />
             Auto-Discover
@@ -242,7 +242,7 @@ export function SmartGeofence() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+      <div className="flex gap-1 bg-mag-surface rounded-lg p-1">
         {[
           { id: "zones" as const, label: "Zones", count: zones.length },
           { id: "anomalies" as const, label: "Anomalies", count: anomalies.length },
@@ -253,13 +253,13 @@ export function SmartGeofence() {
             onClick={() => setActiveTab(tab.id)}
             className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === tab.id
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-mag-surface-raised text-mag-text shadow-sm"
+                : "text-mag-text-muted hover:text-mag-text-dim"
             }`}
           >
             {tab.label}
             {tab.count > 0 && (
-              <span className="ml-2 px-2 py-0.5 bg-gray-200 rounded-full text-xs">
+              <span className="ml-2 px-2 py-0.5 bg-mag-surface-raised rounded-full text-xs text-mag-text">
                 {tab.count}
               </span>
             )}
@@ -269,22 +269,22 @@ export function SmartGeofence() {
 
       {/* Add Form */}
       {showAddForm && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Create Smart Zone</h3>
+        <div className="bg-mag-surface rounded-xl border border-mag-border p-6">
+          <h3 className="font-semibold text-mag-text mb-4">Create Smart Zone</h3>
 
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Zone Name</label>
+              <label className="block text-sm font-medium text-mag-text-muted mb-1">Zone Name</label>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="My Home"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-mag-bg border border-mag-border rounded-lg focus:outline-none focus:border-mag-primary/50 text-mag-text"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <label className="block text-sm font-medium text-mag-text-muted mb-1">Type</label>
               <div className="flex gap-2">
                 {ZONE_TYPES.map((type) => {
                   const TypeIcon = type.icon;
@@ -294,8 +294,8 @@ export function SmartGeofence() {
                       onClick={() => setForm({ ...form, zone_type: type.value })}
                       className={`flex items-center gap-1 px-3 py-2 rounded-lg border-2 text-sm ${
                         form.zone_type === type.value
-                          ? `border-blue-500 ${type.color}`
-                          : "border-gray-200 text-gray-500"
+                          ? `border-mag-primary ${type.color}`
+                          : "border-mag-border/50 text-mag-text-muted"
                       }`}
                     >
                       <TypeIcon size={14} />
@@ -309,39 +309,39 @@ export function SmartGeofence() {
 
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+              <label className="block text-sm font-medium text-mag-text-muted mb-1">Latitude</label>
               <input
                 type="number"
                 step="0.0001"
                 value={form.lat}
                 onChange={(e) => setForm({ ...form, lat: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-mag-bg border border-mag-border rounded-lg focus:outline-none focus:border-mag-primary/50 text-mag-text"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+              <label className="block text-sm font-medium text-mag-text-muted mb-1">Longitude</label>
               <input
                 type="number"
                 step="0.0001"
                 value={form.lng}
                 onChange={(e) => setForm({ ...form, lng: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-mag-bg border border-mag-border rounded-lg focus:outline-none focus:border-mag-primary/50 text-mag-text"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Radius (m)</label>
+              <label className="block text-sm font-medium text-mag-text-muted mb-1">Radius (m)</label>
               <input
                 type="number"
                 value={form.radius_meters}
                 onChange={(e) => setForm({ ...form, radius_meters: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-mag-bg border border-mag-border rounded-lg focus:outline-none focus:border-mag-primary/50 text-mag-text"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Active Hours</label>
+              <label className="block text-sm font-medium text-mag-text-muted mb-1">Active Hours</label>
               <div className="flex gap-2">
                 <input
                   type="number"
@@ -349,39 +349,39 @@ export function SmartGeofence() {
                   max="23"
                   value={form.active_hours_start}
                   onChange={(e) => setForm({ ...form, active_hours_start: parseInt(e.target.value) })}
-                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-20 px-3 py-2 bg-mag-bg border border-mag-border rounded-lg focus:outline-none focus:border-mag-primary/50 text-mag-text"
                 />
-                <span className="self-center text-gray-500">to</span>
+                <span className="self-center text-mag-text-muted">to</span>
                 <input
                   type="number"
                   min="0"
                   max="23"
                   value={form.active_hours_end}
                   onChange={(e) => setForm({ ...form, active_hours_end: parseInt(e.target.value) })}
-                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-20 px-3 py-2 bg-mag-bg border border-mag-border rounded-lg focus:outline-none focus:border-mag-primary/50 text-mag-text"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Alerts</label>
+              <label className="block text-sm font-medium text-mag-text-muted mb-1">Alerts</label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={form.alert_on_enter}
                     onChange={(e) => setForm({ ...form, alert_on_enter: e.target.checked })}
-                    className="rounded border-gray-300 text-blue-600"
+                    className="rounded border-mag-border text-mag-primary"
                   />
-                  <span className="text-sm text-gray-700">On Enter</span>
+                  <span className="text-sm text-mag-text">On Enter</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={form.alert_on_exit}
                     onChange={(e) => setForm({ ...form, alert_on_exit: e.target.checked })}
-                    className="rounded border-gray-300 text-blue-600"
+                    className="rounded border-mag-border text-mag-primary"
                   />
-                  <span className="text-sm text-gray-700">On Exit</span>
+                  <span className="text-sm text-mag-text">On Exit</span>
                 </label>
               </div>
             </div>
@@ -391,13 +391,13 @@ export function SmartGeofence() {
             <button
               onClick={addZone}
               disabled={loading || !form.name}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+              className="px-4 py-2 bg-mag-primary text-white rounded-lg hover:bg-mag-primary-dim disabled:opacity-50 text-sm font-medium"
             >
               {loading ? "Creating..." : "Create Zone"}
             </button>
             <button
               onClick={() => setShowAddForm(false)}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+              className="px-4 py-2 border border-mag-border text-mag-text-muted rounded-lg hover:bg-mag-surface-raised hover:text-mag-text text-sm"
             >
               Cancel
             </button>
@@ -409,10 +409,10 @@ export function SmartGeofence() {
       {activeTab === "zones" && (
         <div className="space-y-3">
           {zones.length === 0 ? (
-            <div className="bg-gray-50 rounded-xl p-8 text-center">
-              <MapPin size={40} className="mx-auto text-gray-300 mb-3" />
-              <h3 className="font-medium text-gray-900 mb-1">No Smart Zones Yet</h3>
-              <p className="text-sm text-gray-500">
+            <div className="bg-mag-surface rounded-xl p-8 text-center">
+              <MapPin size={40} className="mx-auto text-mag-text-muted mb-3" />
+              <h3 className="font-medium text-mag-text mb-1">No Smart Zones Yet</h3>
+              <p className="text-sm text-mag-text-muted">
                 Create zones or use Auto-Discover to learn your routines.
               </p>
             </div>
@@ -422,15 +422,15 @@ export function SmartGeofence() {
               return (
                 <div
                   key={zone.id}
-                  className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between"
+                  className="bg-mag-surface rounded-xl border border-mag-border p-4 flex items-center justify-between"
                 >
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-lg ${getZoneColor(zone.zone_type)} flex items-center justify-center`}>
                       <ZoneIcon size={18} />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{zone.name}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="font-medium text-mag-text">{zone.name}</p>
+                      <p className="text-sm text-mag-text-muted">
                         {zone.radius_meters}m radius · {zone.active_hours_start}:00-{zone.active_hours_end}:00
                       </p>
                     </div>
@@ -439,19 +439,19 @@ export function SmartGeofence() {
                   <div className="flex items-center gap-4">
                     <div className="flex gap-2">
                       {zone.alert_on_enter && (
-                        <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs">
+                        <span className="px-2 py-1 bg-mag-primary/10 text-mag-primary rounded-full text-xs">
                           Enter
                         </span>
                       )}
                       {zone.alert_on_exit && (
-                        <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs">
+                        <span className="px-2 py-1 bg-amber-500/10 text-amber-400 rounded-full text-xs">
                           Exit
                         </span>
                       )}
                     </div>
                     <button
                       onClick={() => deleteZone(zone.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      className="p-2 text-mag-text-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -467,10 +467,10 @@ export function SmartGeofence() {
       {activeTab === "anomalies" && (
         <div className="space-y-3">
           {anomalies.length === 0 ? (
-            <div className="bg-gray-50 rounded-xl p-8 text-center">
-              <CheckCircle2 size={40} className="mx-auto text-emerald-300 mb-3" />
-              <h3 className="font-medium text-gray-900 mb-1">No Anomalies Detected</h3>
-              <p className="text-sm text-gray-500">
+            <div className="bg-mag-surface rounded-xl p-8 text-center">
+              <CheckCircle2 size={40} className="mx-auto text-emerald-400 mb-3" />
+              <h3 className="font-medium text-mag-text mb-1">No Anomalies Detected</h3>
+              <p className="text-sm text-mag-text-muted">
                 All devices are following their usual patterns.
               </p>
             </div>
@@ -480,16 +480,16 @@ export function SmartGeofence() {
               return (
                 <div
                   key={i}
-                  className="bg-white rounded-xl border border-gray-200 p-4"
+                  className="bg-mag-surface rounded-xl border border-mag-border p-4"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
                       <AlertTriangle size={18} className={sevConfig.color} />
                       <div>
-                        <p className="font-medium text-gray-900">{anomaly.device_name}</p>
-                        <p className="text-sm text-gray-600">{anomaly.description}</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          <Clock size={12} className="inline mr-1" />
+                        <p className="font-medium text-mag-text">{anomaly.device_name}</p>
+                        <p className="text-sm text-mag-text-muted">{anomaly.description}</p>
+                        <p className="text-xs text-mag-text-muted mt-1">
+                          <Clock size={12} className="inline mr-1 text-mag-text-muted" />
                           {new Date(anomaly.detected_at).toLocaleString()}
                         </p>
                       </div>
@@ -509,10 +509,10 @@ export function SmartGeofence() {
       {activeTab === "patterns" && (
         <div className="space-y-3">
           {patterns.length === 0 ? (
-            <div className="bg-gray-50 rounded-xl p-8 text-center">
-              <Brain size={40} className="mx-auto text-gray-300 mb-3" />
-              <h3 className="font-medium text-gray-900 mb-1">No Patterns Learned Yet</h3>
-              <p className="text-sm text-gray-500">
+            <div className="bg-mag-surface rounded-xl p-8 text-center">
+              <Brain size={40} className="mx-auto text-mag-text-muted mb-3" />
+              <h3 className="font-medium text-mag-text mb-1">No Patterns Learned Yet</h3>
+              <p className="text-sm text-mag-text-muted">
                 Patterns emerge after 1+ weeks of location data.
               </p>
             </div>
@@ -520,23 +520,23 @@ export function SmartGeofence() {
             patterns.map((pattern, i) => (
               <div
                 key={i}
-                className="bg-white rounded-xl border border-gray-200 p-4"
+                className="bg-mag-surface rounded-xl border border-mag-border p-4"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900">{pattern.location_name}</p>
-                    <p className="text-sm text-gray-500">
+                    <p className="font-medium text-mag-text">{pattern.location_name}</p>
+                    <p className="text-sm text-mag-text-muted">
                       Usually {Math.floor(pattern.avg_arrival_hour)}:{String(Math.round((pattern.avg_arrival_hour % 1) * 60)).padStart(2, "0")} -{" "}
                       {Math.floor(pattern.avg_departure_hour)}:{String(Math.round((pattern.avg_departure_hour % 1) * 60)).padStart(2, "0")}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-mag-text">
                       {pattern.frequency_days_per_week} days/week
                     </p>
                     <div className="flex items-center gap-1">
-                      <Zap size={12} className="text-amber-500" />
-                      <span className="text-xs text-gray-500">
+                      <Zap size={12} className="text-amber-400" />
+                      <span className="text-xs text-mag-text-muted">
                         {Math.round(pattern.confidence * 100)}% confidence
                       </span>
                     </div>
@@ -549,43 +549,43 @@ export function SmartGeofence() {
       )}
 
       {/* How It Works */}
-      <div className="bg-cyan-50 rounded-xl p-6">
-        <h3 className="font-semibold text-gray-900 mb-3">How Smart Geofencing Works</h3>
+      <div className="bg-mag-surface-raised rounded-xl p-6 border border-mag-border">
+        <h3 className="font-semibold text-mag-text mb-3">How Smart Geofencing Works</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-cyan-100 flex items-center justify-center flex-shrink-0">
-              <MapPin size={16} className="text-cyan-700" />
+            <div className="w-8 h-8 rounded-lg bg-mag-primary/10 flex items-center justify-center flex-shrink-0">
+              <MapPin size={16} className="text-mag-primary" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Create Zones</p>
-              <p className="text-xs text-gray-500">Define safe areas for your devices</p>
+              <p className="text-sm font-medium text-mag-text">Create Zones</p>
+              <p className="text-xs text-mag-text-muted">Define safe areas for your devices</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-cyan-100 flex items-center justify-center flex-shrink-0">
-              <Brain size={16} className="text-cyan-700" />
+            <div className="w-8 h-8 rounded-lg bg-mag-primary/10 flex items-center justify-center flex-shrink-0">
+              <Brain size={16} className="text-mag-primary" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Learn Patterns</p>
-              <p className="text-xs text-gray-500">AI learns daily routines over time</p>
+              <p className="text-sm font-medium text-mag-text">Learn Patterns</p>
+              <p className="text-xs text-mag-text-muted">AI learns daily routines over time</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-cyan-100 flex items-center justify-center flex-shrink-0">
-              <AlertTriangle size={16} className="text-cyan-700" />
+            <div className="w-8 h-8 rounded-lg bg-mag-primary/10 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle size={16} className="text-amber-400" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Detect Anomalies</p>
-              <p className="text-xs text-gray-500">Get alerts for unusual behavior</p>
+              <p className="text-sm font-medium text-mag-text">Detect Anomalies</p>
+              <p className="text-xs text-mag-text-muted">Get alerts for unusual behavior</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-cyan-100 flex items-center justify-center flex-shrink-0">
-              <Zap size={16} className="text-cyan-700" />
+            <div className="w-8 h-8 rounded-lg bg-mag-primary/10 flex items-center justify-center flex-shrink-0">
+              <Zap size={16} className="text-amber-400" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Predictive Alerts</p>
-              <p className="text-xs text-gray-500">"Usually arrives by 9am, not yet seen"</p>
+              <p className="text-sm font-medium text-mag-text">Predictive Alerts</p>
+              <p className="text-xs text-mag-text-muted">"Usually arrives by 9am, not yet seen"</p>
             </div>
           </div>
         </div>

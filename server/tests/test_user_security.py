@@ -11,7 +11,7 @@ Locks the v1.4 account-security contract:
 """
 
 import os
-import secrets
+import sys
 import tempfile
 
 import pytest
@@ -23,15 +23,16 @@ os.close(_test_db_fd)
 
 os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
 os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 os.environ["MT_DB_PATH"] = _test_db_path
 
-# ── Rebinds (module-eviction convention, see test_api.py) ───────────────────
-# test_e2e evicts config/database from sys.modules mid-collection, and
-# whichever file sorts before us (test_sentinel binds :memory:) decides the
-# global DB_PATH unless we rebind. The app's routers imported `database` at
-# OUR import time — same module instance as our module-level binding — so
-# the module-level `database` object below is the one the TestClient uses.
+# ── Rebinds (module-eviction convention, see test_api.py) ──────────────────
+# NOTE: no module eviction here. Evicting config/main/auth at import time
+# creates a second module generation whose settings object the OTHER files'
+# TestClients never see — under the full suite that poisons every file that
+# runs after us with 401s ("Invalid API key") and wrong-DB rate clears.
+# Rebinding only (HEAD's convention) keeps our own env/DB without
+# invalidating the apps other files built at their import time.
 import config  # noqa: E402
 
 config.settings.DB_PATH = _test_db_path
@@ -49,9 +50,6 @@ from main import app  # noqa: E402
 
 client = TestClient(app)
 
-# The API key is read from the BOUND settings singleton, NOT os.environ —
-# whichever test module imported config first wins the singleton, and its key
-# may differ from this file's env (test_multi_user.py uses its own dummy).
 TEST_API_KEY = config.settings.API_KEY
 
 STRONG_PASSWORD = "SecurePass123"
@@ -60,11 +58,14 @@ STRONG_PASSWORD = "SecurePass123"
 @pytest.fixture(autouse=True)
 def _clear_rate_buckets():
     """Keep the shared rate-limit buckets deterministic across tests (see the
-    same fixture in test_api.py for the eviction rationale: this deliberately
-    uses the module-level `database` binding — the pre-eviction instance the
-    app's routers imported — NOT a function-local import, which would resolve
-    a post-eviction module whose DB_PATH points at test_sentinel's :memory:)."""
-    with database.get_db_context() as conn:
+    same fixture in test_api.py for the eviction rationale). The clear
+    resolves the CURRENT `database` module from sys.modules: under full-suite
+    runs test_e2e evicts and re-imports database with ITS env mid-collection,
+    and by the time these tests RUN the app's auth chain checks the
+    post-eviction module — the module-level binding points at this file's own
+    temp DB, so clearing it would miss the live bucket."""
+    current_db = sys.modules.get("database") or database
+    with current_db.get_db_context() as conn:
         conn.execute("DELETE FROM rate_limits")
         conn.commit()
     yield
@@ -147,14 +148,14 @@ class TestTwoFactorLifecycle:
         assert "token" not in login
         challenge = login["two_factor_token"]
 
-        # Wrong code → 401.
+        # Wrong code.
         wrong = client.post(
             "/api/auth/user/login/2fa",
             json={"two_factor_token": challenge, "code": "000000"},
         )
         assert wrong.status_code == 401
 
-        # Correct code → real tokens.
+        # Correct code.
         ok = client.post(
             "/api/auth/user/login/2fa",
             json={"two_factor_token": challenge, "code": _totp_code(secret)},
@@ -249,7 +250,7 @@ class TestTwoFactorLifecycle:
             resp = client.post("/api/auth/user/login/2fa", json={"two_factor_token": challenge, "code": "111111"})
             assert resp.status_code == 401
 
-        # 6th attempt within the 15-min window → 429.
+        # 6th attempt within the 15-min window.
         challenge = _login(email)["two_factor_token"]
         resp = client.post("/api/auth/user/login/2fa", json={"two_factor_token": challenge, "code": "111111"})
         assert resp.status_code == 429

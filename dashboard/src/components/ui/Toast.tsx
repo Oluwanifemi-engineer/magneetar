@@ -89,7 +89,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       <span className="text-[12px] font-mono font-bold flex-1">{toast.message}</span>
       <button
         onClick={onDismiss}
-        className="shrink-0 p-0.5 rounded hover:bg-white/10 transition-colors"
+        className="shrink-0 p-0.5 rounded hover:bg-surface-hover transition-colors"
         aria-label="Dismiss"
       >
         <X size={12} />

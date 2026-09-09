@@ -38,10 +38,10 @@ export function MobileTabBar({ tabs, activeTab, onTabChange, className }: Mobile
                 'transition-all duration-200 active:scale-[0.95] shrink-0',
                 isActive
                   ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
-                  : 'text-white/30 bg-white/[0.03] border border-transparent hover:text-white/50',
+                  : 'text-mag-text-muted bg-mag-surface/30 border border-transparent hover:text-mag-text hover:bg-mag-surface-raised/40',
               )}
             >
-              {Icon && <Icon size={11} />}
+              {Icon && <Icon size={11} className={isActive ? 'text-emerald-400' : 'text-mag-text-muted'} />}
               {tab.label}
             </button>
           );

@@ -17,6 +17,15 @@ const config: Config = {
           border: '#1f2937',
           'border-light': '#374151',
 
+          // Landing page — intentional nested-dark hierarchy for visual depth.
+          // These are deliberately lighter than mag.bg so landing cards pop
+          // against the page; they mirror the dashboard surface scale but sit
+          // between mag.bg and mag.surface for a lifted hero feel.
+          'landing': '#0c1220',
+          'landing-chrome': '#0a0e18',
+          'landing-side': '#080c14',
+          'landing-border': '#1f2937',
+
           // Primary — Emerald accent
           primary: '#10b981',
           'primary-dim': '#059669',
@@ -34,6 +43,11 @@ const config: Config = {
           text: '#f9fafb',
           'text-dim': '#9ca3af',
           'text-muted': '#6b7280',
+          // Text hierarchy levels (for panel/stat typography)
+          'text-1': '#f9fafb',
+          'text-2': '#9ca3af',
+          'text-3': '#6b7280',
+          'text-4': '#4b5563',
         },
       },
       fontFamily: {

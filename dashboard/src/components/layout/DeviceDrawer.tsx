@@ -43,7 +43,7 @@ export function DeviceDrawer() {
       {/* Backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-[1900] bg-black/60 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-[1900] bg-mag-bg/80 backdrop-blur-sm md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -52,8 +52,8 @@ export function DeviceDrawer() {
       <div
         className={cn(
           'fixed top-0 left-0 bottom-0 z-[1950] w-72',
-          'bg-[#0a0a0f]/98 backdrop-blur-2xl',
-          'border-r border-white/[0.08]',
+          'bg-mag-bg/98 backdrop-blur-2xl',
+          'border-r border-mag-border/',
           'flex flex-col',
           'transition-transform duration-300 ease-out',
           'md:hidden',
@@ -63,26 +63,26 @@ export function DeviceDrawer() {
         onTouchEnd={handleTouchEnd}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-mag-border">
           <div className="flex items-center gap-3">
             <img src="/magneetar-mhalf.svg" alt="" className="w-7 h-7 rounded-lg" />
             <div>
-              <div className="text-[10px] font-bold tracking-[0.2em] text-white/80">MAGNEETAR</div>
-              <div className="text-[8px] font-mono text-white/25 uppercase tracking-wider">Devices</div>
+              <div className="text-[10px] font-bold tracking-[0.2em] text-mag-text">MAGNEETAR</div>
+              <div className="text-[8px] font-mono text-mag-text-muted uppercase tracking-wider">Devices</div>
             </div>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-white/[0.06] transition-colors"
+            className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-mag-surface-raised transition-colors"
             aria-label="Close device list"
           >
-            <X size={16} className="text-white/40" />
+            <X size={16} className="text-mag-text-muted" />
           </button>
         </div>
 
         {/* Device count */}
-        <div className="px-5 py-2 border-b border-white/[0.04]">
-          <div className="flex items-center gap-2 text-[9px] font-mono font-bold text-white/30 uppercase tracking-wider">
+        <div className="px-5 py-2 border-b border-mag-border">
+          <div className="flex items-center gap-2 text-[9px] font-mono font-bold text-mag-text-muted uppercase tracking-wider">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             {activeDevices.length} active
             {archivedDevices.length > 0 && (
@@ -103,31 +103,31 @@ export function DeviceDrawer() {
                 key={device.id}
                 onClick={() => handleSelect(device.id)}
                 className={cn(
-                  'w-full text-left px-5 py-3.5 border-b border-white/[0.03]',
+                  'w-full text-left px-5 py-3.5 border-b border-mag-border',
                   'transition-all duration-200 active:scale-[0.98]',
                   isSelected
                     ? 'bg-emerald-500/[0.06] border-l-2 border-l-emerald-500'
-                    : 'border-l-2 border-l-transparent hover:bg-white/[0.03]',
+                    : 'border-l-2 border-l-transparent hover:bg-mag-surface-raised',
                   archived && 'opacity-50',
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[13px] font-bold text-white/85 truncate max-w-[70%]">
+                  <span className="text-[13px] font-bold text-mag-text truncate max-w-[70%]">
                     {deviceDisplayName(device)}
                   </span>
                   <div className="flex items-center gap-2">
                     <StatusIndicator isOnline={online} signal={getSignalLevel(device.last_seen)} className="scale-75" />
-                    <ChevronRight size={12} className="text-white/15" />
+                    <ChevronRight size={12} className="text-mag-text-muted" />
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-[9px] text-white/25 truncate">{device.id}</span>
+                  <span className="font-mono text-[9px] text-mag-text-muted truncate">{device.id}</span>
                   <span className="flex items-center gap-1">
                     <span className={cn(
                       'w-1.5 h-1.5 rounded-full',
-                      online ? 'bg-emerald-500' : 'bg-white/15'
+                      online ? 'bg-emerald-500' : 'bg-mag-surface-raised'
                     )} />
-                    <span className="font-mono text-[8px] text-white/25">
+                    <span className="font-mono text-[8px] text-mag-text-muted">
                       {relativeTime(device.last_seen)}
                     </span>
                   </span>
@@ -138,9 +138,9 @@ export function DeviceDrawer() {
 
           {devices.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-              <Smartphone size={24} className="text-white/15 mb-3" />
-              <div className="text-[12px] font-bold text-white/40 mb-1">No devices yet</div>
-              <div className="text-[10px] font-mono text-white/20 leading-relaxed">
+              <Smartphone size={24} className="text-mag-text-muted mb-3" />
+              <div className="text-[12px] font-bold text-mag-text mb-1">No devices yet</div>
+              <div className="text-[10px] font-mono text-mag-text-muted leading-relaxed">
                 Connect your first device to start tracking
               </div>
             </div>

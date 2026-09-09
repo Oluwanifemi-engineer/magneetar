@@ -18,8 +18,8 @@ export function StatusIndicator({ isOnline, signal, lastSeen, className }: Statu
   };
 
   const signalColors = {
-    strong: 'bg-mag-accent',
-    medium: 'bg-mag-accent',
+    strong: 'bg-mag-primary',
+    medium: 'bg-mag-primary',
     weak: 'bg-mag-warning',
     none: 'bg-mag-text-dim/40',
   };
@@ -46,13 +46,13 @@ export function StatusIndicator({ isOnline, signal, lastSeen, className }: Statu
       {/* Status dot */}
       <div className={cn(
         'w-1.5 h-1.5 rounded-full transition-colors duration-300',
-        isOnline ? 'bg-mag-accent shadow-[0_0_6px_rgba(34,197,94,0.4)]' : 'bg-mag-text-dim/30'
+        isOnline ? 'bg-mag-primary shadow-[0_0_6px_rgba(34,197,94,0.4)]' : 'bg-mag-text-dim/30'
       )} />
 
       {/* Status text */}
       <span className={cn(
         'text-[10px] font-mono font-bold uppercase tracking-wider',
-        isOnline ? 'text-mag-accent/80' : 'text-mag-text-dim/50'
+        isOnline ? 'text-mag-primary/80' : 'text-mag-text-dim/50'
       )}>
         {isOnline ? 'ONLINE' : 'OFFLINE'}
       </span>

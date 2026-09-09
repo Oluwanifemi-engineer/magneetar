@@ -137,7 +137,7 @@ export default function TermsPage() {
         {/* Back link */}
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-[11px] font-mono font-bold tracking-wider text-gray-400 hover:text-gray-900 transition-colors"
+          className="inline-flex items-center gap-2 text-[11px] font-mono font-bold tracking-wider text-mag-text-muted hover:text-mag-text transition-colors"
         >
           <ArrowLeft size={13} />
           BACK TO HOME
@@ -145,16 +145,16 @@ export default function TermsPage() {
 
         {/* Header */}
         <header className="mt-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/[0.03] mb-5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border-mag-border/50 bg-mag-surface mb-5">
             <ScrollText size={12} className="text-gray-900" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-gray-500">TERMS OF SERVICE</span>
+            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-mag-text-muted">TERMS OF SERVICE</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-display font-extrabold tracking-tight leading-[1.1]">
             Clear rules for
             <br />
-            <span className="text-gray-400">a serious tool.</span>
+            <span className="text-mag-text-dim">a serious tool.</span>
           </h1>
-          <p className="mt-5 text-gray-500 leading-relaxed max-w-2xl text-[15px]">
+          <p className="mt-5 text-mag-text-muted leading-relaxed max-w-2xl text-[15px]">
             Magneetar is a powerful anti-theft system. These Terms keep it powerful for its intended
             purpose — recovering your own stolen devices and staying connected with your people — and
             clearly out of bounds for everything else. They apply to the Magneetar Android app, the web
@@ -162,10 +162,10 @@ export default function TermsPage() {
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-4">
-            <span className="px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-[10px] font-mono text-gray-400">
+            <span className="px-3 py-1.5 rounded-lg border-mag-border/50 bg-mag-surface text-[10px] font-mono text-mag-text-muted">
               EFFECTIVE · AUGUST 1, 2026
             </span>
-            <span className="px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-[10px] font-mono text-gray-400">
+            <span className="px-3 py-1.5 rounded-lg border-mag-border/50 bg-mag-surface text-[10px] font-mono text-mag-text-muted">
               VERSION 1.0
             </span>
             <span className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-[10px] font-mono font-bold text-emerald-700 flex items-center gap-1.5">
@@ -191,7 +191,7 @@ export default function TermsPage() {
                   <h2 className="text-lg font-display font-bold tracking-tight text-gray-900">{section.title}</h2>
                   <ul className="mt-4 space-y-3">
                     {section.body.map((point) => (
-                      <li key={point} className="flex gap-3 text-[13.5px] leading-relaxed text-gray-500">
+                      <li key={point} className="flex gap-3 text-[13.5px] leading-relaxed text-mag-text-muted">
                         <span className="mt-[7px] w-1.5 h-1.5 shrink-0 rounded-full bg-gradient-to-r from-gray-300 to-gray-500" aria-hidden="true" />
                         <span>{point}</span>
                       </li>
@@ -207,7 +207,7 @@ export default function TermsPage() {
         <div className="mt-12 rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-8 text-center">
           <Mail size={20} className="mx-auto text-[#FFFFFF]" />
           <h2 className="mt-3 text-xl font-display font-bold tracking-tight">Questions about these terms?</h2>
-          <p className="mt-2 text-[13.5px] text-gray-500 max-w-lg mx-auto">
+          <p className="mt-2 text-[13.5px] text-mag-text-muted max-w-lg mx-auto">
             Email{' '}
             <a href="mailto:legal@magneetar.me" className="text-gray-900 hover:text-[#22D3EE] font-semibold transition-colors">
               legal@magneetar.me

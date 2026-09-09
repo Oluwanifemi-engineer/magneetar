@@ -82,8 +82,8 @@ export function FloatingActions() {
     <div className="md:hidden fixed bottom-[130px] right-4 z-[1500] flex flex-col items-end gap-3">
       {/* Confirmation tooltip */}
       {confirmAction && (
-        <div className="bg-[#111118]/95 backdrop-blur-xl border border-white/[0.10] rounded-2xl p-3 shadow-2xl animate-fade-in max-w-[200px]">
-          <div className="text-[10px] font-mono text-white/60 mb-2">
+        <div className="mag-map-glass-compact animate-fade-in max-w-[200px]">
+          <div className="text-[10px] font-mono text-mag-text-dim mb-2">
             Send {getCommandLabel(confirmAction)} command?
           </div>
           <div className="flex gap-2">
@@ -96,7 +96,7 @@ export function FloatingActions() {
             </button>
             <button
               onClick={() => setConfirmAction(null)}
-              className="flex-1 py-1.5 rounded-xl border border-white/[0.10] text-white/40 text-[9px] font-mono font-bold uppercase"
+              className="flex-1 py-1.5 rounded-xl border border-mag-border text-mag-text-muted text-[9px] font-mono font-bold uppercase"
             >
               No
             </button>
@@ -124,7 +124,7 @@ export function FloatingActions() {
               'border backdrop-blur-xl transition-all duration-200',
               'active:scale-90',
               isActive
-                ? 'bg-white/10 border-white/20 animate-pulse'
+                ? 'bg-mag-surface-raised/70 border-mag-border/50 animate-pulse'
                 : action.color,
               action.glow,
             )}
@@ -147,8 +147,8 @@ export function FloatingActions() {
           'w-10 h-10 rounded-full flex items-center justify-center',
           'border backdrop-blur-xl transition-all duration-200 active:scale-90',
           expanded
-            ? 'bg-white/10 border-white/20 text-white/60'
-            : 'bg-white/[0.06] border-white/[0.10] text-white/30',
+            ? 'bg-mag-surface-raised/70 border-mag-border/50 text-mag-text-muted'
+            : 'bg-mag-surface-raised border-mag-border/50 text-mag-text-muted',
         )}
         title="More commands"
         aria-label="More commands"
@@ -158,7 +158,7 @@ export function FloatingActions() {
 
       {/* Expanded overflow menu */}
       {expanded && (
-        <div className="bg-[#111118]/95 backdrop-blur-xl border border-white/[0.10] rounded-2xl p-2 shadow-2xl animate-fade-in">
+        <div className="mag-map-glass rounded-2xl p-2 shadow-2xl animate-fade-in">
           <div className="grid grid-cols-3 gap-2">
             {[
               { label: 'Burst', command: 'location_burst', color: 'text-emerald-400' },
@@ -178,7 +178,7 @@ export function FloatingActions() {
                   }
                   setExpanded(false);
                 }}
-                className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl hover:bg-white/[0.06] transition-colors"
+                className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl hover:bg-mag-surface-hover transition-colors"
               >
                 <span className={cn('text-[9px] font-mono font-bold uppercase', item.color)}>
                   {item.label}

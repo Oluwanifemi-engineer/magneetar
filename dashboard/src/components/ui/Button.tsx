@@ -53,7 +53,7 @@ function Button({
           'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 shadow-lg shadow-blue-500/25': variant === 'primary',
           'bg-gray-700 text-gray-200 hover:bg-gray-600 focus:ring-gray-500': variant === 'secondary',
           'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-lg shadow-red-500/25': variant === 'danger',
-          'bg-transparent text-gray-300 hover:bg-gray-800 focus:ring-gray-500': variant === 'ghost',
+          'bg-transparent text-mag-text-muted hover:bg-mag-surface-raised focus:ring-mag-border transition-colors': variant === 'ghost',
           'bg-transparent text-blue-400 hover:text-blue-300 underline': variant === 'link',
         },
         // Sizes

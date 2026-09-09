@@ -28,9 +28,9 @@ import pytest
 _test_db_fd, _test_db_path = tempfile.mkstemp(suffix=".db")
 os.close(_test_db_fd)
 
-os.environ["MT_API_KEY"] = "evidence-test-key-" + "a" * 32
-os.environ["MT_JWT_SECRET"] = "evidence-test-jwt-" + "b" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
+os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
+os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 os.environ["MT_DB_PATH"] = _test_db_path
 
 # Module eviction
@@ -82,7 +82,14 @@ STRONG_PASSWORD = "SecurePass123!"
 
 @pytest.fixture(autouse=True)
 def _clear_rate_buckets():
-    with database.get_db_context() as conn:
+    """Clear rate limits between tests — resolve the CURRENT database module
+    (test_e2e evicts and re-imports database with ITS env mid-collection, so
+    the module-level binding can point at a different DB than the app's auth
+    chain checks at runtime)."""
+    import sys
+
+    current_db = sys.modules.get("database") or database
+    with current_db.get_db_context() as conn:
         conn.execute("DELETE FROM rate_limits")
         conn.commit()
     yield
@@ -207,7 +214,7 @@ class TestMediaUpload:
     def test_upload_photo_creates_media_record(self):
         """Uploading a photo should create a media record."""
         device_id = f"ev-photo-{secrets.token_hex(4)}"
-        _device_token = _register_device(device_id)
+        device_token = _register_device(device_id)
 
         resp = client.post(
             "/api/device/media",
@@ -227,7 +234,7 @@ class TestMediaUpload:
     def test_upload_rejects_oversized_media(self):
         """Uploading oversized media should be rejected."""
         device_id = f"ev-oversized-{secrets.token_hex(4)}"
-        _device_token = _register_device(device_id)
+        device_token = _register_device(device_id)
 
         # Create a large base64 string (> 10MB)
         large_data = "A" * (10 * 1024 * 1024)
@@ -251,12 +258,12 @@ class TestEvidenceCase:
     def test_evidence_case_created_on_first_media(self):
         """First media upload should create an evidence case."""
         device_id = f"ev-case-{secrets.token_hex(4)}"
-        _device_token = _register_device(device_id)
+        device_token = _register_device(device_id)
         user_token = _register_user(f"ev-owner-{secrets.token_hex(4)}@test.dev")
         _claim_device(device_id, user_token)
 
         # Upload media with valid image data
-        _upload_resp = client.post(
+        client.post(
             "/api/device/media",
             json={
                 "device_id": device_id,
@@ -276,7 +283,7 @@ class TestEvidenceCase:
     def test_evidence_case_has_expected_fields(self):
         """Evidence case should have expected fields."""
         device_id = f"ev-counts-{secrets.token_hex(4)}"
-        _device_token = _register_device(device_id)
+        _register_device(device_id)
         user_token = _register_user(f"ev-counts-owner-{secrets.token_hex(4)}@test.dev")
         _claim_device(device_id, user_token)
 
@@ -298,7 +305,7 @@ class TestEvidencePDF:
     def test_generate_pdf_returns_pdf(self):
         """Generating evidence PDF should return a PDF file."""
         device_id = f"ev-pdf-{secrets.token_hex(4)}"
-        _device_token = _register_device(device_id)
+        device_token = _register_device(device_id)
         user_token = _register_user(f"ev-pdf-owner-{secrets.token_hex(4)}@test.dev")
         _claim_device(device_id, user_token)
 
@@ -344,7 +351,7 @@ class TestEvidenceAccessControl:
     def test_viewer_can_read_evidence(self):
         """Viewers should be able to read evidence (but not delete)."""
         device_id = f"ev-viewer-{secrets.token_hex(4)}"
-        _device_token = _register_device(device_id)
+        _register_device(device_id)
         owner_token = _register_user(f"ev-owner-{secrets.token_hex(4)}@test.dev")
         _claim_device(device_id, owner_token)
 

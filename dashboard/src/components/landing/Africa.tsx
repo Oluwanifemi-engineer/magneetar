@@ -25,7 +25,7 @@ const AFRICA_POINTS = [
     icon: BellRing,
     title: 'Alerts that reach you',
     description:
-      'Multi-channel alerts tuned for Nigerian networks — SMS, WhatsApp, and push — so you know the moment something is wrong.',
+      'Multi-channel alerts tuned for Nigerian networks — push, email, and SMS — so you know the moment something is wrong. WhatsApp alerting is in development.',
   },
   {
     icon: BatteryCharging,
@@ -37,7 +37,7 @@ const AFRICA_POINTS = [
     icon: FileCheck2,
     title: 'Evidence that holds up',
     description:
-      'Tamper-proof photo, audio, and location evidence, packaged into PDF reports you can take to the police.'
+      'Tamper-evident photo, audio, and location evidence, packaged into PDF reports you can take to the police.'
   },
 ];
 
@@ -57,7 +57,7 @@ export function Africa() {
             Built for{' '}
             <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Africa.</span>
           </h2>
-          <p className="mt-5 text-gray-400 leading-relaxed">
+          <p className="mt-5 text-mag-text-muted leading-relaxed">
             Phone theft is the most common crime in Nigeria — and fewer than 1 in 8 reported thefts ever
             end in recovery. Magneetar was designed to change that number.
           </p>
@@ -68,16 +68,16 @@ export function Africa() {
           {AFRICA_STATS.map((stat) => (
             <div
               key={stat.label}
-              className="relative rounded-2xl bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.06] p-7 text-center hover:border-red-500/15 transition-all duration-400 group"
+              className="relative rounded-2xl bg-gradient-to-b from-mag-surface to-mag-bg border-mag-border p-7 text-center hover:border-red-500/15 transition-all duration-400 group"
             >
               {/* Red accent line at top */}
               <div className="absolute top-0 left-10 right-10 h-px bg-gradient-to-r from-transparent via-red-500/30 to-transparent group-hover:via-red-500/50 transition-all duration-500" />
 
-              <div className="text-4xl sm:text-5xl font-extrabold font-mono tabular-nums text-white group-hover:text-red-50 transition-colors duration-300">
+              <div className="text-4xl sm:text-5xl font-extrabold font-mono tabular-nums text-mag-text group-hover:text-red-50 transition-colors duration-300">
                 {stat.value}
               </div>
-              <div className="mt-3 text-gray-300 font-semibold text-sm leading-snug">{stat.label}</div>
-              <div className="mt-2 text-[12px] leading-relaxed text-gray-500">{stat.detail}</div>
+              <div className="mt-3 text-mag-text-dim font-semibold text-sm leading-snug">{stat.label}</div>
+              <div className="mt-2 text-[12px] leading-relaxed text-mag-text-muted">{stat.detail}</div>
             </div>
           ))}
         </div>
@@ -87,20 +87,20 @@ export function Africa() {
           {AFRICA_POINTS.map((point) => (
             <div
               key={point.title}
-              className="flex items-start gap-4 rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-6 hover:border-emerald-500/15 transition-all duration-400 group"
+              className="flex items-start gap-4 rounded-2xl border-mag-border bg-gradient-to-b from-mag-surface to-mag-bg p-6 hover:border-emerald-500/15 transition-all duration-400 group"
             >
               <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/15 transition-all">
                 <point.icon size={16} className="text-emerald-400/70 group-hover:text-emerald-400 transition-colors" />
               </div>
               <div>
-                <div className="text-white font-semibold text-sm group-hover:text-emerald-50 transition-colors">{point.title}</div>
-                <div className="text-[12.5px] text-gray-400 leading-relaxed mt-1">{point.description}</div>
+                <div className="text-mag-text font-semibold text-sm group-hover:text-emerald-50 transition-colors">{point.title}</div>
+                <div className="text-[12.5px] text-mag-text-muted leading-relaxed mt-1">{point.description}</div>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="mt-10 flex items-center justify-center gap-2 text-[11px] font-mono text-gray-600">
+        <div className="mt-10 flex items-center justify-center gap-2 text-[11px] font-mono text-mag-text-muted">
           <Smartphone size={11} />
           <span>Source: National Bureau of Statistics — Crime Experience &amp; Security Perception Survey, 2024</span>
         </div>

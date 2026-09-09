@@ -56,7 +56,7 @@ const FEATURES = [
     icon: BellRing,
     title: 'Alerts on Every Channel',
     description:
-      'SMS, WhatsApp, and push notifications — so you know the moment something happens, even on slow networks.',
+      'Push, email, and SMS alerts — so you know the moment something happens, even on slow networks. WhatsApp alerting is in development.',
     accent: false,
   },
   {
@@ -91,7 +91,7 @@ const FEATURES = [
 
 function FeatureCard({ feature }: { feature: typeof FEATURES[0]; index: number }) {
   return (
-    <TiltCard className="group rounded-2xl bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/[0.06] hover:border-emerald-500/20 transition-all duration-400">
+    <TiltCard className="group rounded-2xl bg-gradient-to-b from-mag-surface to-mag-bg border-mag-border hover:border-emerald-500/20 transition-all duration-400">
       <div className="relative p-6 overflow-hidden">
         {/* Top accent line on hover */}
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/0 to-transparent group-hover:via-emerald-500/40 transition-all duration-500" />
@@ -99,15 +99,15 @@ function FeatureCard({ feature }: { feature: typeof FEATURES[0]; index: number }
         <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 transition-all duration-300 ${
           feature.accent
             ? 'bg-emerald-500/10 border border-emerald-500/20'
-            : 'bg-white/[0.04] border border-white/[0.06] group-hover:bg-emerald-500/8 group-hover:border-emerald-500/15'
+            : 'bg-mag-surface border-mag-border group-hover:bg-emerald-500/8 group-hover:border-emerald-500/15'
         }`}>
-          <feature.icon size={20} className={`${feature.accent ? 'text-emerald-400' : 'text-gray-400 group-hover:text-emerald-400'} transition-colors duration-300`} />
+          <feature.icon size={20} className={`${feature.accent ? 'text-emerald-400' : 'text-mag-text-muted group-hover:text-emerald-400'} transition-colors duration-300`} />
         </div>
 
-        <h3 className="text-white font-bold text-[14px] tracking-tight group-hover:text-emerald-50 transition-colors duration-300">
+        <h3 className="text-mag-text font-bold text-[14px] tracking-tight group-hover:text-emerald-50 transition-colors duration-300">
           {feature.title}
         </h3>
-        <p className="mt-2 text-[13px] leading-relaxed text-gray-400 group-hover:text-gray-300/80 transition-colors duration-300">
+        <p className="mt-2 text-[13px] leading-relaxed text-mag-text-muted group-hover:text-mag-text-dim transition-colors duration-300">
           {feature.description}
         </p>
       </div>
@@ -126,11 +126,11 @@ export function Features() {
           <div className="badge-dark mb-5 mx-auto w-fit">
             <span>CAPABILITIES</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-mag-text">
             Everything you need to{' '}
             <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">protect your phone</span>
           </h2>
-          <p className="mt-4 text-gray-400 leading-relaxed max-w-lg mx-auto">
+          <p className="mt-4 text-mag-text-muted leading-relaxed max-w-lg mx-auto">
             From the moment it's stolen to the moment you recover it — Magneetar has your back.
           </p>
         </div>

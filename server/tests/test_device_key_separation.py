@@ -25,9 +25,9 @@ import tempfile
 # whichever file imports first wins, so a unique value here would make every
 # endpoint test 401 (the settings singleton carries the other file's key).
 os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
-os.environ["MT_DEVICE_KEY"] = "test-device-key-" + "b" * 24
+os.environ["MT_DEVICE_KEY"] = "test-device-key-" + "c" * 32
 os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 
 _test_db_fd, _test_db_path = tempfile.mkstemp(suffix=".db")
 os.close(_test_db_fd)

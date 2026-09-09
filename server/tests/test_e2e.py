@@ -5,19 +5,57 @@ module caching conflicts with other test files.
 """
 
 import os
-import secrets
 import sys
 import tempfile
 import time
+
+import pytest
 
 # Set test environment BEFORE any imports
 _test_db_fd, test_db_path = tempfile.mkstemp(suffix=".db")
 os.close(_test_db_fd)
 
-os.environ["MT_API_KEY"] = "e2e-test-key-" + "z" * 32
-os.environ["MT_JWT_SECRET"] = "e2e-test-jwt-" + "y" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
+os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
+os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 os.environ["MT_DB_PATH"] = test_db_path
+
+# Snapshot the pre-eviction state of affected modules so this file's
+# mid-collection eviction does not leave later test files binding to
+# e2e's (post-eviction) module instances. The snapshot is taken HERE at
+# import time, before any deletions, so it captures the modules the NEXT
+# test file would otherwise bind to if eviction were left in place.
+#
+# This is the robust fix for the full-suite split-brain: without it,
+# test_api.py (imported after e2e) binds `database`/`config`/`main` to the
+# post-eviction instances, so its fixture clears e2e's DB while its routes
+# check e2e's DB — and the shared rate-limit buckets collide across files.
+_E2E_PRE_EVICTION_MODULES = {
+    name: sys.modules[name]
+    for name in list(sys.modules.keys())
+    if (
+        name.startswith("config")
+        or name.startswith("database")
+        or name == "main"
+        or name == "auth"
+        or name == "models"
+        or name.startswith("logging")
+        or name == "sentinel"
+        or name == "alerts"
+        or name == "evidence"
+        or name == "encryption"
+        or name.startswith("routes")
+        or name == "websocket_manager"
+        or name == "user_auth"
+        or name == "evidence_pdf"
+        or name == "database_postgres"
+        or name == "data_export"
+        or name == "archive_monitor"
+        or name == "offline_monitor"
+        or name == "user_security"
+        or name == "media_store"
+    )
+}
 
 # Clear cached modules so they re-import with new env vars
 for mod_name in list(sys.modules.keys()):
@@ -34,30 +72,12 @@ for mod_name in list(sys.modules.keys()):
         or mod_name == "encryption"
         or mod_name.startswith("routes")
         or mod_name == "websocket_manager"
-        # user_auth/evidence_pdf/database_postgres/data_export also bind
-        # config+settings (data_export does `from database import
-        # get_db_context` at module level); leaving the stale copies in
-        # sys.modules makes later test modules (test_multi_user,
-        # test_reliability) mix config A tokens with config B decoding →
-        # "Invalid token", write rate limits to the wrong DB, and — for
-        # data_export — resolve get_db_context to a pre-eviction module whose
-        # DB_PATH points at an earlier test file's temp DB, so account
-        # deletion/export runs against the wrong database.
         or mod_name == "user_auth"
         or mod_name == "evidence_pdf"
         or mod_name == "database_postgres"
         or mod_name == "data_export"
-        # archive_monitor/offline_monitor bind database at MODULE level; if
-        # they were imported before this eviction (e.g. by test_archive,
-        # which sorts earlier alphabetically), leaving the stale copies in
-        # sys.modules makes their sweep read a dead database instance's path.
         or mod_name == "archive_monitor"
         or mod_name == "offline_monitor"
-        # user_security/media_store (v1.4) are imported by main/user_auth and
-        # also bind database+config at MODULE level. Without eviction they
-        # keep pointing at a pre-eviction database module whose DB_PATH is an
-        # earlier test file's temp DB — 2FA/reset writes land in the wrong
-        # database and tests read them back from their own fresh one.
         or mod_name == "user_security"
         or mod_name == "media_store"
     ):
@@ -78,6 +98,24 @@ from fastapi.testclient import TestClient  # noqa: E402
 client = TestClient(main_module.app)
 
 TEST_API_KEY = os.environ["MT_API_KEY"]
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _restore_pre_eviction_modules():
+    """Restore the modules this file evicted at import time, so the NEXT
+    test file imported by pytest sees its own (pre-eviction) module
+    instances rather than e2e's post-eviction ones.
+
+    This is the teardown half of the full-suite split-brain fix. Without it,
+    test_e2e's import-time eviction leaves sys.modules in a contaminated
+    state and any file imported after e2e binds to e2e's database/config/
+    main/auth instances — which is why test_api's rate-limit fixture (which
+    clears its own DB) cannot stop the live route from checking e2e's DB
+    and observing e2e's bucket state.
+    """
+    yield
+    for name, mod in _E2E_PRE_EVICTION_MODULES.items():
+        sys.modules[name] = mod
 
 
 def get_dash_headers():

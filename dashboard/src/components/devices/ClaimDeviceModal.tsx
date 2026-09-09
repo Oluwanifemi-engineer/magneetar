@@ -56,7 +56,7 @@ export function ClaimDeviceModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-mag-bg/80 backdrop-blur-sm p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Link a device"
@@ -65,7 +65,7 @@ export function ClaimDeviceModal({ onClose }: { onClose: () => void }) {
       <div className="w-full max-w-md rounded-2xl border border-mag-border/50 bg-mag-panel/95 backdrop-blur-xl shadow-2xl shadow-black/60 overflow-hidden animate-fade-slide">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-mag-border/30">
           <div className="w-8 h-8 rounded-lg bg-gray-900/15 border border-mag-primary/30 flex items-center justify-center shrink-0">
-            <Link2 size={14} className="text-mag-accent" />
+            <Link2 size={14} className="text-mag-primary" />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-bold text-mag-text">Link a device</h3>
@@ -84,7 +84,7 @@ export function ClaimDeviceModal({ onClose }: { onClose: () => void }) {
 
         {successId ? (
           <div className="px-5 py-8 flex flex-col items-center gap-3 text-center">
-            <CheckCircle2 size={28} className="text-mag-accent" />
+            <CheckCircle2 size={28} className="text-mag-primary" />
             <div className="text-sm font-bold text-mag-text">Device linked</div>
             <div className="text-[11px] font-mono text-mag-text-dim/60 break-all">{successId}</div>
           </div>
@@ -95,8 +95,8 @@ export function ClaimDeviceModal({ onClose }: { onClose: () => void }) {
               <Smartphone size={13} className="text-mag-primary/70 shrink-0 mt-0.5" />
               <p className="text-[10px] font-mono text-mag-text-dim/60 leading-relaxed">
                 On the phone, open the Magneetar app → Home screen shows the
-                <span className="text-mag-accent"> Device ID</span> and
-                <span className="text-mag-accent"> Pairing code</span> (tap to copy).
+                <span className="text-mag-primary"> Device ID</span> and
+                <span className="text-mag-primary"> Pairing code</span> (tap to copy).
                 Enter them here to link this phone to your dashboard.
               </p>
             </div>

@@ -27,6 +27,7 @@ httpx==0.28.1
 # sqlite3 is built-in. asyncpg powers the OPTIONAL PostgreSQL adapter
 # (database_postgres.py) — only needed if you set MT_DATABASE_URL.
 asyncpg==0.31.0
+alembic==1.15.2
 
 # Realtime broadcast bus (multi-worker WebSocket fan-out). When MT_REDIS_URL
 # is set, every uvicorn worker publishes device updates to a Redis pub/sub

@@ -26,9 +26,9 @@ import pytest
 _test_db_fd, _test_db_path = tempfile.mkstemp(suffix=".db")
 os.close(_test_db_fd)
 
-os.environ["MT_API_KEY"] = "geofence-test-key-" + "a" * 32
-os.environ["MT_JWT_SECRET"] = "geofence-test-jwt-" + "b" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
+os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
+os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 os.environ["MT_DB_PATH"] = _test_db_path
 
 # Module eviction
@@ -80,7 +80,14 @@ STRONG_PASSWORD = "SecurePass123!"
 
 @pytest.fixture(autouse=True)
 def _clear_rate_buckets():
-    with database.get_db_context() as conn:
+    """Clear rate limits between tests — resolve the CURRENT database module
+    (test_e2e evicts and re-imports database with ITS env mid-collection, so
+    the module-level binding can point at a different DB than the app's auth
+    chain checks at runtime)."""
+    import sys
+
+    current_db = sys.modules.get("database") or database
+    with current_db.get_db_context() as conn:
         conn.execute("DELETE FROM rate_limits")
         conn.commit()
     yield
@@ -213,7 +220,7 @@ class TestGeofenceCRUD:
             },
             headers={"Authorization": f"Bearer {user_token}"},
         )
-        _gf_id = create_resp.json()["geofence_id"]
+        gf_id = create_resp.json()["geofence_id"]
 
         # Delete
         del_resp = client.delete(
@@ -256,7 +263,7 @@ class TestGeofenceTriggering:
             },
             headers={"Authorization": f"Bearer {user_token}"},
         )
-        _gf_id = create_resp.json()["geofence_id"]
+        _ = create_resp.json()["geofence_id"]
 
         # Simulate device inside the zone (first ping)
         device_token = _get_device_token(device_id)

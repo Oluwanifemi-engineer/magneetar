@@ -18,7 +18,7 @@ const WHY_MAGNEETAR = [
   },
   {
     title: 'Alerts that reach you on any network',
-    description: 'SMS, WhatsApp, and push notifications — tuned for MTN, Airtel, Glo, and 9mobile. You know the moment something is wrong.',
+    description: 'Push, email, and SMS alerts tuned for MTN, Airtel, Glo, and 9mobile — you know the moment something is wrong. WhatsApp alerting is in development.',
   },
   {
     title: 'Lock it remotely, one tap',
@@ -35,14 +35,14 @@ export function ComparisonTable() {
     <Spotlight className="py-20 sm:py-28 bg-gray-950 relative overflow-hidden" color="rgba(16,185,129,0.06)">
       <div className="max-w-6xl mx-auto px-5 sm:px-8">
         <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 mb-5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border-mag-border/50 bg-mag-surface mb-5">
             <Check size={10} className="text-emerald-400" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-gray-400">WHY MAGNEETAR</span>
+            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-mag-text-muted">WHY MAGNEETAR</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-4">
             Not just another tracker.
           </h2>
-          <p className="text-gray-400 text-base max-w-lg mx-auto">
+          <p className="text-mag-text-muted text-base max-w-lg mx-auto">
             Google Find My Device doesn&apos;t work on most budget phones. Samsung only works on Samsung.
             Magneetar was built for everyone else.
           </p>
@@ -52,18 +52,16 @@ export function ComparisonTable() {
           {WHY_MAGNEETAR.map((item) => (
             <div
               key={item.title}
-              className="flex flex-col rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent p-6 hover:border-emerald-500/15 transition-all duration-400 group"
+              className="flex flex-col rounded-2xl border-mag-border bg-gradient-to-b from-mag-surface to-mag-bg p-6 hover:border-emerald-500/15 transition-all duration-400 group"
             >
               <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/15 transition-all mb-4">
                 <Check size={16} className="text-emerald-400/70 group-hover:text-emerald-400 transition-colors" />
               </div>
-              <div className="text-white font-semibold text-sm group-hover:text-emerald-50 transition-colors">{item.title}</div>
-              <div className="text-[12.5px] text-gray-400 leading-relaxed mt-2">{item.description}</div>
+              <div className="text-mag-text font-semibold text-sm group-hover:text-emerald-50 transition-colors">{item.title}</div>
+              <div className="text-[12.5px] text-mag-text-muted leading-relaxed mt-2">{item.description}</div>
             </div>
           ))}
-        </div>
-
-        <p className="text-[9px] font-mono text-gray-600 text-center mt-8">
+        </div>          <p className="text-[9px] font-mono text-mag-text-muted text-center mt-8">
           Built in Lagos, Nigeria. Designed for the 25M+ phones stolen every year.
         </p>
       </div>

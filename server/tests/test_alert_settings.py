@@ -14,7 +14,6 @@ Covers the per-device alert preferences wired in this release:
 import asyncio
 import json
 import os
-import secrets
 import tempfile
 
 from fastapi.testclient import TestClient
@@ -30,7 +29,7 @@ os.close(_test_db_fd)
 # overridden per-module below.
 os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
 os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
-os.environ["MT_ENCRYPTION_KEY"] = secrets.token_hex(32)
+os.environ["MT_ENCRYPTION_KEY"] = "e" * 64  # fixed: cross-generation decryption (see conftest.py)
 os.environ["MT_DB_PATH"] = test_db_path
 # Test-only alert recipient (conftest.py strips real credentials globally, so
 # send_all must resolve a recipient from here, not from the developer's

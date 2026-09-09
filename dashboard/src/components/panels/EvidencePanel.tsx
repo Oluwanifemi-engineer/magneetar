@@ -6,6 +6,7 @@ import { getAPI } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 import { ClipboardList, FileText, Loader, ShieldCheck } from 'lucide-react';
+import { MagButton } from '@/components/ui/MagPrimitives';
 import { EvidenceSkeleton } from '@/components/ui/Skeleton';
 
 export function EvidencePanel() {
@@ -40,26 +41,29 @@ export function EvidencePanel() {
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-center gap-1.5 text-[11px] font-mono text-white/40 uppercase tracking-wider font-bold mb-3 px-1">
-        <ClipboardList size={12} className="text-white/25" />
-        Evidence Locker
+      <div className="mag-panel-header border-b border-mag-border/50">
+        <ClipboardList size={12} className="text-mag-text-muted" />
+        <span className="mag-panel-label">Evidence Locker</span>
       </div>
 
-      <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
+      <div className="mag-panel-elevated p-4 space-y-3">
         {loading && !evidence ? (
           <EvidenceSkeleton />
         ) : evidence?.case_id ? (
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-              <div>
-                <span className="text-white/35 font-bold">Case ID</span>
-                <div className="text-white/80 font-bold">#{evidence.case_id}</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="mag-stat-tile">
+                <div className="text-[9px] font-mono text-mag-text-muted font-bold uppercase tracking-wider">Case ID</div>
+                <div className="text-sm font-mono font-bold text-mag-text">#{evidence.case_id}</div>
               </div>
-              <div>
-                <span className="text-white/35 font-bold">Status</span>
+              <div className={cn(
+                'mag-stat-tile',
+                evidence.status === 'active' ? 'border-amber-500/20 bg-amber-500/5' : ''
+              )}>
+                <div className="text-[9px] font-mono text-mag-text-muted font-bold uppercase tracking-wider">Status</div>
                 <div className={cn(
-                  'font-bold',
-                  evidence.status === 'active' ? 'text-amber-400' : 'text-white/80'
+                  'text-sm font-mono font-bold uppercase',
+                  evidence.status === 'active' ? 'text-amber-400' : 'text-mag-text'
                 )}>
                   {evidence.status?.toUpperCase()}
                 </div>
@@ -67,52 +71,55 @@ export function EvidencePanel() {
             </div>
 
             <div className="grid grid-cols-3 gap-2">
-              <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-2 text-center">
-                <div className="font-mono text-lg font-bold text-white/80">{evidence.item_counts?.locations || 0}</div>
-                <div className="text-[9px] font-mono text-white/30 font-bold">LOCATIONS</div>
-              </div>
-              <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-2 text-center">
-                <div className="font-mono text-lg font-bold text-white/80">{evidence.item_counts?.photos || 0}</div>
-                <div className="text-[9px] font-mono text-white/30 font-bold">PHOTOS</div>
-              </div>
-              <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-2 text-center">
-                <div className="font-mono text-lg font-bold text-white/80">{evidence.item_counts?.audio || 0}</div>
-                <div className="text-[9px] font-mono text-white/30 font-bold">AUDIO</div>
-              </div>
+              {[
+                { label: 'LOCATIONS', value: evidence.item_counts?.locations || 0 },
+                { label: 'PHOTOS', value: evidence.item_counts?.photos || 0 },
+                { label: 'AUDIO', value: evidence.item_counts?.audio || 0 },
+              ].map(({ label, value }) => (
+                <div key={label} className="mag-stat-tile">
+                  <div className="font-mono text-lg font-bold text-mag-text tabular-nums">{value}</div>
+                  <div className="text-[9px] font-mono text-mag-text-muted font-bold uppercase tracking-wider">{label}</div>
+                </div>
+              ))}
             </div>
 
             {evidence.sha256_chain && (
-              <div className="text-[10px] font-mono text-white/20 break-all">
-                <span className="text-white/35 font-bold">Integrity Chain: </span>
+              <div className="text-[10px] font-mono text-mag-text-muted break-all">
+                <span className="text-mag-text-dim font-bold">Integrity Chain: </span>
                 {evidence.sha256_chain.slice(0, 32)}...
               </div>
             )}
           </div>
         ) : (
-          <div className="text-center py-6">
-            <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mx-auto mb-3">
-              <ShieldCheck size={20} className="text-white/15" />
+          <div className="mag-empty">
+            <div className="mag-empty-icon">
+              <ShieldCheck size={20} className="text-mag-text-muted" />
             </div>
-            <div className="text-white/40 text-sm font-bold mb-1">No active evidence case</div>
-            <div className="text-white/20 text-xs font-mono leading-relaxed max-w-[240px] mx-auto">
+            <div className="mag-empty-head">No active evidence case</div>
+            <div className="mag-empty-sub">
               Evidence is automatically created when theft is detected.
             </div>
           </div>
         )}
       </div>
 
-      <button onClick={handleGenerate} disabled={generating || !selectedDeviceId}
-        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-50 text-emerald-400 text-xs font-mono font-bold transition-all">
-        {generating ? (
-          <><Loader size={14} className="animate-spin" />GENERATING DOSSIER...</>
-        ) : (
-          <><FileText size={14} />EXPORT RECOVERY DOSSIER (PDF)</>
-        )}
-      </button>
+      {!selectedDeviceId ? null : (
+        <MagButton
+          variant="subtle"
+          fullWidth
+          loading={generating}
+          icon={<FileText size={14} />}
+          onClick={handleGenerate}
+        >
+          {generating ? 'GENERATING DOSSIER...' : 'EXPORT RECOVERY DOSSIER (PDF)'}
+        </MagButton>
+      )}
 
-      {error && <div className="text-[10px] font-mono text-red-400 break-words">{error}</div>}
+      {error && (
+        <div className="text-[10px] font-mono text-red-400 break-words">{error}</div>
+      )}
 
-      <p className="text-[10px] font-mono text-white/20 leading-relaxed">
+      <p className="text-[10px] font-mono text-mag-text-muted leading-relaxed">
         One-click PDF for police or insurers: device info, location trail, command
         timeline, tamper-proof photos & audio, and alert history.
       </p>

@@ -173,12 +173,12 @@ export function Sidebar() {
     <>
     {isMobile && sidebarVisible && (
       <div
-        className="fixed inset-0 z-30 bg-black/70 backdrop-blur-md md:hidden"
+        className="fixed inset-0 z-30 bg-mag-bg/80 backdrop-blur-md md:hidden"
         onClick={() => setSidebarOpen(false)}
       />
     )}
     <aside className={cn(
-      'bg-[#0a0a0f] border-r border-white/[0.06] flex flex-col transition-all duration-300 ease-out relative overflow-hidden',
+      'bg-mag-bg border-r border-mag-border flex flex-col transition-all duration-300 ease-out relative overflow-hidden',
       isMobile
         ? cn('fixed top-0 left-0 bottom-0 z-40', sidebarVisible ? 'w-72 translate-x-0' : 'w-72 -translate-x-full')
         : cn(sidebarVisible ? 'w-64' : 'w-12')
@@ -186,35 +186,35 @@ export function Sidebar() {
       {/* Toggle */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="h-10 flex items-center justify-center border-b border-white/[0.06] hover:bg-white/[0.03] transition-colors group shrink-0"
+        className="h-10 flex items-center justify-center border-b border-mag-border hover:bg-mag-surface-raised transition-colors group shrink-0"
         aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
       >
         {sidebarOpen ? (
-          <ChevronLeft size={12} className="text-white/30 group-hover:text-white/70 transition-colors" />
+          <ChevronLeft size={12} className="text-mag-text-muted group-hover:text-mag-text-dim transition-colors" />
         ) : (
-          <ChevronRight size={12} className="text-white/30 group-hover:text-white/70 transition-colors" />
+          <ChevronRight size={12} className="text-mag-text-muted group-hover:text-mag-text-dim transition-colors" />
         )}
       </button>
 
       {sidebarOpen && (
         <>
           {/* Brand Bar with LIVE status + E2E trust + Admin badge */}
-          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-3 shrink-0">
+          <div className="px-4 py-3 border-b border-mag-border flex items-center gap-3 shrink-0">
             <img src="/magneetar-mhalf.svg" alt="Magneetar" className="w-7 h-7 rounded-lg shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <div className="text-[10px] font-bold tracking-[0.25em] text-white/90">MAGNEETAR</div>
+                <div className="text-[10px] font-bold tracking-[0.25em] text-mag-text">MAGNEETAR</div>
                 <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/[0.08] border border-emerald-500/15">
                   <div className={cn(
                     'w-1.5 h-1.5 rounded-full transition-all duration-300',
-                    isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse' : 'bg-white/20'
+                    isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse' : 'bg-mag-surface-raised'
                   )} />
                   <span className="text-[7px] font-mono text-emerald-400/70 tracking-wider font-bold uppercase">
                     {isConnected ? 'LIVE' : 'OFFLINE'}
                   </span>
                 </div>
-                <div className="px-1.5 py-0.5 rounded bg-white/[0.03] border border-white/[0.06]">
-                  <span className="text-[6px] font-mono text-white/30 tracking-wider font-bold uppercase">E2E</span>
+                <div className="px-1.5 py-0.5 rounded bg-mag-surface-raised border-mag-border">
+                  <span className="text-[6px] font-mono text-mag-text-muted tracking-wider font-bold uppercase">E2E</span>
                 </div>
                 {isAdmin && (
                   <div className="px-1.5 py-0.5 rounded bg-amber-500/[0.08] border border-amber-500/15">
@@ -225,12 +225,11 @@ export function Sidebar() {
             </div>
           </div>
 
-          {/* Quick Nav Links */}
-          <div className="px-3 py-2 border-b border-white/[0.06] shrink-0">
+          {/* Quick Nav Links */}            <div className="px-3 py-2 border-b border-mag-border shrink-0">
             <div className="flex gap-1">
               <Link
                 href="/dashboard"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[8px] font-mono font-bold uppercase tracking-wider transition-all hover:bg-white/[0.06] text-white/40 hover:text-white/80"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[8px] font-mono font-bold uppercase tracking-wider transition-all hover:bg-mag-surface-raised text-mag-text-muted hover:text-mag-text-dim"
                 title="Command Center"
               >
                 <Smartphone size={9} />
@@ -252,10 +251,10 @@ export function Sidebar() {
 
           {/* Hero KPI Card */}
           {stats && (
-            <div className="px-3 py-3 border-b border-white/[0.06] shrink-0">
+            <div className="px-3 py-3 border-b border-mag-border shrink-0">
               <div className="flex items-center gap-1.5 mb-3">
-                <BarChart3 size={10} className="text-white/25" />
-                <span className="text-[8px] font-mono text-white/30 uppercase tracking-[0.15em] font-bold">Overview</span>
+                <BarChart3 size={10} className="text-mag-text-muted" />
+                <span className="text-[8px] font-mono text-mag-text-muted uppercase tracking-[0.15em] font-bold">Overview</span>
               </div>
 
               {/* Hero metric */}
@@ -263,61 +262,61 @@ export function Sidebar() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-mono text-2xl font-bold text-emerald-400 tabular-nums leading-none">{stats.total_devices}</div>
-                    <div className="text-[8px] font-mono text-white/30 font-bold uppercase tracking-wider mt-1">Device{stats.total_devices !== 1 ? 's' : ''} Linked</div>
+                    <div className="text-[8px] font-mono text-mag-text-muted font-bold uppercase tracking-wider mt-1">Device{stats.total_devices !== 1 ? 's' : ''} Linked</div>
                   </div>
                   <div className="text-right">
                     <div className="flex items-center gap-1.5 justify-end">
                       <Wifi size={10} className="text-emerald-400/60" />
                       <span className="font-mono text-sm font-bold text-emerald-400 tabular-nums">{stats.active_devices}</span>
                     </div>
-                    <div className="text-[7px] font-mono text-white/20 font-bold uppercase tracking-wider mt-0.5">Active</div>
+                    <div className="text-[7px] font-mono text-mag-text-muted font-bold uppercase tracking-wider mt-0.5">Active</div>
                   </div>
                 </div>
               </div>
 
               {/* Secondary metrics */}
               <div className="grid grid-cols-2 gap-1.5">
-                <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-2 text-center">
-                  <div className="font-mono text-sm font-bold text-white/90 tabular-nums">{stats.total_locations}</div>
-                  <div className="text-[7px] font-mono text-white/25 font-bold uppercase tracking-wider">Locations</div>
+                <div className="bg-mag-surface border-mag-border rounded-xl p-2 text-center">
+                  <div className="font-mono text-sm font-bold text-mag-text tabular-nums">{stats.total_locations}</div>
+                  <div className="text-[7px] font-mono text-mag-text-muted font-bold uppercase tracking-wider">Locations</div>
                 </div>
                 <div className={cn(
                   'rounded-xl p-2 text-center border',
                   stats.stolen_devices > 0
                     ? 'bg-red-500/[0.06] border-red-500/15'
-                    : 'bg-white/[0.03] border-white/[0.06]'
+                    : 'bg-mag-surface border-mag-border'
                 )}>
                   <div className={cn(
                     'font-mono text-sm font-bold tabular-nums',
-                    stats.stolen_devices > 0 ? 'text-red-400' : 'text-white/90'
+                    stats.stolen_devices > 0 ? 'text-red-400' : 'text-mag-text'
                   )}>{stats.stolen_devices}</div>
-                  <div className="text-[7px] font-mono text-white/25 font-bold uppercase tracking-wider">Stolen</div>
+                  <div className="text-[7px] font-mono text-mag-text-muted font-bold uppercase tracking-wider">Stolen</div>
                 </div>
               </div>
             </div>
           )}
 
           {/* Circles Section */}
-          <div className="px-3 py-2 border-b border-white/[0.06] shrink-0">
+          <div className="px-3 py-2 border-b border-mag-border shrink-0">
             <div className="flex items-center gap-2 mb-2">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/30">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-mag-text-muted">
                 <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>
               </svg>
-              <span className="text-[9px] font-mono text-white/35 uppercase tracking-[0.2em] font-bold">Circles</span>
-              <span className="ml-auto text-[9px] font-mono text-white/40 font-bold tabular-nums">{circles.length}</span>
+              <span className="text-[9px] font-mono text-mag-text-2 uppercase tracking-[0.2em] font-bold">Circles</span>
+              <span className="ml-auto text-[9px] font-mono text-mag-text-3 font-bold tabular-nums">{circles.length}</span>
             </div>
             {circles.length === 0 ? (
-              <div className="text-[9px] font-mono text-white/20 mb-2">No circles yet</div>
+              <div className="text-[9px] font-mono text-mag-text-muted mb-2">No circles yet</div>
             ) : (
               <div className="space-y-1 mb-2">
                 {circles.slice(0, 3).map(c => (
-                  <div key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                  <div key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-mag-surface border-mag-border">
                     <div className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                       <span className="text-[7px] font-mono font-bold text-emerald-400">{c.name?.[0]?.toUpperCase() || 'C'}</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[10px] font-mono font-bold text-white/60 truncate">{c.name}</div>
-                      <div className="text-[7px] font-mono text-white/25">{c.member_count || 0} members</div>
+                      <div className="text-[10px] font-mono font-bold text-mag-text-dim truncate">{c.name}</div>
+                      <div className="text-[7px] font-mono text-mag-text-muted">{c.member_count || 0} members</div>
                     </div>
                     {c.my_role === 'admin' && (
                       <span className="text-[6px] font-mono font-bold text-emerald-400/50">ADMIN</span>
@@ -343,15 +342,15 @@ export function Sidebar() {
           </div>
 
           {/* Devices Section Header */}
-          <div className="px-4 py-2.5 border-b border-white/[0.06] shrink-0">
+          <div className="px-4 py-2.5 border-b border-mag-border shrink-0">
             <div className="flex items-center gap-2">
-              <Smartphone size={11} className="text-white/30" />
-              <span className="text-[9px] font-mono text-white/35 uppercase tracking-[0.2em] font-bold">Devices</span>
+              <Smartphone size={11} className="text-mag-text-muted" />
+              <span className="text-[9px] font-mono text-mag-text-2 uppercase tracking-[0.2em] font-bold">Devices</span>
               <span className="ml-auto flex items-center gap-2 text-[9px] font-mono font-bold tabular-nums">
                 {archivedDevices.length > 0 && (
                   <span className="text-amber-400/70">{archivedDevices.length} archived</span>
                 )}
-                <span className="text-white/40">{activeDevices.length}</span>
+                <span className="text-mag-text-2">{activeDevices.length}</span>
               </span>
               <button
                 onClick={() => setShowClaimModal(true)}
@@ -371,9 +370,9 @@ export function Sidebar() {
               <SidebarSkeleton />
             ) : devices.length === 0 ? (
               <div className="p-6 text-center">
-                <Smartphone size={20} className="mx-auto text-white/15 mb-3" />
-                <div className="text-white/50 text-sm font-bold">No devices registered.</div>
-                <div className="text-white/25 text-[10px] font-mono mt-1">Connect to server first.</div>
+                <Smartphone size={20} className="mx-auto text-mag-text-muted mb-3" />
+                <div className="text-mag-text-dim text-sm font-bold">No devices registered.</div>
+                <div className="text-mag-text-muted text-[10px] font-mono mt-1">Connect to server first.</div>
               </div>
             ) : (
               [...activeDevices, ...archivedDevices]
@@ -402,17 +401,17 @@ export function Sidebar() {
                     key={device.id}
                     onClick={() => selectDevice(device.id)}
                     className={cn(
-                      'w-full text-left px-4 py-3.5 border-b border-white/[0.04] transition-all duration-200',
-                      'hover:bg-white/[0.04] group active:scale-[0.995]',
+                      'w-full text-left px-4 py-3.5 border-b border-mag-border transition-all duration-200',
+                      'hover:bg-mag-surface-raised group active:scale-[0.995]',
                       selectedDeviceId === device.id
-                        ? 'bg-white/[0.06] border-l-2 border-l-emerald-500 shadow-[inset_0_0_20px_rgba(16,185,129,0.04)]'
+                        ? 'bg-mag-surface-raised border-l-2 border-l-emerald-500 shadow-[inset_0_0_20px_rgba(16,185,129,0.04)]'
                         : 'border-l-2 border-l-transparent',
                       archived && 'opacity-45 hover:opacity-70'
                     )}
                   >
                     {/* Top row: Name + Status */}
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[13px] font-bold text-white/90 truncate group-hover:text-white transition-colors max-w-[65%]">
+                      <span className="text-[13px] font-bold text-mag-text truncate group-hover:text-mag-text transition-colors max-w-[65%]">
                         {deviceDisplayName(device)}
                       </span>
                       <div className="flex items-center gap-1.5">
@@ -429,7 +428,7 @@ export function Sidebar() {
                                 ? 'border-emerald-500/25 text-emerald-400/70 bg-emerald-500/[0.08]'
                                 : device.access_role === 'viewer'
                                   ? 'border-blue-500/25 text-blue-400/70 bg-blue-500/[0.08]'
-                                  : 'border-white/[0.08] text-white/35 bg-white/[0.03]'
+                                  : 'border-mag-border text-mag-text-muted bg-mag-surface-raised'
                             )}
                             title={`Shared access — ${device.access_role} role`}
                           >
@@ -446,11 +445,11 @@ export function Sidebar() {
 
                     {/* Middle row: Device ID + Online status */}
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className="font-mono text-[9px] text-white/25 truncate font-bold">{device.id}</span>
+                      <span className="font-mono text-[9px] text-mag-text-muted truncate font-bold">{device.id}</span>
                       <span className="flex items-center gap-1">
                         <span className={cn(
                           'w-1.5 h-1.5 rounded-full',
-                          online ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : 'bg-white/20'
+                          online ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' : 'bg-mag-surface-raised'
                         )} />
                         <span className="font-mono text-[8px] text-white/30 font-bold">
                           {relativeTime(device.last_seen)}
@@ -469,7 +468,7 @@ export function Sidebar() {
                       <span className="text-[9px] font-mono font-bold text-white/70 tabular-nums">
                         {device.sentinel_score}
                       </span>
-                      <div className="flex-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                      <div className="flex-1 h-1 rounded-full bg-mag-border overflow-hidden">
                         <div
                           className={cn('h-full rounded-full transition-all duration-500', scoreColor)}
                           style={{ width: `${Math.min(device.sentinel_score, 100)}%` }}
@@ -483,20 +482,20 @@ export function Sidebar() {
           </div>
 
           {/* Sidebar Footer */}
-          <div className="px-4 py-2 border-t border-white/[0.06] flex items-center justify-between shrink-0">
+          <div className="px-4 py-2 border-t border-mag-border flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-1 text-[9px] font-mono font-bold text-emerald-400/70">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 {onlineCount} online
               </span>
-              <span className="flex items-center gap-1 text-[9px] font-mono font-bold text-white/25">
-                <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
+              <span className="flex items-center gap-1 text-[9px] font-mono font-bold text-mag-text-muted">
+                <span className="w-1.5 h-1.5 rounded-full bg-mag-surface-raised" />
                 {offlineCount} offline
               </span>
             </div>
             <button
               onClick={logout}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-mono font-bold text-white/25 hover:text-red-400 hover:bg-red-500/[0.06] transition-all active:scale-95 border border-transparent hover:border-red-500/15"
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-mono font-bold text-mag-text-muted hover:text-red-400 hover:bg-red-500/[0.06] transition-all active:scale-95 border border-transparent hover:border-red-500/15"
               title="Disconnect"
             >
               <LogOut size={11} />
@@ -507,27 +506,26 @@ export function Sidebar() {
       )}
 
       {/* Circle Create/Join Modal */}
-      {showCircleModal && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#0a0a0f]/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-white/[0.08] bg-[#111118] shadow-2xl p-5 space-y-4 animate-fade-in">
+      {showCircleModal && (        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl border-mag-border bg-mag-surface shadow-2xl p-5 space-y-4 animate-fade-in">
             <div className="flex items-center justify-between">
-              <h3 className="text-[13px] font-mono font-bold text-white/80 uppercase tracking-wider">
+              <h3 className="text-[13px] font-mono font-bold text-mag-text uppercase tracking-wider">
                 {showCircleModal === 'create' ? 'Create Circle' : 'Join Circle'}
               </h3>
-              <button onClick={() => setShowCircleModal(null)} className="text-white/30 hover:text-white/60">
+              <button onClick={() => setShowCircleModal(null)} className="text-mag-text-muted hover:text-mag-text-dim">
                 <X size={14} />
               </button>
             </div>
             {showCircleModal === 'create' ? (
               <div className="space-y-3">
                 <div>
-                  <label className="text-[9px] font-mono text-white/30 uppercase tracking-wider font-bold block mb-1.5">Circle Name</label>
+                  <label className="text-[9px] font-mono text-mag-text-muted uppercase tracking-wider font-bold block mb-1.5">Circle Name</label>
                   <input
                     value={circleName}
                     onChange={e => setCircleName(e.target.value)}
                     placeholder="e.g. Family, Roommates"
                     autoFocus
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-xs font-mono text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 transition-colors"
+                    className="w-full bg-mag-surface border-mag-border rounded-xl px-3 py-2.5 text-xs font-mono text-mag-text placeholder:text-mag-text-muted focus:outline-none focus:border-emerald-500/50 transition-colors"
                     onKeyDown={e => { if (e.key === 'Enter' && !circleLoading) handleCreateCircle(); }}
                   />
                 </div>
@@ -543,14 +541,14 @@ export function Sidebar() {
             ) : (
               <div className="space-y-3">
                 <div>
-                  <label className="text-[9px] font-mono text-white/30 uppercase tracking-wider font-bold block mb-1.5">Invite Code</label>
+                  <label className="text-[9px] font-mono text-mag-text-muted uppercase tracking-wider font-bold block mb-1.5">Invite Code</label>
                   <input
                     value={joinCode}
                     onChange={e => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
                     placeholder="Enter 6-char code"
                     autoFocus
                     maxLength={6}
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm font-mono text-white text-center tracking-[0.3em] placeholder:text-white/20 placeholder:tracking-normal focus:outline-none focus:border-blue-500/50 transition-colors"
+                    className="w-full bg-mag-surface border-mag-border rounded-xl px-3 py-2.5 text-sm font-mono text-mag-text text-center tracking-[0.3em] placeholder:text-mag-text-muted placeholder:tracking-normal focus:outline-none focus:border-blue-500/50 transition-colors"
                     onKeyDown={e => { if (e.key === 'Enter' && !circleLoading) handleJoinCircle(); }}
                   />
                 </div>
@@ -572,16 +570,15 @@ export function Sidebar() {
       {showClaimModal && <ClaimDeviceModal onClose={() => setShowClaimModal(false)} />}
 
       {/* Purge confirm */}
-      {confirmPurge && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#0a0a0f]/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-white/[0.08] bg-[#111118] shadow-2xl p-4 space-y-3 animate-fade-in">
+      {confirmPurge && (        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl border-mag-border bg-mag-surface shadow-2xl p-4 space-y-3 animate-fade-in">
             <div className="flex items-start gap-2">
               <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
               <div>
                 <div className="text-[11px] font-mono text-amber-400 font-bold uppercase tracking-wider">
                   Delete {archivedDevices.length} archived device{archivedDevices.length !== 1 ? 's' : ''}
                 </div>
-                <div className="text-[10px] font-mono text-white/40 mt-1 leading-relaxed">
+                <div className="text-[10px] font-mono text-mag-text-muted mt-1 leading-relaxed">
                   All their data is erased permanently. Cannot be undone.
                 </div>
               </div>
@@ -599,7 +596,7 @@ export function Sidebar() {
                   confirmPurgeArchived();
                 }
               }}
-              className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2 text-xs font-mono text-white placeholder:text-white/25 focus:outline-none focus:border-white/20 transition-colors"
+              className="w-full bg-mag-surface border-mag-border rounded-xl px-3 py-2 text-xs font-mono text-mag-text placeholder:text-mag-text-muted focus:outline-none focus:border-mag-border/50 transition-colors"
             />
             {purgeError && <div className="text-[10px] font-mono text-red-400">{purgeError}</div>}
             <div className="flex gap-2">
@@ -614,7 +611,7 @@ export function Sidebar() {
               <button
                 onClick={() => { setConfirmPurge(false); setPurgePassword(''); setPurgeError(''); }}
                 disabled={purging}
-                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-white/[0.08] text-white/40 hover:text-white/80 hover:bg-white/[0.06] text-[11px] font-bold transition-all"
+                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-mag-border text-mag-text-muted hover:text-mag-text-dim hover:bg-mag-surface-raised text-[11px] font-bold transition-all"
               >
                 <X size={12} />
                 Cancel

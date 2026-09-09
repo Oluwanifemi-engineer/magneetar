@@ -50,7 +50,7 @@ export function HowItWorks() {
             Connected in{' '}
             <span className="bg-gradient-to-r from-gray-400 to-gray-500 bg-clip-text text-transparent">three steps</span>
           </h2>
-          <p className="mt-4 text-gray-400 leading-relaxed">
+          <p className="mt-4 text-mag-text-muted leading-relaxed">
             From first launch to full recovery — Magneetar keeps your devices protected and your people close.
           </p>
         </div>
@@ -63,9 +63,9 @@ export function HowItWorks() {
 
           {STEPS.map((step, i) => (
             <div key={step.step} className="relative group">
-              <div className="relative rounded-2xl bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.06] p-7 h-full hover:border-emerald-500/20 transition-all duration-400">
+              <div className="relative rounded-2xl bg-gradient-to-b from-mag-surface to-mag-bg border-mag-border p-7 h-full hover:border-emerald-500/20 transition-all duration-400">
                 {/* Big step number */}
-                <div className="text-[48px] font-mono font-bold text-white/[0.03] leading-none select-none group-hover:text-emerald-500/[0.06] transition-colors duration-500 mb-2">
+                <div className="text-[48px] font-mono font-bold text-mag-text-muted/10 leading-none select-none group-hover:text-emerald-500/[0.06] transition-colors duration-500 mb-2">
                   {step.step}
                 </div>
 
@@ -73,8 +73,8 @@ export function HowItWorks() {
                   <step.icon size={20} className="text-emerald-400/70 group-hover:text-emerald-400 transition-colors duration-300" />
                 </div>
 
-                <h3 className="text-white font-bold text-lg tracking-tight">{step.title}</h3>
-                <p className="mt-3 text-[13px] leading-relaxed text-gray-400">{step.description}</p>
+                <h3 className="text-mag-text font-bold text-lg tracking-tight">{step.title}</h3>
+                <p className="mt-3 text-[13px] leading-relaxed text-mag-text-muted">{step.description}</p>
 
                 {/* Arrow between steps */}
                 {i < STEPS.length - 1 && (

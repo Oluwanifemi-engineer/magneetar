@@ -1,21 +1,23 @@
 /**
- * Sentry Error Boundary Component
+ * Sentry Error Boundary Component with Graceful Fallback
  *
- * Catches React component errors and reports them to Sentry.
+ * Catches React component errors and optionally reports them to Sentry.
  * Provides a fallback UI when errors occur.
- *
- * Usage:
- * ```tsx
- * <SentryErrorBoundary fallback={<ErrorFallback />}>
- *   <MyComponent />
- * </SentryErrorBoundary>
- * ```
  */
 
 "use client";
 
 import React, { Component, ErrorInfo, ReactNode } from "react";
-import * as Sentry from "@sentry/nextjs";
+
+// Safe Sentry wrapper that gracefully degrades when @sentry/nextjs is not present
+let Sentry: any = null;
+try {
+  // Dynamically require if available
+  Sentry = require("@sentry/nextjs");
+} catch {
+  // Sentry not available in this environment
+  Sentry = null;
+}
 
 interface Props {
   children: ReactNode;
@@ -39,12 +41,21 @@ export class SentryErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Report to Sentry
-    Sentry.withScope((scope) => {
-      scope.setExtras(errorInfo);
-      scope.setTag("component", "ErrorBoundary");
-      Sentry.captureException(error);
-    });
+    // Log to console
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+
+    // Report to Sentry if available
+    if (Sentry && typeof Sentry.withScope === "function") {
+      try {
+        Sentry.withScope((scope: any) => {
+          scope.setExtras(errorInfo);
+          scope.setTag("component", "ErrorBoundary");
+          Sentry.captureException(error);
+        });
+      } catch (sentryError) {
+        console.warn("Failed to report error to Sentry:", sentryError);
+      }
+    }
 
     // Call optional error handler
     this.props.onError?.(error, errorInfo);
@@ -72,37 +83,45 @@ function DefaultErrorFallback({ error }: { error: Error | null }) {
   };
 
   const handleReport = () => {
-    Sentry.showReportDialog({
-      eventId: Sentry.lastEventId(),
-    });
+    if (Sentry && typeof Sentry.showReportDialog === "function") {
+      try {
+        Sentry.showReportDialog({
+          eventId: Sentry.lastEventId?.(),
+        });
+        return;
+      } catch {
+        // Fallback below
+      }
+    }
+    // Fallback report action
+    alert("Error logged. Thank you for reporting!");
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] p-8 text-center">
-      <div className="text-6xl mb-4">⚠️</div>
-      <h2 className="text-2xl font-bold mb-2">Something went wrong</h2>
-      <p className="text-muted-foreground mb-6 max-w-md">
-        An unexpected error occurred. Our team has been notified and is
-        investigating the issue.
+    <div className="flex flex-col items-center justify-center min-h-[400px] p-8 text-center bg-mag-bg text-mag-text rounded-xl border border-mag-border/50 m-4">
+      <div className="text-5xl mb-4">⚠️</div>
+      <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
+      <p className="text-mag-text-dim text-sm mb-6 max-w-md">
+        An unexpected error occurred. Please try reloading the page.
       </p>
 
       {process.env.NODE_ENV === "development" && error && (
-        <pre className="text-sm text-left bg-muted p-4 rounded-lg mb-6 max-w-2xl overflow-auto">
+        <pre className="text-xs text-left bg-mag-surface/40 p-4 rounded-lg mb-6 max-w-2xl overflow-auto border border-mag-border text-red-400/80">
           {error.message}
           {error.stack && `\n\n${error.stack}`}
         </pre>
       )}
 
-      <div className="flex gap-4">
+      <div className="flex gap-3">
         <button
           onClick={handleRetry}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+          className="px-5 py-2.5 bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-emerald-400 transition-colors shadow-glow-md"
         >
           Try Again
         </button>
         <button
           onClick={handleReport}
-          className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90"
+          className="px-5 py-2.5 bg-mag-surface/40 text-mag-text text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-mag-surface-raised/40 transition-colors border border-mag-border"
         >
           Report Issue
         </button>

@@ -94,8 +94,7 @@ export function OnboardingFlow({
       <button
         onClick={onSkip}
         className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-800 transition-colors"
-      >
-        <X size={20} className="text-gray-500" />
+      >          <X size={20} className="text-mag-text-muted" />
       </button>
 
       {/* Progress dots */}
@@ -126,8 +125,7 @@ export function OnboardingFlow({
           {step.title}
         </h2>
 
-        {/* Description */}
-        <p className="text-gray-400 text-base leading-relaxed mb-4 animate-fade-in">
+        {/* Description */}          <p className="text-mag-text-muted text-base leading-relaxed mb-4 animate-fade-in">
           {step.description}
         </p>
 
@@ -171,8 +169,7 @@ export function OnboardingFlow({
         {/* Skip link */}
         {!isLast && (
           <button
-            onClick={onSkip}
-            className="w-full py-3 text-gray-500 text-sm font-bold hover:text-gray-300 transition-colors"
+            onClick={onSkip}              className="w-full py-3 text-mag-text-muted text-sm font-bold hover:text-mag-text transition-colors"
           >
             Skip for now
           </button>
