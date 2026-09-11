@@ -4,6 +4,22 @@ Use exactly like the Android pack: seed prompt first, then one screen/area per p
 save/export each accepted design before moving on. Screens are ordered by dependency —
 the workspace shell sets the layout grammar; panels are designed against that grammar.
 
+## Live session setup (verified working)
+
+- **Dev server:** `http://localhost:3001` (current code, hot reload)
+- **API:** `http://localhost:8002` (Docker, healthy)
+- **Demo account:** `stitch-demo@magneetar.dev` / `StitchDemo#2026!` — clearly labeled
+  demo data (devices `demo-stitch-alpha` = Pixel 8, `demo-stitch-beta` = Galaxy A54,
+  Abuja coordinates, one "Home — Maitama" safe zone).
+- **Reference captures:** `dashboard/design/stitch/captures/` — logged-in desktop
+  states (map-only, sidebar, Sentinel/Commands/Location/Zones/Evidence panels) and
+  mobile map, all captured from the real app with the seeded data.
+- **Known quirk:** the login page hardcodes `serverUrl = 'https://api.magneetar.me'`,
+  so on the local dev server the account login path won't reach the local API.
+  For the Stitch session use the API-key mode toggle, or inject the session
+  (the captures were made with an injected session). Fixing the hardcoded URL
+  is a separate small port task.
+
 ## 1 — Seed prompt (paste once, creates the theme)
 
 ```
