@@ -75,9 +75,9 @@ function ActivityTimeline() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <event.icon size={10} className={`${event.accent ? 'text-emerald-400/60' : 'text-mag-text-muted'} shrink-0`} />
-                <span className="text-[10px] font-mono text-mag-text-muted truncate">{event.text}</span>
+                <span className="text-[11px] font-mono text-mag-text-muted truncate">{event.text}</span>
               </div>
-              <span className="text-[8px] font-mono text-mag-text-muted">{event.time}</span>
+              <span className="text-[11px] font-mono text-mag-text-muted">{event.time}</span>
             </div>
           </div>
         ))}
@@ -143,7 +143,7 @@ export function Hero({ authed }: { authed: boolean }) {
                   <div className="text-white text-lg font-bold font-mono tabular-nums">
                     <AnimatedCounter value={stat.value} prefix={stat.prefix} suffix={stat.suffix} className="text-lg" />
                   </div>
-                  <div className="text-[10px] font-mono text-mag-text-muted uppercase tracking-wider mt-1 font-semibold">{stat.label}</div>
+                  <div className="text-[11px] font-mono text-mag-text-muted uppercase tracking-wider mt-1 font-semibold">{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -162,7 +162,7 @@ export function Hero({ authed }: { authed: boolean }) {
                   <span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-400" />
                 </span>
                 <Smartphone size={10} className="text-mag-text-muted" />
-                <span className="text-[10px] font-mono font-bold text-mag-text">Galaxy S24 · Active</span>
+                <span className="text-[11px] font-mono font-bold text-mag-text">Galaxy S24 · Active</span>
               </div>
 
               {/* Main Card */}
@@ -178,12 +178,12 @@ export function Hero({ authed }: { authed: boolean }) {
                     </div>
                     <div>
                       <div className="text-[11px] font-bold text-mag-text tracking-wide">Galaxy S24</div>
-                      <div className="text-[8px] font-mono text-mag-text-muted tracking-wider">SM-S921B · ANDROID 14</div>
+                      <div className="text-[11px] font-mono text-mag-text-muted tracking-wider">SM-S921B · ANDROID 14</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <span className="text-[8px] font-mono font-bold text-emerald-400 tracking-wider">ONLINE</span>
+                    <span className="text-[11px] font-mono font-bold text-emerald-400 tracking-wider">ONLINE</span>
                   </div>
                 </div>
 
@@ -191,54 +191,54 @@ export function Hero({ authed }: { authed: boolean }) {
                 <div className="grid grid-cols-3 gap-px bg-mag-surface">
                   <div className="bg-mag-landing px-4 py-5 flex flex-col items-center">
                     <div className="w-20 h-20 relative"><BatteryArc /></div>
-                    <div className="text-[8px] font-mono text-mag-text-muted tracking-widest mt-1">BATTERY</div>
+                    <div className="text-[11px] font-mono text-mag-text-muted tracking-widest mt-1">BATTERY</div>
                   </div>
                   <div className="bg-mag-landing px-4 py-5 flex flex-col">
-                    <div className="text-[8px] font-mono text-mag-text-muted tracking-widest mb-2">SIGNAL</div>
+                    <div className="text-[11px] font-mono text-mag-text-muted tracking-widest mb-2">SIGNAL</div>
                     <div className="flex-1 flex items-end">
                       <div className="w-full h-8"><SignalWave /></div>
                     </div>
-                    <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-[9px] font-mono text-mag-text-muted">-78 dBm</span>
-                      <span className="text-[9px] font-mono text-mag-text-muted">4G LTE</span>
+                    <div className="flex items-center justify-between gap-x-2 flex-wrap mt-1.5">
+                      <span className="text-[11px] font-mono text-mag-text-muted whitespace-nowrap">-78 dBm</span>
+                      <span className="text-[11px] font-mono text-mag-text-muted whitespace-nowrap">4G LTE</span>
                     </div>
                   </div>
                   <div className="bg-mag-landing px-4 py-5 flex flex-col">
-                    <div className="text-[8px] font-mono text-mag-text-muted tracking-widest mb-2">THREAT</div>
+                    <div className="text-[11px] font-mono text-mag-text-muted tracking-widest mb-2">THREAT</div>
                     <div className="flex-1 flex items-center justify-center">
                       <div>
                         <div className="text-2xl font-display font-extrabold text-white hero-num-tick">12</div>
-                        <div className="text-[7px] font-mono text-mag-text-muted text-center mt-0.5">/ 100</div>
+                        <div className="text-[11px] font-mono text-mag-text-muted text-center mt-0.5">/ 100</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 mt-1">
                       <div className="flex-1 h-1 rounded-full border-mag-border/50 overflow-hidden">
                         <div className="h-full rounded-full bg-emerald-400/60" style={{ width: '12%' }} />
                       </div>
-                      <span className="text-[8px] font-mono text-emerald-400/70">SAFE</span>
+                      <span className="text-[11px] font-mono text-emerald-400/70">SAFE</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Live Telemetry Bar */}
-                <div className="flex items-center gap-4 px-5 py-3 border-t border-mag-border/25 bg-mag-surface">
+                <div className="flex items-center gap-x-4 gap-y-1 flex-wrap px-5 py-3 border-t border-mag-border/25 bg-mag-surface">
                   <div className="flex items-center gap-1.5">
                     <MapPin size={10} className="text-emerald-400/40" />
-                    <span className="text-[9px] font-mono text-mag-text-dim hero-num-tick">6.5244°N 3.3792°E</span>
+                    <span className="text-[11px] font-mono text-mag-text-dim hero-num-tick">6.5244°N 3.3792°E</span>
                   </div>
                   <div className="w-px h-3 border-mag-border/50" />
-                  <span className="text-[9px] font-mono text-mag-text-dim">38 km/h</span>
+                  <span className="text-[11px] font-mono text-mag-text-dim">38 km/h</span>
                   <div className="w-px h-3 border-mag-border/50" />
-                  <span className="text-[9px] font-mono text-emerald-400/50 hero-live-blink">● LIVE</span>
+                  <span className="text-[11px] font-mono text-emerald-400/50 hero-live-blink">● LIVE</span>
                   <div className="ml-auto flex items-center gap-1">
                     <Battery size={10} className="text-mag-text-muted" />
-                    <span className="text-[9px] font-mono text-mag-text-muted">87%</span>
+                    <span className="text-[11px] font-mono text-mag-text-muted">87%</span>
                   </div>
                 </div>
 
                 {/* Activity */}
                 <div className="px-5 py-4 border-t border-mag-border/25">
-                  <div className="text-[8px] font-mono text-mag-text-muted tracking-widest mb-3">RECENT ACTIVITY</div>
+                  <div className="text-[11px] font-mono text-mag-text-muted tracking-widest mb-3">RECENT ACTIVITY</div>
                   <ActivityTimeline />
                 </div>
               </div>
@@ -246,12 +246,12 @@ export function Hero({ authed }: { authed: boolean }) {
               {/* Floating chips */}
               <div className="absolute -bottom-3 left-4 sm:left-8 px-3 py-1.5 rounded-lg border-mag-border/50 bg-mag-landing/90 backdrop-blur-sm shadow-elevation-2 flex items-center gap-2 hero-chip-float" style={{ animationDelay: '0.8s' }}>
                 <ShieldCheck size={11} className="text-emerald-400/60" />
-                <span className="text-[9px] font-mono font-bold text-mag-text-dim">Recovery armed · 3 layers</span>
+                <span className="text-[11px] font-mono font-bold text-mag-text-dim">Recovery armed · 3 layers</span>
               </div>
 
               <div className="absolute -bottom-3 right-4 sm:right-8 px-3 py-1.5 rounded-lg border-mag-border/50 bg-mag-landing/90 backdrop-blur-sm shadow-elevation-2 flex items-center gap-2 hero-chip-float" style={{ animationDelay: '1s' }}>
                 <Zap size={11} className="text-emerald-400/60" />
-                <span className="text-[9px] font-mono font-bold text-mag-text-dim">3s GPS updates</span>
+                <span className="text-[11px] font-mono font-bold text-mag-text-dim">3s GPS updates</span>
               </div>
             </div>
           </div>

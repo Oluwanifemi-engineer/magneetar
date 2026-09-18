@@ -47,7 +47,7 @@ export function Security() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 mb-5">
             <Lock size={10} className="text-emerald-400" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-emerald-400/80">SECURITY</span>
+            <span className="text-[11px] font-mono font-bold tracking-[0.2em] text-emerald-400/80">SECURITY</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
             Your phone. Your data.
@@ -96,10 +96,10 @@ export function Security() {
             </div>
 
             {/* Status chips */}
-            <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full border border-emerald-500/20 bg-mag-landing text-[10px] font-mono font-bold text-emerald-400/80 shadow-elevation-2">
+            <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full border border-emerald-500/20 bg-mag-landing text-[11px] font-mono font-bold text-emerald-400/80 shadow-elevation-2">
               2FA PROTECTED
             </div>
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full border border-mag-border/50 bg-mag-landing text-[10px] font-mono font-bold text-mag-text-dim shadow-elevation-2">
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full border border-mag-border/50 bg-mag-landing text-[11px] font-mono font-bold text-mag-text-dim shadow-elevation-2">
               ENCRYPTED
             </div>
           </div>

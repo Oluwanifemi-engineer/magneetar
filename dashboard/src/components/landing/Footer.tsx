@@ -49,7 +49,7 @@ export function Footer() {
               />
               <div className="leading-none">
                 <div className="text-mag-text text-sm font-bold tracking-[0.25em]">MAGNEETAR</div>
-                <div className="text-[8px] font-mono text-mag-text-muted tracking-[0.3em] mt-1">TRACK · PROTECT · RECOVER</div>
+                <div className="text-[11px] font-mono text-mag-text-muted tracking-[0.3em] mt-1">TRACK · PROTECT · RECOVER</div>
               </div>
             </div>
             <p className="mt-5 text-[13px] leading-relaxed text-mag-text-muted max-w-sm">
@@ -69,7 +69,7 @@ export function Footer() {
                 href="https://api.magneetar.me/health"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-3.5 h-9 rounded-lg border-mag-border/50 bg-mag-surface text-[10px] font-mono font-bold tracking-wider text-mag-text-muted hover:text-mag-text hover:border-mag-border transition-all"
+                className="inline-flex items-center gap-2 px-3.5 h-9 rounded-lg border-mag-border/50 bg-mag-surface text-[11px] font-mono font-bold tracking-wider text-mag-text-muted hover:text-mag-text hover:border-mag-border transition-all"
                 title={`Live: api.magneetar.me reports ${status}`}
               >
                 <span className="relative flex w-1.5 h-1.5">
@@ -85,7 +85,7 @@ export function Footer() {
 
           {FOOTER_LINKS.map((col) => (
             <div key={col.title}>
-              <div className="text-[10px] font-mono font-bold tracking-[0.25em] text-mag-text-muted uppercase mb-4">
+              <div className="text-[11px] font-mono font-bold tracking-[0.25em] text-mag-text-muted uppercase mb-4">
                 {col.title}
               </div>
               <ul className="space-y-2.5">

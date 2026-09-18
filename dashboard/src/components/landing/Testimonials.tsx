@@ -41,7 +41,7 @@ export function Testimonials() {
         <div className="text-center mb-14">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 mb-5">
             <Quote size={10} className="text-emerald-400" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-emerald-400/80">REAL USERS</span>
+            <span className="text-[11px] font-mono font-bold tracking-[0.2em] text-emerald-400/80">REAL USERS</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-4">
             Trusted by families &amp; teams.
@@ -77,9 +77,9 @@ export function Testimonials() {
               <div className="flex items-center justify-between pt-4 border-t border-mag-border/50">
                 <div>
                   <div className="text-[12px] font-bold text-mag-text">{t.name}</div>
-                  <div className="text-[10px] font-mono text-mag-text-muted">{t.role}</div>
+                  <div className="text-[11px] font-mono text-mag-text-muted">{t.role}</div>
                 </div>
-                <span className="text-[9px] font-mono text-mag-text-muted px-2 py-1 rounded border-mag-border/50 bg-mag-surface">
+                <span className="text-[11px] font-mono text-mag-text-muted px-2 py-1 rounded border-mag-border/50 bg-mag-surface">
                   {t.device}
                 </span>
               </div>
@@ -93,7 +93,7 @@ export function Testimonials() {
             <div key={s.label} className="text-center py-5 rounded-xl bg-gradient-to-b from-mag-surface to-mag-bg border-mag-border hover:border-emerald-500/10 transition-all duration-300 group">
               <s.icon size={16} className="text-mag-text-muted mx-auto mb-3 group-hover:text-emerald-400/60 transition-colors" />
               <div className="text-lg font-extrabold text-mag-text font-mono tabular-nums">{s.value}</div>
-              <div className="text-[10px] font-mono text-mag-text-muted uppercase tracking-wider mt-1">{s.label}</div>
+              <div className="text-[11px] font-mono text-mag-text-muted uppercase tracking-wider mt-1">{s.label}</div>
             </div>
           ))}
         </div>

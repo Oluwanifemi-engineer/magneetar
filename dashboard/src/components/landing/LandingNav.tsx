@@ -41,7 +41,7 @@ export function LandingNav({ authed }: { authed: boolean }) {
           />
           <div className="leading-none">
             <div className="text-mag-text text-sm font-bold tracking-[0.25em]">MAGNEETAR</div>
-            <div className="text-[8px] font-mono text-mag-text-muted tracking-[0.3em] mt-1">TRACK · PROTECT · RECOVER</div>
+            <div className="text-[11px] font-mono text-mag-text-muted tracking-[0.3em] mt-1">TRACK · PROTECT · RECOVER</div>
           </div>
         </Link>
 

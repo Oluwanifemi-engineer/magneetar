@@ -51,7 +51,7 @@ export function Africa() {
         <div className="max-w-3xl mx-auto text-center mb-14">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-red-500/20 bg-red-500/5 mb-5">
             <TrendingDown size={10} className="text-red-400" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-red-400/80">THE PROBLEM</span>
+            <span className="text-[11px] font-mono font-bold tracking-[0.2em] text-red-400/80">THE PROBLEM</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
             Built for{' '}

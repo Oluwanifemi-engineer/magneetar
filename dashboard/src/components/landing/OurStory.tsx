@@ -10,7 +10,7 @@ export function OurStory() {
       <div className="relative max-w-4xl mx-auto px-5 sm:px-8 text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 mb-8">
           <Heart size={10} className="text-emerald-400" />
-          <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-emerald-400/80">OUR STORY</span>
+          <span className="text-[11px] font-mono font-bold tracking-[0.2em] text-emerald-400/80">OUR STORY</span>
         </div>
 
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">

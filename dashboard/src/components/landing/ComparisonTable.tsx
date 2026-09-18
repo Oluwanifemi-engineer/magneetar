@@ -37,7 +37,7 @@ export function ComparisonTable() {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border-mag-border/50 bg-mag-surface mb-5">
             <Check size={10} className="text-emerald-400" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-mag-text-muted">WHY MAGNEETAR</span>
+            <span className="text-[11px] font-mono font-bold tracking-[0.2em] text-mag-text-muted">WHY MAGNEETAR</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-4">
             Not just another tracker.
@@ -61,7 +61,7 @@ export function ComparisonTable() {
               <div className="text-[12.5px] text-mag-text-muted leading-relaxed mt-2">{item.description}</div>
             </div>
           ))}
-        </div>          <p className="text-[9px] font-mono text-mag-text-muted text-center mt-8">
+        </div>          <p className="text-[11px] font-mono text-mag-text-muted text-center mt-8">
           Built in Lagos, Nigeria. Designed for the 25M+ phones stolen every year.
         </p>
       </div>

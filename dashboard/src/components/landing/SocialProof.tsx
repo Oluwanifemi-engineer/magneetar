@@ -60,7 +60,7 @@ export function SocialProof() {
         <div className="text-center mb-14">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 mb-5">
             <ShieldCheck size={10} className="text-emerald-400" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-emerald-400/80">WHY MAGNEETAR</span>
+            <span className="text-[11px] font-mono font-bold tracking-[0.2em] text-emerald-400/80">WHY MAGNEETAR</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-4">
             Why people trust Magneetar.
@@ -77,7 +77,7 @@ export function SocialProof() {
               <item.icon size={18} className="text-mag-text-muted mx-auto mb-3 group-hover:text-emerald-400/60 transition-colors" />
               <div className="text-2xl font-extrabold text-mag-text font-mono tabular-nums">{item.metric}</div>
               <div className="text-[11px] font-mono text-mag-text-muted uppercase tracking-wider mt-1.5 font-semibold">{item.label}</div>
-              <div className="text-[10px] text-mag-text-muted mt-1.5 leading-relaxed">{item.detail}</div>
+              <div className="text-[11px] text-mag-text-muted mt-1.5 leading-relaxed">{item.detail}</div>
             </div>
           ))}
         </div>

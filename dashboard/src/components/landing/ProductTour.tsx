@@ -59,10 +59,10 @@ function DashboardMockup({ activeStep }: { activeStep: number }) {
           <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
           <div className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
         </div>
-        <span className="text-[10px] font-mono text-mag-text-muted ml-2">MAGNEETAR COMMAND CENTER</span>
+        <span className="text-[11px] font-mono text-mag-text-muted ml-2">MAGNEETAR COMMAND CENTER</span>
         <div className="ml-auto flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[9px] font-mono text-emerald-400">LIVE</span>
+          <span className="text-[11px] font-mono text-emerald-400">LIVE</span>
         </div>
       </div>
 
@@ -92,17 +92,17 @@ function DashboardMockup({ activeStep }: { activeStep: number }) {
 
         {/* Sidebar mockup */}
         <div className="absolute right-0 top-0 bottom-0 w-48 bg-mag-bg/90 border-l border-mag-border/50 p-3">
-          <div className="text-[9px] font-mono text-mag-text-muted mb-2">DEVICES</div>
+          <div className="text-[11px] font-mono text-mag-text-muted mb-2">DEVICES</div>
           {['Galaxy A03s', 'Pixel 8', 'Redmi Note 12'].map((name, i) => (
             <div key={name} className={`flex items-center gap-2 p-2 rounded-lg mb-1.5 transition-all duration-300 ${
               i === 0 ? 'bg-mag-surface-raised border-mag-border/50' : 'opacity-40'
             }`}>
               <div className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-emerald-500' : 'bg-gray-600'}`} />
-              <span className="text-[10px] font-mono text-mag-text-muted">{name}</span>
+              <span className="text-[11px] font-mono text-mag-text-muted">{name}</span>
             </div>
           ))}
 
-          <div className="mt-4 text-[9px] font-mono text-mag-text-muted mb-2">DETECTION</div>
+          <div className="mt-4 text-[11px] font-mono text-mag-text-muted mb-2">DETECTION</div>
           <div className="p-2 rounded-lg bg-mag-surface border-mag-border">
             {(() => {
               const score = activeStep === 1 ? 72 : activeStep === 2 ? 85 : activeStep === 3 ? 45 : 0;
@@ -111,8 +111,8 @@ function DashboardMockup({ activeStep }: { activeStep: number }) {
               return (
                 <>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-mono text-mag-text-dim">Score</span>
-                    <span className={`text-[10px] font-mono ${scoreColor} font-bold transition-colors duration-500`}>{score}</span>
+                    <span className="text-[11px] font-mono text-mag-text-dim">Score</span>
+                    <span className={`text-[11px] font-mono ${scoreColor} font-bold transition-colors duration-500`}>{score}</span>
                   </div>
                   <div className="h-1 bg-mag-border rounded-full overflow-hidden">
                     <div className={`h-full ${barColor} rounded-full transition-all duration-1000`} style={{ width: `${score}%` }} />
@@ -129,14 +129,14 @@ function DashboardMockup({ activeStep }: { activeStep: number }) {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span className="text-[9px] font-mono text-mag-text-dim">Samsung A03s</span>
+            <span className="text-[11px] font-mono text-mag-text-dim">Samsung A03s</span>
           </div>
-          <span className="text-[9px] font-mono text-mag-text-muted">•</span>
-          <span className="text-[9px] font-mono text-mag-text-muted">Battery 84%</span>
-          <span className="text-[9px] font-mono text-mag-text-muted">•</span>
-          <span className="text-[9px] font-mono text-mag-text-muted">Wifi</span>
+          <span className="text-[11px] font-mono text-mag-text-muted">•</span>
+          <span className="text-[11px] font-mono text-mag-text-muted">Battery 84%</span>
+          <span className="text-[11px] font-mono text-mag-text-muted">•</span>
+          <span className="text-[11px] font-mono text-mag-text-muted">Wifi</span>
         </div>
-        <span className="text-[9px] font-mono text-mag-text-muted">2s ago</span>
+        <span className="text-[11px] font-mono text-mag-text-muted">2s ago</span>
       </div>
     </div>
   );
@@ -163,7 +163,7 @@ export function ProductTour() {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border-mag-border/50 bg-mag-surface mb-5">
             <Play size={10} className="text-emerald-400" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-mag-text-1">PRODUCT TOUR</span>
+            <span className="text-[11px] font-mono font-bold tracking-[0.2em] text-mag-text-1">PRODUCT TOUR</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight text-white mb-4">
             See it in action.
@@ -202,7 +202,7 @@ export function ProductTour() {
                     <div className="flex items-center gap-2">
                       <span className={"text-sm font-bold transition-colors " +
                         (i === activeStep ? 'text-mag-text' : 'text-mag-text-muted')}>{step.title}</span>
-                      <span className={"text-[9px] font-mono px-1.5 py-0.5 rounded " +
+                      <span className={"text-[11px] font-mono px-1.5 py-0.5 rounded " +
                         (i === activeStep ? 'bg-emerald-500/10 text-emerald-400' : 'bg-mag-surface text-mag-text-muted')}>{step.stat}</span>
                     </div>
                     {i === activeStep && (

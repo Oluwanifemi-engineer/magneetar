@@ -98,7 +98,7 @@ export function Pricing({ authed }: { authed: boolean }) {
         <div className="max-w-2xl mx-auto text-center mb-14">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 mb-5">
             <Crown size={12} className="text-emerald-400" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-emerald-400/80">PRICING</span>
+            <span className="text-[11px] font-mono font-bold tracking-[0.2em] text-emerald-400/80">PRICING</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
             Protection that scales with
@@ -131,7 +131,7 @@ export function Pricing({ authed }: { authed: boolean }) {
               }`}
             >
               YEARLY
-              <span className="ml-1 text-emerald-400 text-[9px]">SAVE 2MO</span>
+              <span className="ml-1 text-emerald-400 text-[11px]">SAVE 2MO</span>
             </button>
           </div>
         </div>
@@ -157,7 +157,7 @@ export function Pricing({ authed }: { authed: boolean }) {
                 }`}
               >
                 {tier.bestValue && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-emerald-500 text-[9px] font-mono font-bold tracking-[0.2em] text-white shadow-glow-md whitespace-nowrap">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-emerald-500 text-[11px] font-mono font-bold tracking-[0.2em] text-white shadow-glow-md whitespace-nowrap">
                     BEST VALUE
                   </div>
                 )}
@@ -172,14 +172,14 @@ export function Pricing({ authed }: { authed: boolean }) {
                 <div className="mt-3 flex items-baseline gap-1.5">
                   <span className="text-3xl font-display font-extrabold tracking-tight text-white">{displayPrice}</span>
                   {displayPrice !== 'Custom' && displayPrice !== '₦0' && (
-                    <span className={`text-[10px] font-mono font-semibold ${tier.bestValue ? 'text-emerald-400/60' : 'text-mag-text-muted'}`}>
+                    <span className={`text-[11px] font-mono font-semibold ${tier.bestValue ? 'text-emerald-400/60' : 'text-mag-text-muted'}`}>
                       {isYearly ? '/YEAR' : '/MO'}
                     </span>
                   )}
                 </div>
-                <div className={`text-[10px] font-mono mt-1 ${tier.bestValue ? 'text-emerald-400/40' : 'text-mag-text-muted'}`}>{displayPeriod}</div>
+                <div className={`text-[11px] font-mono mt-1 ${tier.bestValue ? 'text-emerald-400/40' : 'text-mag-text-muted'}`}>{displayPeriod}</div>
 
-                <div className={`mt-4 inline-flex self-start px-2.5 py-1 rounded-md border text-[10px] font-mono font-bold tracking-wider ${
+                <div className={`mt-4 inline-flex self-start px-2.5 py-1 rounded-md border text-[11px] font-mono font-bold tracking-wider ${
                   tier.bestValue ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' : 'border-mag-border/50 bg-mag-surface text-mag-text-muted'
                 }`}>
                   {tier.devices}
