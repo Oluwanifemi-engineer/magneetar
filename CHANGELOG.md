@@ -7,7 +7,172 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — 2026-09-04 (release-candidate hardening)
+## [1.5.0] — 2026-09-18
+
+### Why this release
+
+Closes the external command channels' trust boundaries, makes the revenue path real and
+tested, replaces marketing overclaims with shipped-truth copy, and hardens release
+hygiene. The entry's dated sections below were previously tracked as rolling
+previously-rolling "Unreleased" notes; they all ship together in 1.5.0.
+
+### 2026-09-18 — external channels + revenue path closed
+
+### Security
+
+- **USSD callback is now authenticated** — `/ussd/callback` executed lock/siren
+  commands and returned device model + theft score to ANY caller who knew a
+  phone number (no signature, no allowlist, no ownership check). It now
+  requires a shared gateway secret (`MT_USSD_WEBHOOK_SECRET`, form field or
+  `X-USSD-Secret` header) and FAILS CLOSED (503) when it is unset; commands
+  are only accepted for a device whose registered owner phone matches the
+  dialing caller.
+- **WhatsApp webhook verifies Meta's signature and binds the sender to the
+  device owner** — the POST handler previously processed whatever was POSTed
+  (`settings.WHATSAPP_APP_SECRET` existed but was referenced nowhere), so a
+  forged `SOS <number>` queued alarm + camera + mic capture on any device by
+  phone number, and it raw-INSERTed an `unlock` command that exists nowhere
+  else in the system. Now: `X-Hub-Signature-256` is verified (fail closed on
+  unset secret), commands resolve only through the device's registered owner
+  phone, and every issued command is validated against the canonical set.
+- **Paystack webhook fails closed** — signature verification was SKIPPED when
+  the webhook secret was unset (which it was in every env file and doc), so a
+  forged `subscription.create` upgraded any account by email. Both check
+  order and configuration are fixed; `/api/payments/initialize` and `/verify`
+  now require authentication, and `/verify` refuses a payment reference whose
+  metadata binds it to a different account (the tier-takeover hole).
+
+### Fixed
+
+- **The GET webhook-verification handshake could never succeed** — the
+  WhatsApp endpoint declared plain `hub_mode: str` parameters, but Meta sends
+  DOTTED query keys (`hub.mode=…&hub.verify_token=…`), which never bind, so
+  every real verification attempt 403'd. The handler now reads the query
+  string directly and accepts both spellings.
+- **A successful payment silently did nothing** — every write in the payment
+  path (`/verify` tier upgrade + payment row, webhook `subscription.create`,
+  `subscription.disable`, `invoice.payment_failed`) ran on a connection whose
+  context manager does NOT commit, so the user-visible "Successfully
+  subscribed" response rolled back on connection close. All writes now commit
+  (the codebase's own convention, per user_auth.py).
+- **The billing columns did not exist** — `users.last_payment_at` and
+  `users.payment_failed_at` are written by the payments routes but were never
+  created in any schema, so the first successful `/verify`, the webhook's
+  payment-failed branch, and `GET /api/payments/status` all 500'd. Added with
+  guarded migrations, and registered in `ensure_initialized()`'s staleness
+  check so existing databases actually migrate (the documented device_shares
+  failure class).
+- **"Full wipe" lied** — the app acked `executed` for a wipe that only cleared
+  Magneetar's own prefs/cache, and the Lost-Mode message told the thief the
+  device "has been wiped". Reality now: with Device Admin granted it issues a
+  REAL factory reset (`wipeData`); without it, it protects what it can, enters
+  Lost Mode with a truthful message, and acks `failed` with the reason (which
+  the dashboard surfaces). The FCM path — which previously dropped wipe on
+  the floor while acking `executed` — and the FCM lock path (acked executed
+  without Device Admin) follow the same honesty contract.
+- **The app's panic siren and emergency wipe buttons did nothing** — they
+  POSTed `{command_type, target_device_id}` to `/api/commands/send`, an
+  endpoint that does not exist, with a payload the real endpoint would
+  reject, and both OkHttp callbacks were empty. They now call
+  `/api/dashboard/command` with the correct command (`alarm`, not the
+  nonexistent `siren`), require the account password for wipe (server-side
+  step-up re-auth), tell the user BEFORE confirming what a wipe can do
+  without Device Admin, and surface the outcome (queued / wrong password /
+  rate-limited / network error) instead of silently swallowing it.
+- **The USSD session store was per-worker and unbounded** — an in-process
+  dict behind 4 uvicorn workers breaks multi-step menus across requests and
+  grows forever. Replaced with the existing Redis cache when configured,
+  falling back to a bounded (TTL + max-size) in-process store.
+
+### Changed
+
+- **Plans/tiers have a single source of truth** (`server/plans.py`): five
+  previously independent definitions disagreed on tier names (a paying
+  "sentinel" customer got the FREE device allowance — the tier key was
+  missing from the limits table), device limits, and prices. The canonical
+  vocabulary is now `free/personal/guardian/enterprise` at the pricing page's
+  prices (Personal ₦500, Guardian ₦1,500; Free = 1 device), the checkout
+  charges exactly those amounts, and `sentinel` resolves to its equivalent
+  legacy tier so existing accounts keep their allowance.
+- The payments revenue path finally has tests (22): webhook fail-closed,
+  signature validation, reference-binding on verify, plan-code resolution,
+  and plan-catalog/price consistency with `plans.py`.
+
+### Added
+
+- `server/tests/test_payments.py` — first tests ever covering the payment
+  routes (the revenue path was the least-verified code in a 653-test suite).
+
+---
+
+### 2026-09-17 — repo hygiene + overclaim cleanup
+
+### Fixed
+
+- **Eight runtime evidence artifacts were committed, and the cause is closed** —
+  `server/media/` held eight tracked PNGs (`ev-case-*`, `ev-photo-*`,
+  `ev-pdf-*`, `ev-counts-*`) despite `.gitignore`'s explicit "server/media/
+  MUST NOT enter git" rule (a rule cannot untrack files already in the index).
+  Untracked them, and fixed the mechanism: `server/tests/conftest.py` never
+  pointed `MT_MEDIA_DIR` anywhere, so any test that forgot its own override
+  wrote REAL evidence files into the repository's working tree. The conftest
+  now sets a session temp dir for `MT_MEDIA_DIR` before any test module
+  imports, so a missing override can never touch the tree again. (The eight
+  blobs remain in git history; they are only removed from the current tree.)
+- **Retired overclaims were still live in the shipped dashboard source** — the
+  "strip overclaims" passes updated most landing components but missed four
+  strings, so the built site still served them: the login ticker
+  (`EVIDENCE SEALED · TAMPER-PROOF`), ProductTour and EvidencePanel copy
+  ("tamper-proof"), and ProductShowcase's command line, which still advertised
+  **phantom mode** — a command deleted from the server's valid set
+  (`phantom_on/off`, see dashboard/src/types/index.ts). The SHA-256 chain is
+  tamper-*evident* (it detects, not prevents), and the real command is
+  `lost_mode`. All four now use the honest vocabulary already used elsewhere.
+- **21 stale hand-synced build artifacts removed from `dashboard/public/`** —
+  the prerendered pages (`*.html`) and RSC navigation payloads (`*.txt`) were
+  committed copies of `npm run build` output that had drifted from
+  `dashboard/src` (still carrying "Military-grade … Sentinel AI … community
+  recovery bounties"). Verified: the BUILD's generated page wins over the
+  `public/` copy for every one of them, so the committed copies were dead
+  weight — shipped as unreferenced files in the image while misleading anyone
+  auditing the repo about what the live site says. Removed, with `.gitignore`
+  rules so build output cannot be committed again.
+- **`robots.txt` / `sitemap.xml` in `public/` were shadowed, so its rules
+  never shipped** — `src/app/robots.ts` and `src/app/sitemap.ts` generate both
+  files into `out/` and win over the `public/` copies. The hand-written
+  `public/robots.txt` alone disallowed `/apk/`, `/login`, and `/signup`, so
+  production's robots.txt allowed the APK download path to be indexed. The
+  generated route is now the single source of truth (with those three
+  disallows folded in) and the shadowed copies are deleted.
+
+### Docs / tooling alignment (claims vs. repo)
+
+- **README corrected against the actual tree**: 653 backend + 209 dashboard
+  tests (was 652/208), `main.py` 224 lines (was 258), server 25K+ lines (was
+  35K+), ~108 Kotlin files / 24K+ lines, ~146 dashboard TS files / 26K lines,
+  and the workflow count is 8 in both places (the project-structure block said
+  7; there are 8 files in `.github/workflows/`). The architecture diagram and
+  component table no longer claim the data plane is Neon — the Docker stack
+  ships its own `postgres` service and `MT_DATABASE_URL` points at it; managed
+  Postgres stays documented as an option
+  (`docs/NEON_POSTGRES_SETUP.md`).
+- **Root `package.json`** no longer describes itself as "Military-grade" (the
+  phrase the product surfaces dropped) and its `main` field no longer points
+  at a non-existent `index.js`; `npm test` runs the real suite (`make test`)
+  instead of exiting 1. `dashboard/package.json` loses the same phrase, as
+  does the shipped `public/manifest.json` PWA description.
+- **`make coverage-check` threshold 80% → 75%** — it matched neither CI (75%)
+  nor the repo's real coverage (~76%), so the gate failed on every run.
+  `make quality-gate`'s flake8 step also drops its inline
+  `--max-line-length/--extend-ignore` overrides, which silently discarded the
+  repo `.flake8`'s `B008` ignore and made local lint disagree with CI.
+- **`.gitignore` clean-up** — removed a duplicated comment block and a bogus
+  `**/firebase-service-account.json/` pattern (a trailing slash can never
+  match a file).
+
+---
+
+### 2026-09-04 — release-candidate hardening
 
 ### Fixed
 
@@ -52,7 +217,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — 2026-08-18
+### 2026-08-18
 
 ### Feature — Offline Device Network (Phases A–C, the Find Network mesh scale-out)
 
@@ -378,7 +543,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — 2026-08-15
+### 2026-08-15
 
 ### Feature — Armed Audio Watch (game-changer gap-closer)
 
@@ -500,7 +665,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — 2026-08-12
+### 2026-08-12
 
 ### ADR-0007 — Play internal testing is the install channel (2026-08-15)
 
@@ -1317,7 +1482,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — 2026-08-11
+### 2026-08-11
 
 ### Fixed (Android — live-tested on Samsung SM-A037F)
 
@@ -1474,7 +1639,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — 2026-08-11
+### 2026-08-11
 
 ### Added
 
@@ -1510,7 +1675,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — 2026-08-12
+### 2026-08-12
 
 ### Fixed
 
@@ -1585,7 +1750,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — 2026-08-10
+### 2026-08-10
 
 ### Fixed
 
@@ -1643,7 +1808,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — 2026-08-07
+### 2026-08-07
 
 ### Fixed
 
@@ -1688,7 +1853,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — 2026-08-06
+### 2026-08-06
 
 ### Play Store readiness
 
@@ -1700,7 +1865,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Master/device key split (critical fix)**: the master admin key was proven extractable from the public APK with a plain `strings` scan — it minted dashboard-admin JWTs, so anyone who sideloaded the app could view every user's locations/evidence and issue WIPE/LOCK to any device. The shared key is now split: `MT_API_KEY` (master, server-side only — dashboard `/api/auth/login` + step-up hard-gated to it alone), `MT_DEVICE_KEY` (low-privilege device key — the ONLY key embedded in APKs via `BuildConfig.DEVICE_KEY`, scoped to device endpoints), and `MT_LEGACY_DEVICE_KEY` (the pre-split master accepted for device-scope auth only, so installed APKs keep working during the grace window). Production startup now fails if `MT_DEVICE_KEY` is missing or equals the master key. Android build (`-PDEVICE_KEY`), CI (`DEVICE_KEY` secret), `build-release.sh`, and all docs updated. Master rotated in `server/.env`; old master demoted to legacy device scope. 14 new regression tests in `tests/test_device_key_separation.py`; full server suite **395 passed**.
 
-## [Unreleased] — 2026-08-05
+### 2026-08-05
 
 ### Added
 

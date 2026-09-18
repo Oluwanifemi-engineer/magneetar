@@ -4,7 +4,8 @@
 
 ```bash
 # 1. Update secrets with your credentials
-vim kubernetes/secrets.yml
+cp kubernetes/secrets.yml.example kubernetes/secrets.yml
+vim kubernetes/secrets.yml   # gitignored — never commit the filled copy
 
 # 2. Deploy to Kubernetes
 ./scripts/deploy-kubernetes.sh
@@ -45,7 +46,9 @@ print(f\"MT_ENCRYPTION_KEY={secrets.token_hex(32)}\")
 
 ### Step 2: Update Secrets File
 
-Edit `kubernetes/secrets.yml` and replace all `CHANGE_ME` values:
+Copy the template (`kubernetes/secrets.yml.example`) to `kubernetes/secrets.yml`
+(gitignored) and replace all `CHANGE_ME` values. NEVER edit the template in
+place or commit a filled copy — that is how real secrets end up in git:
 
 ```yaml
 stringData:
@@ -66,7 +69,7 @@ stringData:
 
 # Option B: Manual deployment
 kubectl apply -f kubernetes/namespace.yml
-kubectl apply -f kubernetes/secrets.yml
+kubectl apply -f kubernetes/secrets.yml   # the gitignored copy, not the template
 kubectl apply -f kubernetes/configmap.yml
 kubectl apply -f kubernetes/redis-deployment.yml
 kubectl apply -f kubernetes/postgresql-statefulset.yml

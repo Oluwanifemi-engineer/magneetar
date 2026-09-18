@@ -55,7 +55,9 @@ Production-grade Kubernetes deployment for horizontal scaling (aspirational).
 # 1. Create namespace
 kubectl apply -f namespace.yml
 
-# 2. Create secrets
+# 2. Create secrets — copy the TEMPLATE first, fill it in, never commit it
+cp secrets.yml.example secrets.yml   # gitignored
+$EDITOR secrets.yml                  # replace CHANGE_ME values
 kubectl apply -f secrets.yml
 
 # 3. Deploy PostgreSQL

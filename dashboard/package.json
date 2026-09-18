@@ -1,8 +1,8 @@
 {
   "name": "magneetar-dashboard",
-  "version": "1.0.0",
+  "version": "1.5.0",
   "private": true,
-  "description": "Magneetar Tactical Command Center — Military-grade device tracking dashboard",
+  "description": "Magneetar Tactical Command Center — device tracking dashboard",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

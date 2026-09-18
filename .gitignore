@@ -56,6 +56,16 @@ node_modules/
 dashboard/.next/
 dashboard/out/
 dashboard/dist/
+# Generated page output — prerendered HTML + RSC navigation payloads. `npm run
+# build` (and the Docker image build) writes these into dashboard/out/ from
+# dashboard/src. Hand-synced copies used to be committed under
+# dashboard/public/ and silently drifted from the source, shipping retired
+# marketing copy ("Military-grade / Sentinel AI / phantom mode") as extra,
+# unreferenced files in the image. Never commit build output.
+# robots.txt / sitemap.xml are likewise generated — from src/app/robots.ts and
+# src/app/sitemap.ts — not from dashboard/public/.
+dashboard/public/*.html
+dashboard/public/*.txt
 
 # ── Large Binaries ────────────────────────────────────────────────────────────
 *.deb
@@ -105,7 +115,6 @@ coverage/
 server/firebase-key.json
 # Firebase service-account keys must never enter git, wherever they land.
 **/firebase-service-account.json
-**/firebase-service-account.json/
 
 # Firebase client config — the real file must NEVER be committed (it
 # identifies the live Firebase project). A safe placeholder template is
@@ -119,7 +128,8 @@ android-app/**/google-services.json
 
 # Release source tarballs + staged APKs live on the server, never in git
 # (build artifacts; the repo is private and the tarball is served from /apk/source).
-# Release source tarballs + staged APKs live on the server, never in git
-# (build artifacts; the repo is private and the tarball is served from /apk/source).
 server/static/apk/
+
+# Real Kubernetes secrets — only the TEMPLATE (secrets.yml.example) is tracked.
+kubernetes/secrets.yml
 coverage.xml

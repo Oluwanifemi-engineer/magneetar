@@ -3,7 +3,9 @@
 # MVP deployment: server + dashboard + Redis on a single machine.
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# Data plane: SQLite at /app/data/magneetar.db (persisted volume).
+# Data plane: PostgreSQL (the `postgres` service below; MT_DATABASE_URL points
+# at it). SQLite remains the zero-config fallback when MT_DATABASE_URL is
+# unset — local dev only, never this stack.
 # Redis for multi-worker WebSocket fan-out (pub/sub broadcast).
 # Cloudflare Tunnel for public access.
 #
@@ -35,10 +37,11 @@ services:
     environment:
       - PORT=8000
       - MT_ENVIRONMENT=production
-      # SQLite must live on the persisted volume (/app/data), NOT the container
-      # layer (/app). A relative path resolves against WORKDIR=/app, so every
-      # rebuild silently wiped accounts + device registrations. /app/data is the
-      # magneetar-data volume, so data now survives rebuilds.
+      # SQLite fallback path, on the persisted volume (/app/data) so a
+      # container rebuild can never wipe accounts + device registrations.
+      # INERT while MT_DATABASE_URL is set below (Postgres is the production
+      # data plane); it only matters when someone runs this stack without
+      # MT_DATABASE_URL.
       - MT_DB_PATH=/app/data/magneetar.db
       # Media files (evidence photos/audio/video) on the persisted media volume
       # (v1.4 media refactor — bytes no longer live in the SQLite file).

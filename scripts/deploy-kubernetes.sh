@@ -62,8 +62,8 @@ if kubectl get secret magneetar-secrets -n $NAMESPACE &> /dev/null; then
     echo -e "${GREEN}  ✓ Secrets already exist${NC}"
 else
     echo -e "${YELLOW}  ⚠ Secrets not found. Please create them first:${NC}"
-    echo "    1. Edit ${K8S_DIR}/secrets.yml with your actual credentials"
-    echo "    2. Run: kubectl apply -f ${K8S_DIR}/secrets.yml"
+    echo "    1. cp ${K8S_DIR}/secrets.yml.example ${K8S_DIR}/secrets.yml (gitignored) and fill in your actual credentials"
+    echo "    2. Run: kubectl apply -f ${K8S_DIR}/secrets.yml   # the gitignored copy"
     echo ""
     echo -e "${YELLOW}  Do you want to continue without secrets? (y/n)${NC}"
     read -r response

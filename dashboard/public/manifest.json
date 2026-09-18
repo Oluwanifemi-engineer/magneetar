@@ -1,7 +1,7 @@
 {
   "name": "Magneetar Dashboard",
   "short_name": "Magneetar",
-  "description": "Military-grade anti-theft tracking and live location circles for Android",
+  "description": "Anti-theft tracking and live location circles for Android",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a0f",

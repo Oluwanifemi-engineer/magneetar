@@ -1,6 +1,6 @@
 # Magneetar Deployment Guide
 
-**Version**: 1.4.4  
+**Version**: 1.5.0  
 **Last Updated**: 2026-09-03
 
 ---
@@ -224,7 +224,7 @@ Response:
 ```json
 {
   "status": "healthy",
-  "version": "1.4.4",
+  "version": "1.5.0",
   "database": "connected",
   "redis": "connected"
 }
