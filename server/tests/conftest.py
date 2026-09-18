@@ -23,7 +23,10 @@ monkeypatch / direct config.settings mutation (see test_reliability.py) and
 are unaffected.
 """
 
+import atexit
 import os
+import shutil
+import tempfile
 
 for _var in (
     "MT_TWILIO_SID",
@@ -77,3 +80,22 @@ os.environ["MT_API_KEY"] = "test-api-key-" + "a" * 32
 os.environ["MT_DEVICE_KEY"] = "test-device-key-" + "c" * 32
 os.environ["MT_JWT_SECRET"] = "test-jwt-secret-" + "b" * 64
 os.environ["MT_ENCRYPTION_KEY"] = "e" * 64
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Filesystem isolation for evidence media (2026-09-17)
+#
+# media_store.get_media_dir() resolves MT_MEDIA_DIR live from the environment
+# and falls back to `media/` relative to the server CWD. Test modules that
+# forgot to override it therefore wrote REAL evidence files into the repo's
+# server/media/ directory — which is how eight runtime artifacts (ev-case-*,
+# ev-photo-*, ev-pdf-*, ev-counts-*.png) ended up committed to git despite
+# .gitignore's explicit "server/media/ MUST NOT enter git" rule.
+#
+# A session temp dir is set here, BEFORE any test module import, so a missing
+# per-test override can never touch the working tree again. Tests that want
+# their own directory still override via monkeypatch/os.environ
+# (see test_api.py, test_media_store.py) and are unaffected.
+# ─────────────────────────────────────────────────────────────────────────────
+_TMP_ROOT = tempfile.mkdtemp(prefix="magneetar-test-")
+atexit.register(shutil.rmtree, _TMP_ROOT, True)
+os.environ["MT_MEDIA_DIR"] = os.path.join(_TMP_ROOT, "media")
