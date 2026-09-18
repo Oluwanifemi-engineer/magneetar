@@ -152,7 +152,10 @@ class TestConfigEndpoint:
         data = response.json()
         assert "app_version" in data
         assert "features_enabled" in data
-        assert "sentinel" in data["features_enabled"]
+        # "sentinel" was removed from the advertised list (ambiguous with the
+        # retired paid tier) — see models.ConfigResponse.features_enabled.
+        assert "sentinel" not in data["features_enabled"]
+        assert "theft_detection" in data["features_enabled"]
 
     def test_config_version_matches_health(self):
         """Regression (F-08): /api/config used to hardcode app_version=1.2.0
@@ -192,7 +195,11 @@ class TestConfigEndpoint:
             device_key = f"cfg-key-{secrets.token_hex(8)}"
             reg = client.post(
                 "/api/device/register",
-                json={"device_id": device_id, "fingerprint": f"fp-{device_id}", "device_key": device_key},
+                json={
+                    "device_id": device_id,
+                    "fingerprint": f"fp-{device_id}",
+                    "device_key": device_key,
+                },
                 headers=get_auth_headers(),
             )
             assert reg.status_code == 200, reg.text
@@ -550,10 +557,18 @@ class TestEvidencePdf:
         # Seed two commands with different statuses (alarm executed, wipe
         # pending) — the action record the dossier must carry. Wipe is a
         # destructive command, so it needs the step-up master API key.
-        for cmd, params, password in (("alarm", "", None), ("wipe", "CONFIRMED_WIPE", TEST_API_KEY)):
+        for cmd, params, password in (
+            ("alarm", "", None),
+            ("wipe", "CONFIRMED_WIPE", TEST_API_KEY),
+        ):
             resp = client.post(
                 "/api/dashboard/command",
-                json={"device_id": TEST_DEVICE_ID, "command": cmd, "params": params, "password": password},
+                json={
+                    "device_id": TEST_DEVICE_ID,
+                    "command": cmd,
+                    "params": params,
+                    "password": password,
+                },
                 headers=dash,
             )
             assert resp.status_code == 200, resp.text
@@ -3674,7 +3689,10 @@ class TestFailedUnlockTheftie:
         device_id = "theftie-legacy"
         resp = client.post(
             "/api/device/register",
-            json={"device_id": device_id, "fingerprint": f"fp-theftie-legacy-{device_id}"},
+            json={
+                "device_id": device_id,
+                "fingerprint": f"fp-theftie-legacy-{device_id}",
+            },
             headers=get_auth_headers(),
         )
         token = resp.json()["token"]
@@ -3751,7 +3769,11 @@ class TestFailedUnlockTheftie:
         # together) adds +15 → ≥ 35.
         resp = client.post(
             "/api/device/heartbeat",
-            json={"device_id": device_id, "is_location_enabled": False, "is_airplane_mode": True},
+            json={
+                "device_id": device_id,
+                "is_location_enabled": False,
+                "is_airplane_mode": True,
+            },
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 200, resp.text

@@ -6,6 +6,7 @@ Request/response schemas for all API endpoints.
 import re
 from typing import List, Optional
 
+import plans
 from pydantic import BaseModel, Field, field_validator
 
 # ─── Device Models ───────────────────────────────────────────────────────────
@@ -231,6 +232,34 @@ class MediaItem(BaseModel):
 
 # ─── Command Models ──────────────────────────────────────────────────────────
 
+# The canonical set of commands a device can actually execute.
+#
+# Every command here must be IMPLEMENTED end-to-end: the Android app's
+# TrackingService.handleCommand() has a branch for each one. Commands the app
+# cannot execute were removed (phantom_on/off, fake_shutdown,
+# location_burst_stop, capture_photo_rear) — the old set accepted them but the
+# device always acked 'failed', so the dashboard could queue commands that
+# could NEVER work. Keep this in sync with android-app .../TrackingService.kt
+# and dashboard CommandPanel.tsx.
+#
+# Exposed as a constant so AUTHENTICATED-BY-OTHER-MEANS channels (the WhatsApp
+# bot and the USSD gateway) validate against exactly the same set instead of
+# hand-rolling their own — the WhatsApp path used to INSERT commands directly,
+# including an 'unlock' that does not exist on either side.
+VALID_COMMANDS = frozenset(
+    {
+        "ping",
+        "capture_photo",
+        "capture_photo_front",
+        "capture_audio",
+        "location_burst",
+        "lock",
+        "alarm",
+        "wipe",
+        "lost_mode",
+    }
+)
+
 
 class CommandRequest(BaseModel):
     device_id: str
@@ -247,26 +276,8 @@ class CommandRequest(BaseModel):
     @field_validator("command")
     @classmethod
     def validate_command(cls, v):
-        # Every command here must be IMPLEMENTED end-to-end: the Android app's
-        # TrackingService.handleCommand() has a branch for each one. Commands
-        # the app cannot execute were removed (phantom_on/off, fake_shutdown,
-        # location_burst_stop, capture_photo_rear) — the old set accepted them
-        # but the device always acked 'failed', so the dashboard could queue
-        # commands that could NEVER work. Keep this list in sync with
-        # android-app .../TrackingService.kt and dashboard CommandPanel.tsx.
-        valid = {
-            "ping",
-            "capture_photo",
-            "capture_photo_front",
-            "capture_audio",
-            "location_burst",
-            "lock",
-            "alarm",
-            "wipe",
-            "lost_mode",
-        }
-        if v not in valid:
-            raise ValueError(f"command must be one of {valid}")
+        if v not in VALID_COMMANDS:
+            raise ValueError(f"command must be one of {set(VALID_COMMANDS)}")
         return v
 
 
@@ -458,8 +469,13 @@ class RefreshRequest(BaseModel):
 
 
 class PlanUpdateRequest(BaseModel):
-    """Admin-only: set a user's plan tier (manual upgrade path until
-    self-serve payments land)."""
+    """Admin-only: set a user's plan tier (manual upgrade path).
+
+    The accepted set comes from the canonical plan table (plans.py), so this
+    path can grant every tier the checkout can sell. It previously hardcoded
+    its own list, which is how the admin path ended up unable to grant the
+    tier routes/payments.py was selling.
+    """
 
     email: str
     tier: str = "free"
@@ -467,7 +483,9 @@ class PlanUpdateRequest(BaseModel):
     @field_validator("tier")
     @classmethod
     def validate_tier(cls, v):
-        valid = {"free", "personal", "guardian", "enterprise"}
+        # Customer tiers only — the internal operator tier ("admin") is a
+        # session identity, not something this endpoint hands out.
+        valid = set(plans.PLANS)
         if v not in valid:
             raise ValueError(f"tier must be one of {sorted(valid)}")
         return v
@@ -609,7 +627,10 @@ class HealthResponse(BaseModel):
     # deploy timing. It stays available to operators via the admin-gated
     # /api/metrics endpoint (magneetar_uptime_seconds).
     status: str = "online"
-    version: str = "1.2.0"
+    # No default on purpose: main.py passes APP_VERSION from the VERSION file.
+    # A hardcoded default here is how this field went stale at "1.2.0" (the
+    # same bug class the ConfigResponse comment below documents).
+    version: str = ""
     server_time: str
     database: Optional[bool] = None
     """Database connectivity: True=healthy, False=degraded, None=not checked"""
@@ -623,9 +644,11 @@ class ConfigResponse(BaseModel):
     # meant no nudge, even though 1.3.0 was out).
     app_version: str
     min_android_version: int = 24
+    # Advertised client capabilities. Keep this to features that actually ship:
+    # it previously listed "phantom_mode" (a command deleted from the valid set)
+    # and "sentinel" (ambiguous — it is also the name of a retired paid tier).
     features_enabled: List[str] = [
-        "sentinel",
-        "phantom_mode",
+        "theft_detection",
         "evidence_collection",
         "offline_queue",
         "geofencing",

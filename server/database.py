@@ -336,6 +336,19 @@ def init_db(db_path: str = None):
         except sqlite3.OperationalError:
             pass  # Column already exists
 
+    # ─── Billing columns (v1.4.4) ──────────────────────────────────────────
+    # The payments routes write/read these, but they were never created — the
+    # first successful /api/payments/verify, the webhook's payment_failed
+    # branch, and GET /api/payments/status all 500'd on "no such column".
+    # last_payment_at records when the tier was last activated from a real
+    # payment; payment_failed_at starts the grace period (tier is kept for
+    # GRACE_PERIOD_DAYS — see routes/payments.py).
+    for col in ("last_payment_at", "payment_failed_at"):
+        try:
+            c.execute(f"ALTER TABLE users ADD COLUMN {col} TIMESTAMP")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
     c.executescript(
         """
         -- Password reset + email verification tokens (single-use, hashed,
@@ -1339,6 +1352,11 @@ def ensure_initialized() -> bool:
         "file_size",
     }
     # Account-security columns — 2FA state (secret encrypted, replay period).
+    # last_payment_at/payment_failed_at: billing state written by the Paystack
+    # routes (grace period + last activation). A DB that predates them must
+    # not take the no-op fast path — that shipped once: the columns were
+    # written by routes/payments.py but never created anywhere, so /verify,
+    # the webhook's payment-failed branch, and /status all 500'd.
     expected_users_columns = {
         "id",
         "email",
@@ -1352,6 +1370,8 @@ def ensure_initialized() -> bool:
         "totp_secret_enc",
         "totp_enabled",
         "totp_last_period",
+        "last_payment_at",
+        "payment_failed_at",
     }
     # Developer API key columns — key_type (readonly enforcement) +
     # request_count (usage metering, v1.7). A DB that predates them must not

@@ -8,6 +8,7 @@ import os
 import secrets
 from pathlib import Path
 
+import plans
 from dotenv import load_dotenv
 
 
@@ -29,14 +30,11 @@ if env_path.exists():
     load_dotenv(env_path)
 
 
-# Default paid-tier device allowances. MT_PLAN_LIMITS (env) merges over these
-# per-tier, so a partial override never drops a tier's default.
-_PLAN_DEFAULTS: dict = {
-    "personal": 3,
-    "guardian": 10,
-    "enterprise": 999,
-    "admin": 999,
-}
+# Default per-tier device allowances, derived from the canonical plan table
+# (plans.py) so the limits can never drift from what the pricing page sells.
+# MT_PLAN_LIMITS (env) merges over these per-tier, so a partial override never
+# drops a tier's default.
+_PLAN_DEFAULTS: dict = plans.default_limits()
 
 
 class Settings:
@@ -110,7 +108,9 @@ class Settings:
     # WhatsApp Business API for interactive bot (IMEI checks, theft reports)
     WHATSAPP_ACCESS_TOKEN: str = os.environ.get("MT_WHATSAPP_ACCESS_TOKEN", "")
     WHATSAPP_PHONE_NUMBER_ID: str = os.environ.get("MT_WHATSAPP_PHONE_NUMBER_ID", "")
-    WHATSAPP_VERIFY_TOKEN: str = os.environ.get("MT_WHATSAPP_VERIFY_TOKEN", "magneetar-whatsapp-verify")
+    # No default on purpose: a shipped placeholder token would let anyone
+    # complete Meta's webhook handshake. Unset => the handshake is refused.
+    WHATSAPP_VERIFY_TOKEN: str = os.environ.get("MT_WHATSAPP_VERIFY_TOKEN", "")
     WHATSAPP_APP_SECRET: str = os.environ.get("MT_WHATSAPP_APP_SECRET", "")
     # Firebase service-account JSON for FCM v1 push alerts. Accepts a path to
     # a downloaded service-account key file OR the JSON contents as a string.
@@ -120,6 +120,23 @@ class Settings:
     # Default country code for normalizing local phone numbers to E.164
     # (e.g. Nigerian "0808..." → "+234808..."). Override per region.
     PHONE_COUNTRY_CODE: str = os.environ.get("MT_COUNTRY_CODE", "234")
+
+    # ── Payments (Paystack) ────────────────────────────────────────────────
+    # Secret key for Paystack API calls (initialize/verify). Paystack also
+    # signs webhook bodies with this key (HMAC-SHA512).
+    PAYSTACK_SECRET_KEY: str = os.environ.get("MT_PAYSTACK_SECRET", "")
+    # Optional dedicated webhook signing secret. Honored first when set, for
+    # deployments that front Paystack with their own signing secret; otherwise
+    # the secret key above is used. Either way the webhook FAILS CLOSED — with
+    # neither set, events are rejected rather than trusted.
+    PAYSTACK_WEBHOOK_SECRET: str = os.environ.get("MT_PAYSTACK_WEBHOOK_SECRET", "")
+
+    # ── USSD gateway ───────────────────────────────────────────────────────
+    # Shared secret the telco/USSD aggregator sends on every callback. The
+    # gateway cannot present a user credential, so this is the only thing
+    # authenticating /ussd/callback — when unset, the endpoint rejects every
+    # request (it used to accept unauthenticated lock/siren commands).
+    USSD_WEBHOOK_SECRET: str = os.environ.get("MT_USSD_WEBHOOK_SECRET", "")
 
     # ── Monitoring ─────────────────────────────────────────────────────────
     SENTRY_DSN: str = os.environ.get("MT_SENTRY_DSN", "")
@@ -132,8 +149,10 @@ class Settings:
     DASHBOARD_URL: str = os.environ.get("MT_DASHBOARD_URL", "https://app.magneetar.me")
 
     # ── Limits ─────────────────────────────────────────────────────────────
-    # Free-tier device allowance (default 1 — "free for one device").
-    MAX_DEVICES_PER_USER: int = int(os.environ.get("MT_MAX_DEVICES", "3"))
+    # Free-tier device allowance. The default comes from the canonical plan
+    # table (plans.FREE_DEVICE_LIMIT = 1 — "free for one device" on the
+    # pricing page); MT_MAX_DEVICES stays the operator's knob.
+    MAX_DEVICES_PER_USER: int = int(os.environ.get("MT_MAX_DEVICES", str(plans.FREE_DEVICE_LIMIT)))
     # Cap on UNOWNED (not linked to any account) devices. The low-privilege
     # device key ships inside every APK, so anyone can register a device; this
     # bounds the storage-pollution surface so an attacker can't flood the
@@ -149,8 +168,11 @@ class Settings:
     # A partial override MERGES over the defaults (never replaces them), so
     # omitting a tier keeps its default instead of silently granting unlimited.
     # plan_device_limit() resolves a user's allowance from their tier.
+    # Tier -> device allowance. Defaults come from plans.py; the free tier
+    # also honors MT_MAX_DEVICES; MT_PLAN_LIMITS (JSON) overrides any tier.
     PLAN_DEVICE_LIMITS: dict = {
         **_PLAN_DEFAULTS,
+        "free": int(os.environ.get("MT_MAX_DEVICES", str(plans.FREE_DEVICE_LIMIT))),
         **_env_json_dict("MT_PLAN_LIMITS"),
     }
     DATA_RETENTION_DAYS: int = int(os.environ.get("MT_RETENTION_DAYS", "90"))
@@ -363,13 +385,19 @@ settings = get_settings()
 def plan_device_limit(tier: str) -> int:
     """Max devices a user of the given tier may own.
 
+    The tier is first resolved through plans.py (the canonical vocabulary),
+    which also maps legacy values — most importantly the retired "sentinel"
+    tier, which previously had no entry in PLAN_DEVICE_LIMITS and therefore
+    fell through to the FREE allowance: a paying customer was silently capped
+    at 1 device while the checkout advertised 999.
+
     free (and unknown/blank tiers) use MAX_DEVICES_PER_USER so the free
     allowance stays operator-tunable via MT_MAX_DEVICES (default 1 device);
     paid tiers use PLAN_DEVICE_LIMITS (personal=3, guardian=10, enterprise
-    and admin=unlimited). Unrecognised tiers fall back to the free allowance
-    — never unlimited — so a typo'd tier can't silently grant everything.
+    and admin=999). Unrecognised tiers fall back to the free allowance —
+    never unlimited — so a typo'd tier can't silently grant everything.
     """
-    tier = (tier or "").strip().lower()
-    if tier in ("", "free"):
+    resolved = plans.resolve_tier(tier)
+    if resolved == "free":
         return settings.MAX_DEVICES_PER_USER
-    return settings.PLAN_DEVICE_LIMITS.get(tier, settings.MAX_DEVICES_PER_USER)
+    return settings.PLAN_DEVICE_LIMITS.get(resolved, settings.MAX_DEVICES_PER_USER)
