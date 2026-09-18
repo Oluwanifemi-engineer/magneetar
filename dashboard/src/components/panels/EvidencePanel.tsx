@@ -121,7 +121,7 @@ export function EvidencePanel() {
 
       <p className="text-[10px] font-mono text-mag-text-muted leading-relaxed">
         One-click PDF for police or insurers: device info, location trail, command
-        timeline, tamper-proof photos & audio, and alert history.
+        timeline, tamper-evident photos & audio, and alert history.
       </p>
     </div>
   );

@@ -24,7 +24,7 @@ const TOUR_STEPS = [
     id: 'evidence',
     icon: Camera,
     title: 'Evidence Capture',
-    description: 'Remote photo bursts and audio recording — tamper-proof evidence you can take to the police.',
+    description: 'Remote photo bursts and audio recording — tamper-evident evidence you can take to the police.',
     color: 'from-blue-500 to-indigo-600',
     stat: 'Tamper-evident',
   },

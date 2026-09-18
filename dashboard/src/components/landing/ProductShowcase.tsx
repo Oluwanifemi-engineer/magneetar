@@ -31,7 +31,7 @@ const SCREENSHOTS = [
   {
     id: 'commands',
     label: 'Remote Commands',
-    description: 'Lock, siren, wipe, phantom mode — one click execution',
+    description: 'Lock, siren, wipe, lost mode — one click execution',
     render: () => <CommandsScreenshot />,
   },
 ];

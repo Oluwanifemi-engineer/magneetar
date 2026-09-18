@@ -326,7 +326,7 @@ POST /api/dashboard/command
 
 **Command Types:**
 - `lock` - Lock the device
-- `wipe` - Factory reset (requires `params: "CONFIRMED_WIPE"`)
+- `wipe` - Factory reset (requires `params: "CONFIRMED_WIPE"` + step-up password). NOTE: executes only when the device has granted Device Admin; otherwise the app clears app-private data, engages Lost Mode, and acks `failed` with the reason — check the command outcome rather than assuming a reset
 - `alarm` - Play siren alarm
 - `capture_photo` - Take front camera photo
 - `capture_audio` - Record 20s audio

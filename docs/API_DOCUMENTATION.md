@@ -288,7 +288,7 @@ Sends a command to a device.
 - `alarm` - Trigger a loud siren
 - `capture_photo` - Take a front-camera photo
 - `capture_audio` - Record 10 seconds of audio
-- `wipe` - Factory reset the device (requires step-up auth)
+- `wipe` - Factory reset the device (requires step-up auth). Only executes when the device has granted Device Admin; otherwise app data is cleared, Lost Mode engages, and the command acks `failed` with the reason
 - `locate` - Request immediate GPS update
 
 **Response**: `200 OK` with `command_id`

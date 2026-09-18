@@ -3,7 +3,7 @@
 > **Anti-theft tracking for Android.** When your phone is stolen, Magneetar keeps reporting its location, captures evidence, and lets you lock or alarm it remotely.
 
 ![Status](https://img.shields.io/badge/status-active%20development-blue)
-![Tests](https://img.shields.io/badge/tests-652%20backend%20%2B%20208%20dashboard-brightgreen)
+![Tests](https://img.shields.io/badge/tests-653%20backend%20%2B%20209%20dashboard-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.140-green)
 ![Kotlin](https://img.shields.io/badge/kotlin-Android-orange)
@@ -23,7 +23,7 @@ Magneetar solves this by making the phone fight back — even after it's stolen.
 | **Real-time tracking** | GPS fix every 3 seconds while moving — auto-drops to 30s when stationary, 60s below 15% battery (adaptive cadence, battery-aware) |
 | **Theft detection** | Sentinel scores suspicious activity (SIM change, failed unlocks, device admin disabled) |
 | **Evidence capture** | Auto-photos and audio when theft is detected |
-| **Remote commands** | Lock, siren alarm, front-camera photo, audio recording, full wipe |
+| **Remote commands** | Lock, siren alarm, front-camera photo, audio recording, remote wipe (requires Device Admin enabled on the device — otherwise app data is cleared and Lost Mode engages; the dashboard shows the true outcome) |
 | **SMS relay** | Commands arrive via SMS when phone is offline — optional; if you skip SMS permissions or the device can't send SMS, commands still arrive through the app's network check |
 | **Geofencing** | Safe zones with exit alerts and auto-actions |
 | **Push alerts** | Theft, SIM change, geofence exit → instant notification |
@@ -36,7 +36,7 @@ Magneetar solves this by making the phone fight back — even after it's stolen.
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────┐
 │  Android App    │────▶│  Magneetar API   │────▶│  PostgreSQL │
-│  (Kotlin)       │     │  (FastAPI)       │     │  (Neon)     │
+│  (Kotlin)       │     │  (FastAPI)       │     │  Postgres   │
 │                 │◀────│                  │◀────│             │
 │  - Tracking     │     │  - Auth (JWT)    │     └─────────────┘
 │  - Commands     │     │  - Device mgmt   │
@@ -59,7 +59,7 @@ Magneetar solves this by making the phone fight back — even after it's stolen.
 | Component | Technology | Status |
 |-----------|-----------|--------|
 | Server | Python 3.12, FastAPI, Pydantic | ✅ Deployed at api.magneetar.me |
-| Database | PostgreSQL (Neon) + Redis | ✅ Live |
+| Database | PostgreSQL + Redis — self-hosted in the Docker stack (managed Postgres, e.g. Neon, also supported) | ✅ Live |
 | Dashboard | Next.js 14, TypeScript, Tailwind, Leaflet | ✅ Live |
 | Android | Kotlin, Jetpack, Material Design 3 | 🔧 Functional beta — tracking, commands, detection all work |
 | CI/CD | GitHub Actions (8 workflows) | ✅ Automated |
@@ -83,7 +83,7 @@ git clone <repo-url> && cd magneetar
 cd server
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-pytest  # Run 650 tests
+pytest  # Run 653 tests
 
 # Dashboard
 cd ../dashboard
@@ -100,15 +100,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed setup and coding conventions
 
 ```
 magneetar/
-├── server/                    # FastAPI backend (~80 Python files, 35K+ lines)
-│   ├── main.py               # App entry point (258 lines — init + route registration)
+├── server/                    # FastAPI backend (~80 Python files, 25K+ lines)
+│   ├── main.py               # App entry point (224 lines — init + route registration)
 │   ├── infrastructure/       # Middleware, lifespan, WebSocket handlers, APK routes
 │   ├── routes/               # API modules (auth, devices, dashboard, commands)
 │   ├── models.py             # Pydantic schemas (raw-SQL storage layer)
 │   ├── config.py             # Environment configuration
-│   └── tests/                # 650 pytest tests
+│   └── tests/                # 653 pytest tests
 │
-├── android-app/               # Android app (~107 Kotlin files, 21K+ lines)
+├── android-app/               # Android app (~108 Kotlin files, 24K+ lines)
 │   └── app/src/main/java/com/magneetar/app/
 │       ├── MainActivity.kt           # Onboarding router
 │       ├── SignInActivity.kt         # Biometric auth (Opay-style)
@@ -123,7 +123,7 @@ magneetar/
 │       ├── SentinelEngine.kt         # Theft detection scoring
 │       └── CommandExecutor.kt        # Remote command handling
 │
-├── dashboard/                 # Next.js web dashboard (~140 TypeScript files, 25K+ lines)
+├── dashboard/                 # Next.js web dashboard (~146 TypeScript files, 26K+ lines)
 │   └── src/
 │       ├── app/              # Pages (landing, login, dashboard)
 │       ├── components/       # React components
@@ -133,7 +133,7 @@ magneetar/
 ├── tests/                     # Integration tests
 ├── scripts/                   # Deployment and utilities
 ├── docs/                      # Documentation
-└── .github/workflows/         # 7 CI/CD workflows
+└── .github/workflows/         # 8 CI/CD workflows
 ```
 
 ## API Endpoints
