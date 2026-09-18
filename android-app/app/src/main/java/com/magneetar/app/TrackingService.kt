@@ -2081,13 +2081,50 @@ class TrackingService : Service() {
                     else ackFailed(id, "Alarm audio failed — check that the device is not in Silent mode")
                 }
                 "wipe" -> {
-                    // Without Device Admin, we cannot factory-reset the device.
-                    // Instead, protect the user's data: clear app cache, show
-                    // full-screen lock with owner contact info, and advise the
-                    // owner to use Google Find My Device for actual factory reset.
-                    ackCommand(id, "executed")
-                    protectData()
-                    LostModeManager.enter(this, params.ifEmpty { "This device has been wiped by Magneetar. Return it to the owner." })
+                    // Three honest outcomes, in order of preference:
+                    // 1. Device Admin active → real factory reset (wipeData).
+                    //    wipeData(0) is asynchronous — the OS shows the reset
+                    //    progress screen; by the time it returns, this app's
+                    //    network stack may already be torn down, so we ack
+                    //    BEFORE wiping (the wipe itself is the proof).
+                    // 2. No Device Admin → protect what we can (session
+                    //    tokens, app-private data) and enter Lost Mode with a
+                    //    TRUTHFUL message, and ack 'failed' with the reason —
+                    //    the owner is told to use Find My Device instead of
+                    //    being told a wipe happened.
+                    // 3. Anything throws → ack 'failed'.
+                    val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE)
+                        as? android.app.admin.DevicePolicyManager
+                    val adminComponent = ComponentName(this, AdminReceiver::class.java)
+                    val canWipe = dpm != null && dpm.isAdminActive(adminComponent)
+                    if (canWipe) {
+                        ackCommand(id, "executed")
+                        protectData()
+                        try {
+                            dpm!!.wipeData(0)  // factory reset
+                        } catch (e: Exception) {
+                            // Wipe refused at the last moment (rare) — the ack
+                            // above already said executed, so surface it loudly.
+                            e.printStackTrace()
+                        }
+                    } else {
+                        protectData()
+                        LostModeManager.enter(
+                            this,
+                            params.ifEmpty {
+                                "This device is locked by Magneetar. A factory " +
+                                    "wipe was requested but device admin is not " +
+                                    "enabled, so data was only partially protected. " +
+                                    "Please return it to the owner."
+                            },
+                        )
+                        ackFailed(
+                            id,
+                            "Factory wipe NOT performed — Device Admin is not enabled " +
+                                "on the device. App data was cleared and Lost Mode is on; " +
+                                "use Google Find My Device for a full wipe.",
+                        )
+                    }
                 }
                 "lost_mode" -> {
                     LostModeManager.enter(this, params)

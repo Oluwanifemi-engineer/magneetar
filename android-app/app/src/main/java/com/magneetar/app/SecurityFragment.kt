@@ -6,9 +6,11 @@ import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.os.Bundle
+import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -95,11 +97,31 @@ class SecurityFragment : Fragment() {
         btnToggleAdmin.setOnClickListener { layoutDeviceAdmin.performClick() }
 
         btnEmergencyWipe.setOnClickListener {
+            // Truth in the dialog: without Device Admin the server-side wipe
+            // command can only clear app-private data — it cannot factory
+            // reset. Say so BEFORE the user confirms, and require the account
+            // password (server-side step-up re-auth for destructive commands).
+            val adminActive = dpm.isAdminActive(adminReceiver)
+            val wipeScope = if (adminActive)
+                "This will factory-reset the device. ALL data will be erased. This action is IRREVERSIBLE."
+            else
+                "Device Admin is OFF: a factory reset is NOT possible. Only Magneetar's app data will be cleared (use Google Find My Device for a full wipe)."
+
+            val passwordInput = EditText(requireContext()).apply {
+                hint = "Account password (required)"
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            }
             androidx.appcompat.app.AlertDialog.Builder(requireContext())
                 .setTitle("Emergency Wipe")
-                .setMessage("This will remotely wipe ALL data from your device. This action is IRREVERSIBLE. Are you absolutely sure?")
+                .setMessage(wipeScope)
+                .setView(passwordInput)
                 .setPositiveButton("WIPE DEVICE") { _, _ ->
-                    executeEmergencyCommand("wipe")
+                    val password = passwordInput.text.toString()
+                    if (password.isBlank()) {
+                        Toast.makeText(requireContext(), "Password required to confirm wipe", Toast.LENGTH_LONG).show()
+                    } else {
+                        executeEmergencyCommand("wipe", password)
+                    }
                 }
                 .setNegativeButton("Cancel", null)
                 .show()
@@ -123,32 +145,77 @@ class SecurityFragment : Fragment() {
         }
 
         btnPanicAlert.setOnClickListener {
-            executeEmergencyCommand("siren")
-            Toast.makeText(requireContext(), "Siren activated on all devices", Toast.LENGTH_LONG).show()
+            // The device's real command is 'alarm' — 'siren' would be rejected
+            // by the server's command validator.
+            executeEmergencyCommand("alarm")
         }
     }
 
-    private fun executeEmergencyCommand(command: String) {
+    /**
+     * Issue a command to the selected device via the dashboard command API.
+     *
+     * Fixed 2026-09-18: this used to POST {command_type, target_device_id} to
+     * /api/commands/send — an endpoint that does not exist on the server and a
+     * payload its real endpoint (/api/dashboard/command) would reject. Both
+     * OkHttp callbacks were empty, so the panic siren and emergency wipe
+     * buttons did nothing while the UI implied success.
+     */
+    private fun executeEmergencyCommand(command: String, password: String? = null) {
         val prefs = requireContext().getSharedPreferences("mt_session", Context.MODE_PRIVATE)
         val token = TokenVault.accessToken(requireContext())
         val deviceId = prefs.getString("selected_device_id", "") ?: ""
         val serverUrl = prefs.getString("server_url", "") ?: ""
-        if (serverUrl.isEmpty() || token.isEmpty() || deviceId.isEmpty()) return
+        if (serverUrl.isEmpty() || token.isEmpty() || deviceId.isEmpty()) {
+            Toast.makeText(requireContext(), "Not signed in or no device selected", Toast.LENGTH_LONG).show()
+            return
+        }
 
         val requestBody = JSONObject().apply {
-            put("command_type", command)
-            put("target_device_id", deviceId)
+            put("device_id", deviceId)
+            put("command", command)
+            if (command == "wipe") {
+                put("params", "CONFIRMED_WIPE")
+                put("password", password ?: "")
+            }
         }
 
         val request = Request.Builder()
-            .url("$serverUrl/api/commands/send")
+            .url("$serverUrl/api/dashboard/command")
             .addHeader("Authorization", "Bearer $token")
             .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
             .build()
 
         client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {}
-            override fun onResponse(call: Call, response: Response) { response.close() }
+            override fun onFailure(call: Call, e: IOException) {
+                if (!isAdded) return
+                requireActivity().runOnUiThread {
+                    Toast.makeText(requireContext(), "Network error: command not sent (${e.message ?: "offline"})", Toast.LENGTH_LONG).show()
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val bodyStr = try { response.body?.string() } catch (_: Exception) { null }
+                val code = response.code
+                if (!isAdded) return
+                requireActivity().runOnUiThread {
+                    when {
+                        code == 200 && bodyStr != null && command == "wipe" ->
+                            Toast.makeText(requireContext(), "Wipe command queued — it runs when the device next connects", Toast.LENGTH_LONG).show()
+                        code == 200 ->
+                            Toast.makeText(requireContext(), "Command sent to device", Toast.LENGTH_SHORT).show()
+                        code == 401 ->
+                            Toast.makeText(requireContext(), "Wrong password — wipe not issued", Toast.LENGTH_LONG).show()
+                        code == 429 ->
+                            Toast.makeText(requireContext(), "Too many attempts — wait a moment and retry", Toast.LENGTH_LONG).show()
+                        bodyStr != null -> {
+                            val detail = try { JSONObject(bodyStr).optString("detail", "Command rejected") } catch (_: Exception) { "Command rejected" }
+                            Toast.makeText(requireContext(), detail, Toast.LENGTH_LONG).show()
+                        }
+                        else ->
+                            Toast.makeText(requireContext(), "Command rejected (HTTP $code)", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
         })
     }
 

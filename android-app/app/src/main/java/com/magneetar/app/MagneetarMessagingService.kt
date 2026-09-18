@@ -195,6 +195,9 @@ class MagneetarMessagingService : FirebaseMessagingService() {
     // fallback: when the WebSocket is dead and SMS isn't available, FCM can
     // still wake the app and deliver commands.
     private suspend fun executeCommand(command: String, commandId: Int, params: String) {
+        // Set when a command could not be honoured — the ack below carries the
+        // reason instead of claiming success.
+        var commandFailure: String? = null
         try {
             when (command) {
                 "lock" -> {
@@ -204,6 +207,10 @@ class MagneetarMessagingService : FirebaseMessagingService() {
                     if (dpm.isAdminActive(adminComponent)) {
                         dpm.lockNow()
                         Log.i(TAG, "FCM: Device locked via remote command")
+                    } else {
+                        // Honesty contract: no admin → no lock. Ack failed
+                        // instead of letting the dashboard show 'executed'.
+                        commandFailure = "Lock NOT applied — Device Admin is not enabled on the device."
                     }
                 }
                 "alarm", "siren" -> {
@@ -249,9 +256,18 @@ class MagneetarMessagingService : FirebaseMessagingService() {
                     Log.i(TAG, "FCM: Audio capture triggered via remote command")
                 }
                 "wipe" -> {
-                    // Factory reset — requires Device Owner (not just Device Admin)
-                    // For now, log the attempt. Full wipe requires DPC provisioning.
-                    Log.w(TAG, "FCM: Wipe requested but requires Device Owner provisioning")
+                    // Real factory reset when Device Admin is active; otherwise
+                    // ack 'failed' with the truth — a wipe must never be
+                    // silently dropped while the dashboard reports it done.
+                    val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+                    val adminComponent = ComponentName(this, AdminReceiver::class.java)
+                    if (dpm.isAdminActive(adminComponent)) {
+                        Log.i(TAG, "FCM: wipeData issued (factory reset)")
+                        dpm.wipeData(0)
+                    } else {
+                        Log.w(TAG, "FCM: wipe requested but Device Admin is not enabled")
+                        commandFailure = "Device Admin is not enabled — factory wipe NOT performed. Use Google Find My Device for a full wipe."
+                    }
                 }
                 "lost_mode" -> {
                     // Activate lost mode — show lock screen with owner message
@@ -267,12 +283,18 @@ class MagneetarMessagingService : FirebaseMessagingService() {
                 }
             }
 
-            // Acknowledge the command back to the server
-            acknowledgeCommand(commandId, if (command == "wipe" && params != "CONFIRMED_WIPE") "failed" else "executed")
+            // Acknowledge the command back to the server — 'failed' with the
+            // reason when the wipe could not be honoured, never a phantom
+            // 'executed' (the server persists failure_reason for failed acks).
+            if (commandFailure != null) {
+                acknowledgeCommand(commandId, "failed", commandFailure)
+            } else {
+                acknowledgeCommand(commandId, "executed")
+            }
 
         } catch (e: Exception) {
             Log.e(TAG, "FCM command execution failed: $command", e)
-            acknowledgeCommand(commandId, "failed")
+            acknowledgeCommand(commandId, "failed", "${e.javaClass.simpleName}: ${e.message ?: "command execution failed"}".take(290))
         }
     }
 
@@ -280,7 +302,7 @@ class MagneetarMessagingService : FirebaseMessagingService() {
      * Send command acknowledgement back to the server via HTTP.
      * Uses the same poll-ack endpoint as the WebSocket path.
      */
-    private suspend fun acknowledgeCommand(commandId: Int, status: String) {
+    private suspend fun acknowledgeCommand(commandId: Int, status: String, failureReason: String? = null) {
         try {
             val prefs = getSharedPreferences("mt", Context.MODE_PRIVATE)
             val deviceKey = prefs.getString("device_key", "") ?: ""
@@ -288,6 +310,7 @@ class MagneetarMessagingService : FirebaseMessagingService() {
             val body = JSONObject().apply {
                 put("command_id", commandId)
                 put("status", status)
+                if (failureReason != null) put("failure_reason", failureReason.take(290))
             }.toString().toRequestBody(JSON)
 
             val requestBuilder = okhttp3.Request.Builder()
