@@ -67,14 +67,14 @@ const EVENTS = [
 function ActivityTimeline() {
   return (
     <div className="relative pl-4">
-      <div className="absolute left-[5px] top-1 bottom-1 w-px bg-emerald-500/20" />
+      <div className="absolute left-[5px] top-1 bottom-1 w-px bg-mag-primary/25" />
       <div className="space-y-3">
         {EVENTS.map((event, i) => (
           <div key={i} className="relative flex items-start gap-3">
-            <div className={`absolute left-[-11px] top-1 w-[7px] h-[7px] rounded-full ${event.accent ? 'bg-emerald-400' : 'bg-mag-border/50'} ring-2 ring-[#0f172a]`} />
+            <div className={`absolute left-[-11px] top-1 w-[7px] h-[7px] rounded-full ${event.accent ? 'bg-mag-primary-bright' : 'bg-mag-border/50'} ring-2 ring-[#0f172a]`} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <event.icon size={10} className={`${event.accent ? 'text-emerald-400/60' : 'text-mag-text-muted'} shrink-0`} />
+                <event.icon size={10} className={`${event.accent ? 'text-mag-primary-bright/70' : 'text-mag-text-muted'} shrink-0`} />
                 <span className="text-[11px] font-mono text-mag-text-muted truncate">{event.text}</span>
               </div>
               <span className="text-[11px] font-mono text-mag-text-muted">{event.time}</span>
@@ -91,7 +91,7 @@ export function Hero({ authed }: { authed: boolean }) {
     <AuroraBackground className="relative pt-28 pb-20 sm:pt-36 sm:pb-28 overflow-hidden bg-gray-950">
       <div className="relative max-w-7xl mx-auto px-5 sm:px-8">
         {/* Top glow accent */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-emerald-500/[0.03] rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-mag-primary/[0.06] rounded-full blur-[120px] pointer-events-none" />
 
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           {/* ─── Left: Copy ─────────────────────────────────────────────── */}
@@ -152,7 +152,7 @@ export function Hero({ authed }: { authed: boolean }) {
           {/* ─── Right: Device Status Card ──────────────────────────────── */}
           <div className="relative z-10" style={{ animation: 'heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both' }}>
             {/* Card glow */}
-            <div className="absolute -inset-8 bg-emerald-500/[0.04] rounded-[32px] blur-[60px] pointer-events-none" />
+            <div className="absolute -inset-8 bg-mag-primary/[0.06] rounded-[32px] blur-[60px] pointer-events-none" />
 
             <div className="relative">
               {/* Floating device label */}
@@ -168,13 +168,13 @@ export function Hero({ authed }: { authed: boolean }) {
               {/* Main Card */}
               <div className="relative rounded-2xl bg-mag-landing shadow-elevation-4 overflow-hidden border-mag-border/50">
                 {/* Subtle top glow */}
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent" />
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-mag-primary/40 to-transparent" />
 
                 {/* Card header */}
                 <div className="flex items-center justify-between px-5 py-3.5 border-b border-mag-border/50">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                      <Smartphone size={14} className="text-emerald-400/70" />
+                    <div className="w-8 h-8 rounded-lg bg-mag-primary/10 border border-mag-primary/25 flex items-center justify-center">
+                      <Smartphone size={14} className="text-mag-primary-bright/80" />
                     </div>
                     <div>
                       <div className="text-[11px] font-bold text-mag-text tracking-wide">Galaxy S24</div>
@@ -223,7 +223,7 @@ export function Hero({ authed }: { authed: boolean }) {
                 {/* Live Telemetry Bar */}
                 <div className="flex items-center gap-x-4 gap-y-1 flex-wrap px-5 py-3 border-t border-mag-border/25 bg-mag-surface">
                   <div className="flex items-center gap-1.5">
-                    <MapPin size={10} className="text-emerald-400/40" />
+                    <MapPin size={10} className="text-mag-primary-bright/50" />
                     <span className="text-[11px] font-mono text-mag-text-dim hero-num-tick">6.5244°N 3.3792°E</span>
                   </div>
                   <div className="w-px h-3 border-mag-border/50" />
@@ -245,12 +245,12 @@ export function Hero({ authed }: { authed: boolean }) {
 
               {/* Floating chips */}
               <div className="absolute -bottom-3 left-4 sm:left-8 px-3 py-1.5 rounded-lg border-mag-border/50 bg-mag-landing/90 backdrop-blur-sm shadow-elevation-2 flex items-center gap-2 hero-chip-float" style={{ animationDelay: '0.8s' }}>
-                <ShieldCheck size={11} className="text-emerald-400/60" />
+                <ShieldCheck size={11} className="text-mag-primary-bright/70" />
                 <span className="text-[11px] font-mono font-bold text-mag-text-dim">Recovery armed · 3 layers</span>
               </div>
 
               <div className="absolute -bottom-3 right-4 sm:right-8 px-3 py-1.5 rounded-lg border-mag-border/50 bg-mag-landing/90 backdrop-blur-sm shadow-elevation-2 flex items-center gap-2 hero-chip-float" style={{ animationDelay: '1s' }}>
-                <Zap size={11} className="text-emerald-400/60" />
+                <Zap size={11} className="text-mag-primary-bright/60" />
                 <span className="text-[11px] font-mono font-bold text-mag-text-dim">3s GPS updates</span>
               </div>
             </div>
