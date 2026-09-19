@@ -98,6 +98,24 @@ repos:
         pass_filenames: false
         files: ^dashboard/.*\.(ts|tsx)$
 
+  # ─── Version consistency (server/VERSION must match root VERSION) ────────
+  # The release fold bumped the root VERSION but missed server/VERSION, so a
+  # deployed 1.5.0 server reported "1.4.4" on /health. The app reads
+  # server/VERSION (server/Dockerfile copies it; config.py reads it at
+  # runtime); release scripts read the root one. Keep them in lockstep.
+  - repo: local
+    hooks:
+      - id: version-consistency
+        name: version-consistency (root vs server VERSION)
+        entry: >-
+          bash -c 'test -f VERSION && test -f server/VERSION || exit 0;
+          if ! diff -q VERSION server/VERSION >/dev/null; then
+          echo "VERSION ($(cat VERSION)) != server/VERSION ($(cat server/VERSION))";
+          echo "Bump both together — the running server reads server/VERSION."; exit 1; fi'
+        language: system
+        pass_filenames: false
+        files: ^(VERSION|server/VERSION)$
+
   # ─── Kotlin dead code detection (android-app) — local hook ──────────────
   # Checks for empty catch blocks, TODO/FIXME markers, commented-out code
   # blocks, and unused private functions. Warnings only — never blocks commits.
