@@ -34,7 +34,7 @@ alembic==1.15.2
 # channel and a per-worker subscriber forwards them to that worker's dashboard
 # connections — keeping real-time sync correct with --workers > 1.
 # Unset (default) => in-process local delivery, no Redis required.
-redis==5.2.1
+redis==8.1.0
 
 # Monitoring & Error Tracking
 sentry-sdk==2.66.1
