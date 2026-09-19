@@ -22,7 +22,7 @@ vulture==2.16
 # production image should never ship pytest).
 pytest==9.1.1
 pytest-asyncio==1.4.0
-pytest-cov==6.0.0
+pytest-cov==7.1.0
 
 # Local pre-commit gate runner
 pre-commit==4.6.1
