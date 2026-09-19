@@ -18,7 +18,7 @@ python-dotenv==1.2.2
 
 # Authentication
 PyJWT==2.13.0
-cryptography==49.0.0
+cryptography==50.0.0
 
 # HTTP Client (for alerts)
 httpx==0.28.1
