@@ -37,7 +37,7 @@ alembic==1.15.2
 redis==5.2.1
 
 # Monitoring & Error Tracking
-sentry-sdk==2.66.1
+sentry-sdk==2.68.0
 
 # Push Notifications (optional, for production FCM v1 alerts)
 firebase-admin==7.5.0
