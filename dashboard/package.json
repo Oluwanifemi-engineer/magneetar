@@ -51,7 +51,7 @@
     "typescript": "^5.6.3",
     "@playwright/test": "^1.48.0",
     "@storybook/react": "^8.4.0",
-    "@storybook/react-vite": "^8.4.0",
+    "@storybook/react-vite": "^10.6.0",
     "@storybook/addon-essentials": "^8.4.0",
     "@storybook/addon-links": "^8.4.0",
     "@storybook/addon-onboarding": "^8.4.0",
